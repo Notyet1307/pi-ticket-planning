@@ -1,5 +1,7 @@
 # PI Ticket Planning
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 A profile-only PI package for turning delivery specs into implementation tickets, independently admitting them, and activating only graphs that are safe for a strict-frontier Harness.
 
 It combines the complete pinned stable Matt Pocock skill set with package-owned overrides for specification, ticket generation, triage, and admission. Upstream adoption is manual.

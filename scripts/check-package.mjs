@@ -138,6 +138,7 @@ export function validatePackage(root) {
 
   for (const relative of [
     "README.md",
+    "README.zh-CN.md",
     "profile/pi-ticket-plan",
     "profile/settings.template.json",
     "scripts/check-profile.mjs",
