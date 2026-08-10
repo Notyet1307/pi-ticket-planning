@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -88,8 +89,8 @@ export function readGitHubFrontierGraph(repo, parent) {
   }));
 }
 
-const ownPath = fileURLToPath(import.meta.url);
-if (process.argv[1] && path.resolve(process.argv[1]) === ownPath) {
+const ownPath = realpathSync(fileURLToPath(import.meta.url));
+if (process.argv[1] && realpathSync(process.argv[1]) === ownPath) {
   try {
     const { repo, parent } = parseArgs(process.argv.slice(2));
     const result = validateFrontierOrder(readGitHubFrontierGraph(repo, parent));

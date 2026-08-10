@@ -1,6 +1,6 @@
 {
   "name": "pi-ticket-planning",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Profile-only PI package for Matt-compatible delivery specs, implementation tickets, and independent ticket admission.",

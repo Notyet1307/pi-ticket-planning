@@ -172,8 +172,8 @@ export function validatePackage(root) {
   return errors;
 }
 
-const ownPath = fileURLToPath(import.meta.url);
-if (process.argv[1] && path.resolve(process.argv[1]) === ownPath) {
+const ownPath = fs.realpathSync(fileURLToPath(import.meta.url));
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
   const root = path.resolve(path.dirname(ownPath), "..");
   const errors = validatePackage(root);
   if (errors.length > 0) {
