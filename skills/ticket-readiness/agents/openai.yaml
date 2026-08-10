@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ticket Readiness"
+  short_description: "Judge implementation-ticket scope and readiness"
+  default_prompt: "Use $ticket-readiness to judge whether this implementation ticket is READY, SPLIT, or NEEDS_INFO."

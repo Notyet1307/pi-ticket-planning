@@ -1,0 +1,6 @@
+interface:
+  display_name: "To Spec"
+  short_description: "Turn decisions into a draft delivery spec"
+  default_prompt: "Use $to-spec to turn this discussion or Wayfinder map into a draft delivery spec."
+policy:
+  allow_implicit_invocation: false

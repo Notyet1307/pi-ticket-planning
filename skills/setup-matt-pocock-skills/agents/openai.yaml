@@ -1,0 +1,6 @@
+interface:
+  display_name: "Setup Matt Pocock Skills"
+  short_description: "Configure tracker, domain docs, and delivery gate"
+  default_prompt: "Use $setup-matt-pocock-skills to configure this repository for planning and ticket admission."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,118 @@
+{
+  "version": 2,
+  "cases": [
+    {
+      "id": "ready-single-api-outcome",
+      "expectedVerdict": "READY",
+      "expectedExecutionLane": "AGENT",
+      "candidate": {
+        "title": "Return a stable conflict response for duplicate session creation",
+        "whatToBuild": "A duplicate create-session request returns the existing session identity without creating another session.",
+        "primaryVerification": "API integration scenario for two create requests with the same idempotency key.",
+        "acceptanceCriteria": [
+          "The first request creates one session.",
+          "The second request returns the same session identity.",
+          "The second response reports that the session already existed.",
+          "Exactly one session is persisted.",
+          "A different idempotency key creates a different session."
+        ],
+        "deliverySurfaces": [
+          "Idempotent create-session behavior"
+        ],
+        "blockedBy": [],
+        "decisionSources": [
+          "ADR-004 idempotency ownership"
+        ],
+        "outOfScope": [
+          "Session retry UI"
+        ]
+      }
+    },
+    {
+      "id": "split-mixed-recovery-suite",
+      "expectedVerdict": "SPLIT",
+      "expectedExecutionLane": "AGENT",
+      "candidate": {
+        "title": "Implement failure recovery and operator controls",
+        "whatToBuild": "Add failed transactions, retry, session recovery, rerun, concurrency limits, audit views, Compose setup, and Playwright coverage.",
+        "primaryVerification": "API, state-machine, UI, Compose, and Playwright suites.",
+        "acceptanceCriteria": [
+          "Failed transactions are persisted.",
+          "Retry resumes a transaction.",
+          "Session recovery restores state.",
+          "Rerun creates a new attempt.",
+          "Concurrent attempts are limited.",
+          "Every recovery is audited.",
+          "Operators can inspect recovery in the UI.",
+          "Operators can retry from the UI.",
+          "Compose starts all dependencies.",
+          "Playwright covers retry.",
+          "Playwright covers session recovery.",
+          "Playwright covers rerun."
+        ],
+        "deliverySurfaces": [
+          "Failed-transaction state",
+          "Retry behavior",
+          "Session recovery",
+          "Rerun behavior",
+          "Operator UI",
+          "Local deployment"
+        ],
+        "blockedBy": [],
+        "decisionSources": [],
+        "outOfScope": []
+      }
+    },
+    {
+      "id": "needs-info-unresolved-retention",
+      "expectedVerdict": "NEEDS_INFO",
+      "expectedExecutionLane": "AGENT",
+      "candidate": {
+        "title": "Archive completed run evidence",
+        "whatToBuild": "Archive evidence after a run completes.",
+        "primaryVerification": "Run-completion integration scenario.",
+        "acceptanceCriteria": [
+          "Completed evidence is archived.",
+          "Archived evidence can be retrieved.",
+          "Expired evidence is removed."
+        ],
+        "deliverySurfaces": [
+          "Evidence archival"
+        ],
+        "blockedBy": [],
+        "decisionSources": [],
+        "unresolvedDecisions": [
+          "The retention period has no owner or selected value.",
+          "The storage system of record has not been chosen."
+        ],
+        "outOfScope": []
+      }
+    },
+    {
+      "id": "ready-human-isolated-canary",
+      "expectedVerdict": "READY",
+      "expectedExecutionLane": "HUMAN",
+      "candidate": {
+        "title": "Run the isolated production-credential canary",
+        "whatToBuild": "An authorized operator completes the isolated canary and records its result and cleanup evidence.",
+        "primaryVerification": "Human-run canary in the isolated tenant using credentials intentionally unavailable to agents.",
+        "acceptanceCriteria": [
+          "The operator records the isolated tenant identity before execution.",
+          "The canary reaches the expected terminal state.",
+          "The operator records the observed result.",
+          "Cleanup evidence confirms that the canary resources were removed."
+        ],
+        "deliverySurfaces": [
+          "Isolated canary execution and evidence"
+        ],
+        "blockedBy": [],
+        "decisionSources": [
+          "Approved canary runbook and named credential owner"
+        ],
+        "outOfScope": [
+          "Automating production credential access"
+        ]
+      }
+    }
+  ]
+}

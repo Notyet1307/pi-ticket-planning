@@ -1,0 +1,44 @@
+{
+  "repository": "https://github.com/mattpocock/skills.git",
+  "commit": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+  "stableTagAtCreation": "v1.2.3",
+  "verifiedAt": "2026-08-07",
+  "updatePolicy": "manual",
+  "officialStableSkills": [
+    "ask-matt",
+    "code-review",
+    "codebase-design",
+    "diagnosing-bugs",
+    "domain-modeling",
+    "grill-me",
+    "grill-with-docs",
+    "grilling",
+    "handoff",
+    "implement",
+    "improve-codebase-architecture",
+    "prototype",
+    "research",
+    "resolving-merge-conflicts",
+    "setup-matt-pocock-skills",
+    "tdd",
+    "teach",
+    "to-questionnaire",
+    "to-spec",
+    "to-tickets",
+    "triage",
+    "wait-what",
+    "wayfinder",
+    "wizard",
+    "writing-for-agents"
+  ],
+  "overriddenSkills": [
+    "setup-matt-pocock-skills",
+    "to-spec",
+    "to-tickets",
+    "triage"
+  ],
+  "packageSkills": [
+    "admit-ticket",
+    "ticket-readiness"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "name": "pi-ticket-planning",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Profile-only PI package for Matt-compatible delivery specs, implementation tickets, and independent ticket admission.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Notyet1307/pi-ticket-planning.git"
+  },
+  "homepage": "https://github.com/Notyet1307/pi-ticket-planning#readme",
+  "bugs": {
+    "url": "https://github.com/Notyet1307/pi-ticket-planning/issues"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "scripts": {
+    "check": "node scripts/check-package.mjs",
+    "check:frontier": "node scripts/check-frontier-order.mjs",
+    "check:profile": "node scripts/check-profile.mjs",
+    "install:profile": "node scripts/install-profile.mjs",
+    "test": "node --test test/*.test.mjs",
+    "verify": "npm run check && npm test && npm run check:profile"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ],
+    "subagents": {
+      "agents": [
+        "./agents"
+      ]
+    }
+  },
+  "mattpocockUpstream": {
+    "repository": "https://github.com/mattpocock/skills.git",
+    "commit": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+    "stableTagAtCreation": "v1.2.3",
+    "updatePolicy": "manual"
+  }
+}

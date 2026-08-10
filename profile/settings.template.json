@@ -1,0 +1,42 @@
+{
+  "subagents": {
+    "agentOverrides": {
+      "scout": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "description": "Bounded multi-file fact retrieval with exact references; escalate ambiguity and leave decisions to the parent."
+      }
+    }
+  },
+  "skills": [
+    "!**"
+  ],
+  "packages": [
+    {
+      "source": "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "skills": [
+        "!skills/in-progress/**",
+        "!skills/misc/**",
+        "!skills/engineering/setup-matt-pocock-skills/**",
+        "!skills/engineering/to-spec/**",
+        "!skills/engineering/to-tickets/**",
+        "!skills/engineering/triage/**"
+      ],
+      "extensions": [],
+      "prompts": [],
+      "themes": []
+    },
+    {
+      "source": "__PACKAGE_ROOT__",
+      "extensions": [],
+      "prompts": [],
+      "themes": []
+    },
+    {
+      "source": "npm:pi-subagents@0.42.1",
+      "skills": [],
+      "prompts": [],
+      "themes": []
+    }
+  ]
+}
