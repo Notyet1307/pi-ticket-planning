@@ -44,3 +44,12 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: `glab issue list -F json` scoped to the map's children, drop any with an open blocker — a native `blocked_by` link to an open issue (`glab api projects/:id/issues/:iid/links`), or an open issue in the `Blocked by` line — or an assignee; first in map order wins.
 - **Claim**: `glab issue update <n> --assignee @me` — the session's first write.
 - **Resolve**: `glab issue note <n> --message "<answer>"`, then `glab issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+## Delivery-map operations
+
+- **Draft parent**: create the accepted Delivery Spec with `needs-triage` and no ready label.
+- **Candidate child**: create one issue per candidate with stable source Scenario IDs, coverage role, and `Part of #<parent>`.
+- **Coverage**: keep one `## Ticket coverage` section in the parent with the current Scenario matrix and explicit state/artifact handoffs, walking-skeleton chain, source/base, child IDs, roles, verifications, and blocker graph.
+- **Blocking and order**: use native blocking links when available; otherwise use `Blocked by`. Keep the parent's child task list in stable topological order.
+- **Admission**: validate coverage, state/artifact handoffs, walking skeleton, order, and blockers before fresh review and again before any ready-label mutation.
+- **Harness boundary**: this tracker supports planning and admission, but HerdrHarness Lite activation remains unavailable unless the repository and tickets are on GitHub.

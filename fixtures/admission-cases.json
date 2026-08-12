@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "cases": [
     {
       "id": "ready-single-api-outcome",
@@ -7,6 +7,8 @@
       "expectedExecutionLane": "AGENT",
       "candidate": {
         "title": "Return a stable conflict response for duplicate session creation",
+        "coverageRole": "STANDALONE",
+        "standaloneSource": "Confirmed duplicate create-session API behavior",
         "whatToBuild": "A duplicate create-session request returns the existing session identity without creating another session.",
         "primaryVerification": "API integration scenario for two create requests with the same idempotency key.",
         "acceptanceCriteria": [
@@ -34,6 +36,8 @@
       "expectedExecutionLane": "AGENT",
       "candidate": {
         "title": "Implement failure recovery and operator controls",
+        "coverageRole": "STANDALONE",
+        "standaloneSource": "Approved recovery capability plan",
         "whatToBuild": "Add failed transactions, retry, session recovery, rerun, concurrency limits, audit views, Compose setup, and Playwright coverage.",
         "primaryVerification": "API, state-machine, UI, Compose, and Playwright suites.",
         "acceptanceCriteria": [
@@ -69,6 +73,8 @@
       "expectedExecutionLane": "AGENT",
       "candidate": {
         "title": "Archive completed run evidence",
+        "coverageRole": "STANDALONE",
+        "standaloneSource": "Mandatory evidence-retention requirement",
         "whatToBuild": "Archive evidence after a run completes.",
         "primaryVerification": "Run-completion integration scenario.",
         "acceptanceCriteria": [
@@ -94,6 +100,8 @@
       "expectedExecutionLane": "HUMAN",
       "candidate": {
         "title": "Run the isolated production-credential canary",
+        "coverageRole": "STANDALONE",
+        "standaloneSource": "Approved production canary runbook",
         "whatToBuild": "An authorized operator completes the isolated canary and records its result and cleanup evidence.",
         "primaryVerification": "Human-run canary in the isolated tenant using credentials intentionally unavailable to agents.",
         "acceptanceCriteria": [
@@ -113,6 +121,208 @@
           "Automating production credential access"
         ]
       }
+    }
+  ],
+  "graphCases": [
+    {
+      "id": "ready-complete-walking-skeleton",
+      "expectedGraphVerdict": "READY",
+      "scenarios": [
+        {
+          "id": "S1",
+          "behavior": "A user submits the two comparison inputs.",
+          "entry": "external:comparison-inputs",
+          "exit": "comparison-run",
+          "smallestLoop": true
+        },
+        {
+          "id": "S2",
+          "behavior": "The user receives an explainable comparison result.",
+          "entry": "comparison-run",
+          "exit": "explainable-result",
+          "smallestLoop": true
+        }
+      ],
+      "children": [
+        {
+          "id": "T1",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "blockedBy": []
+        },
+        {
+          "id": "T2",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S2"
+          ],
+          "blockedBy": [
+            "T1"
+          ]
+        }
+      ],
+      "walkingSkeleton": [
+        "T1",
+        "T2"
+      ]
+    },
+    {
+      "id": "needs-info-uncovered-scenario",
+      "expectedGraphVerdict": "NEEDS_INFO",
+      "scenarios": [
+        {
+          "id": "S1",
+          "behavior": "A user submits an input.",
+          "entry": "external:input",
+          "exit": "accepted-input",
+          "smallestLoop": true
+        },
+        {
+          "id": "S2",
+          "behavior": "The user receives the promised result.",
+          "entry": "accepted-input",
+          "exit": "promised-result",
+          "smallestLoop": true
+        }
+      ],
+      "children": [
+        {
+          "id": "T1",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "blockedBy": []
+        }
+      ],
+      "walkingSkeleton": [
+        "T1"
+      ]
+    },
+    {
+      "id": "needs-info-orphan-enabler",
+      "expectedGraphVerdict": "NEEDS_INFO",
+      "scenarios": [
+        {
+          "id": "S1",
+          "behavior": "A user receives a verified result.",
+          "entry": "external:request",
+          "exit": "verified-result",
+          "smallestLoop": true
+        }
+      ],
+      "children": [
+        {
+          "id": "T1",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "blockedBy": []
+        },
+        {
+          "id": "T2",
+          "coverageRole": "ENABLER",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "downstreamConsumers": [],
+          "exitCondition": "",
+          "blockedBy": []
+        }
+      ],
+      "walkingSkeleton": [
+        "T1"
+      ]
+    },
+    {
+      "id": "needs-info-broken-walking-skeleton",
+      "expectedGraphVerdict": "NEEDS_INFO",
+      "scenarios": [
+        {
+          "id": "S1",
+          "behavior": "A user submits an input.",
+          "entry": "external:input",
+          "exit": "accepted-input",
+          "smallestLoop": true
+        },
+        {
+          "id": "S2",
+          "behavior": "The user receives the promised result.",
+          "entry": "accepted-input",
+          "exit": "promised-result",
+          "smallestLoop": true
+        }
+      ],
+      "children": [
+        {
+          "id": "T1",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "blockedBy": []
+        },
+        {
+          "id": "T2",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S2"
+          ],
+          "blockedBy": [
+            "T1"
+          ]
+        }
+      ],
+      "walkingSkeleton": [
+        "T2"
+      ]
+    },
+    {
+      "id": "needs-info-broken-scenario-handoff",
+      "expectedGraphVerdict": "NEEDS_INFO",
+      "scenarios": [
+        {
+          "id": "S1",
+          "behavior": "A user submits an input.",
+          "entry": "external:input",
+          "exit": "accepted-input",
+          "smallestLoop": true
+        },
+        {
+          "id": "S2",
+          "behavior": "The user receives the promised result.",
+          "entry": "normalized-input",
+          "exit": "promised-result",
+          "smallestLoop": true
+        }
+      ],
+      "children": [
+        {
+          "id": "T1",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S1"
+          ],
+          "blockedBy": []
+        },
+        {
+          "id": "T2",
+          "coverageRole": "DIRECT",
+          "sourceScenarios": [
+            "S2"
+          ],
+          "blockedBy": [
+            "T1"
+          ]
+        }
+      ],
+      "walkingSkeleton": [
+        "T1",
+        "T2"
+      ]
     }
   ]
 }

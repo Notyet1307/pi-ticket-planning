@@ -2,9 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-A profile-only PI package for turning delivery specs into implementation tickets, independently admitting them, and activating only graphs that are safe for a strict-frontier Harness.
+A profile-only PI package with `/skill:ask-yet` as the single product-to-outcome entry point, followed by committed Release compilation, independent ticket admission, and strict-frontier Harness activation.
 
-It combines the complete pinned stable Matt Pocock skill set with package-owned overrides for specification, ticket generation, triage, and admission. Upstream adoption is manual.
+It pins the Matt Pocock stable skill set, replaces its upstream router with package-owned `ask-yet`, and overrides specification, ticket generation, triage, and admission. Upstream adoption is manual.
 
 ## Install from GitHub
 
@@ -73,32 +73,30 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-Configure a repository once:
-
-```text
-/skill:setup-matt-pocock-skills
-```
-
 PI's explicit skill command form is `/skill:<name>`. References such as `/to-spec` inside skill documents describe workflow transitions; humans type `/skill:to-spec`.
 
 ## Workflow
 
-For a new or undecided project:
+Start every product idea, feature, issue, and resumed flow through one entry point:
 
 ```text
-/skill:ask-matt 我想从 0 开始做一个……
-/skill:wayfinder 规划这个项目的决策地图
-/skill:to-spec
-/skill:to-tickets
+/skill:ask-yet [optional idea, issue, Release artifact, or current goal]
 ```
 
-The delivery path is:
+`ask-yet` reconstructs state from the repository and authoritative artifacts, then returns one product question, evidence action, or copyable next command. An empty or unborn repository remains in product shaping until a human commits an exact Release revision; only then may `/skill:setup-matt-pocock-skills` create the minimal Git/tracker delivery base. That bootstrap does not choose an application stack or create implementation scaffolding.
+
+The complete path is:
 
 ```text
-setup-matt-pocock-skills
-  -> ask-matt / wayfinder
-  -> to-spec: needs-triage delivery spec
-  -> to-tickets: needs-triage children and blocker graph
+ask-yet
+  -> Frame: one actor, trigger, outcome, and smallest closed loop
+  -> Evidence: one riskiest assumption and bounded evidence action
+  -> human Commitment
+  -> greenfield delivery bootstrap when no Git base exists
+  -> repository-contract impact review
+  -> to-spec: needs-triage delivery spec with stable Scenario IDs and explicit handoffs
+  -> to-tickets: Scenario coverage, walking skeleton, children, and blocker graph
+  -> coverage snapshot persisted in the delivery parent
   -> strict-frontier order check
   -> fresh ticket-readiness reviewer
   -> human confirmation
@@ -109,14 +107,13 @@ setup-matt-pocock-skills
 
 Wayfinder maps contain decisions, research, prototypes, and human input. They never enter the implementation queue. `READY | SPLIT | NEEDS_INFO` judges ticket readiness; `AGENT | HUMAN` selects the execution lane.
 
-Existing issues and direct activation requests use:
+Existing issues and direct activation requests also use the router:
 
 ```text
-/skill:triage owner/repo#39
-/skill:admit-ticket owner/repo#39
+/skill:ask-yet owner/repo#39
 ```
 
-No generation or triage path may directly add a ready label.
+It returns the exact `/skill:triage` or `/skill:admit-ticket` command when that is the true next gate. No generation or triage path may directly add a ready label. Admission rechecks Scenario coverage, every state/artifact handoff, the walking skeleton, strict-frontier order, and a fresh readiness review before human confirmation. A changed source, matrix, candidate, or graph must pass Admission again before Harness handoff.
 
 ## Strict-frontier safety
 
@@ -161,7 +158,7 @@ git checkout v0.1.2
 ./install.sh
 ```
 
-Do not follow Matt upstream directly. A package release must deliberately update the pinned commit, replay the four overrides, update `upstream-lock.json`, and pass verification.
+Do not follow Matt upstream directly. A package release must deliberately update the pinned commit, replay the four overrides and suppressed upstream router, update `upstream-lock.json`, and pass verification.
 
 ## Security and provenance
 

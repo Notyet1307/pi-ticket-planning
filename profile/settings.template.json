@@ -17,6 +17,7 @@
       "skills": [
         "!skills/in-progress/**",
         "!skills/misc/**",
+        "!skills/engineering/ask-matt/**",
         "!skills/engineering/setup-matt-pocock-skills/**",
         "!skills/engineering/to-spec/**",
         "!skills/engineering/to-tickets/**",

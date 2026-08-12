@@ -7,6 +7,7 @@ const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
 const SCOUT_THINKING = "max";
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
+  "ask-yet",
   "setup-matt-pocock-skills",
   "ticket-readiness",
   "to-spec",
@@ -22,12 +23,95 @@ function frontmatterValue(text, key) {
   return text.match(new RegExp(`^${key}:\\s*["']?([^\\n"']+)`, "m"))?.[1]?.trim();
 }
 
+function graphFixtureVerdict(item) {
+  const problems = [];
+  const scenarioIds = new Set(item.scenarios?.map((scenario) => scenario.id));
+  const scenariosById = new Map(item.scenarios?.map((scenario) => [scenario.id, scenario]));
+  const childIds = new Set(item.children?.map((child) => child.id));
+
+  if (scenarioIds.size !== item.scenarios?.length || scenarioIds.size === 0) problems.push("invalid scenarios");
+  if (childIds.size !== item.children?.length || childIds.size === 0) problems.push("invalid children");
+  for (const scenario of item.scenarios ?? []) {
+    if (!scenario.entry?.trim() || !scenario.exit?.trim()) problems.push(`${scenario.id}: missing handoff`);
+  }
+
+  for (const child of item.children ?? []) {
+    if (!Array.isArray(child.sourceScenarios) || child.sourceScenarios.length === 0) problems.push(`${child.id}: orphan`);
+    if (child.sourceScenarios?.some((id) => !scenarioIds.has(id))) problems.push(`${child.id}: unknown scenario`);
+    if (!Array.isArray(child.blockedBy)) problems.push(`${child.id}: missing blockers`);
+    if (child.coverageRole === "ENABLER") {
+      if (!child.exitCondition?.trim()) problems.push(`${child.id}: missing exit condition`);
+      if (!Array.isArray(child.downstreamConsumers) || child.downstreamConsumers.length === 0) {
+        problems.push(`${child.id}: missing consumer`);
+      }
+      for (const consumerId of child.downstreamConsumers ?? []) {
+        const consumer = item.children.find((candidate) => candidate.id === consumerId);
+        if (!consumer || !consumer.blockedBy?.includes(child.id)) problems.push(`${child.id}: invalid consumer edge`);
+      }
+    } else if (child.coverageRole !== "DIRECT") {
+      problems.push(`${child.id}: invalid coverage role`);
+    }
+  }
+
+  for (const scenario of item.scenarios ?? []) {
+    const direct = item.children?.some(
+      (child) => child.coverageRole === "DIRECT" && child.sourceScenarios?.includes(scenario.id),
+    );
+    if (!direct) problems.push(`${scenario.id}: uncovered`);
+  }
+
+  if (!Array.isArray(item.walkingSkeleton) || item.walkingSkeleton.length === 0) {
+    problems.push("missing walking skeleton");
+  } else if (item.walkingSkeleton.some((id) => !childIds.has(id))) {
+    problems.push("unknown walking-skeleton child");
+  } else {
+    const positions = new Map(item.walkingSkeleton.map((id, index) => [id, index]));
+    for (const childId of item.walkingSkeleton) {
+      const child = item.children.find((candidate) => candidate.id === childId);
+      for (const blockerId of child.blockedBy ?? []) {
+        if (!positions.has(blockerId) || positions.get(blockerId) >= positions.get(childId)) {
+          problems.push(`${childId}: invalid walking-skeleton order`);
+        }
+      }
+    }
+    for (const scenario of item.scenarios ?? []) {
+      if (!scenario.smallestLoop) continue;
+      const covered = item.walkingSkeleton.some((childId) => {
+        const child = item.children.find((candidate) => candidate.id === childId);
+        return child.coverageRole === "DIRECT" && child.sourceScenarios.includes(scenario.id);
+      });
+      if (!covered) problems.push(`${scenario.id}: absent from walking skeleton`);
+    }
+
+    const available = new Set();
+    const seenScenarios = new Set();
+    for (const childId of item.walkingSkeleton) {
+      const child = item.children.find((candidate) => candidate.id === childId);
+      for (const scenarioId of child.sourceScenarios ?? []) {
+        const scenario = scenariosById.get(scenarioId);
+        if (!scenario?.smallestLoop || seenScenarios.has(scenarioId)) continue;
+        seenScenarios.add(scenarioId);
+        if (!scenario.entry?.startsWith("external:") && !available.has(scenario.entry)) {
+          problems.push(`${scenario.id}: broken handoff`);
+        }
+        available.add(scenario.exit);
+      }
+    }
+  }
+
+  return problems.length === 0 ? "READY" : "NEEDS_INFO";
+}
+
 export function validatePackage(root) {
   const errors = [];
   const pkg = readJson(path.join(root, "package.json"));
   const lock = readJson(path.join(root, "upstream-lock.json"));
   const profile = readJson(path.join(root, "profile", "settings.template.json"));
-  const loadedSkills = new Set([...lock.officialStableSkills, ...lock.packageSkills]);
+  const suppressedSkills = new Set(lock.suppressedSkills ?? []);
+  const loadedSkills = new Set([
+    ...lock.officialStableSkills.filter((name) => !suppressedSkills.has(name)),
+    ...lock.packageSkills,
+  ]);
 
   if (pkg.mattpocockUpstream?.commit !== EXPECTED_COMMIT) errors.push("package.json upstream commit drifted");
   if (lock.commit !== EXPECTED_COMMIT) errors.push("upstream-lock.json commit drifted");
@@ -49,6 +133,12 @@ export function validatePackage(root) {
       errors.push(`profile does not exclude upstream override ${skill}`);
     }
   }
+  for (const skill of suppressedSkills) {
+    if (!lock.officialStableSkills.includes(skill)) errors.push(`suppressed skill ${skill} is not in the upstream inventory`);
+    if (!upstreamProfile?.skills?.includes(`!skills/engineering/${skill}/**`)) {
+      errors.push(`profile does not exclude suppressed upstream skill ${skill}`);
+    }
+  }
 
   const skillRoot = path.join(root, "skills");
   const dirs = fs.readdirSync(skillRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
@@ -64,7 +154,7 @@ export function validatePackage(root) {
     if (!description) errors.push(`${dir.name}: missing description`);
     if (/\bTODO\b/.test(text)) errors.push(`${dir.name}: TODO remains`);
 
-    for (const match of text.matchAll(/(?:^|[\s(])\/([a-z][a-z0-9-]*)/gm)) {
+    for (const match of text.matchAll(/(?:^|[\s(])\/(?:skill:)?([a-z][a-z0-9-]*)/gm)) {
       const target = match[1];
       if (!loadedSkills.has(target)) errors.push(`${dir.name}: unresolved skill reference /${target}`);
     }
@@ -73,18 +163,134 @@ export function validatePackage(root) {
   for (const required of REQUIRED_PACKAGE_SKILLS) {
     if (!names.includes(required)) errors.push(`missing package skill ${required}`);
   }
+  if (names.includes("to-release")) errors.push("to-release must remain an internal reference, not a public skill");
 
+  const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
+  const releaseLoop = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "release-loop.md"), "utf8");
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
+  const setup = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "SKILL.md"), "utf8");
   const triage = fs.readFileSync(path.join(skillRoot, "triage", "SKILL.md"), "utf8");
   const readiness = fs.readFileSync(path.join(skillRoot, "ticket-readiness", "SKILL.md"), "utf8");
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
+  if (frontmatterValue(askYet, "disable-model-invocation") !== "true") {
+    errors.push("ask-yet must remain a human-invoked router");
+  }
+  for (const required of [
+    "references/release-loop.md",
+    "PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT",
+    "READY_TO_COMMIT",
+    "Research Handoff",
+    "Repository Contract Impact Review",
+    "/skill:to-spec",
+    "/skill:to-tickets",
+    "/skill:admit-ticket",
+    "ADMITTED",
+    "FRAME_WRITE_AWAITING_APPROVAL",
+    "EVIDENCE_DESIGNED_NOT_AUTHORIZED",
+    "Checkpoint:",
+    "Next:",
+    "Need:",
+    "Blocked:",
+    "system facts, not customer-actor evidence",
+    "cannot displace a higher-risk actor",
+    "protocol design alone does not advance product evidence",
+    "an unborn Git repository",
+    "absent facts, not blockers",
+    "choose a stack or architecture",
+    "Repository bootstrap becomes eligible only after",
+    "Commitment authorizes only the displayed bootstrap plan",
+  ]) {
+    if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
+  }
+  for (const obsolete of ["active_release:", "next_command:", "forbidden_transition:"]) {
+    if (askYet.includes(obsolete)) errors.push(`ask-yet retains verbose checkpoint field: ${obsolete}`);
+  }
+  if (askYet.includes("FRAME_RECORDED")) errors.push("ask-yet may not remain in FRAME after the approved artifact write");
+  for (const obsolete of ["Admission Receipt", "ADMISSION_EVIDENCE_ONLY"]) {
+    if (askYet.includes(obsolete) || releaseLoop.includes(obsolete)) {
+      errors.push(`ask-yet runtime retains deferred handoff machinery: ${obsolete}`);
+    }
+  }
+  for (const required of [
+    "FACT",
+    "ASSUMPTION",
+    "DECISION",
+    "UNKNOWN",
+    "CAPABILITY_GAP",
+    "AGENTS.override.md",
+    "COMMITTED",
+    "ACHIEVED",
+    "from_revision",
+    "target_revision",
+    "explicit write approval",
+    "Router `stage`",
+    "isolated shadow",
+    "stable Scenario IDs",
+    "Scenario-coverage",
+  ]) {
+    if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
+  }
   if (/apply the `?ready-for-agent/i.test(toSpec)) errors.push("to-spec directly applies ready-for-agent");
   if (/Status:\s*ready-for-agent/i.test(toTickets)) errors.push("to-tickets publishes ready candidates");
   if (/trust them and apply/i.test(triage)) errors.push("triage retains the upstream direct-ready bypass");
   if (!readiness.includes("Execution lane: AGENT | HUMAN")) errors.push("ticket-readiness lacks the execution-lane output");
   if (!readiness.includes("cannot be completed and pass its primary verification independently")) {
     errors.push("ticket-readiness uses the wrong blocker boundary");
+  }
+  for (const required of [
+    "PRODUCT_RELEASE",
+    "stable Scenario ID",
+    "explicit entry state or external input",
+    "## Release signal mapping",
+    "## Walking skeleton target",
+    "exact base SHA",
+  ]) {
+    if (!toSpec.includes(required)) errors.push(`to-spec lacks source/scenario contract: ${required}`);
+  }
+  for (const required of [
+    "Scenario coverage: PASS | FAIL",
+    "Walking skeleton: PASS | FAIL",
+    "## Source scenarios",
+    "## Coverage role",
+    "## Ticket coverage",
+    "Do not invoke Admission silently",
+    "Do not qualify a `READY` verdict",
+    "Every member must be individually `READY`",
+    "Entry -> exit / handoff",
+    "Do not infer an omitted producer",
+    "read them directly in the main context",
+    "Search for no sidecar",
+  ]) {
+    if (!toTickets.includes(required)) errors.push(`to-tickets lacks coverage contract: ${required}`);
+  }
+  for (const required of [
+    "Coverage role: DIRECT | ENABLER | STANDALONE",
+    "Scenario coverage: PASS | FAIL",
+    "Walking skeleton: PASS | FAIL",
+    "every intended candidate to be individually READY",
+    "broken or inferred handoff",
+  ]) {
+    if (!readiness.includes(required)) errors.push(`ticket-readiness lacks coverage contract: ${required}`);
+  }
+  for (const required of [
+    "Matrix Scenario IDs equal the parent Scenario IDs",
+    "Scenario coverage: PASS | FAIL",
+    "Walking skeleton: PASS | FAIL",
+    "Re-run the Scenario coverage check",
+    "no admission check invents a missing handoff",
+  ]) {
+    if (!admission.includes(required)) errors.push(`admit-ticket lacks coverage recheck: ${required}`);
+  }
+  for (const required of [
+    "`GREENFIELD`",
+    "exact COMMITTED Release",
+    "never use `git add .`",
+    "application scaffold",
+    "explicitly approved paths",
+    "exact base SHA",
+  ]) {
+    if (!setup.includes(required)) errors.push(`setup lacks greenfield contract: ${required}`);
   }
   if (!admission.includes("On READY + AGENT") || !admission.includes("On READY + HUMAN")) {
     errors.push("admit-ticket does not apply both execution lanes");
@@ -96,9 +302,7 @@ export function validatePackage(root) {
   if (!readiness.includes("Strict-frontier order: PASS | FAIL")) {
     errors.push("ticket-readiness lacks the strict-frontier graph verdict");
   }
-  if (!admission.includes("Re-run the strict-frontier order check")) {
-    errors.push("admit-ticket does not recheck strict-frontier order before activation");
-  }
+  if (!admission.includes("strict-frontier order check")) errors.push("admit-ticket omits strict-frontier checks");
   if (!toTickets.includes("## Execution lane")) errors.push("to-tickets omits execution lane from candidate bodies");
   if (!triage.includes("ready-for-agent or ready-for-human transition")) {
     errors.push("triage does not route both ready labels through admission");
@@ -153,7 +357,12 @@ export function validatePackage(root) {
   }
 
   const routing = fs.readFileSync(path.join(root, "profile", "AGENTS.md"), "utf8");
-  for (const required of ["one obvious read or search command", "bounded multi-file fact retrieval", "ambiguous or conflicting"]) {
+  for (const required of [
+    "small set of already-named authoritative files",
+    "bounded multi-file fact retrieval",
+    "only when the source set is large enough",
+    "ambiguous or conflicting",
+  ]) {
     if (!routing.includes(required)) errors.push(`profile AGENTS.md lacks routing rule: ${required}`);
   }
 
@@ -168,6 +377,16 @@ export function validatePackage(root) {
   }
   if (!fixtures.cases.some((item) => item.expectedVerdict === "READY" && item.expectedExecutionLane === "HUMAN")) {
     errors.push("missing READY/HUMAN fixture");
+  }
+  const graphVerdicts = new Set(fixtures.graphCases?.map((item) => item.expectedGraphVerdict));
+  for (const verdict of ["READY", "NEEDS_INFO"]) {
+    if (!graphVerdicts.has(verdict)) errors.push(`missing graph ${verdict} fixture`);
+  }
+  for (const item of fixtures.graphCases ?? []) {
+    const actual = graphFixtureVerdict(item);
+    if (actual !== item.expectedGraphVerdict) {
+      errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
+    }
   }
 
   return errors;

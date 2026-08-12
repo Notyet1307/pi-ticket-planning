@@ -28,3 +28,12 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+
+## Delivery-map operations
+
+- **Draft parent**: store the accepted Delivery Spec at `.scratch/<feature>/spec.md` with `Status: needs-triage`.
+- **Candidate child**: create one numbered file per candidate containing stable source Scenario IDs, coverage role, and the parent path.
+- **Coverage**: keep one `## Ticket coverage` section in `spec.md` with the current Scenario matrix and explicit state/artifact handoffs, walking-skeleton chain, source/base, child paths, roles, verifications, and blocker graph.
+- **Blocking and order**: use `Blocked by: NN` and require every blocker file number to sort before its dependent.
+- **Admission**: validate coverage, state/artifact handoffs, walking skeleton, file order, and blockers before fresh review and again before changing `Status` to an execution-ready state.
+- **Harness boundary**: local Markdown supports planning and review only; HerdrHarness Lite activation remains unavailable.

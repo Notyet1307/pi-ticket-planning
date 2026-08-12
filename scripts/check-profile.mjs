@@ -13,10 +13,13 @@ const LAUNCHER = path.resolve(
 );
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna:max";
 const UPSTREAM = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
-const OVERRIDES = new Set(["setup-matt-pocock-skills", "to-spec", "to-tickets", "triage"]);
-const PACKAGE_SKILLS = new Set([...OVERRIDES, "admit-ticket", "ticket-readiness"]);
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));
-const EXPECTED_SKILLS = new Set([...lock.officialStableSkills, ...lock.packageSkills]);
+const SUPPRESSED_SKILLS = new Set(lock.suppressedSkills ?? []);
+const PACKAGE_SKILLS = new Set([...lock.overriddenSkills, ...lock.packageSkills]);
+const EXPECTED_SKILLS = new Set([
+  ...lock.officialStableSkills.filter((name) => !SUPPRESSED_SKILLS.has(name)),
+  ...lock.packageSkills,
+]);
 
 const run = spawnSync(
   LAUNCHER,
@@ -48,6 +51,9 @@ for (const name of PACKAGE_SKILLS) {
   if (realpathSafe(byName.get(name)?.sourceInfo?.baseDir) !== PACKAGE_ROOT) {
     failures.push(`${name} did not load from the local package`);
   }
+}
+for (const name of [...SUPPRESSED_SKILLS, "to-release"]) {
+  if (byName.has(name)) failures.push(`${name} must not be exposed by the profile`);
 }
 for (const [name, skill] of byName) {
   if (!EXPECTED_SKILLS.has(name)) failures.push(`${name} is an unexpected profile skill`);

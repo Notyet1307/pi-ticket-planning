@@ -51,10 +51,11 @@ Wayfinder maps and their children never receive the executable ready-for-agent l
 Used by /to-spec, /to-tickets, and /admit-ticket. A delivery map is separate from every Wayfinder map.
 
 - **Draft parent**: create the delivery spec with needs-triage and no ready-for-agent.
-- **Candidate child**: create each implementation ticket with needs-triage, then attach it as a native GitHub sub-issue of the delivery parent.
+- **Candidate child**: create each implementation ticket with stable source Scenario IDs, coverage role, and needs-triage, then attach it as a native GitHub sub-issue of the delivery parent.
+- **Coverage**: keep one `## Ticket coverage` section in the parent containing the current Scenario matrix and explicit state/artifact handoffs, walking-skeleton chain, source revision/base, child IDs, roles, verifications, and blocker graph. Replace it when the candidate snapshot changes; do not create a second receipt artifact.
 - **Blocking**: use the same native issue-dependency endpoint documented above. Add edges only after every candidate has an issue id.
 - **Order**: arrange native children in a stable topological order of internal blockers. For every `blocker -> dependent` edge, the blocker must be earlier in the native list. HerdrHarness Lite treats the first open child as the strict frontier and never jumps over it. GitHub can reprioritize a child with `gh api --method PATCH repos/<owner>/<repo>/issues/<parent>/sub_issues/priority -F sub_issue_id=<child-db-id> -F after_id=<previous-child-db-id>`; re-fetch after every completed reorder rather than trusting local intent.
 - **Order check**: before admission and again before activation, run `node "$PI_TICKET_PLANNING_ROOT/scripts/check-frontier-order.mjs" --repo <owner>/<repo> --parent <number>`. PASS is mandatory; FAIL or an API/read error leaves the map in needs-triage.
-- **Admission**: /admit-ticket reviews the exact parent, children, order, and blockers before label mutation.
+- **Admission**: /admit-ticket validates Scenario coverage, state/artifact handoffs, walking skeleton, exact parent, children, order, and blockers before label mutation.
 - **Activation**: add ready-for-agent to admitted AGENT children and ready-for-human to admitted HUMAN children, then add ready-for-agent to the delivery parent last. Remove needs-triage and needs-info from each activated issue.
 - **Drift**: when a reviewed body, source, child order, or dependency changes, remove or withhold both ready labels and run admission again.

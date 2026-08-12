@@ -2,9 +2,9 @@
 
 [English](README.md) | 简体中文
 
-这是一个只通过专用 PI Profile 启用的 package，用于把 Delivery Spec 拆成实现票、执行独立 admission，并且只激活能够被严格前沿 Harness 安全领取的任务图。
+这是一个只通过专用 PI Profile 启用的 package。它以 `/skill:ask-yet` 作为产品到结果的统一入口，再把已承诺 Release 编译成实现票、执行独立 admission，并且只激活能够被严格前沿 Harness 安全领取的任务图。
 
-它组合了完整且固定版本的 Matt Pocock 稳定技能集，并由本 package 覆盖 spec、拆票、triage 和 admission 流程。上游更新必须手动处理。
+它固定 Matt Pocock 稳定技能集，由本 package 用 `ask-yet` 替换上游 Router，并覆盖 spec、拆票、triage 和 admission 流程。上游更新必须手动处理。
 
 ## 从 GitHub 安装
 
@@ -73,32 +73,30 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-每个仓库第一次使用时执行：
-
-```text
-/skill:setup-matt-pocock-skills
-```
-
 PI 的显式 skill 命令格式是 `/skill:<name>`。Skill 文档中的 `/to-spec` 等写法表示工作流跳转；人在输入框中应使用 `/skill:to-spec`。
 
 ## 工作流
 
-对于从零开始或决策尚未收敛的项目：
+所有产品、功能、Issue 和续接场景都从同一个入口开始：
 
 ```text
-/skill:ask-matt 我想从 0 开始做一个……
-/skill:wayfinder 规划这个项目的决策地图
-/skill:to-spec
-/skill:to-tickets
+/skill:ask-yet [可选：想法、Issue、Release 文档或当前目标]
 ```
 
-完整交付路径：
+`ask-yet` 会从仓库和权威产物恢复当前状态，一次只给出一个产品问题、证据动作或可复制的下一条命令。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`/skill:setup-matt-pocock-skills` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
+
+完整路径：
 
 ```text
-setup-matt-pocock-skills
-  -> ask-matt / wayfinder
-  -> to-spec：创建 needs-triage Delivery Spec
-  -> to-tickets：创建 needs-triage 子票和 blocker graph
+ask-yet
+  -> Frame：一个用户、触发、目标结果和最小闭环
+  -> Evidence：一个最高风险假设和有界证据动作
+  -> 人工 Commitment
+  -> 没有 Git 基线时执行 greenfield delivery bootstrap
+  -> repository contract 影响检查
+  -> to-spec：创建带稳定 Scenario ID 和显式交接状态的 needs-triage Delivery Spec
+  -> to-tickets：生成场景覆盖矩阵、walking skeleton、子票和 blocker graph
+  -> 在 Delivery Parent 中持久化 coverage snapshot
   -> 严格前沿顺序检查
   -> 全新上下文 ticket-readiness reviewer
   -> 人工确认
@@ -109,14 +107,13 @@ setup-matt-pocock-skills
 
 Wayfinder Map 只包含决策、研究、原型和人工输入，不进入实现队列。`READY | SPLIT | NEEDS_INFO` 判断票是否可以执行；`AGENT | HUMAN` 决定执行 lane。
 
-已有 Issue 和直接激活请求使用：
+已有 Issue 和直接激活请求也先交给统一入口：
 
 ```text
-/skill:triage owner/repo#39
-/skill:admit-ticket owner/repo#39
+/skill:ask-yet owner/repo#39
 ```
 
-任何生成或 triage 路径都不能直接添加 ready 标签。
+它会根据真实阶段返回 `/skill:triage` 或 `/skill:admit-ticket` 的精确命令。任何生成或 triage 路径都不能直接添加 ready 标签。Admission 会复核场景覆盖、每个状态/产物交接、walking skeleton、严格前沿和全新上下文 readiness，再请求人工确认；source、matrix、候选 Ticket 或任务图发生修改后，必须重新 Admission 才能交给 Harness。
 
 ## 严格前沿安全
 
@@ -161,7 +158,7 @@ git checkout v0.1.2
 ./install.sh
 ```
 
-不要直接跟随 Matt 上游。发布 package 新版本时，必须有意更新固定提交、重新核对四个 override、更新 `upstream-lock.json`，并通过完整验证。
+不要直接跟随 Matt 上游。发布 package 新版本时，必须有意更新固定提交、重新核对四个 override 和被隐藏的上游 Router、更新 `upstream-lock.json`，并通过完整验证。
 
 ## 安全和来源
 

@@ -37,8 +37,12 @@
     "to-tickets",
     "triage"
   ],
+  "suppressedSkills": [
+    "ask-matt"
+  ],
   "packageSkills": [
     "admit-ticket",
+    "ask-yet",
     "ticket-readiness"
   ]
 }

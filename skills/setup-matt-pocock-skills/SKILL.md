@@ -1,120 +1,116 @@
 ---
 name: setup-matt-pocock-skills
-description: "Configure a repository for the Matt Pocock engineering flow plus the ticket-admission gate: issue tracker, labels, domain docs, Wayfinder operations, and delivery-map activation. Run once before the first engineering flow."
+description: "Configure an existing delivery repository, or minimally bootstrap a greenfield repository from an exact COMMITTED Release, for tracker-backed ticket admission and Harness handoff."
 disable-model-invocation: true
 ---
 
 # Setup Matt Pocock Skills
 
-Configure the repository facts consumed by the engineering skills and the ticket-planning profile. Explore, present findings, obtain confirmation, then write.
+Establish the repository facts consumed by the planning and admission Skills. Explore, propose one exact mutation plan, obtain scoped approval, apply it, and verify the resulting delivery base.
 
-## 1. Explore
+## 1. Classify the starting state
 
-Read the real starting state:
+Resolve the exact target directory and classify it:
 
-- git remote -v and .git/config;
-- root AGENTS.md or CLAUDE.md;
-- CONTEXT.md, CONTEXT-MAP.md, and docs/adr;
-- docs/agents and any prior setup output;
-- .scratch and existing local issue conventions;
-- installed skills, especially triage, wayfinder, ticket-readiness, and admit-ticket;
-- monorepo signals such as pnpm-workspace.yaml, package workspaces, or populated packages directories;
-- for GitHub, current labels and whether native sub-issues and issue dependencies are available.
+- `EXISTING`: Git `HEAD` resolves to a commit.
+- `GREENFIELD`: the directory is non-Git or Git has an unborn `HEAD`.
 
-Report what exists, what conflicts, and what is missing.
+Inspect safely:
 
-## 2. Resolve configuration
+- Git status, `HEAD`, remotes, and `.git/config` when present;
+- effective root `AGENTS.md` or `CLAUDE.md` and any shadowing policy file;
+- root README, product/release artifacts, `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr`;
+- `docs/agents`, `.scratch`, installed Skills, tracker conventions, and monorepo signals;
+- for an existing GitHub remote, current labels and native sub-issue/dependency capabilities.
 
-Take one section at a time. Lead with the recommended answer and accept a short confirmation.
+For `GREENFIELD`, require the supplied Release artifact path, Release ID, exact revision, and current `status: COMMITTED`. Re-read it from disk. If any identity is missing, mismatched, or not COMMITTED, stop without mutation and return `/skill:ask-yet <target and Release artifact>`. Missing Git, README, policy, code, and tracker are expected facts, not authorization.
 
-### A. Issue tracker
+## 2. Resolve delivery configuration
 
-Prefer GitHub when the remote points to GitHub. Otherwise offer GitLab, local Markdown, or a user-described tracker. Record the choice in docs/agents/issue-tracker.md using the matching template in this skill directory.
+Take one section at a time. Lead with a recommendation and obtain only undiscoverable human choices.
 
-HerdrHarness Lite execution requires GitHub. When another tracker is selected, record that the planning flow remains usable but Harness activation is unavailable.
+### A. Repository and tracker
+
+Prefer GitHub when the target will use HerdrHarness Lite. For a new GitHub repository, collect owner, repository name, visibility, and default branch before proposing creation. Reuse an existing remote only after verifying its identity. A local Markdown or GitLab tracker remains valid for planning, but record that HerdrHarness activation is unavailable.
+
+Store the selected tracker contract in `docs/agents/issue-tracker.md` using the matching template in this Skill directory.
 
 ### B. Triage labels
 
-When triage is installed, recommend the canonical mapping:
+Use the repository's established vocabulary or recommend:
 
-- needs-triage
-- needs-info
-- ready-for-agent
-- ready-for-human
-- wontfix
+- `needs-triage`
+- `needs-info`
+- `ready-for-agent`
+- `ready-for-human`
+- `wontfix`
 
-Collect overrides only when the repository already has an established vocabulary. Record the mapping in docs/agents/triage-labels.md.
+Record the mapping in `docs/agents/triage-labels.md` when the tracker uses labels.
 
-### C. Domain docs
+### C. Agent and domain policy
 
-Default to one root CONTEXT.md and docs/adr. Offer a root CONTEXT-MAP.md with per-context documents only for a genuine multi-package repository. Record consumer rules and layout in docs/agents/domain.md.
+For a greenfield Harness repository, recommend root `AGENTS.md`. For an existing repository, preserve the effective policy file and surrounding user content. Add only stable cross-ticket routing and delivery-gate pointers; keep Release behavior, Ticket acceptance criteria, tentative architecture, and implementation advice out of root policy.
+
+Default to one root `CONTEXT.md` convention and `docs/adr`; create neither until real domain terms or decisions exist. Store only the consumption convention in `docs/agents/domain.md`.
 
 ### D. Delivery gate
 
-Record docs/agents/delivery-gate.md from the template in this skill directory. It must establish:
+Write `docs/agents/delivery-gate.md` from the template. It must establish candidate state, Scenario coverage, walking-skeleton, strict-frontier, fresh review, human confirmation, execution lanes, and parent-last activation.
 
-- Wayfinder maps contain decision tickets and never enter the implementation queue;
-- delivery specs and candidate children begin in needs-triage;
-- /admit-ticket is the sole skill path to ready-for-agent or ready-for-human;
-- native child and blocker relationships are wired before review;
-- the delivery parent receives ready-for-agent last.
+## 3. Present one exact mutation plan
 
-Use /ticket-readiness as the package-level contract; keep repository-specific label names and tracker operations in docs/agents.
+For every starting state, show:
 
-## 3. Confirm the write set
+- exact files to create or edit and the proposed Agent policy block;
+- exact tracker configuration, missing labels, and capability fallbacks;
+- every external mutation, including repository creation, remote addition, push, and label creation.
 
-Show the user:
+For `GREENFIELD`, also show:
 
-- the exact Agent skills block for AGENTS.md or CLAUDE.md;
-- the proposed docs/agents files;
-- for GitHub, every missing triage and Wayfinder label to create;
-- any unavailable native sub-issue or dependency capability and the fallback that would be recorded.
+- whether `git init -b <branch>` is required;
+- every path to stage, including the exact COMMITTED Release artifact;
+- the initial commit message and files intentionally left untracked;
+- the proposed remote URL and push target, if any.
 
-Wait for confirmation before editing files or creating labels.
+Stage only explicitly approved paths; never use `git add .`. Preserve every pre-existing file and change outside the approved set. Repository or label creation and push are external mutations, not implied by approval to write local files. One human reply may authorize several scopes only when it names or unambiguously accepts the complete displayed plan.
 
-## 4. Write repository configuration
+The greenfield plan creates a delivery container only. It contains no application scaffold, language or framework selection, dependency manifest, database, CI, Docker setup, or AI architecture unless a later accepted Delivery Spec explicitly requires them.
 
-Edit CLAUDE.md when it exists; otherwise edit AGENTS.md. If neither exists, ask which one to create. Update an existing Agent skills block in place.
+## 4. Apply the approved local setup
 
-Use this block, omitting Triage labels when triage is absent:
+Immediately before mutation, re-check the target path, starting-state classification, Release revision, and Git status. Stop on drift.
 
-    ## Agent skills
+For `GREENFIELD` after exact approval:
 
-    ### Issue tracker
-    [one-line tracker summary]. See docs/agents/issue-tracker.md.
+1. Initialize Git only when absent; preserve an existing unborn repository and its configured default branch.
+2. Write only the approved `AGENTS.md` or `CLAUDE.md` block and `docs/agents` files.
+3. Stage the approved paths explicitly, including the COMMITTED Release artifact; leave unrelated files untouched and untracked.
+4. Create the initial commit only when the displayed commit was approved and Git author identity is already usable. Do not invent or modify identity configuration.
+5. Resolve and report the resulting exact base SHA.
 
-    ### Triage labels
-    [one-line label mapping summary]. See docs/agents/triage-labels.md.
+For `EXISTING`, write only the approved configuration and labels. Do not create a commit, branch, remote, or push unless the displayed plan explicitly included that operation.
 
-    ### Domain docs
-    [single-context or multi-context summary]. See docs/agents/domain.md.
+## 5. Apply approved remote and tracker setup
 
-    ### Delivery gate
-    Candidate implementation issues require independent admission before any ready label. See docs/agents/delivery-gate.md.
+Create or add a remote and push only after the matching external mutation is approved. Refuse to overwrite a conflicting `origin`. Re-read the remote repository identity after creation or push.
 
-Write the docs from:
+For GitHub, create only missing triage and Wayfinder labels after the repository exists. Do not rename or delete existing labels. If repository creation, push, capability discovery, or label provisioning fails, report the exact partial state and leave setup incomplete.
 
-- issue-tracker-github.md, issue-tracker-gitlab.md, or issue-tracker-local.md;
-- triage-labels.md when triage is installed;
-- domain.md;
-- delivery-gate.md.
+## 6. Verify completion
 
-Preserve surrounding user content.
+Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 
-## 5. Provision GitHub labels
+- Git `HEAD` resolves and the exact COMMITTED Release artifact exists in that commit;
+- all approved setup files are committed in the reported base SHA;
+- the effective root policy path and content are known;
+- tracker identity and stored tracker configuration agree;
+- required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
+- unrelated pre-existing files and changes remain untouched.
 
-After the confirmed docs write, create only missing labels. Use the configured triage label names plus these Wayfinder labels when wayfinder is installed:
+For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
 
-- wayfinder:map
-- wayfinder:research
-- wayfinder:prototype
-- wayfinder:grilling
-- wayfinder:task
+Return the next valid entry point and stop:
 
-Do not rename or delete existing labels. If label creation fails, report the exact missing labels and leave setup incomplete.
-
-## 6. Verify
-
-Re-read the written files and tracker labels. Verify that every pointer resolves, configured label names exist, and the GitHub operations documented for Wayfinder and delivery maps match available tracker capabilities.
-
-Report the files changed, labels created or reused, capability fallbacks, and the next valid entry point: /ask-matt. Setup is complete only when the stored configuration matches the tracker.
+```text
+/skill:ask-yet <target repository and COMMITTED Release identity>
+```

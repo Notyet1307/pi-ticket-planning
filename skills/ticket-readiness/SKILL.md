@@ -28,6 +28,7 @@ Return READY only when every condition holds:
 6. **Dependencies are real.** Blocked by lists prerequisites without which the ticket cannot be completed and pass its primary verification independently. Preferred order is not a blocker when an available stable contract still permits independent completion.
 7. **Scope is explicit.** Out of scope names the adjacent work this ticket intentionally leaves behind.
 8. **Fresh-start sufficiency.** A fresh executor in the assigned lane can begin from this ticket, its parent spec, and linked decision sources without recovering hidden conversation context.
+9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
 
 Prefer a vertical slice through only the layers needed for the observable result. Preserve wide mechanical refactors as expand–migrate–contract sequences when no independently green vertical slice exists.
 
@@ -54,21 +55,26 @@ For one candidate, return exactly:
 
     Verdict: READY | SPLIT | NEEDS_INFO
     Execution lane: AGENT | HUMAN
+    Source scenarios or standalone source:
+    Coverage role: DIRECT | ENABLER | STANDALONE
     Primary outcome:
     Primary verification:
     Independent delivery surfaces:
     Single-assertion AC count:
     Unresolved decisions or ADR conflicts:
     Real blockers:
+    Downstream consumers and exit condition: <required for ENABLER>
     Proposed split: <only for SPLIT>
 
-For a batch, add a Graph verdict first, then repeat the fields for every candidate. The graph review must also report coverage gaps, overlapping outcomes, invalid dependency edges, and execution lanes. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
-
-For a delivery map consumed by a strict-frontier Harness, Graph READY additionally requires its native child list to be a topological order of the internal blocker graph. For every internal `blocker -> dependent` edge, `position(blocker) < position(dependent)`. External blockers are reported but are not orderable inside the map. A cycle or order inversion makes the Graph verdict NEEDS_INFO even when every candidate is individually READY.
+For a batch, add a Graph verdict first, then repeat the fields for every candidate. The graph review must compare the parent Scenario list and explicit state/artifact handoffs, persisted `## Ticket coverage` matrix, and current child set. It must report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, and execution lanes. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
 
 The batch output must include:
 
+    Scenario coverage: PASS | FAIL — <uncovered scenarios, orphan candidates, or stale mappings>
+    Walking skeleton: PASS | FAIL — <ordered candidate IDs and covered scenarios, or the exact gap>
     Strict-frontier order: PASS | FAIL — <exact inverted edges when FAIL>
+
+Graph READY requires every intended candidate to be individually READY and Scenario coverage, walking skeleton, and strict-frontier order all to pass. Every parent Scenario needs direct coverage; every child needs a valid mapping; every ENABLER needs a current downstream consumer and exit condition. Every walking-skeleton member must be READY, each named handoff must have an explicit producer or external source, and the chain must close the smallest trigger-to-result loop. For every internal `blocker -> dependent` edge, `position(blocker) < position(dependent)`. External blockers are reported but are not orderable inside the map. Any non-READY candidate, broken or inferred handoff, coverage gap, orphan, stale matrix, cycle, or order inversion makes the Graph verdict NEEDS_INFO.
 
 Tie the verdict to the exact candidate bodies, parent spec, sources, graph, and updated timestamps supplied in the admission bundle. Any material drift requires a new review.
 
@@ -78,7 +84,7 @@ Activation follows this order:
 
 1. Publish the parent and all children as needs-triage.
 2. Create native parent-child and blocking relationships.
-3. Verify native child order against the blocker graph, then review the complete graph in a fresh context.
+3. Verify the persisted Scenario matrix against the current children, the walking skeleton, and native blocker graph; then review the complete graph in a fresh context.
 4. Obtain explicit human confirmation.
 5. Re-fetch and confirm the reviewed snapshot is unchanged.
 6. Add ready-for-agent to READY/AGENT children and ready-for-human to READY/HUMAN children.
