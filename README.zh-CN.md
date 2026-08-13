@@ -18,7 +18,7 @@
 克隆指定 Release tag，然后运行安装器：
 
 ```sh
-git clone --branch v0.1.1 --depth 1 \
+git clone --branch v0.2.0 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -142,7 +142,13 @@ pi-ticket-plan -r
 
 ## 验证和升级
 
-安装完成后执行：
+只验证仓库内容时，不需要预先安装 PI Profile：
+
+```sh
+npm run verify:ci
+```
+
+安装完成后，再验证真实 Profile：
 
 ```sh
 npm run verify
@@ -154,7 +160,7 @@ Profile 烟测的预期结果是 `profile isolation: ok (27 skills)`。
 
 ```sh
 git fetch --tags
-git checkout v0.1.2
+git checkout v0.2.0
 ./install.sh
 ```
 

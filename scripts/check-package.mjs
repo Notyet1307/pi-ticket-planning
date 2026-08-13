@@ -116,6 +116,26 @@ export function validatePackage(root) {
   if (pkg.mattpocockUpstream?.commit !== EXPECTED_COMMIT) errors.push("package.json upstream commit drifted");
   if (lock.commit !== EXPECTED_COMMIT) errors.push("upstream-lock.json commit drifted");
   if (pkg.mattpocockUpstream?.updatePolicy !== "manual") errors.push("upstream policy must remain manual");
+  if (pkg.scripts?.["verify:ci"] !== "npm run check && npm test") errors.push("package lacks the repository-only CI check");
+  if (pkg.scripts?.verify !== "npm run verify:ci && npm run check:profile") {
+    errors.push("full verification must include the live Profile check");
+  }
+
+  const releaseTag = `v${pkg.version}`;
+  for (const relative of ["README.md", "README.zh-CN.md"]) {
+    const text = fs.readFileSync(path.join(root, relative), "utf8");
+    if (!text.includes(`git clone --branch ${releaseTag} --depth 1`)) {
+      errors.push(`${relative} clone command does not match package version ${releaseTag}`);
+    }
+    if (!text.includes(`git checkout ${releaseTag}`)) {
+      errors.push(`${relative} update command does not match package version ${releaseTag}`);
+    }
+  }
+
+  const ci = fs.readFileSync(path.join(root, ".github", "workflows", "ci.yml"), "utf8");
+  for (const required of ["actions/checkout@v7", "actions/setup-node@v7", "npm run verify:ci"]) {
+    if (!ci.includes(required)) errors.push(`CI workflow lacks ${required}`);
+  }
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);

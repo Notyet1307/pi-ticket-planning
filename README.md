@@ -18,7 +18,7 @@ Requirements:
 Clone a released tag, then run the installer:
 
 ```sh
-git clone --branch v0.1.1 --depth 1 \
+git clone --branch v0.2.0 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -142,7 +142,13 @@ Inside PI, `/session` shows the current session, `/new` starts one, `/resume` se
 
 ## Verify and update
 
-After installation:
+Repository-only checks do not require an installed PI Profile:
+
+```sh
+npm run verify:ci
+```
+
+After installation, also verify the live Profile:
 
 ```sh
 npm run verify
@@ -154,7 +160,7 @@ Updates are explicit and release-based:
 
 ```sh
 git fetch --tags
-git checkout v0.1.2
+git checkout v0.2.0
 ./install.sh
 ```
 
