@@ -21,6 +21,7 @@
   },
   "scripts": {
     "check": "node scripts/check-package.mjs",
+    "check:delivery-graph": "node scripts/check-delivery-graph.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
     "check:pi-behavior": "node scripts/check-pi-behavior-cases.mjs",
     "check:profile": "node scripts/check-profile.mjs",

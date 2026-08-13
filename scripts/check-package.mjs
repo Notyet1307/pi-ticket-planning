@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
@@ -21,85 +22,6 @@ function readJson(file) {
 
 function frontmatterValue(text, key) {
   return text.match(new RegExp(`^${key}:\\s*["']?([^\\n"']+)`, "m"))?.[1]?.trim();
-}
-
-function graphFixtureVerdict(item) {
-  const problems = [];
-  const scenarioIds = new Set(item.scenarios?.map((scenario) => scenario.id));
-  const scenariosById = new Map(item.scenarios?.map((scenario) => [scenario.id, scenario]));
-  const childIds = new Set(item.children?.map((child) => child.id));
-
-  if (scenarioIds.size !== item.scenarios?.length || scenarioIds.size === 0) problems.push("invalid scenarios");
-  if (childIds.size !== item.children?.length || childIds.size === 0) problems.push("invalid children");
-  for (const scenario of item.scenarios ?? []) {
-    if (!scenario.entry?.trim() || !scenario.exit?.trim()) problems.push(`${scenario.id}: missing handoff`);
-  }
-
-  for (const child of item.children ?? []) {
-    if (!Array.isArray(child.sourceScenarios) || child.sourceScenarios.length === 0) problems.push(`${child.id}: orphan`);
-    if (child.sourceScenarios?.some((id) => !scenarioIds.has(id))) problems.push(`${child.id}: unknown scenario`);
-    if (!Array.isArray(child.blockedBy)) problems.push(`${child.id}: missing blockers`);
-    if (child.coverageRole === "ENABLER") {
-      if (!child.exitCondition?.trim()) problems.push(`${child.id}: missing exit condition`);
-      if (!Array.isArray(child.downstreamConsumers) || child.downstreamConsumers.length === 0) {
-        problems.push(`${child.id}: missing consumer`);
-      }
-      for (const consumerId of child.downstreamConsumers ?? []) {
-        const consumer = item.children.find((candidate) => candidate.id === consumerId);
-        if (!consumer || !consumer.blockedBy?.includes(child.id)) problems.push(`${child.id}: invalid consumer edge`);
-      }
-    } else if (child.coverageRole !== "DIRECT") {
-      problems.push(`${child.id}: invalid coverage role`);
-    }
-  }
-
-  for (const scenario of item.scenarios ?? []) {
-    const direct = item.children?.some(
-      (child) => child.coverageRole === "DIRECT" && child.sourceScenarios?.includes(scenario.id),
-    );
-    if (!direct) problems.push(`${scenario.id}: uncovered`);
-  }
-
-  if (!Array.isArray(item.walkingSkeleton) || item.walkingSkeleton.length === 0) {
-    problems.push("missing walking skeleton");
-  } else if (item.walkingSkeleton.some((id) => !childIds.has(id))) {
-    problems.push("unknown walking-skeleton child");
-  } else {
-    const positions = new Map(item.walkingSkeleton.map((id, index) => [id, index]));
-    for (const childId of item.walkingSkeleton) {
-      const child = item.children.find((candidate) => candidate.id === childId);
-      for (const blockerId of child.blockedBy ?? []) {
-        if (!positions.has(blockerId) || positions.get(blockerId) >= positions.get(childId)) {
-          problems.push(`${childId}: invalid walking-skeleton order`);
-        }
-      }
-    }
-    for (const scenario of item.scenarios ?? []) {
-      if (!scenario.smallestLoop) continue;
-      const covered = item.walkingSkeleton.some((childId) => {
-        const child = item.children.find((candidate) => candidate.id === childId);
-        return child.coverageRole === "DIRECT" && child.sourceScenarios.includes(scenario.id);
-      });
-      if (!covered) problems.push(`${scenario.id}: absent from walking skeleton`);
-    }
-
-    const available = new Set();
-    const seenScenarios = new Set();
-    for (const childId of item.walkingSkeleton) {
-      const child = item.children.find((candidate) => candidate.id === childId);
-      for (const scenarioId of child.sourceScenarios ?? []) {
-        const scenario = scenariosById.get(scenarioId);
-        if (!scenario?.smallestLoop || seenScenarios.has(scenarioId)) continue;
-        seenScenarios.add(scenarioId);
-        if (!scenario.entry?.startsWith("external:") && !available.has(scenario.entry)) {
-          problems.push(`${scenario.id}: broken handoff`);
-        }
-        available.add(scenario.exit);
-      }
-    }
-  }
-
-  return problems.length === 0 ? "READY" : "NEEDS_INFO";
 }
 
 export function validatePackage(root) {
@@ -320,6 +242,9 @@ export function validatePackage(root) {
   if (pkg.scripts?.["check:frontier"] !== "node scripts/check-frontier-order.mjs") {
     errors.push("package does not expose the strict-frontier check");
   }
+  if (pkg.scripts?.["check:delivery-graph"] !== "node scripts/check-delivery-graph.mjs") {
+    errors.push("package does not expose the delivery-graph check");
+  }
   if (!toTickets.includes("stable topological order")) errors.push("to-tickets does not topologically order children");
   if (!readiness.includes("Strict-frontier order: PASS | FAIL")) {
     errors.push("ticket-readiness lacks the strict-frontier graph verdict");
@@ -405,7 +330,7 @@ export function validatePackage(root) {
     if (!graphVerdicts.has(verdict)) errors.push(`missing graph ${verdict} fixture`);
   }
   for (const item of fixtures.graphCases ?? []) {
-    const actual = graphFixtureVerdict(item);
+    const actual = validateDeliveryGraph(item).verdict;
     if (actual !== item.expectedGraphVerdict) {
       errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
     }
