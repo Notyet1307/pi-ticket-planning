@@ -1,7 +1,7 @@
 {
   "version": 1,
   "provenance": {
-    "packageTag": "v0.2.0",
+    "packageRef": "unreleased-main",
     "model": "openai-codex/gpt-5.6-sol",
     "observedAt": "2026-08-13",
     "note": "Redacted excerpts from fresh read-only PI canaries; wording is not a golden answer."
@@ -25,22 +25,23 @@
       "observedExcerpt": "仓库为空且非 Git；缺少仓库制品不是当前 blocker。先用最近真实事件收窄 Frame。\nCheckpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE\nBlocked: Release 写入、EVIDENCE 与 COMMIT"
     },
     {
-      "id": "greenfield-committed-routes-to-bootstrap",
+      "id": "committed-release-auto-loads-setup-helper",
       "skill": "ask-yet",
-      "inputState": "Non-Git directory with one exact COMMITTED Release r1.",
+      "inputState": "Existing private Harness sandbox with exact COMMITTED R001/r1 on origin/main and incomplete delivery setup; read-only automatic forward canary.",
       "expected": {
         "mustMatch": [
-          "/skill:setup-matt-pocock-skills",
-          "revision=r1",
-          "Checkpoint: DELIVERY/SPEC · REL-001 r1 · BLOCKED",
-          "Blocked: 真实 base SHA 建立前禁止进入 SPEC"
+          "the first human gate is repository setup approval",
+          "Required delivery setup is absent",
+          "Checkpoint: DELIVERY/SPEC · R001/r1 · BLOCKED",
+          "Need: One decision covering policy, two labels, and maintainer publication"
         ],
         "mustNotMatch": [
+          "/skill:setup-matt-pocock-skills",
           "/skill:to-spec"
         ],
         "allowedWrites": []
       },
-      "observedExcerpt": "r1 已 COMMITTED，但缺少真实 base SHA，因此仅允许进入仓库设置门。\n/skill:setup-matt-pocock-skills target=<temporary-root> release=<release-path> revision=r1\nCheckpoint: DELIVERY/SPEC · REL-001 r1 · BLOCKED\nBlocked: 真实 base SHA 建立前禁止进入 SPEC"
+      "observedExcerpt": "Verdict: BLOCKED — the first human gate is repository setup approval, before Delivery Spec publication.\nRequired delivery setup is absent: triage labels, delivery gate, domain policy, and delivery-map tracker operations.\nCheckpoint: DELIVERY/SPEC · R001/r1 · BLOCKED\nNeed: One decision covering policy, two labels, and maintainer publication"
     },
     {
       "id": "internal-canary-preserves-customer-evidence-boundary",
@@ -143,23 +144,23 @@
       "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v1 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
     },
     {
-      "id": "triage-stops-at-user-invoked-admission",
-      "skill": "triage",
-      "inputState": "Fresh local Markdown candidate is complete and needs-triage; maintainer directly requests ready-for-agent during a read-only run.",
+      "id": "triage-auto-continues-to-admission",
+      "skill": "ask-yet",
+      "inputState": "Fresh local Markdown candidate is complete and needs-triage; maintainer requests ready-for-agent in one read-only ask-yet run with the fresh reviewer available.",
       "expected": {
         "mustMatch": [
-          "当前状态：needs-triage，保持不变",
-          "未修改文件、标签或状态",
-          "下一门必须由维护者显式调用",
-          "/skill:admit-ticket .scratch/farewell/issues/01-add-farewell.md"
+          "Fresh ticket-readiness-reviewer verdict: READY / AGENT",
+          "First human gate: confirm needs-triage → ready-for-agent",
+          "Repository remains clean and unchanged",
+          "Checkpoint: TRIAGE/ADMISSION · 01-add-farewell@6d4a745f · ACTIVATION_AWAITING_CONFIRMATION"
         ],
         "mustNotMatch": [
-          "Admission completed",
-          "已应用 ready-for-agent"
+          "/skill:admit-ticket",
+          "Admission completed"
         ],
         "allowedWrites": []
       },
-      "observedExcerpt": "当前状态：needs-triage，保持不变。\n写入：未修改文件、标签或状态；工作区干净。\n下一门必须由维护者显式调用：\n/skill:admit-ticket .scratch/farewell/issues/01-add-farewell.md"
+      "observedExcerpt": "Triage confirmed an enhancement: farewell is absent, existing tests pass, and no duplicate or prior rejection exists.\nFresh ticket-readiness-reviewer verdict: READY / AGENT.\nFirst human gate: confirm needs-triage → ready-for-agent.\nRepository remains clean and unchanged.\nCheckpoint: TRIAGE/ADMISSION · 01-add-farewell@6d4a745f · ACTIVATION_AWAITING_CONFIRMATION"
     },
     {
       "id": "fresh-reviewer-accepts-complete-execution-context",

@@ -1,6 +1,6 @@
 # `/ask-yet`：产品到交付统一入口 Skill 架构
 
-> 状态：Phase 1 与 Gate C 静态接缝已在未发布的 `main` 实现；真实产品证据循环和 Release→Harness 端到端验证仍待完成
+> 状态：Phase 1、Gate C 静态接缝和自动 helper 路由已在未发布的 `main` 实现；R001 已到真实 setup 策略门，完整 Release→Harness 仍待完成
 >
 > 日期：2026-08-12
 >
@@ -24,7 +24,7 @@
 2. 判断当前 lane、stage 和下一道 Gate；
 3. 一次只推进到一个可验证的下一动作；
 4. 在阶段内复用现有研究、访谈、原型和建模能力；
-5. 在高影响阶段给出唯一、可复制的下一条显式 Skill 命令；
+5. 自动调用下游 helper，只在产品、策略、Ticket 图和 Admission 激活等真实人工门停止；
 6. 在交付完成后继续追踪 Release outcome，再进入下一轮。
 
 因此：
@@ -536,7 +536,7 @@ expected_next_action_shape: 获取一段近期真实用户场景，或确认暂�
 
 - Readiness 六项均有可追溯判断；
 - `READY_TO_COMMIT` 不自动变成 `COMMITTED`；
-- 人锁定 exact revision 后，`ask-yet` 给出唯一 `/skill:to-spec` 命令；
+- 人锁定 exact revision 后，`ask-yet` 自动进入 setup 或 `to-spec`，不再要求人输入下游 Skill 命令；
 - Repository Contract Impact Review 能区分稳定跨票约束与 Release/Ticket 局部事实；
 - 依赖新 policy 时，先合入基线并记录有效 path/content digest；
 - Spec、Ticket coverage、strict frontier 和 Admission 都能追溯到该 revision；

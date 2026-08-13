@@ -73,7 +73,7 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-PI 的显式 skill 命令格式是 `/skill:<name>`。Skill 文档中的 `/to-spec` 等写法表示工作流跳转；人在输入框中应使用 `/skill:to-spec`。
+人通常只需调用 `/skill:ask-yet`。setup、triage、spec、ticket 和 Admission 都是由模型自动调用的 helper；各自的 `/skill:<name>` 只保留给恢复和调试。
 
 ## 工作流
 
@@ -83,7 +83,7 @@ PI 的显式 skill 命令格式是 `/skill:<name>`。Skill 文档中的 `/to-spe
 /skill:ask-yet [可选：想法、Issue、Release 文档或当前目标]
 ```
 
-`ask-yet` 会从仓库和权威产物恢复当前状态，一次只给出一个产品问题、证据动作或可复制的下一条命令。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`/skill:setup-matt-pocock-skills` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
+`ask-yet` 会从仓库和权威产物恢复当前状态，并在人的持续授权范围内自动推进可逆的规划工作。只有遇到产品选择、仓库策略变更、Ticket 图批准、Admission 激活、禁止操作或重大漂移时才停下。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，setup helper 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
 
 完整路径：
 
@@ -113,7 +113,7 @@ Wayfinder Map 只包含决策、研究、原型和人工输入，不进入实现
 /skill:ask-yet owner/repo#39
 ```
 
-它会根据真实阶段返回 `/skill:triage` 或 `/skill:admit-ticket` 的精确命令。任何生成或 triage 路径都不能直接添加 ready 标签。Admission 会复核场景覆盖、每个状态/产物交接、walking skeleton、严格前沿和全新上下文 readiness，再请求人工确认；source、matrix、候选 Ticket 或任务图发生修改后，必须重新 Admission 才能交给 Harness。
+`ask-yet` 会在真实阶段需要时自行加载 triage 或 Admission。任何生成或 triage 路径都不能直接添加 ready 标签。Admission 会复核场景覆盖、每个状态/产物交接、walking skeleton、严格前沿和全新上下文 readiness，再请求人工确认；source、matrix、候选 Ticket 或任务图发生修改后，必须重新 Admission 才能交给 Harness。
 
 ## 严格前沿安全
 

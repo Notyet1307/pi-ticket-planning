@@ -1,14 +1,13 @@
 ---
 name: to-spec
-description: Compile an exact COMMITTED Release revision or another trusted, decision-complete delivery source into a traceable draft Delivery Spec on the configured issue tracker.
-disable-model-invocation: true
+description: Compile an exact COMMITTED Release or other decision-complete source into a traceable Delivery Spec when ask-yet reaches SPEC and repository setup is ready.
 ---
 
 # To Spec
 
 Compile decided behavior into one durable parent Delivery Spec. Do not interview the human, choose product behavior, or recover authority from conversation memory.
 
-The repository, issue tracker, triage labels, and exact Git base must already be configured by `/skill:setup-matt-pocock-skills`. Use `/ticket-readiness` for artifact roles and activation invariants.
+The repository, issue tracker, triage labels, and exact Git base must already be configured by the `setup-matt-pocock-skills` helper. Use `ticket-readiness` for artifact roles and activation invariants.
 
 ## Process
 
@@ -82,12 +81,12 @@ Use this structure:
 
 Avoid implementation task lists, transient file paths, and working code. Include a short prototype-derived state machine, schema, reducer, or type shape only when it is the clearest authoritative decision.
 
-### 5. Approve and publish the draft
+### 5. Verify and publish the draft
 
-Show the complete body, source identity, base SHA, Scenario IDs, and exact tracker mutation. Wait for explicit approval before publishing.
+Show the complete body, source identity, base SHA, Scenario IDs, and tracker mutation in the work log. If standing automation approval covers reversible draft planning issues, self-check and publish without a separate interruption. Otherwise obtain one approval for this publication.
 
-Publish the approved parent with `needs-triage`; keep both ready labels absent. If unresolved decisions block stable ticketing, use `needs-info` and stop before `/skill:to-tickets`.
+Publish the approved parent with `needs-triage`; keep both ready labels absent. If unresolved decisions block stable ticketing, use `needs-info` and stop before the `to-tickets` helper.
 
 ### 6. Complete
 
-Re-fetch the parent and report its identifier, source identity, exact base, Scenario IDs, walking-skeleton target, label, verification seams, and unresolved decisions. Completion means a human-approved, durable Delivery Spec suitable for `/skill:to-tickets`, not an executable issue.
+Re-fetch the parent and report its identifier, source identity, exact base, Scenario IDs, walking-skeleton target, label, verification seams, and unresolved decisions to `ask-yet`. Completion means an accepted, durable Delivery Spec suitable for `to-tickets`, not an executable issue.

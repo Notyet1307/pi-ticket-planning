@@ -1,12 +1,11 @@
 ---
 name: triage
-description: Move incoming issues and external PRs through verified triage states, writing durable candidate briefs and routing every ready transition through independent admission.
-disable-model-invocation: true
+description: Verify and triage an incoming issue or pull request when ask-yet routes to TRIAGE, then continue automatically to independent admission for ready candidates.
 ---
 
 # Triage
 
-Move incoming tracker requests through category and state roles. Generated implementation tickets normally enter through /to-tickets; use triage for raw reports and external PRs.
+Move incoming tracker requests through category and state roles. Generated implementation tickets normally enter through the `to-tickets` helper; use triage for raw reports and external PRs.
 
 Every tracker comment posted during triage starts with:
 
@@ -17,7 +16,7 @@ Every tracker comment posted during triage starts with:
 - Read [AGENT-BRIEF.md](AGENT-BRIEF.md) before writing a candidate brief.
 - Read [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) before recording a rejected enhancement.
 - Use /ticket-readiness for the executable-ticket contract.
-- Hand off every ready-for-agent or ready-for-human transition to user-invoked /skill:admit-ticket.
+- Hand off every ready-for-agent or ready-for-human transition to the model-invoked `admit-ticket` helper.
 
 ## Roles
 
@@ -77,8 +76,8 @@ When behavior or terminology remains undecided, use /grilling and /domain-modeli
 
 ### 5. Apply the chosen path
 
-- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, print the exact `/skill:admit-ticket <issue identity>` command, and stop. Admission alone applies the label selected by its reviewed execution lane after confirmation.
-- **Too broad:** keep needs-triage and propose /to-tickets with the issue as parent/source.
+- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, and continue to `admit-ticket`. Admission alone applies the label selected by its reviewed execution lane after confirmation.
+- **Too broad:** keep needs-triage, return the issue to `ask-yet` for source shaping, and follow `to-tickets` only after the source is accepted.
 - **needs-info:** post exact established facts and outstanding questions, then apply needs-info.
 - **wontfix, already implemented:** point to the implementation and close without adding an out-of-scope record.
 - **wontfix bug:** explain the rejection and close.
@@ -87,7 +86,7 @@ When behavior or terminology remains undecided, use /grilling and /domain-modeli
 
 ## Direct activation requests
 
-When a maintainer asks to move an item directly to ready-for-agent or ready-for-human, prepare the candidate brief if it is missing, keep needs-triage, print the exact `/skill:admit-ticket <issue identity>` command, and stop. The direct request does not bypass the user-invoked fresh review and its later mutation confirmation.
+When a maintainer asks to move an item directly to ready-for-agent or ready-for-human, prepare the candidate brief if it is missing, keep needs-triage, and continue to `admit-ticket`. The direct request does not bypass fresh review or its later mutation confirmation.
 
 ## Needs-info comment
 
@@ -99,4 +98,4 @@ When a maintainer asks to move an item directly to ready-for-agent or ready-for-
     **What is still needed:**
     - specific question and decision owner
 
-Do not re-ask questions already answered in prior notes. For a candidate, triage completes when its category, needs-triage state, durable brief, and exact Admission handoff agree; activation completes only in /skill:admit-ticket.
+Do not re-ask questions already answered in prior notes. For a candidate, triage completes when its category, needs-triage state, durable brief, and Admission input agree; activation completes only after `admit-ticket` review and human confirmation.

@@ -544,7 +544,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 1. 高不确定性功能在证据不足时停在 `NEEDS_RESEARCH`；
 2. 无 Web/外部读取能力时生成 Research Handoff；
 3. Commitment 后正确区分 repository policy 与 Release/Ticket 局部事实；
-4. 只有 exact committed revision 才获得 `/skill:to-spec` 命令。
+4. 只有 exact committed revision 才允许 `ask-yet` 自动进入 setup 或 `to-spec`。
 
 连续两个 fresh session 通过 Gate A，且首个真实 Release 得到非伪造的 `READY_TO_COMMIT | REWORK | DROP` 后，再进入 Gate C。六类 fixture 只在两个真实样本暴露出稳定结构后冻结，不预写 expected result。
 

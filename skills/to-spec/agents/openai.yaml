@@ -1,6 +1,6 @@
 interface:
   display_name: "To Spec"
   short_description: "Turn decisions into a draft delivery spec"
-  default_prompt: "Use $to-spec to compile this exact COMMITTED Release or decision-complete source into a draft Delivery Spec."
+  default_prompt: "Use $to-spec when ask-yet has an exact COMMITTED Release or decision-complete source and verified delivery setup."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

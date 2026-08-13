@@ -1,12 +1,11 @@
 ---
 name: setup-matt-pocock-skills
-description: "Configure an existing delivery repository, or minimally bootstrap a greenfield repository from an exact COMMITTED Release, for tracker-backed ticket admission and Harness handoff."
-disable-model-invocation: true
+description: Configure delivery setup when ask-yet finds a COMMITTED Release whose existing or greenfield target lacks tracker labels, policy pointers, or admission/Harness prerequisites.
 ---
 
 # Setup Matt Pocock Skills
 
-Establish the repository facts consumed by the planning and admission Skills. Explore, propose one exact mutation plan, obtain scoped approval, apply it, and verify the resulting delivery base.
+Establish the repository facts consumed by planning and admission. Explore, resolve authorization once, apply the smallest permitted setup, and verify the resulting delivery base.
 
 ## 1. Classify the starting state
 
@@ -59,7 +58,7 @@ Write `docs/agents/delivery-gate.md` from the template. It must establish candid
 
 ## 3. Present one exact mutation plan
 
-For every starting state, show:
+For every starting state, determine whether standing automation approval covers the exact reversible operations. Apply covered operations without another interruption. Otherwise show one consolidated plan containing:
 
 - exact files to create or edit and the proposed Agent policy block;
 - exact tracker configuration, missing labels, and capability fallbacks;
@@ -73,7 +72,7 @@ For `GREENFIELD`, also show:
 - the initial commit message and files intentionally left untracked;
 - the proposed remote URL and push target, if any.
 
-Stage only explicitly approved paths; never use `git add .`. Preserve every pre-existing file and change outside the approved set. Repository or label creation and push are external mutations, not implied by approval to write local files. One human reply may authorize several scopes only when it names or unambiguously accepts the complete displayed plan.
+Stage only authorized paths; never use `git add .`. Preserve every pre-existing file and change outside the approved set. Repository or label creation and push require standing approval that includes those external mutations or one consolidated approval. A required stable policy change is always shown once before it governs later work.
 
 The greenfield plan creates a delivery container only. It contains no application scaffold, language or framework selection, dependency manifest, database, CI, Docker setup, or AI architecture unless a later accepted Delivery Spec explicitly requires them.
 
@@ -81,7 +80,7 @@ The greenfield plan creates a delivery container only. It contains no applicatio
 
 Immediately before mutation, re-check the target path, starting-state classification, Release revision, and Git status. Stop on drift.
 
-For `GREENFIELD` after exact approval:
+For `GREENFIELD` after authorization:
 
 1. Initialize Git only when absent; preserve an existing unborn repository and its configured default branch.
 2. Write only the approved `AGENTS.md` or `CLAUDE.md` block and `docs/agents` files.
@@ -110,8 +109,4 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 
 For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
 
-Return the next valid entry point and stop:
-
-```text
-/skill:ask-yet <target repository and COMMITTED Release identity>
-```
+Return the verified setup facts to `ask-yet`, which continues to `to-spec` in the same run when no human gate remains.

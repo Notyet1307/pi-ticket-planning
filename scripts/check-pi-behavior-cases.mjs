@@ -25,13 +25,13 @@ export function validatePiBehaviorCases(file) {
 
   for (const id of [
     "greenfield-uncommitted-stays-in-frame",
-    "greenfield-committed-routes-to-bootstrap",
+    "committed-release-auto-loads-setup-helper",
     "internal-canary-preserves-customer-evidence-boundary",
     "existing-git-unpublished-release-stays-in-frame",
     "missing-handoffs-fail-closed",
     "complete-handoffs-reach-approval-gate",
     "normalized-delivery-graph-reaches-approval-gate",
-    "triage-stops-at-user-invoked-admission",
+    "triage-auto-continues-to-admission",
     "fresh-reviewer-accepts-complete-execution-context",
     "fresh-reviewer-rejects-missing-execution-context"
   ]) {

@@ -1,14 +1,13 @@
 ---
 name: to-tickets
-description: Break an accepted Delivery Spec into traceable candidate tickets, prove Scenario coverage and a walking skeleton, wire the blocker graph, and prepare the unchanged graph for independent admission.
-disable-model-invocation: true
+description: Draft and publish a traceable candidate graph when ask-yet has an accepted Delivery Spec, stopping once for graph approval before independent admission.
 ---
 
 # To Tickets
 
-Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; `/skill:admit-ticket` alone owns ready labels.
+Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; `admit-ticket` alone owns ready labels.
 
-The issue tracker and triage labels must be configured by `/skill:setup-matt-pocock-skills`. Load `/ticket-readiness` before drafting.
+The issue tracker and triage labels must be configured by `setup-matt-pocock-skills`. Load `/ticket-readiness` before drafting.
 
 ## Process
 
@@ -157,12 +156,6 @@ Re-fetch the parent and run the Delivery Graph checker against its body using th
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 
-### 6. Hand off to Admission
+### 6. Continue to Admission
 
-Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels. Then print exactly one command and stop:
-
-```text
-/skill:admit-ticket <delivery parent identity>
-```
-
-Do not invoke Admission silently. Candidate publication is complete only when the tracker matches the approved coverage and graph snapshot; ready activation remains a separate human-invoked gate.
+Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow the `admit-ticket` helper in the same run. Candidate publication is complete only when the tracker matches the approved coverage and graph snapshot; Admission still stops after fresh review for explicit activation confirmation.

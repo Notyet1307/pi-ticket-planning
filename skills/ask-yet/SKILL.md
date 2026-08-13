@@ -1,12 +1,12 @@
 ---
 name: ask-yet
-description: Enter or resume the product-to-outcome workflow, reconstruct the current gate from repository facts, and return one next action or explicit PI skill command.
+description: Enter or resume the product-to-outcome workflow, reconstruct the current gate from repository facts, and advance automatically until a real human decision boundary.
 disable-model-invocation: true
 ---
 
 # Ask Yet
 
-This is the single human entry point for product shaping and formal delivery. Route the work; do not copy or silently perform the jobs of downstream user-invoked skills.
+This is the single human entry point for product shaping and formal delivery. Route the work by loading the matching downstream helper; do not copy its contract into this Skill.
 
 The human invokes:
 
@@ -20,11 +20,11 @@ The human invokes:
 - Treat conversation and summaries as leads, not facts. Verify live repository, tracker, and Harness state when they control the next gate.
 - Keep product evidence, delivery progress, release state, and outcome separate.
 - Never turn an assumption into a fact, simulate customer evidence, or close a blocking external unknown from model memory.
-- Treat mutation approval as scoped: approval to discuss, design, review, continue, or accept content is not write approval. Name the exact target and operation; for a Release change also name the current and target revision, then wait for explicit approval covering that mutation.
+- Treat mutation approval as scoped. A human request to advance an exact target and Release automatically is standing approval for reversible planning mutations within the stated boundaries; do not re-ask per file, commit, or tracker write. Require new approval on target, source, scope, policy, or risk drift, and for remote publication unless the standing approval includes it.
 - In an existing Git repository, treat a Release revision as authoritative only when its exact artifact blob is reachable from the accepted remote delivery base. A working-tree file, patch preview, or unpublished local commit is still a draft.
 - Never enter `SPEC` before a human commits an exact Release revision.
 - Never route the formal product path to `/skill:implement`. Admitted implementation tickets go to the configured Harness.
-- Stop once one next action or one non-delegable human input is known.
+- Continue through discoverable, reversible mechanical steps. Stop only for a non-delegable product decision, policy change, graph approval, Admission activation, forbidden operation, or material drift/failure.
 
 ## Choose the run mode
 
@@ -51,7 +51,7 @@ Do not scan the full issue graph or history during `ORIENT`. Read one obvious lo
 
 An empty directory, a non-Git directory, or an unborn Git repository is a valid `PRODUCT / ORIENT` starting point. Record absent code, commits, root policy, README, product entry points, and tracker support as absent facts, not blockers. If the human supplied a product intent, continue to `PRODUCT / FRAME` and ask at most one product question needed to identify the actor, trigger, observed problem, target outcome, or smallest closed loop.
 
-During greenfield `FRAME` and `EVIDENCE`, do not initialize Git, bootstrap repository or tracker support, choose a stack or architecture, or create application code merely because those artifacts are absent. Repository bootstrap becomes eligible only after a human has `COMMITTED` an exact Release revision; every write still requires explicit approval for its target and operation.
+During greenfield `FRAME` and `EVIDENCE`, do not initialize Git, bootstrap repository or tracker support, choose a stack or architecture, or create application code merely because those artifacts are absent. Repository bootstrap becomes eligible only after a human has `COMMITTED` an exact Release revision; apply it automatically only when standing approval covers the target operations.
 
 ## Classify the lane
 
@@ -73,10 +73,10 @@ Read [references/release-loop.md](references/release-loop.md) in full before sha
 
 Progress only one stage:
 
-1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain write approval before creating it. For an existing Git target, include the exact stage, commit, and permitted pre-delivery publication handoff needed to make that artifact durable; remain in `FRAME` until the accepted remote base contains the approved blob. Never route this publication through the implementation Harness, which starts only after Admission.
+1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain or reuse scoped write approval. For an existing Git target, include the exact stage, commit, and permitted pre-delivery publication handoff needed to make that artifact durable; remain in `FRAME` until the accepted remote base contains the approved blob. Never route this publication through the implementation Harness, which starts only after Admission.
 2. `EVIDENCE`: label claims, preserve the highest-risk unknown, and choose the cheapest bounded action that can change the Release decision. Design the protocol in conversation first. Fix appetite, pass/fail threshold, evidence to capture, and stop condition before requesting approval for the exact artifact revision, and before running it.
-3. `COMMIT`: apply all six readiness tests. `READY_TO_COMMIT` requires a human choice of `COMMITTED | HOLD | REWORK | DROP`; never choose for them.
-4. After `COMMITTED`, require a real delivery base containing the exact Release blob. If the target is non-Git or has an unborn `HEAD`, route first to `/skill:setup-matt-pocock-skills <target, Release artifact, and exact revision>`; Commitment authorizes only the displayed bootstrap plan, not implementation. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. If a new stable cross-ticket rule is required, show the effective policy path and minimal diff, then wait for approval and merge it into the target base before delivery depends on it.
+3. `COMMIT`: apply all six readiness tests. `READY_TO_COMMIT` requires a human choice of `COMMITTED | HOLD | REWORK | DROP`; never choose for them. In the same decision, recommend standing automatic advancement for reversible planning work or stepwise mode so this choice is asked once.
+4. After `COMMITTED`, require a real delivery base containing the exact Release blob. If the target is non-Git, unborn, or missing delivery setup, load and follow the `setup-matt-pocock-skills` helper. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. A required stable policy change remains a human decision; show its minimum diff once and stop. Never let setup choose implementation behavior.
 5. `OUTCOME`: evaluate only after release evidence and the stated evidence window. Return an outcome verdict and a candidate next decision, never a ready implementation ticket.
 
 During `FRAME` and `EVIDENCE`:
@@ -98,21 +98,17 @@ If Wayfinder is genuinely required, return only the destination, why one context
 
 ### DELIVERY
 
-Advance through these visible gates; do not invoke them silently:
+Advance through these gates by loading and following the named model-invoked helper. Continue in the same run until that helper reaches a human gate:
 
-1. If Git `HEAD` does not resolve or repository tracker support is missing, return `/skill:setup-matt-pocock-skills` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
-2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted delivery base, and the repository contract ready, return `/skill:to-spec <release artifact path and revision>`.
-3. With an accepted Delivery Spec, return `/skill:to-tickets <spec identity>`.
-4. With a candidate ticket graph, return `/skill:admit-ticket <parent identity>`.
+1. If Git `HEAD` does not resolve or repository tracker support is missing, follow `setup-matt-pocock-skills` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
+2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted delivery base, and the repository contract ready, follow `to-spec` with the artifact path, revision, and base.
+3. With an accepted Delivery Spec, follow `to-tickets` with its exact identity. Stop for the required split and graph approval before candidate publication.
+4. After approved candidates are persisted, follow `admit-ticket` with the parent identity. Stop for the required activation confirmation after fresh review.
 5. After Admission, report `ADMITTED` with the exact ticket, graph, base, source, policy, and execution lane. Any candidate or graph edit requires Admission again.
 
 ### TRIAGE
 
-If the symptom is not yet a confirmed bug, obtain the smallest reproduction or diagnosis signal. Then return:
-
-```text
-/skill:triage <issue identity and verified signal>
-```
+If the symptom is not yet a confirmed bug, obtain the smallest reproduction or diagnosis signal. Then load and follow the `triage` helper with the exact issue and signal.
 
 If the issue is actually a new outcome or behavior choice, return to `PRODUCT`. Do not use triage to bypass Commitment or Admission.
 
@@ -124,14 +120,11 @@ Fix the required verification, rollback, blast radius, manual approval, and stop
 
 Stop ordinary planning. Preserve evidence and follow the repository's incident and recovery policy. Do not create a Release or implementation backlog while impact is active.
 
-## Explicit command rule
+## Invocation rule
 
-The user-invoked skills `/skill:setup-matt-pocock-skills`, `/skill:wayfinder`, `/skill:to-questionnaire`, `/skill:triage`, `/skill:to-spec`, `/skill:to-tickets`, and `/skill:admit-ticket` require human invocation. When one is the next gate:
+The human needs to remember only `/skill:ask-yet`. `setup-matt-pocock-skills`, `triage`, `to-spec`, `to-tickets`, and `admit-ticket` are model-invoked helpers: read their `SKILL.md` when their gate matches and follow them in the current run. A human may still invoke one directly for recovery.
 
-1. Name why it is now allowed.
-2. Pin its authoritative input.
-3. Print exactly one copyable command.
-4. Stop.
+`wayfinder` and `to-questionnaire` remain separate human interactions. When either is genuinely required, print one exact command and stop.
 
 Model-invoked helpers such as `research`, `prototype`, `grilling`, `domain-modeling`, and `diagnosing-bugs` may be followed only when their real tool and authorization requirements are satisfied.
 
@@ -147,9 +140,9 @@ Use only these stage verdicts:
 | `FRAME` | `FRAME_CANDIDATE`, `FRAME_WRITE_AWAITING_APPROVAL` |
 | `EVIDENCE` | `EVIDENCE_ACTION_NEEDED`, `EVIDENCE_WRITE_AWAITING_APPROVAL`, `EVIDENCE_DESIGNED_NOT_AUTHORIZED`, `EVIDENCE_AUTHORIZED`, `EVIDENCE_RECORDED` |
 | `COMMIT` | `NOT_READY`, `READY_TO_COMMIT`, `COMMITTED`, `HOLD`, `REWORK`, `DROP` |
-| `SPEC` | `SPEC_COMMAND_READY`, `SPEC_ACCEPTED`, `BLOCKED` |
-| `TICKETS` | `TICKETS_COMMAND_READY`, `TICKET_GRAPH_CANDIDATE`, `BLOCKED` |
-| `ADMISSION` | `ADMISSION_COMMAND_READY`, `ADMITTED`, `BLOCKED` |
+| `SPEC` | `SPEC_IN_PROGRESS`, `SPEC_ACCEPTED`, `BLOCKED` |
+| `TICKETS` | `TICKET_GRAPH_CANDIDATE`, `TICKETS_ACCEPTED`, `BLOCKED` |
+| `ADMISSION` | `REVIEW_IN_PROGRESS`, `ACTIVATION_AWAITING_CONFIRMATION`, `ADMITTED`, `BLOCKED` |
 | `EXECUTION` | `HANDOFF_READY`, `IN_PROGRESS`, `BLOCKED`, `DELIVERED` |
 | `OUTCOME` | `ACHIEVED`, `PARTIAL`, `NOT_ACHIEVED`, `UNEVALUABLE` |
 

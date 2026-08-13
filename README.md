@@ -73,7 +73,7 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-PI's explicit skill command form is `/skill:<name>`. References such as `/to-spec` inside skill documents describe workflow transitions; humans type `/skill:to-spec`.
+Humans normally invoke only `/skill:ask-yet`. Setup, triage, spec, ticket, and Admission skills are model-invoked helpers; their direct `/skill:<name>` commands remain available for recovery and debugging.
 
 ## Workflow
 
@@ -83,7 +83,7 @@ Start every product idea, feature, issue, and resumed flow through one entry poi
 /skill:ask-yet [optional idea, issue, Release artifact, or current goal]
 ```
 
-`ask-yet` reconstructs state from the repository and authoritative artifacts, then returns one product question, evidence action, or copyable next command. In an existing Git target, a Release is authoritative only when its exact blob is present in the accepted remote base; a working-tree file or unpublished commit cannot feed `to-spec`. An empty or unborn repository remains in product shaping until a human commits an exact Release revision; only then may `/skill:setup-matt-pocock-skills` create the minimal Git/tracker delivery base. That bootstrap does not choose an application stack or create implementation scaffolding.
+`ask-yet` reconstructs state from the repository and authoritative artifacts, then advances automatically through reversible planning work covered by the human's standing authorization. It stops for product choices, repository-policy changes, Ticket-graph approval, Admission activation, forbidden operations, or material drift. In an existing Git target, a Release is authoritative only when its exact blob is present in the accepted remote base; a working-tree file or unpublished commit cannot feed `to-spec`. An empty or unborn repository remains in product shaping until a human commits an exact Release revision; only then may the setup helper create the minimal Git/tracker delivery base. That bootstrap does not choose an application stack or create implementation scaffolding.
 
 The complete path is:
 
@@ -113,7 +113,7 @@ Existing issues and direct activation requests also use the router:
 /skill:ask-yet owner/repo#39
 ```
 
-It returns the exact `/skill:triage` or `/skill:admit-ticket` command when that is the true next gate. No generation or triage path may directly add a ready label. Admission rechecks Scenario coverage, every state/artifact handoff, the walking skeleton, strict-frontier order, and a fresh readiness review before human confirmation. A changed source, matrix, candidate, or graph must pass Admission again before Harness handoff.
+`ask-yet` loads triage or Admission itself when that is the true next gate. No generation or triage path may directly add a ready label. Admission rechecks Scenario coverage, every state/artifact handoff, the walking skeleton, strict-frontier order, and a fresh readiness review before human confirmation. A changed source, matrix, candidate, or graph must pass Admission again before Harness handoff.
 
 ## Strict-frontier safety
 

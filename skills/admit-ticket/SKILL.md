@@ -1,7 +1,6 @@
 ---
 name: admit-ticket
-description: Independently review and activate unchanged candidate implementation tickets or delivery maps after human confirmation.
-disable-model-invocation: true
+description: Run independent readiness and graph review when ask-yet has persisted candidates, then stop for human confirmation before ready-label activation.
 ---
 
 # Admit Ticket

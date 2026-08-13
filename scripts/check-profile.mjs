@@ -21,22 +21,22 @@ const EXPECTED_SKILLS = new Set([
   ...lock.packageSkills,
 ]);
 const REQUIRED_HUMAN_INVOKED = new Set([
-  "admit-ticket",
   "ask-yet",
-  "setup-matt-pocock-skills",
   "to-questionnaire",
-  "to-spec",
-  "to-tickets",
-  "triage",
   "wayfinder",
 ]);
 const REQUIRED_MODEL_INVOKED = new Set([
+  "admit-ticket",
   "diagnosing-bugs",
   "domain-modeling",
   "grilling",
   "prototype",
   "research",
+  "setup-matt-pocock-skills",
   "ticket-readiness",
+  "to-spec",
+  "to-tickets",
+  "triage",
 ]);
 
 const run = spawnSync(

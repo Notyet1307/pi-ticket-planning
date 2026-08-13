@@ -15,9 +15,9 @@ const REQUIRED_PACKAGE_SKILLS = [
   "to-tickets",
   "triage",
 ];
-const HUMAN_INVOKED_SKILLS = new Set([
+const HUMAN_INVOKED_SKILLS = new Set(["ask-yet"]);
+const MODEL_INVOKED_PACKAGE_SKILLS = new Set([
   "admit-ticket",
-  "ask-yet",
   "setup-matt-pocock-skills",
   "to-spec",
   "to-tickets",
@@ -116,6 +116,16 @@ export function validatePackage(root) {
     ) {
       errors.push(`${dir.name}: UI metadata allows implicit invocation`);
     }
+    if (MODEL_INVOKED_PACKAGE_SKILLS.has(dir.name) && frontmatterValue(text, "disable-model-invocation") === "true") {
+      errors.push(`${dir.name}: helper is hidden from implicit model invocation`);
+    }
+    if (
+      MODEL_INVOKED_PACKAGE_SKILLS.has(dir.name)
+      && fs.existsSync(metadataFile)
+      && !fs.readFileSync(metadataFile, "utf8").includes("allow_implicit_invocation: true")
+    ) {
+      errors.push(`${dir.name}: helper UI metadata blocks implicit invocation`);
+    }
 
     for (const match of text.matchAll(/(?:^|[\s(])\/(?:skill:)?([a-z][a-z0-9-]*)/gm)) {
       const target = match[1];
@@ -143,9 +153,17 @@ export function validatePackage(root) {
     "READY_TO_COMMIT",
     "Research Handoff",
     "Repository Contract Impact Review",
-    "/skill:to-spec",
-    "/skill:to-tickets",
-    "/skill:admit-ticket",
+    "standing approval for reversible planning mutations",
+    "do not re-ask per file, commit, or tracker write",
+    "setup-matt-pocock-skills",
+    "to-spec",
+    "to-tickets",
+    "admit-ticket",
+    "Stop for the required split and graph approval",
+    "Stop for the required activation confirmation",
+    "The human needs to remember only",
+    "model-invoked helpers",
+    "A required stable policy change remains a human decision",
     "ADMITTED",
     "FRAME_WRITE_AWAITING_APPROVAL",
     "EVIDENCE_DESIGNED_NOT_AUTHORIZED",
@@ -160,7 +178,6 @@ export function validatePackage(root) {
     "absent facts, not blockers",
     "choose a stack or architecture",
     "Repository bootstrap becomes eligible only after",
-    "Commitment authorizes only the displayed bootstrap plan",
     "accepted remote delivery base",
     "remain in `FRAME` until the accepted remote base contains the approved blob",
     "Never route this publication through the implementation Harness",
@@ -195,6 +212,9 @@ export function validatePackage(root) {
     "Use Git as the durability boundary",
     "cannot feed `to-spec`",
     "cannot publish the Release or setup needed to reach Admission",
+    "standing automation approval",
+    "do not request permission for each file, commit, or tracker mutation",
+    "Ticket-graph publication and Admission activation",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
   }
@@ -237,7 +257,8 @@ export function validatePackage(root) {
     "## Source scenarios",
     "## Coverage role",
     "## Ticket coverage",
-    "Do not invoke Admission silently",
+    "follow the `admit-ticket` helper in the same run",
+    "explicit activation confirmation",
     "Do not qualify a `READY` verdict",
     "Every member must be individually `READY`",
     "Entry -> exit / handoff",
@@ -286,7 +307,7 @@ export function validatePackage(root) {
     "exact COMMITTED Release",
     "never use `git add .`",
     "application scaffold",
-    "explicitly approved paths",
+    "authorized paths",
     "exact base SHA",
     "accepted remote base contains every required configuration blob",
     "Never route prerequisite setup through the implementation Harness",
@@ -311,8 +332,8 @@ export function validatePackage(root) {
   if (!triage.includes("ready-for-agent or ready-for-human transition")) {
     errors.push("triage does not route both ready labels through admission");
   }
-  if (!triage.includes("print the exact `/skill:admit-ticket <issue identity>` command, and stop")) {
-    errors.push("triage does not stop at the user-invoked Admission handoff");
+  if (!triage.includes("continue to `admit-ticket`") || !triage.includes("does not bypass fresh review or its later mutation confirmation")) {
+    errors.push("triage does not continue through the model-invoked Admission helper");
   }
 
   const toSpecMetadata = fs.readFileSync(path.join(skillRoot, "to-spec", "agents", "openai.yaml"), "utf8");
@@ -320,8 +341,8 @@ export function validatePackage(root) {
     errors.push("to-spec UI prompt accepts an untrusted conversational source");
   }
   const toTicketsMetadata = fs.readFileSync(path.join(skillRoot, "to-tickets", "agents", "openai.yaml"), "utf8");
-  if (!toTicketsMetadata.includes("stop at the Admission handoff")) {
-    errors.push("to-tickets UI prompt bypasses the explicit Admission command");
+  if (!toTicketsMetadata.includes("stop for graph approval, then continue to Admission")) {
+    errors.push("to-tickets UI prompt does not preserve the graph gate before automatic Admission");
   }
 
   const reviewer = fs.readFileSync(path.join(root, "agents", "ticket-readiness-reviewer.md"), "utf8");
