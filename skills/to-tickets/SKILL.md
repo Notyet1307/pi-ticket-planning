@@ -37,7 +37,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - no more than three independent delivery surfaces;
 - stable source Scenario IDs, closed decisions, real blockers, decision sources, and explicit out-of-scope work;
 - an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
-- enough durable context for a fresh executor in the assigned lane.
+- enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
 
 Do not qualify a `READY` verdict. If an open decision can change the candidate's outcome, primary verification, acceptance criteria, or output contract, that candidate is `NEEDS_INFO` until the decision closes.
 

@@ -202,8 +202,17 @@ export function validatePackage(root) {
   for (const required of ["Starting state:", "Invariants and guardrails:"]) {
     if (!readiness.includes(required)) errors.push(`ticket-readiness lacks execution context: ${required}`);
   }
+  for (const required of [
+    "choose the first correct action from the ticket plus repository policy",
+    "never the only copy of behavior or a guardrail required to start",
+  ]) {
+    if (!readiness.includes(required)) errors.push(`ticket-readiness hides required execution context: ${required}`);
+  }
   for (const required of ["## Starting state", "## Invariants and guardrails"]) {
     if (!triageBrief.includes(required)) errors.push(`triage brief lacks execution context: ${required}`);
+  }
+  if (!triageBrief.includes("choose the first correct action from this brief and repository policy")) {
+    errors.push("triage brief depends on hidden tracker context");
   }
   for (const required of [
     "PRODUCT_RELEASE",
@@ -233,6 +242,7 @@ export function validatePackage(root) {
     "Do not persist a duplicate prose matrix",
     "## Starting state",
     "## Invariants and guardrails",
+    "choose the first correct action from it and repository policy",
   ]) {
     if (!toTickets.includes(required)) errors.push(`to-tickets lacks coverage contract: ${required}`);
   }

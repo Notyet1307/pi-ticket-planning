@@ -1,6 +1,6 @@
 # Writing Candidate Briefs
 
-The candidate brief is the authoritative implementation contract attached before /admit-ticket runs. Original discussion remains context; the brief is what a fresh executor in the assigned lane follows.
+The candidate brief is the authoritative implementation contract attached before /admit-ticket runs. A fresh executor must be able to choose the first correct action from this brief and repository policy. Original discussion and linked sources provide provenance or detail; they are never the only copy of required behavior or guardrails.
 
 Write behavior and durable interfaces, not file paths, line numbers, or a procedural edit list. Satisfy the /ticket-readiness contract.
 
