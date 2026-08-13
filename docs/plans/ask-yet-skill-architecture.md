@@ -1,6 +1,6 @@
 # `/ask-yet`：产品到交付统一入口 Skill 架构
 
-> 状态：Phase 1 已实现并通过 package/Profile 验证；等待用户前向测试 Gate A
+> 状态：Phase 1 与 Gate C 静态接缝已在未发布的 `main` 实现；真实产品证据循环和 Release→Harness 端到端验证仍待完成
 >
 > 日期：2026-08-12
 >
@@ -601,6 +601,8 @@ Package 接线需要：
 
 ### Phase 2：Fixture A Gate A 用户前向测试
 
+**状态：部分完成。** 隔离 fresh session 已验证入口、恢复、能力边界和人工 Gate；真实产品样本的用户前向证据仍未闭环。
+
 - 用户启动 PI 并亲自对话；
 - 观察者读取 session JSONL；
 - 每次只修一个可重复失败；
@@ -610,6 +612,8 @@ Package 接线需要：
 
 ### Phase 3：Fixture A Gate B 产品证据循环
 
+**状态：进行中。** 已有 `NEEDS_RESEARCH` Frame，但尚未得到基于真实外部证据的 `READY_TO_COMMIT | REWORK | DROP`。
+
 - 真实完成访谈/Pilot；
 - 用 `ask-yet` 恢复并更新唯一 Frame；
 - 用至少一个缺外部访问能力的 fresh session 验证 Research Handoff；
@@ -618,6 +622,8 @@ Package 接线需要：
 退出条件：得到真实 `READY_TO_COMMIT/REWORK/DROP`，而不是靠预设答案模拟通过。
 
 ### Phase 4：Gate C 交付接缝
+
+**状态：实现完成、运行验收未完成。** normalized graph、coverage、walking skeleton、fresh-start ticket context、显式 Admission handoff 和 greenfield base 均已接入；仍需一个人类确认的 `COMMITTED` Release 完成真实 Harness canary。
 
 - `COMMITTED` 的空仓库先建立最小 Git/Tracker 基线，不生成应用脚手架；
 - `to-spec` 固定 trusted source、base SHA 和稳定 Scenario ID；

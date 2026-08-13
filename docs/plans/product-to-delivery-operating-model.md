@@ -1,6 +1,6 @@
 # 从产品意图到可验证结果：全阶段运行方案
 
-> 状态：已批准，进入 Phase 1
+> 状态：Phase 1–3 的运行时接缝已在未发布的 `main` 实现；真实产品证据循环与 Gate C Release→Harness 验证仍未完成
 >
 > 日期：2026-08-12
 >
@@ -509,7 +509,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 1：统一入口与首个真实 Release Pilot
 
-**状态：进行中。** `ask-yet` 首版 Router 与内部 Release loop 已实现并通过隔离 Profile 验证；等待用户前向测试。第一个高不确定性候选是 Exposure-Agent 的“暴露面资产差异确认闭环”；既有手工 Frame verdict 为 `NEEDS_RESEARCH`，见 [`R001 Pilot`](../pilots/exposure-agent-r001-product-validation.md)。
+**状态：进行中。** `ask-yet` Router 与内部 Release loop 已实现，并通过隔离 Profile、fresh-session 路由和只读恢复检查；真实产品证据循环尚未完成。第一个高不确定性候选是 Exposure-Agent 的“暴露面资产差异确认闭环”；既有手工 Frame verdict 为 `NEEDS_RESEARCH`，见 [`R001 Pilot`](../pilots/exposure-agent-r001-product-validation.md)。
 
 该产品只是一项外部试验样本；其领域术语、事实和预期答案不进入 `ask-yet` 核心契约。
 
@@ -535,6 +535,8 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 2：`ask-yet` Gate A/B 用户前向测试
 
+**状态：部分完成。** fresh-session 的入口、恢复、能力边界和人工 Gate 已有只读验证；真实产品样本的证据获取与 Human Commitment 仍待完成。
+
 在 fresh PI session 中由用户亲自测试入口恢复、Lane/Stage 路由、产品证据和能力降级；观察者不把预期答案注入被测上下文。每次只修一个可重复失败。
 
 至少覆盖：
@@ -549,6 +551,8 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 **明确跳过**：不增加第二套产品 Reviewer、不修改 HerdrHarness、不建立通用包、不自动生成全产品 Roadmap。
 
 ### Phase 3：v0.3，补已确认的交付接缝
+
+**状态：实现完成、尚未发布。** 下列接缝已落在 `v0.2.0` 之后的 `main` 并通过 package/Profile 检查；只有真实 `COMMITTED` Release→Harness canary 通过后，才发布为下一版本。
 
 用户审核后已确认实现以下最小门禁，而不是整包预建：
 

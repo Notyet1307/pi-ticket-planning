@@ -307,7 +307,7 @@ docs/product/releases/<release-id>-<slug>.md
 | 单一明显的本地事实读取 | 主上下文 | 直接读取，不委派 |
 | 多来源一手资料研究 | `research` | 提供单一 decision question；回填来源、结论和局限 |
 | UI / 状态模型试验 | `prototype` | 提供单一 prototype question；回填被验证或否定的决定 |
-| 多会话决策图 | `wayfinder` | 返回 destination 和精确 `/skill:wayfinder` 命令；完成后重跑 `/to-release` |
+| 多会话决策图 | `wayfinder` | 返回 destination 和精确 `/skill:wayfinder` 命令；完成后重跑 `/skill:ask-yet` |
 | 已决定行为编译 | `to-spec` | 只接受 `COMMITTED` Frame exact revision |
 | 实现切片与图 | `to-tickets` | 保持现有职责，不读取未承诺候选 |
 | Ticket 准入 | `ticket-readiness` / `admit-ticket` | 保持现有 fresh-context 与人工确认边界 |
