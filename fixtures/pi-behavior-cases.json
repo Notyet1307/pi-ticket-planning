@@ -43,6 +43,26 @@
       "observedExcerpt": "r1 已 COMMITTED，但缺少真实 base SHA，因此仅允许进入仓库设置门。\n/skill:setup-matt-pocock-skills target=<temporary-root> release=<release-path> revision=r1\nCheckpoint: DELIVERY/SPEC · REL-001 r1 · BLOCKED\nBlocked: 真实 base SHA 建立前禁止进入 SPEC"
     },
     {
+      "id": "internal-canary-preserves-customer-evidence-boundary",
+      "skill": "ask-yet",
+      "inputState": "Existing private Harness sandbox; sole maintainer requests a read-only planning-to-Harness canary with one deterministic function payload.",
+      "expected": {
+        "mustMatch": [
+          "Lane：PRODUCT",
+          "Stage：FRAME",
+          "canary 不作为客户价值证据",
+          "Checkpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE",
+          "Need: 人工选择候选 Frame"
+        ],
+        "mustNotMatch": [
+          "/skill:to-spec",
+          "Checkpoint: DELIVERY/"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Lane：PRODUCT\nStage：FRAME\n来源边界：仓库事实、Git/Tracker 实时状态及明确提供的约束；canary 不作为客户价值证据。\n建议选择该 Frame，但明确把 farewell 当作流程载荷，而非客户价值假设。\nCheckpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE\nNeed: 人工选择候选 Frame"
+    },
+    {
       "id": "missing-handoffs-fail-closed",
       "skill": "to-tickets",
       "inputState": "Accepted tracked Spec names S1-S3 and their order but omits explicit entry/exit artifacts and clearing transitions.",

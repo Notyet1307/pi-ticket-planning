@@ -26,6 +26,7 @@ export function validatePiBehaviorCases(file) {
   for (const id of [
     "greenfield-uncommitted-stays-in-frame",
     "greenfield-committed-routes-to-bootstrap",
+    "internal-canary-preserves-customer-evidence-boundary",
     "missing-handoffs-fail-closed",
     "complete-handoffs-reach-approval-gate",
     "normalized-delivery-graph-reaches-approval-gate",
