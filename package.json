@@ -22,10 +22,11 @@
   "scripts": {
     "check": "node scripts/check-package.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
+    "check:pi-behavior": "node scripts/check-pi-behavior-cases.mjs",
     "check:profile": "node scripts/check-profile.mjs",
     "install:profile": "node scripts/install-profile.mjs",
     "test": "node --test test/*.test.mjs",
-    "verify:ci": "npm run check && npm test",
+    "verify:ci": "npm run check && npm run check:pi-behavior && npm test",
     "verify": "npm run verify:ci && npm run check:profile"
   },
   "pi": {

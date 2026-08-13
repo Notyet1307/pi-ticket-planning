@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "provenance": {
+    "packageTag": "v0.2.0",
+    "model": "openai-codex/gpt-5.6-sol",
+    "observedAt": "2026-08-13",
+    "note": "Redacted excerpts from fresh read-only PI canaries; wording is not a golden answer."
+  },
+  "cases": [
+    {
+      "id": "greenfield-uncommitted-stays-in-frame",
+      "skill": "ask-yet",
+      "inputState": "Empty non-Git directory; product intent supplied; no Release or Commitment.",
+      "expected": {
+        "mustMatch": [
+          "Checkpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE",
+          "Blocked: Release 写入、EVIDENCE 与 COMMIT"
+        ],
+        "mustNotMatch": [
+          "/skill:setup-matt-pocock-skills",
+          "/skill:to-spec"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "仓库为空且非 Git；缺少仓库制品不是当前 blocker。先用最近真实事件收窄 Frame。\nCheckpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE\nBlocked: Release 写入、EVIDENCE 与 COMMIT"
+    },
+    {
+      "id": "greenfield-committed-routes-to-bootstrap",
+      "skill": "ask-yet",
+      "inputState": "Non-Git directory with one exact COMMITTED Release r1.",
+      "expected": {
+        "mustMatch": [
+          "/skill:setup-matt-pocock-skills",
+          "revision=r1",
+          "Checkpoint: DELIVERY/SPEC · REL-001 r1 · BLOCKED",
+          "Blocked: 真实 base SHA 建立前禁止进入 SPEC"
+        ],
+        "mustNotMatch": [
+          "/skill:to-spec"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "r1 已 COMMITTED，但缺少真实 base SHA，因此仅允许进入仓库设置门。\n/skill:setup-matt-pocock-skills target=<temporary-root> release=<release-path> revision=r1\nCheckpoint: DELIVERY/SPEC · REL-001 r1 · BLOCKED\nBlocked: 真实 base SHA 建立前禁止进入 SPEC"
+    },
+    {
+      "id": "missing-handoffs-fail-closed",
+      "skill": "to-tickets",
+      "inputState": "Accepted tracked Spec names S1-S3 and their order but omits explicit entry/exit artifacts and clearing transitions.",
+      "expected": {
+        "mustMatch": [
+          "Graph verdict: NEEDS_INFO",
+          "Scenario coverage: FAIL",
+          "Walking skeleton: FAIL",
+          "未创建或修改任何文件"
+        ],
+        "mustNotMatch": [
+          "Scenario coverage: PASS",
+          "Walking skeleton: PASS"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Graph verdict: NEEDS_INFO。S1 到 S2 和 S2 到 S3 缺少显式状态或产物交接，且 invalid 状态没有 clearing transition。\nScenario coverage: FAIL\nWalking skeleton: FAIL\n未创建或修改任何文件。"
+    },
+    {
+      "id": "complete-handoffs-reach-approval-gate",
+      "skill": "to-tickets",
+      "inputState": "Accepted tracked Spec has explicit external input, S1-S3 artifacts, failure clearing behavior, signals, and clean source/base snapshot.",
+      "expected": {
+        "mustMatch": [
+          "Scenario coverage：PASS",
+          "Walking skeleton：PASS",
+          "Exact write set",
+          "等待人类批准"
+        ],
+        "mustNotMatch": [
+          "ready-for-agent",
+          "ready-for-human"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Scenario coverage：PASS。Walking skeleton：PASS。C01(S1) -> C02(S2) -> C03(S3)，每一步消费前一步明确产生的 artifact。输出 Exact write set 后等待人类批准；没有写文件或应用 ready 状态。"
+    }
+  ]
+}

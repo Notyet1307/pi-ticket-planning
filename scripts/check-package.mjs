@@ -116,7 +116,9 @@ export function validatePackage(root) {
   if (pkg.mattpocockUpstream?.commit !== EXPECTED_COMMIT) errors.push("package.json upstream commit drifted");
   if (lock.commit !== EXPECTED_COMMIT) errors.push("upstream-lock.json commit drifted");
   if (pkg.mattpocockUpstream?.updatePolicy !== "manual") errors.push("upstream policy must remain manual");
-  if (pkg.scripts?.["verify:ci"] !== "npm run check && npm test") errors.push("package lacks the repository-only CI check");
+  if (pkg.scripts?.["verify:ci"] !== "npm run check && npm run check:pi-behavior && npm test") {
+    errors.push("package lacks the repository-only CI check");
+  }
   if (pkg.scripts?.verify !== "npm run verify:ci && npm run check:profile") {
     errors.push("full verification must include the live Profile check");
   }
