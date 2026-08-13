@@ -27,7 +27,7 @@ Return READY only when every condition holds:
 5. **Decisions are closed.** Product behavior, architecture, data ownership, compatibility, and rollout choices needed to start are already decided and do not conflict with linked ADRs.
 6. **Dependencies are real.** Blocked by lists prerequisites without which the ticket cannot be completed and pass its primary verification independently. Preferred order is not a blocker when an available stable contract still permits independent completion.
 7. **Scope is explicit.** Out of scope names the adjacent work this ticket intentionally leaves behind.
-8. **Fresh-start sufficiency.** A fresh executor in the assigned lane can begin from this ticket, its parent spec, and linked decision sources without recovering hidden conversation context.
+8. **Fresh-start sufficiency.** The ticket names its starting state or available inputs and the invariants or guardrails it must preserve. A fresh executor in the assigned lane can begin from this ticket, its parent spec, and linked decision sources without recovering hidden conversation context.
 9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
 
 Prefer a vertical slice through only the layers needed for the observable result. Preserve wide mechanical refactors as expand–migrate–contract sequences when no independently green vertical slice exists.
@@ -57,8 +57,10 @@ For one candidate, return exactly:
     Execution lane: AGENT | HUMAN
     Source scenarios or standalone source:
     Coverage role: DIRECT | ENABLER | STANDALONE
+    Starting state:
     Primary outcome:
     Primary verification:
+    Invariants and guardrails:
     Independent delivery surfaces:
     Single-assertion AC count:
     Unresolved decisions or ADR conflicts:

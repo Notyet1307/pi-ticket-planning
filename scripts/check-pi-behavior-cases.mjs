@@ -28,7 +28,9 @@ export function validatePiBehaviorCases(file) {
     "greenfield-committed-routes-to-bootstrap",
     "missing-handoffs-fail-closed",
     "complete-handoffs-reach-approval-gate",
-    "normalized-delivery-graph-reaches-approval-gate"
+    "normalized-delivery-graph-reaches-approval-gate",
+    "fresh-reviewer-accepts-complete-execution-context",
+    "fresh-reviewer-rejects-missing-execution-context"
   ]) {
     if (!ids.has(id)) errors.push(`missing observed behavior case ${id}`);
   }

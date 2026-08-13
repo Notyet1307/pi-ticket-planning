@@ -100,8 +100,8 @@ if (!preflight.ok) {
   if (realpathSafe(contract.skills.resolved[0]?.path) !== path.join(PACKAGE_ROOT, "skills", "ticket-readiness", "SKILL.md")) {
     failures.push("reviewer did not resolve its package-private readiness contract");
   }
-  if (!contract.tools.explicitAllowlist || contract.tools.effectiveAllowlist.length !== 0) {
-    failures.push("reviewer launch contract permits tools");
+  if (!contract.tools.explicitAllowlist || JSON.stringify(contract.tools.effectiveAllowlist) !== JSON.stringify(["read"])) {
+    failures.push("reviewer launch contract must permit only read");
   }
   if (!contract.tools.disableAmbientExtensions) failures.push("reviewer launch contract permits ambient extensions");
 }

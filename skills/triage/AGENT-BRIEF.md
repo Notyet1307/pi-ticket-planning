@@ -13,14 +13,17 @@ Use this structure:
     ## What to build
     One sentence describing one observable outcome.
 
-    ## Current behavior
-    What happens now, with the verified code path or reproduction.
+    ## Starting state
+    What exists before work begins, including the verified current behavior, reproduction, input, or prerequisite artifact.
 
     ## Desired behavior
     What the user or system observes after completion, including important failure behavior.
 
     ## Primary verification
     One behavioral seam or scenario that proves the outcome.
+
+    ## Invariants and guardrails
+    Stable source or repository rules that must remain true; use None only when none apply.
 
     ## Execution lane
     AGENT, or HUMAN with the non-delegable reason.
@@ -39,4 +42,4 @@ Use this structure:
 
 Use 3–6 acceptance criteria and no more than eight. Name stable types, interfaces, or contracts only when they help a fresh executor find the behavior without constraining implementation unnecessarily.
 
-For a PR, Current behavior describes the submitted diff and What to build describes the bounded work needed to make that diff acceptable.
+For a PR, Starting state describes the submitted diff and What to build describes the bounded work needed to make that diff acceptable.

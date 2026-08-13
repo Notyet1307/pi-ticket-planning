@@ -36,6 +36,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - 3–6 single-assertion acceptance criteria, with eight as the hard maximum;
 - no more than three independent delivery surfaces;
 - stable source Scenario IDs, closed decisions, real blockers, decision sources, and explicit out-of-scope work;
+- an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
 - enough durable context for a fresh executor in the assigned lane.
 
 Do not qualify a `READY` verdict. If an open decision can change the candidate's outcome, primary verification, acceptance criteria, or output contract, that candidate is `NEEDS_INFO` until the decision closes.
@@ -116,8 +117,14 @@ Use this child body:
     ## Coverage role
     DIRECT, or ENABLER with downstream consumers and an objective exit condition.
 
+    ## Starting state
+    The pre-existing state, input, or blocker-produced artifact from which work begins.
+
     ## What to build
     One sentence describing the observable or enabling outcome.
+
+    ## Invariants and guardrails
+    Stable source or repository rules that must remain true; use None only when none apply.
 
     ## Primary verification
     One behavioral seam or scenario that proves the outcome.

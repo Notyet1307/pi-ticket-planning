@@ -101,6 +101,46 @@
         "allowedWrites": []
       },
       "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v1 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
+    },
+    {
+      "id": "fresh-reviewer-accepts-complete-execution-context",
+      "skill": "ticket-readiness-reviewer",
+      "inputState": "Fresh child with read-only access to its pinned skill receives a narrow standalone candidate with explicit starting state and guardrails.",
+      "expected": {
+        "mustMatch": [
+          "Verdict: READY",
+          "Execution lane: AGENT",
+          "Starting state:",
+          "Invariants and guardrails:",
+          "Real blockers: None"
+        ],
+        "mustNotMatch": [
+          "acceptance-report",
+          "Subagent produced no output"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Verdict: READY\nExecution lane: AGENT\nStarting state: The API accepts a project-scoped idempotency key and no matching session exists.\nInvariants and guardrails: One key identifies at most one persisted session; duplicate requests never replace it.\nReal blockers: None"
+    },
+    {
+      "id": "fresh-reviewer-rejects-missing-execution-context",
+      "skill": "ticket-readiness-reviewer",
+      "inputState": "Fresh child receives the same candidate without a starting state, guardrails, or the applicable ADR decision text.",
+      "expected": {
+        "mustMatch": [
+          "Verdict: NEEDS_INFO",
+          "Execution lane: AGENT",
+          "Starting state:",
+          "Invariants and guardrails:",
+          "missing fresh-start state and guardrails prevent admission"
+        ],
+        "mustNotMatch": [
+          "Verdict: READY",
+          "acceptance-report"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Verdict: NEEDS_INFO\nExecution lane: AGENT\nStarting state: Not stated.\nInvariants and guardrails: Not stated.\nThe unavailable ADR decision text and missing fresh-start state and guardrails prevent admission."
     }
   ]
 }

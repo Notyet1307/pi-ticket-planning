@@ -56,7 +56,7 @@ Return `Delivery graph contract: PASS | FAIL`, `Scenario coverage: PASS | FAIL`,
 
 ### 3. Dispatch the independent review
 
-Invoke ticket-readiness-reviewer once in the foreground with context set to fresh. Pass only the admission bundle and the request to judge it. Do not include the author's intended verdict, suspected split, or arguments for approval.
+Invoke `ticket-readiness-reviewer` once with `async: false`, `context: fresh`, `artifacts: false`, `mission: false`, and acceptance disabled with reason `The readiness verdict is the gate output`. Pass only the admission bundle and the request to judge it. Do not include the author's intended verdict, suspected split, or arguments for approval. The reviewer may read only its configured readiness skill; a tool call to any other path is a malformed review.
 
 The reviewer must return the /ticket-readiness output for every candidate plus a graph verdict for a batch. Treat a missing, malformed, or non-substantive result as NEEDS_INFO and leave tracker state unchanged.
 

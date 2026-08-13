@@ -9,6 +9,7 @@
         "title": "Return a stable conflict response for duplicate session creation",
         "coverageRole": "STANDALONE",
         "standaloneSource": "Confirmed duplicate create-session API behavior",
+        "startingState": "The create-session API accepts an idempotency key and no matching session exists before the first request.",
         "whatToBuild": "A duplicate create-session request returns the existing session identity without creating another session.",
         "primaryVerification": "API integration scenario for two create requests with the same idempotency key.",
         "acceptanceCriteria": [
@@ -25,6 +26,9 @@
         "decisionSources": [
           "ADR-004 idempotency ownership"
         ],
+        "invariants": [
+          "An idempotency key identifies at most one persisted session."
+        ],
         "outOfScope": [
           "Session retry UI"
         ]
@@ -38,6 +42,7 @@
         "title": "Implement failure recovery and operator controls",
         "coverageRole": "STANDALONE",
         "standaloneSource": "Approved recovery capability plan",
+        "startingState": "The system can execute a transaction but has no accepted recovery contract.",
         "whatToBuild": "Add failed transactions, retry, session recovery, rerun, concurrency limits, audit views, Compose setup, and Playwright coverage.",
         "primaryVerification": "API, state-machine, UI, Compose, and Playwright suites.",
         "acceptanceCriteria": [
@@ -64,6 +69,9 @@
         ],
         "blockedBy": [],
         "decisionSources": [],
+        "invariants": [
+          "Recovery must not erase the original attempt."
+        ],
         "outOfScope": []
       }
     },
@@ -75,6 +83,7 @@
         "title": "Archive completed run evidence",
         "coverageRole": "STANDALONE",
         "standaloneSource": "Mandatory evidence-retention requirement",
+        "startingState": "A run completes with retrievable evidence and no decided retention owner or duration.",
         "whatToBuild": "Archive evidence after a run completes.",
         "primaryVerification": "Run-completion integration scenario.",
         "acceptanceCriteria": [
@@ -91,6 +100,9 @@
           "The retention period has no owner or selected value.",
           "The storage system of record has not been chosen."
         ],
+        "invariants": [
+          "Evidence must remain attributable to its originating run."
+        ],
         "outOfScope": []
       }
     },
@@ -102,6 +114,7 @@
         "title": "Run the isolated production-credential canary",
         "coverageRole": "STANDALONE",
         "standaloneSource": "Approved production canary runbook",
+        "startingState": "An authorized operator controls the isolated tenant and credentials intentionally unavailable to agents.",
         "whatToBuild": "An authorized operator completes the isolated canary and records its result and cleanup evidence.",
         "primaryVerification": "Human-run canary in the isolated tenant using credentials intentionally unavailable to agents.",
         "acceptanceCriteria": [
@@ -116,6 +129,10 @@
         "blockedBy": [],
         "decisionSources": [
           "Approved canary runbook and named credential owner"
+        ],
+        "invariants": [
+          "Production credentials remain unavailable to agents.",
+          "Canary resources are removed after the run."
         ],
         "outOfScope": [
           "Automating production credential access"

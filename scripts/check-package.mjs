@@ -115,6 +115,7 @@ export function validatePackage(root) {
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
   const setup = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "SKILL.md"), "utf8");
   const triage = fs.readFileSync(path.join(skillRoot, "triage", "SKILL.md"), "utf8");
+  const triageBrief = fs.readFileSync(path.join(skillRoot, "triage", "AGENT-BRIEF.md"), "utf8");
   const readiness = fs.readFileSync(path.join(skillRoot, "ticket-readiness", "SKILL.md"), "utf8");
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
   if (frontmatterValue(askYet, "disable-model-invocation") !== "true") {
@@ -182,6 +183,12 @@ export function validatePackage(root) {
   if (!readiness.includes("cannot be completed and pass its primary verification independently")) {
     errors.push("ticket-readiness uses the wrong blocker boundary");
   }
+  for (const required of ["Starting state:", "Invariants and guardrails:"]) {
+    if (!readiness.includes(required)) errors.push(`ticket-readiness lacks execution context: ${required}`);
+  }
+  for (const required of ["## Starting state", "## Invariants and guardrails"]) {
+    if (!triageBrief.includes(required)) errors.push(`triage brief lacks execution context: ${required}`);
+  }
   for (const required of [
     "PRODUCT_RELEASE",
     "stable Scenario ID",
@@ -208,6 +215,8 @@ export function validatePackage(root) {
     "pi-ticket-planning:delivery-graph:v1",
     "check-delivery-graph.mjs",
     "Do not persist a duplicate prose matrix",
+    "## Starting state",
+    "## Invariants and guardrails",
   ]) {
     if (!toTickets.includes(required)) errors.push(`to-tickets lacks coverage contract: ${required}`);
   }
@@ -226,6 +235,9 @@ export function validatePackage(root) {
     "pi-ticket-planning:delivery-graph:v1",
     "check-delivery-graph.mjs",
     "Delivery graph contract: PASS | FAIL",
+    "artifacts: false",
+    "mission: false",
+    "The readiness verdict is the gate output",
     "Scenario coverage: PASS | FAIL",
     "Walking skeleton: PASS | FAIL",
     "Re-run the Delivery Graph checker",
@@ -266,9 +278,13 @@ export function validatePackage(root) {
   if (frontmatterValue(reviewer, "defaultContext") !== "fresh") errors.push("reviewer is not fresh by default");
   if (frontmatterValue(reviewer, "skills") !== "ticket-readiness") errors.push("reviewer lacks the ticket-readiness contract");
   if (frontmatterValue(reviewer, "skillPath") !== "../skills") errors.push("reviewer does not pin its package-private skill path");
-  if (!/^tools:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable tools");
+  if (frontmatterValue(reviewer, "tools") !== "read") errors.push("reviewer must permit only read for its configured skill");
   if (!/^extensions:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable ambient extensions");
   if (!reviewer.includes("READY/HUMAN, not NEEDS_INFO")) errors.push("reviewer conflates human execution with missing information");
+  if (!reviewer.includes("normalized Delivery Graph snapshot")) errors.push("reviewer uses a stale graph input contract");
+  if (!reviewer.includes('"level":"none"') || !reviewer.includes("Use `read` for no other path")) {
+    errors.push("reviewer cannot load only its configured skill without a redundant acceptance wrapper");
+  }
 
   const launcher = fs.readFileSync(path.join(root, "profile", "pi-ticket-plan"), "utf8");
   if (!launcher.includes("PI_TICKET_PLANNING_ROOT") || !launcher.includes("PI_TICKET_PLAN_PROFILE_DIR")) {
@@ -337,6 +353,12 @@ export function validatePackage(root) {
   }
   if (!fixtures.cases.some((item) => item.expectedVerdict === "READY" && item.expectedExecutionLane === "HUMAN")) {
     errors.push("missing READY/HUMAN fixture");
+  }
+  for (const item of fixtures.cases) {
+    if (!item.candidate?.startingState?.trim()) errors.push(`${item.id}: fixture lacks starting state`);
+    if (!Array.isArray(item.candidate?.invariants) || item.candidate.invariants.length === 0) {
+      errors.push(`${item.id}: fixture lacks invariants`);
+    }
   }
   const graphVerdicts = new Set(fixtures.graphCases?.map((item) => item.expectedGraphVerdict));
   for (const verdict of ["READY", "NEEDS_INFO"]) {
