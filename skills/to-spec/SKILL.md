@@ -16,16 +16,16 @@ The repository, issue tracker, triage labels, and exact Git base must already be
 
 Classify the source:
 
-- `PRODUCT_RELEASE`: a new product, uncertain feature, or bounded enhancement. Require the Release artifact path, Release ID, exact revision, and `status: COMMITTED`. Re-read that revision; a candidate Frame, conversation, plan, or completed Wayfinder map is not a substitute for human Commitment.
+- `PRODUCT_RELEASE`: a new product, uncertain feature, or bounded enhancement. Require the Release artifact path, Release ID, exact revision, `status: COMMITTED`, and the accepted base commit containing that exact regular-file blob. Re-read the blob from the base commit, not the working tree; a candidate Frame, conversation, patch, unpublished commit, plan, or completed Wayfinder map is not a substitute for durable human Commitment.
 - `OPERATING_SOURCE`: a confirmed bug, mandatory maintenance/risk change, or incident follow-up with an exact issue, reproduction, policy, ADR, or other decision-complete authority. Record why the shorter product path is valid.
 
 Completed Wayfinder decisions, research, prototypes, and questionnaires may support either source. Fetch the exact linked artifacts needed to recover a decision. An open decision or conflicting authority that changes behavior is `NEEDS_INFO`.
 
 ### 2. Pin the delivery base
 
-Require a Git repository with a valid `HEAD`. Record the repository identity, exact base SHA, effective root policy path and digest, and tracker identity. Reconcile the source against current code, domain vocabulary, ADRs, and compatibility constraints.
+Require a Git repository with a valid `HEAD`. Record the repository identity, exact base SHA, effective root policy path and digest, and tracker identity. For `PRODUCT_RELEASE`, require `git show <base>:<release-path>` to yield the approved revision exactly. Reconcile that base blob against current code, domain vocabulary, ADRs, and compatibility constraints.
 
-If the target is non-Git, has an unborn `HEAD`, lacks tracker configuration, or depends on an unmerged policy change, stop before publishing and return to `/skill:ask-yet`. Never invent a base or let a candidate-branch policy govern its own Worker.
+If the target is non-Git, has an unborn `HEAD`, lacks tracker configuration, omits the Release blob from the accepted base, or depends on an unmerged policy change, stop before publishing and return to `/skill:ask-yet`. Never invent a base or let a candidate-branch policy govern its own Worker.
 
 ### 3. Define stable behavioral scenarios
 

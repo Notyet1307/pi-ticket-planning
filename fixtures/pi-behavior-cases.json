@@ -63,6 +63,26 @@
       "observedExcerpt": "Lane：PRODUCT\nStage：FRAME\n来源边界：仓库事实、Git/Tracker 实时状态及明确提供的约束；canary 不作为客户价值证据。\n建议选择该 Frame，但明确把 farewell 当作流程载荷，而非客户价值假设。\nCheckpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE\nNeed: 人工选择候选 Frame"
     },
     {
+      "id": "existing-git-unpublished-release-stays-in-frame",
+      "skill": "ask-yet",
+      "inputState": "Existing GitHub repository; exact COMMITTED Release r1 exists only as an untracked working-tree file and is absent from origin/main.",
+      "expected": {
+        "mustMatch": [
+          "PRODUCT/FRAME",
+          "untracked local draft",
+          "human-maintainer publication",
+          "Checkpoint: PRODUCT/FRAME · R001 r1 · FRAME_WRITE_AWAITING_APPROVAL",
+          "Blocked: SPEC until the exact blob is reachable from origin/main"
+        ],
+        "mustNotMatch": [
+          "Checkpoint: DELIVERY/SPEC",
+          "through the permitted controller"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "Repository: Notyet1307/harness-sandbox · Lane/stage: PRODUCT/FRAME\nSource boundary: live origin/main@7454feb lacks the Release blob; the artifact is an untracked local draft.\nNext valid gate: approve human-maintainer publication of only docs/product/releases/r001-source-test.md from remote revision NONE to r1, without content changes.\nCheckpoint: PRODUCT/FRAME · R001 r1 · FRAME_WRITE_AWAITING_APPROVAL\nBlocked: SPEC until the exact blob is reachable from origin/main"
+    },
+    {
       "id": "missing-handoffs-fail-closed",
       "skill": "to-tickets",
       "inputState": "Accepted tracked Spec names S1-S3 and their order but omits explicit entry/exit artifacts and clearing transitions.",

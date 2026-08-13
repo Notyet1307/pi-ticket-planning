@@ -161,6 +161,9 @@ export function validatePackage(root) {
     "choose a stack or architecture",
     "Repository bootstrap becomes eligible only after",
     "Commitment authorizes only the displayed bootstrap plan",
+    "accepted remote delivery base",
+    "remain in `FRAME` until the accepted remote base contains the approved blob",
+    "Never route this publication through the implementation Harness",
   ]) {
     if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
   }
@@ -189,6 +192,9 @@ export function validatePackage(root) {
     "isolated shadow",
     "stable Scenario IDs",
     "Scenario-coverage",
+    "Use Git as the durability boundary",
+    "cannot feed `to-spec`",
+    "cannot publish the Release or setup needed to reach Admission",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
   }
@@ -221,6 +227,7 @@ export function validatePackage(root) {
     "## Release signal mapping",
     "## Walking skeleton target",
     "exact base SHA",
+    "git show <base>:<release-path>",
   ]) {
     if (!toSpec.includes(required)) errors.push(`to-spec lacks source/scenario contract: ${required}`);
   }
@@ -281,6 +288,8 @@ export function validatePackage(root) {
     "application scaffold",
     "explicitly approved paths",
     "exact base SHA",
+    "accepted remote base contains every required configuration blob",
+    "Never route prerequisite setup through the implementation Harness",
   ]) {
     if (!setup.includes(required)) errors.push(`setup lacks greenfield contract: ${required}`);
   }

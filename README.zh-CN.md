@@ -83,7 +83,7 @@ PI 的显式 skill 命令格式是 `/skill:<name>`。Skill 文档中的 `/to-spe
 /skill:ask-yet [可选：想法、Issue、Release 文档或当前目标]
 ```
 
-`ask-yet` 会从仓库和权威产物恢复当前状态，一次只给出一个产品问题、证据动作或可复制的下一条命令。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`/skill:setup-matt-pocock-skills` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
+`ask-yet` 会从仓库和权威产物恢复当前状态，一次只给出一个产品问题、证据动作或可复制的下一条命令。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`/skill:setup-matt-pocock-skills` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
 
 完整路径：
 

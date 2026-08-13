@@ -64,6 +64,7 @@ For every starting state, show:
 - exact files to create or edit and the proposed Agent policy block;
 - exact tracker configuration, missing labels, and capability fallbacks;
 - every external mutation, including repository creation, remote addition, push, and label creation.
+- for an existing GitHub/Harness target, the exact stage, commit, and permitted pre-delivery publication handoff that will put approved configuration into the accepted remote base; the implementation Harness cannot publish its own prerequisite setup.
 
 For `GREENFIELD`, also show:
 
@@ -88,7 +89,7 @@ For `GREENFIELD` after exact approval:
 4. Create the initial commit only when the displayed commit was approved and Git author identity is already usable. Do not invent or modify identity configuration.
 5. Resolve and report the resulting exact base SHA.
 
-For `EXISTING`, write only the approved configuration and labels. Do not create a commit, branch, remote, or push unless the displayed plan explicitly included that operation.
+For `EXISTING`, write only the approved configuration and labels. Do not create a commit, branch, remote, or push unless the displayed plan explicitly included that operation. When policy reserves publication for a human maintainer or an already-configured pre-delivery mechanism, stop with the exact approved paths and handoff instead of reporting setup complete. Never route prerequisite setup through the implementation Harness.
 
 ## 5. Apply approved remote and tracker setup
 
@@ -107,7 +108,7 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 - required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
 - unrelated pre-existing files and changes remain untouched.
 
-For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
+For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
 
 Return the next valid entry point and stop:
 

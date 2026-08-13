@@ -21,6 +21,7 @@ The human invokes:
 - Keep product evidence, delivery progress, release state, and outcome separate.
 - Never turn an assumption into a fact, simulate customer evidence, or close a blocking external unknown from model memory.
 - Treat mutation approval as scoped: approval to discuss, design, review, continue, or accept content is not write approval. Name the exact target and operation; for a Release change also name the current and target revision, then wait for explicit approval covering that mutation.
+- In an existing Git repository, treat a Release revision as authoritative only when its exact artifact blob is reachable from the accepted remote delivery base. A working-tree file, patch preview, or unpublished local commit is still a draft.
 - Never enter `SPEC` before a human commits an exact Release revision.
 - Never route the formal product path to `/skill:implement`. Admitted implementation tickets go to the configured Harness.
 - Stop once one next action or one non-delegable human input is known.
@@ -72,10 +73,10 @@ Read [references/release-loop.md](references/release-loop.md) in full before sha
 
 Progress only one stage:
 
-1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain write approval before creating it.
+1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain write approval before creating it. For an existing Git target, include the exact stage, commit, and permitted pre-delivery publication handoff needed to make that artifact durable; remain in `FRAME` until the accepted remote base contains the approved blob. Never route this publication through the implementation Harness, which starts only after Admission.
 2. `EVIDENCE`: label claims, preserve the highest-risk unknown, and choose the cheapest bounded action that can change the Release decision. Design the protocol in conversation first. Fix appetite, pass/fail threshold, evidence to capture, and stop condition before requesting approval for the exact artifact revision, and before running it.
 3. `COMMIT`: apply all six readiness tests. `READY_TO_COMMIT` requires a human choice of `COMMITTED | HOLD | REWORK | DROP`; never choose for them.
-4. After `COMMITTED`, require a real delivery base. If the target is non-Git or has an unborn `HEAD`, route first to `/skill:setup-matt-pocock-skills <target, Release artifact, and exact revision>`; Commitment authorizes only the displayed bootstrap plan, not implementation. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. If a new stable cross-ticket rule is required, show the effective policy path and minimal diff, then wait for approval and merge it into the target base before delivery depends on it.
+4. After `COMMITTED`, require a real delivery base containing the exact Release blob. If the target is non-Git or has an unborn `HEAD`, route first to `/skill:setup-matt-pocock-skills <target, Release artifact, and exact revision>`; Commitment authorizes only the displayed bootstrap plan, not implementation. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. If a new stable cross-ticket rule is required, show the effective policy path and minimal diff, then wait for approval and merge it into the target base before delivery depends on it.
 5. `OUTCOME`: evaluate only after release evidence and the stated evidence window. Return an outcome verdict and a candidate next decision, never a ready implementation ticket.
 
 During `FRAME` and `EVIDENCE`:
@@ -100,7 +101,7 @@ If Wayfinder is genuinely required, return only the destination, why one context
 Advance through these visible gates; do not invoke them silently:
 
 1. If Git `HEAD` does not resolve or repository tracker support is missing, return `/skill:setup-matt-pocock-skills` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
-2. With an exact `COMMITTED` Release revision and repository contract ready, return `/skill:to-spec <release artifact path and revision>`.
+2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted delivery base, and the repository contract ready, return `/skill:to-spec <release artifact path and revision>`.
 3. With an accepted Delivery Spec, return `/skill:to-tickets <spec identity>`.
 4. With a candidate ticket graph, return `/skill:admit-ticket <parent identity>`.
 5. After Admission, report `ADMITTED` with the exact ticket, graph, base, source, policy, and execution lane. Any candidate or graph edit requires Admission again.
