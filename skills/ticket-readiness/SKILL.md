@@ -66,15 +66,16 @@ For one candidate, return exactly:
     Downstream consumers and exit condition: <required for ENABLER>
     Proposed split: <only for SPLIT>
 
-For a batch, add a Graph verdict first, then repeat the fields for every candidate. The graph review must compare the parent Scenario list and explicit state/artifact handoffs, persisted `## Ticket coverage` matrix, and current child set. It must report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, and execution lanes. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
+For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the deterministic checker result, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
 
 The batch output must include:
 
+    Delivery graph contract: PASS | FAIL — <checker problems when FAIL>
     Scenario coverage: PASS | FAIL — <uncovered scenarios, orphan candidates, or stale mappings>
     Walking skeleton: PASS | FAIL — <ordered candidate IDs and covered scenarios, or the exact gap>
     Strict-frontier order: PASS | FAIL — <exact inverted edges when FAIL>
 
-Graph READY requires every intended candidate to be individually READY and Scenario coverage, walking skeleton, and strict-frontier order all to pass. Every parent Scenario needs direct coverage; every child needs a valid mapping; every ENABLER needs a current downstream consumer and exit condition. Every walking-skeleton member must be READY, each named handoff must have an explicit producer or external source, and the chain must close the smallest trigger-to-result loop. For every internal `blocker -> dependent` edge, `position(blocker) < position(dependent)`. External blockers are reported but are not orderable inside the map. Any non-READY candidate, broken or inferred handoff, coverage gap, orphan, stale matrix, cycle, or order inversion makes the Graph verdict NEEDS_INFO.
+Graph READY requires every intended candidate to be individually READY and the Delivery Graph contract, Scenario coverage, walking skeleton, and strict-frontier order all to pass. Every parent Scenario needs direct coverage; every child needs a valid mapping; every ENABLER needs a current downstream consumer and exit condition. Every walking-skeleton member must be READY, each named handoff must have an explicit producer or external source, and the chain must close the smallest trigger-to-result loop. For every internal `blocker -> dependent` edge, `position(blocker) < position(dependent)`. External blockers are reported but are not orderable inside the map. Any non-READY candidate, malformed or stale snapshot, broken or inferred handoff, coverage gap, orphan, cycle, or order inversion makes the Graph verdict NEEDS_INFO.
 
 Tie the verdict to the exact candidate bodies, parent spec, sources, graph, and updated timestamps supplied in the admission bundle. Any material drift requires a new review.
 
@@ -84,7 +85,7 @@ Activation follows this order:
 
 1. Publish the parent and all children as needs-triage.
 2. Create native parent-child and blocking relationships.
-3. Verify the persisted Scenario matrix against the current children, the walking skeleton, and native blocker graph; then review the complete graph in a fresh context.
+3. Run the Delivery Graph checker, compare its snapshot with current children and native blockers, then review the complete graph in a fresh context.
 4. Obtain explicit human confirmation.
 5. Re-fetch and confirm the reviewed snapshot is unchanged.
 6. Add ready-for-agent to READY/AGENT children and ready-for-human to READY/HUMAN children.

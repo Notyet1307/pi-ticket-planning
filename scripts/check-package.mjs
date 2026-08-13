@@ -205,11 +205,15 @@ export function validatePackage(root) {
     "Do not infer an omitted producer",
     "read them directly in the main context",
     "Search for no sidecar",
+    "pi-ticket-planning:delivery-graph:v1",
+    "check-delivery-graph.mjs",
+    "Do not persist a duplicate prose matrix",
   ]) {
     if (!toTickets.includes(required)) errors.push(`to-tickets lacks coverage contract: ${required}`);
   }
   for (const required of [
     "Coverage role: DIRECT | ENABLER | STANDALONE",
+    "Delivery graph contract: PASS | FAIL",
     "Scenario coverage: PASS | FAIL",
     "Walking skeleton: PASS | FAIL",
     "every intended candidate to be individually READY",
@@ -219,9 +223,12 @@ export function validatePackage(root) {
   }
   for (const required of [
     "Matrix Scenario IDs equal the parent Scenario IDs",
+    "pi-ticket-planning:delivery-graph:v1",
+    "check-delivery-graph.mjs",
+    "Delivery graph contract: PASS | FAIL",
     "Scenario coverage: PASS | FAIL",
     "Walking skeleton: PASS | FAIL",
-    "Re-run the Scenario coverage check",
+    "Re-run the Delivery Graph checker",
     "no admission check invents a missing handoff",
   ]) {
     if (!admission.includes(required)) errors.push(`admit-ticket lacks coverage recheck: ${required}`);
@@ -285,6 +292,12 @@ export function validatePackage(root) {
   const tracker = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "issue-tracker-github.md"), "utf8");
   if (!tracker.includes('$PI_TICKET_PLANNING_ROOT/scripts/check-frontier-order.mjs')) {
     errors.push("GitHub frontier check is not package-root portable");
+  }
+  for (const trackerName of ["issue-tracker-github.md", "issue-tracker-gitlab.md", "issue-tracker-local.md"]) {
+    const trackerText = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", trackerName), "utf8");
+    if (!trackerText.includes("pi-ticket-planning:delivery-graph:v1") || !trackerText.includes("check-delivery-graph.mjs")) {
+      errors.push(`${trackerName} lacks the normalized Delivery Graph check`);
+    }
   }
 
   for (const relative of [

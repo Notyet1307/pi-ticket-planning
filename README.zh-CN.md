@@ -117,7 +117,13 @@ Wayfinder Map 只包含决策、研究、原型和人工输入，不进入实现
 
 ## 严格前沿安全
 
-对于每一条内部 `blocker -> dependent` 边，blocker 必须位于 Delivery Parent 原生子票列表中更靠前的位置。Admission 会在 review 前和 activation 前分别运行同一个只读 GitHub 检查。
+Delivery Parent 的 `## Ticket coverage` 只保存一份规范化 Delivery Graph JSON 快照。用下面的命令检查其来源身份、Scenario 交接、覆盖、walking skeleton 和内部顺序：
+
+```sh
+npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
+```
+
+对于每一条内部 `blocker -> dependent` 边，blocker 还必须位于 Delivery Parent 原生子票列表中更靠前的位置。Admission 会在 review 前和 activation 前分别运行快照检查和只读 GitHub 顺序检查。
 
 从 checkout 手动运行：
 

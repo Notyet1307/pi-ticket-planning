@@ -79,6 +79,28 @@
         "allowedWrites": []
       },
       "observedExcerpt": "Scenario coverage：PASS。Walking skeleton：PASS。C01(S1) -> C02(S2) -> C03(S3)，每一步消费前一步明确产生的 artifact。输出 Exact write set 后等待人类批准；没有写文件或应用 ready 状态。"
+    },
+    {
+      "id": "normalized-delivery-graph-reaches-approval-gate",
+      "skill": "to-tickets",
+      "inputState": "The complete-handoff Spec is reviewed with the delivery-graph-v1 skill contract and read-only tools.",
+      "expected": {
+        "mustMatch": [
+          "check-delivery-graph.mjs",
+          "Delivery graph contract: PASS",
+          "Scenario coverage: PASS",
+          "Walking skeleton: PASS",
+          "Strict-frontier order: PASS",
+          "pi-ticket-planning:delivery-graph:v1",
+          "等待人类批准"
+        ],
+        "mustNotMatch": [
+          "ready-for-agent",
+          "ready-for-human"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v1 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
     }
   ]
 }

@@ -139,6 +139,7 @@
           "behavior": "A user submits the two comparison inputs.",
           "entry": "external:comparison-inputs",
           "exit": "comparison-run",
+          "releaseSignal": "The inputs are accepted.",
           "smallestLoop": true
         },
         {
@@ -146,27 +147,34 @@
           "behavior": "The user receives an explainable comparison result.",
           "entry": "comparison-run",
           "exit": "explainable-result",
+          "releaseSignal": "The result is explainable.",
           "smallestLoop": true
         }
       ],
       "children": [
         {
           "id": "T1",
+          "title": "Accept comparison inputs",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S1"
           ],
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Submit two valid inputs.",
+          "executionLane": "AGENT"
         },
         {
           "id": "T2",
+          "title": "Return an explainable result",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S2"
           ],
           "blockedBy": [
             "T1"
-          ]
+          ],
+          "primaryVerification": "Compare accepted inputs and inspect the result.",
+          "executionLane": "AGENT"
         }
       ],
       "walkingSkeleton": [
@@ -193,6 +201,7 @@
           "behavior": "A user submits an input.",
           "entry": "external:input",
           "exit": "accepted-input",
+          "releaseSignal": "The input is accepted.",
           "smallestLoop": true
         },
         {
@@ -200,17 +209,21 @@
           "behavior": "The user receives the promised result.",
           "entry": "accepted-input",
           "exit": "promised-result",
+          "releaseSignal": "The promised result is returned.",
           "smallestLoop": true
         }
       ],
       "children": [
         {
           "id": "T1",
+          "title": "Accept input",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S1"
           ],
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Submit one valid input.",
+          "executionLane": "AGENT"
         }
       ],
       "walkingSkeleton": [
@@ -236,27 +249,34 @@
           "behavior": "A user receives a verified result.",
           "entry": "external:request",
           "exit": "verified-result",
+          "releaseSignal": "The result is verified.",
           "smallestLoop": true
         }
       ],
       "children": [
         {
           "id": "T1",
+          "title": "Return a verified result",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S1"
           ],
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Request and verify the result.",
+          "executionLane": "AGENT"
         },
         {
           "id": "T2",
+          "title": "Prepare result verification",
           "coverageRole": "ENABLER",
           "sourceScenarios": [
             "S1"
           ],
           "downstreamConsumers": [],
           "exitCondition": "",
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Run the result-verification seam.",
+          "executionLane": "AGENT"
         }
       ],
       "walkingSkeleton": [
@@ -282,6 +302,7 @@
           "behavior": "A user submits an input.",
           "entry": "external:input",
           "exit": "accepted-input",
+          "releaseSignal": "The input is accepted.",
           "smallestLoop": true
         },
         {
@@ -289,27 +310,34 @@
           "behavior": "The user receives the promised result.",
           "entry": "accepted-input",
           "exit": "promised-result",
+          "releaseSignal": "The promised result is returned.",
           "smallestLoop": true
         }
       ],
       "children": [
         {
           "id": "T1",
+          "title": "Accept input",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S1"
           ],
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Submit one valid input.",
+          "executionLane": "AGENT"
         },
         {
           "id": "T2",
+          "title": "Return promised result",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S2"
           ],
           "blockedBy": [
             "T1"
-          ]
+          ],
+          "primaryVerification": "Return a result from accepted input.",
+          "executionLane": "AGENT"
         }
       ],
       "walkingSkeleton": [
@@ -334,6 +362,7 @@
           "behavior": "A user submits an input.",
           "entry": "external:input",
           "exit": "accepted-input",
+          "releaseSignal": "The input is accepted.",
           "smallestLoop": true
         },
         {
@@ -341,27 +370,34 @@
           "behavior": "The user receives the promised result.",
           "entry": "normalized-input",
           "exit": "promised-result",
+          "releaseSignal": "The promised result is returned.",
           "smallestLoop": true
         }
       ],
       "children": [
         {
           "id": "T1",
+          "title": "Accept input",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S1"
           ],
-          "blockedBy": []
+          "blockedBy": [],
+          "primaryVerification": "Submit one valid input.",
+          "executionLane": "AGENT"
         },
         {
           "id": "T2",
+          "title": "Return promised result",
           "coverageRole": "DIRECT",
           "sourceScenarios": [
             "S2"
           ],
           "blockedBy": [
             "T1"
-          ]
+          ],
+          "primaryVerification": "Return a result from normalized input.",
+          "executionLane": "AGENT"
         }
       ],
       "walkingSkeleton": [

@@ -64,6 +64,9 @@ export function validateDeliveryGraph(snapshot) {
     if (!nonEmpty(scenario.entry) || !nonEmpty(scenario.exit)) {
       contract.push(issue("MISSING_SCENARIO_HANDOFF", scenario.id));
     }
+    for (const field of ["behavior", "releaseSignal"]) {
+      if (!nonEmpty(scenario[field])) contract.push(issue("MISSING_SCENARIO_FIELD", `${scenario.id}:${field}`));
+    }
   }
 
   for (const child of children) {
@@ -73,6 +76,12 @@ export function validateDeliveryGraph(snapshot) {
     }
     if (!["DIRECT", "ENABLER"].includes(child.coverageRole)) {
       contract.push(issue("INVALID_COVERAGE_ROLE", child.id));
+    }
+    for (const field of ["title", "primaryVerification"]) {
+      if (!nonEmpty(child[field])) contract.push(issue("MISSING_CHILD_FIELD", `${child.id}:${field}`));
+    }
+    if (!["AGENT", "HUMAN"].includes(child.executionLane)) {
+      contract.push(issue("INVALID_EXECUTION_LANE", child.id));
     }
     if (!Array.isArray(child.sourceScenarios) || child.sourceScenarios.length === 0) {
       coverage.push(issue("ORPHAN_CHILD", child.id));
@@ -87,6 +96,11 @@ export function validateDeliveryGraph(snapshot) {
       for (const blockerId of child.blockedBy) {
         if (!childrenById.has(blockerId)) contract.push(issue("UNKNOWN_BLOCKER", `${child.id}:${blockerId}`));
       }
+    }
+    if (child.externalBlockers !== undefined && (
+      !Array.isArray(child.externalBlockers) || child.externalBlockers.some((blocker) => !nonEmpty(blocker))
+    )) {
+      contract.push(issue("INVALID_EXTERNAL_BLOCKERS", child.id));
     }
 
     if (child.coverageRole === "ENABLER") {

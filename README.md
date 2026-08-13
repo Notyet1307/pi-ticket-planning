@@ -117,7 +117,13 @@ It returns the exact `/skill:triage` or `/skill:admit-ticket` command when that 
 
 ## Strict-frontier safety
 
-For every internal `blocker -> dependent` edge, the blocker must appear earlier in the delivery parent's native child list. Admission runs the same read-only GitHub check before review and again before activation.
+The parent stores one normalized Delivery Graph JSON snapshot under `## Ticket coverage`. Check its source identity, Scenario handoffs, coverage, walking skeleton, and internal order with:
+
+```sh
+npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
+```
+
+For every internal `blocker -> dependent` edge, the blocker must also appear earlier in the delivery parent's native child list. Admission runs both the snapshot check and the read-only GitHub order check before review and again before activation.
 
 Run it manually from the checkout:
 

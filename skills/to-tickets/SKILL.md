@@ -62,6 +62,30 @@ Return `Scenario coverage: PASS | FAIL` using all of these rules:
 
 Then name the earliest candidate chain that closes the Spec's smallest trigger-to-result loop. Return `Walking skeleton: PASS | FAIL` with the ordered candidate IDs, covered Scenario IDs, and named handoffs. Every member must be individually `READY`, appear in dependency-valid order, and consume a state produced by an earlier member or declared external input. A missing direct path, broken handoff, uncovered scenario, orphan candidate, or non-READY member is `NEEDS_INFO`; do not publish a partial graph.
 
+Represent the same proposed graph once as JSON:
+
+```json
+{
+  "version": 1,
+  "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "baseSha": "<exact base>" },
+  "scenarios": [
+    { "id": "S1", "behavior": "<observable behavior>", "entry": "external:<input> or <artifact>", "exit": "<artifact>", "releaseSignal": "<signal>", "smallestLoop": true }
+  ],
+  "children": [
+    { "id": "C01", "title": "<title>", "coverageRole": "DIRECT", "sourceScenarios": ["S1"], "blockedBy": [], "externalBlockers": [], "primaryVerification": "<behavioral check>", "executionLane": "AGENT" }
+  ],
+  "walkingSkeleton": ["C01"]
+}
+```
+
+`blockedBy` contains only children in this map; put other exact prerequisites in `externalBlockers`. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
+
+```sh
+node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -
+```
+
+Require `contract`, `scenarioCoverage`, `walkingSkeleton`, and `strictFrontier` to pass. This checker proves structural consistency only; semantic overlap and individual Ticket readiness still require review.
+
 ### 4. Build and approve the graph
 
 Assign only real blocking edges. Compute a stable topological order: for every internal `blocker -> dependent` edge, the blocker appears earlier in native child order. Preserve the approved order among simultaneously unblocked candidates. A cycle is `NEEDS_INFO`.
@@ -73,6 +97,7 @@ Present together:
 - exact numbered child order and blocker edges;
 - each candidate's title, source scenarios, coverage role, primary outcome, primary verification, execution lane, AC count, delivery surfaces, blockers, and out of scope;
 - the exact write set: child creation, parent-child links, blocker edges, and the parent `## Ticket coverage` update.
+- the deterministic Delivery Graph checker result.
 
 Wait for explicit approval of this exact split, graph, and write set. Approval does not authorize a ready label.
 
@@ -112,13 +137,22 @@ Use this child body:
     ## Out of scope
     Adjacent behavior excluded from this ticket.
 
-Update or replace one `## Ticket coverage` section in the parent with the exact source revision and base, Scenario matrix and handoffs, walking-skeleton chain, child IDs, coverage roles, primary verifications, and blocker graph. This is the durable graph snapshot; do not create a second receipt artifact.
+Update or replace one `## Ticket coverage` section in the parent. Store exactly one normalized snapshot, using real tracker child identities throughout:
 
-Any failed coverage or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
+    <!-- pi-ticket-planning:delivery-graph:v1 -->
+    ```json
+    <the approved version 1 object>
+    ```
+
+The JSON is the durable Scenario matrix, handoff chain, child order, roles, verifications, lanes, and blocker graph. Do not persist a duplicate prose matrix, table, or receipt. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, lane, order, or edge requires renewed approval.
+
+Re-fetch the parent and run the Delivery Graph checker against its body using the tracker command. Then compare its child set and blocker edges with the fresh native graph and run the configured strict-frontier check. All checks must pass before handoff.
+
+Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 
 ### 6. Hand off to Admission
 
-Re-fetch the persisted parent and graph. Report their identities, both coverage verdicts, strict-frontier verdict, and current labels. Then print exactly one command and stop:
+Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels. Then print exactly one command and stop:
 
 ```text
 /skill:admit-ticket <delivery parent identity>

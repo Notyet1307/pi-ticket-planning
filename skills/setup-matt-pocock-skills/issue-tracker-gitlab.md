@@ -49,7 +49,8 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 - **Draft parent**: create the accepted Delivery Spec with `needs-triage` and no ready label.
 - **Candidate child**: create one issue per candidate with stable source Scenario IDs, coverage role, and `Part of #<parent>`.
-- **Coverage**: keep one `## Ticket coverage` section in the parent with the current Scenario matrix and explicit state/artifact handoffs, walking-skeleton chain, source/base, child IDs, roles, verifications, and blocker graph.
+- **Coverage**: keep one `## Ticket coverage` section containing exactly one `<!-- pi-ticket-planning:delivery-graph:v1 -->` marker and its JSON fence. It is the normalized Scenario handoff, source/base, child, role, verification, lane, walking-skeleton, and blocker snapshot; create no duplicate prose matrix or receipt.
+- **Graph check**: `glab issue view <parent> -F json | jq -r .description | node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -`. PASS is mandatory before Admission or any ready label.
 - **Blocking and order**: use native blocking links when available; otherwise use `Blocked by`. Keep the parent's child task list in stable topological order.
 - **Admission**: validate coverage, state/artifact handoffs, walking skeleton, order, and blockers before fresh review and again before any ready-label mutation.
 - **Harness boundary**: this tracker supports planning and admission, but HerdrHarness Lite activation remains unavailable unless the repository and tickets are on GitHub.
