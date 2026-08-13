@@ -20,6 +20,24 @@ const EXPECTED_SKILLS = new Set([
   ...lock.officialStableSkills.filter((name) => !SUPPRESSED_SKILLS.has(name)),
   ...lock.packageSkills,
 ]);
+const REQUIRED_HUMAN_INVOKED = new Set([
+  "admit-ticket",
+  "ask-yet",
+  "setup-matt-pocock-skills",
+  "to-questionnaire",
+  "to-spec",
+  "to-tickets",
+  "triage",
+  "wayfinder",
+]);
+const REQUIRED_MODEL_INVOKED = new Set([
+  "diagnosing-bugs",
+  "domain-modeling",
+  "grilling",
+  "prototype",
+  "research",
+  "ticket-readiness",
+]);
 
 const run = spawnSync(
   LAUNCHER,
@@ -64,6 +82,16 @@ for (const [name, skill] of byName) {
   }
   if (skill.sourceInfo?.path?.startsWith(path.join(os.homedir(), ".agents"))) {
     failures.push(`${name} leaked from ambient user skills`);
+  }
+}
+for (const name of REQUIRED_HUMAN_INVOKED) {
+  if (!modelInvocationDisabled(byName.get(name)?.sourceInfo?.path)) {
+    failures.push(`${name} is visible to implicit model invocation`);
+  }
+}
+for (const name of REQUIRED_MODEL_INVOKED) {
+  if (modelInvocationDisabled(byName.get(name)?.sourceInfo?.path)) {
+    failures.push(`${name} is hidden from the router's model-invoked helper path`);
   }
 }
 
@@ -137,4 +165,11 @@ function realpathSafe(value) {
   } catch {
     return path.resolve(value);
   }
+}
+
+function modelInvocationDisabled(file) {
+  if (!file) return false;
+  const text = readFileSync(file, "utf8");
+  const frontmatter = text.startsWith("---\n") ? text.slice(4, text.indexOf("\n---", 4)) : "";
+  return /^disable-model-invocation:\s*true\s*$/m.test(frontmatter);
 }

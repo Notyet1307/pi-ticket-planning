@@ -382,6 +382,10 @@ export function validatePackage(root) {
   ]) {
     if (!routing.includes(required)) errors.push(`profile AGENTS.md lacks routing rule: ${required}`);
   }
+  const profileCheck = fs.readFileSync(path.join(root, "scripts", "check-profile.mjs"), "utf8");
+  for (const required of ["REQUIRED_HUMAN_INVOKED", "REQUIRED_MODEL_INVOKED", "modelInvocationDisabled"]) {
+    if (!profileCheck.includes(required)) errors.push(`profile check lacks invocation verification: ${required}`);
+  }
 
   const fixtures = readJson(path.join(root, "fixtures", "admission-cases.json"));
   const verdicts = new Set(fixtures.cases.map((item) => item.expectedVerdict));
