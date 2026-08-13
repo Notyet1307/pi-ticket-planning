@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
+import { validateLiveEvalFixture } from "./eval-pi-behavior.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
@@ -51,6 +52,9 @@ export function validatePackage(root) {
   }
   if (pkg.scripts?.verify !== "npm run verify:ci && npm run check:profile") {
     errors.push("full verification must include the live Profile check");
+  }
+  if (pkg.scripts?.["eval:pi"] !== "node scripts/eval-pi-behavior.mjs") {
+    errors.push("package does not expose the fresh-process PI behavior eval");
   }
 
   const releaseTag = `v${pkg.version}`;
@@ -140,6 +144,7 @@ export function validatePackage(root) {
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
   const releaseLoop = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "release-loop.md"), "utf8");
+  const executionCloseout = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "execution-closeout.md"), "utf8");
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
   const setup = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "SKILL.md"), "utf8");
@@ -149,6 +154,7 @@ export function validatePackage(root) {
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
   for (const required of [
     "references/release-loop.md",
+    "references/execution-closeout.md",
     "PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT",
     "READY_TO_COMMIT",
     "Research Handoff",
@@ -166,7 +172,10 @@ export function validatePackage(root) {
     "A required stable policy change remains a human decision",
     "ADMITTED",
     "FRAME_WRITE_AWAITING_APPROVAL",
-    "EVIDENCE_DESIGNED_NOT_AUTHORIZED",
+    "NEEDS_RESEARCH",
+    "NEEDS_PROTOTYPE",
+    "NEEDS_DECISION",
+    "AWAITING_EVIDENCE",
     "Checkpoint:",
     "Next:",
     "Need:",
@@ -188,7 +197,12 @@ export function validatePackage(root) {
     if (askYet.includes(obsolete)) errors.push(`ask-yet retains verbose checkpoint field: ${obsolete}`);
   }
   if (askYet.includes("FRAME_RECORDED")) errors.push("ask-yet may not remain in FRAME after the approved artifact write");
-  for (const obsolete of ["Admission Receipt", "ADMISSION_EVIDENCE_ONLY"]) {
+  for (const obsolete of [
+    "Admission Receipt",
+    "ADMISSION_EVIDENCE_ONLY",
+    "EVIDENCE_ACTION_NEEDED",
+    "EVIDENCE_DESIGNED_NOT_AUTHORIZED",
+  ]) {
     if (askYet.includes(obsolete) || releaseLoop.includes(obsolete)) {
       errors.push(`ask-yet runtime retains deferred handoff machinery: ${obsolete}`);
     }
@@ -217,6 +231,19 @@ export function validatePackage(root) {
     "Ticket-graph publication and Admission activation",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
+  }
+  for (const required of [
+    "Authority by fact",
+    "never runs a planning daemon",
+    "HANDOFF_READY",
+    "IN_PROGRESS",
+    "DELIVERED",
+    "A merged PR without Harness terminal success is not enough",
+    "Before the evidence window",
+    "all intended child tickets are terminal",
+    "Do not repeat the entire Release",
+  ]) {
+    if (!executionCloseout.includes(required)) errors.push(`execution-closeout lacks required contract: ${required}`);
   }
   if (/apply the `?ready-for-agent/i.test(toSpec)) errors.push("to-spec directly applies ready-for-agent");
   if (/Status:\s*ready-for-agent/i.test(toTickets)) errors.push("to-tickets publishes ready candidates");
@@ -444,6 +471,10 @@ export function validatePackage(root) {
     if (actual !== item.expectedGraphVerdict) {
       errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
     }
+  }
+
+  for (const error of validateLiveEvalFixture(readJson(path.join(root, "fixtures", "pi-live-eval-cases.json")))) {
+    errors.push(`live PI eval fixture: ${error}`);
   }
 
   return errors;

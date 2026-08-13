@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "research-capability-gap",
+      "prompt": "请只读恢复 R001/r1，继续到当前能力允许的最远门禁。当前可用工具就是全部能力；不要用模型记忆补当前外部事实，也不要修改文件。",
+      "files": {
+        "docs/product/releases/r001-current-api-evidence.md": "# R001: current API evidence\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: human\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Release frame\n- actor_and_trigger: operations owner reviews a GitHub Issues integration\n- observed_problem: current official compatibility is unknown\n- target_outcome: decide whether to commit the integration slice\n- smallest_closed_loop: inspect current official capability -> decide commit or drop\n- primary_signal: current primary-source support statement\n- evidence_window: now\n- minimum_evidence: one current official source mapped to the blocking claim\n- blocking_unknowns: whether GitHub REST API version 2022-11-28 supports changing a sub-issue priority through an official endpoint\n\n## Current evidence protocol\n- decision_question: does GitHub REST API version 2022-11-28 support changing a sub-issue priority through an official endpoint?\n- accepted_sources: current GitHub REST API documentation or first-party API response\n- blocking_gate: COMMIT\n- note: no primary source, official URL, or original artifact is present in this workspace\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Research Handoff",
+          "CAPABILITY_GAP",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R001/r1\\s*·\\s*NEEDS_RESEARCH"
+        ],
+        "mustNotMatch": [
+          "Checkpoint:[^\\n]*COMMITTED",
+          "Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "admitted-waits-for-harness",
+      "prompt": "请根据仓库中提供的冻结权威快照恢复 R002/r2 的当前状态，告诉我下一步，并说明 pi-ticket-plan 是否需要常驻。没有可访问的外部 tracker 或 Harness API；不要修改文件。",
+      "files": {
+        "docs/product/releases/r002-admitted.md": "# R002: admitted slice\n\n## Metadata\n- status: COMMITTED\n- revision: r2\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: ADMITTED\n- evidence_window: after release\n\n## Delivery trace\n- parent: #20\n- child: #21\n- accepted base: aaaaaaa\n",
+        "evidence/current-delivery-state.md": "# Frozen authoritative status snapshot\n\nCaptured: 2026-08-13T10:00:00+08:00\n\n## Tracker owner\n- Parent #20 and child #21 match the accepted graph and source.\n- Admission activation was confirmed by the human and recorded.\n- #21 has ready-for-agent and needs-triage.\n- #20 was activated last.\n\n## Harness owner\n- The durable Harness ledger has no selection or claim for #21.\n- No Harness process is currently running.\n\n## Git owner\n- Accepted delivery base aaaaaaa exists; no implementation source has been delivered.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*R002/r2\\s*·\\s*HANDOFF_READY",
+          "(?:(?:不需要|无需|does not require|not a daemon)[^\\n]*(?:常驻|daemon|monitor)|Harness[^\\n]*(?:未运行|offline)[^\\n]*(?:不构成阻塞|not a blocker))"
+        ],
+        "mustNotMatch": [
+          "Checkpoint:[^\\n]*IN_PROGRESS",
+          "Checkpoint:[^\\n]*BLOCKED"
+        ]
+      }
+    },
+    {
+      "id": "delivered-not-released",
+      "prompt": "请只读恢复 R003/r1，完成当前事实允许的规划收尾判断。快照是本次状态运行唯一可访问的 tracker、Harness 和 Git 事实。",
+      "files": {
+        "docs/product/releases/r003-delivered.md": "# R003: delivered slice\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: IN_PROGRESS\n- evidence_window: seven days after audience enablement\n\n## Delivery trace\n- parent: #30\n- children: #31, #32\n- accepted base: bbbbbbb\n\n## Release record\nNot recorded.\n",
+        "evidence/current-delivery-state.md": "# Frozen authoritative status snapshot\n\nCaptured: 2026-08-13T11:00:00+08:00\n\n## Harness owner\n- #31 and #32 both have durable successful terminal completion records.\n- No child is selected, claimed, active, under review, or held for recovery.\n\n## Git and PR owner\n- Both accepted diffs are merged at source SHA ccccccc on the accepted branch.\n\n## Tracker owner\n- #31 and #32 are terminal/closed.\n- Parent #30 remains open and still has ready-for-agent.\n- Repository policy permits the maintainer to remove that label and close the parent, but this run is read-only.\n\n## Release owner\n- There is no Release Record, audience enablement, smoke result, or rollback evidence.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*R003/r1\\s*·\\s*DELIVERED",
+          "ready-for-agent",
+          "Release Record"
+        ],
+        "mustNotMatch": [
+          "Checkpoint:[^\\n]*ACHIEVED",
+          "Checkpoint:[^\\n]*AWAITING_EVIDENCE"
+        ]
+      }
+    },
+    {
+      "id": "released-awaiting-evidence",
+      "prompt": "请只读判断 R004/r1 的当前结果阶段，只依据 Release 文档和冻结发布快照，不要提前替产品判成功。",
+      "files": {
+        "docs/product/releases/r004-released.md": "# R004: released slice\n\n## Metadata\n- status: RELEASED_AWAITING_EVIDENCE\n- revision: r1\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: RELEASED\n\n## Release frame\n- primary_signal: at least 3 of 5 operators complete the loop without assistance\n- guardrail: no destructive action\n- evidence_window: 2026-09-01\n- minimum_evidence: five observed operator runs\n\n## Release record\n- source SHA: ddddddd\n- enabled audience: five named internal operators\n- enabled at: 2026-08-13\n- smoke: passed\n- rollback: tested and available\n\n## Outcome review\n- Current date: 2026-08-13\n- Observed runs: 0 of 5\n",
+        "evidence/current-release-state.md": "# Frozen release owner snapshot\n\nThe source SHA is actually enabled for the five named operators. Smoke passed and rollback remains available. The evidence window has not arrived and no outcome run has been observed.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Checkpoint:\\s*PRODUCT/OUTCOME\\s*·\\s*R004/r1\\s*·\\s*AWAITING_EVIDENCE"
+        ],
+        "mustNotMatch": [
+          "Checkpoint:[^\\n]*UNEVALUABLE",
+          "Checkpoint:[^\\n]*ACHIEVED"
+        ]
+      }
+    }
+  ]
+}

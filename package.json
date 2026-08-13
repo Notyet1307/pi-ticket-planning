@@ -25,6 +25,7 @@
     "check:frontier": "node scripts/check-frontier-order.mjs",
     "check:pi-behavior": "node scripts/check-pi-behavior-cases.mjs",
     "check:profile": "node scripts/check-profile.mjs",
+    "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "install:profile": "node scripts/install-profile.mjs",
     "test": "node --test test/*.test.mjs",
     "verify:ci": "npm run check && npm run check:pi-behavior && npm test",

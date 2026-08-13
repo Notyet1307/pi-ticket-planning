@@ -1,8 +1,8 @@
 # `/ask-yet`：产品到交付统一入口 Skill 架构
 
-> 状态：Phase 1、Gate C 静态接缝和自动 helper 路由已在未发布的 `main` 实现；R001 已到真实 setup 策略门，完整 Release→Harness 仍待完成
+> 状态：Phase 1、Gate C、自动 helper 路由和 R001 Release→Harness canary 已完成；执行收尾与 fresh-process PI eval 已在未发布的 `main` 实现
 >
-> 日期：2026-08-12
+> 日期：2026-08-13
 >
 > 已确定：唯一入口名为 `/skill:ask-yet`；核心契约必须与任何具体产品解耦；研究能力降级和 repository policy 生命周期采用 fail-closed；Admission 保持现有 fresh review + 人工确认，不增加跨系统封条
 >
@@ -80,7 +80,7 @@ idea → grill-with-docs → to-spec → to-tickets → implement
 - 同一冻结事实下，fresh context 给出相同 lane、stage、关键 blocker 和禁止越过的 Gate；
 - 未 `COMMITTED` 的 Release 永远不能进入 `to-spec`；
 - 未通过 Admission 的 Ticket 永远不能交给 Harness；
-- `merged`、`released` 和 `outcome achieved` 始终是三个不同事实；
+- `delivered`、`merged`、`released` 和 `outcome achieved` 始终是四个不同事实；
 - Release 结果能回流为下一次候选，而不会自动变成实现 Ticket。
 
 ### 3.2 非目标
@@ -176,15 +176,15 @@ flowchart TD
 | `SPEC` | 已决定行为被编译为 Delivery Spec，无阻塞产品决定 |
 | `TICKETS` | 场景覆盖完整，Ticket 是纵向、独立可验收切片 |
 | `ADMISSION` | frontier、fresh review、snapshot、有效 repository policy 和人工确认一致；ready 状态已写入 tracker |
-| `EXECUTION` | Harness 对固定 Ticket/SHA 完成 Worker、Reviewer、CI 和合并事实链 |
-| `OUTCOME` | 到 evidence window 后得到结果判定和下一产品决定 |
+| `EXECUTION` | Admission 激活后按 Harness ledger 区分 `HANDOFF_READY/IN_PROGRESS/BLOCKED/DELIVERED` |
+| `OUTCOME` | 发布后先等待证据；到 evidence window 后得到结果判定和下一产品决定 |
 
 每个 Stage 使用自己的 verdict，不制造一个混合所有含义的万能状态：
 
 - Product readiness：`READY_TO_COMMIT | NEEDS_RESEARCH | NEEDS_PROTOTYPE | NEEDS_DECISION | DROP`
 - Commitment：`COMMITTED | HOLD | REWORK | DROP`
 - Ticket readiness：`READY | SPLIT | NEEDS_INFO`，另带 `AGENT | HUMAN` lane
-- Outcome：`ACHIEVED | PARTIAL | NOT_ACHIEVED | UNEVALUABLE`
+- Outcome：`AWAITING_EVIDENCE | ACHIEVED | PARTIAL | NOT_ACHIEVED | UNEVALUABLE`
 
 ## 6. 能力清单
 
@@ -205,8 +205,8 @@ flowchart TD
 | Repository contract | Commitment 后判断新决定是否属于稳定跨票约束；必要时起草最小根策略 diff 并先进入基线 | 有效根级 policy、Git exact base SHA | 人审核并合入策略变更 |
 | Delivery 编译 | 只把 `COMMITTED` exact revision 和已就绪 repository contract 交给 Spec | `to-spec` | 人显式调用 |
 | Ticket 与准入 | 跟踪 scenario coverage、frontier、fresh review 和 execution lane | `to-tickets`、`ticket-readiness`、`admit-ticket` | 发布/激活标签前确认 |
-| 执行交接 | 报告已准入 Ticket、base、source、policy 和 lane | ready tracker state + HerdrHarness | 人确认 Admission 状态变更 |
-| 执行跟踪 | 读取 Harness ledger、SHA、CI、review、merge 和等待状态 | HerdrHarness | 既有风险门与人工 merge/release 边界 |
+| 执行交接 | Admission 激活后报告 `HANDOFF_READY`；Harness 离线不构成 planning blocker | ready tracker state | 人确认 Admission 状态变更 |
+| 执行跟踪 | 按需读取 Harness ledger；领取后 planning 只读，不推断或改写 Harness 状态 | HerdrHarness | Harness 自身恢复门与人工 merge/release 边界 |
 | Release 与恢复 | 区分 merged/deployed/released，记录启用、smoke、rollback | 项目发布流程 | 高风险启用和回滚决定 |
 | Outcome Review | 到窗口后对结果和护栏给出判定，提出下一候选 | Release Frame / Release Record | 人决定 CONTINUE/ITERATE/PIVOT/STOP |
 | 状态可视化 | 每轮显示当前 lane、stage、blocker、下一动作和下一命令 | 固定 checkpoint | 无 |
@@ -219,21 +219,15 @@ flowchart TD
 |---|---|---|
 | `ask-yet` | 产品到交付 Router、状态恢复和下一 Gate 控制面 | 人显式调用；唯一需要记住的入口 |
 | `release-loop.md` | Evidence、Release Frame、readiness、Commitment 和 Outcome 规则 | `ask-yet` 在 PRODUCT/OUTCOME 分支按需读取；不是 Skill 命令 |
+| `execution-closeout.md` | Admission 后的事实所有权、无 daemon 恢复、交付/发布/Outcome 与父票收尾 | 下游事实存在时由 `ask-yet` 直接按需读取；不是 Skill 命令 |
 
 ### 7.2 阶段内辅助能力
 
 `research`、`prototype`、`grilling`、`domain-modeling`、`diagnosing-bugs` 等 model-invoked Skill 可以在对应分支被使用。Skill 可被发现不等于它依赖的工具可用：调用前先核对当前环境实际具备的读取、网络、浏览器、子代理和写入能力。涉及文件、原型、外部系统或真实用户时，仍遵守写入和风险批准边界。
 
-### 7.3 显式阶段 Gate
+### 7.3 阶段 Gate
 
-`wayfinder`、`triage`、`to-spec`、`to-tickets` 和 `admit-ticket` 当前是 user-invoked Skill。Router 不能悄悄替人触发它们，因此：
-
-1. `ask-yet` 决定唯一下一 Skill；
-2. 给出理由、输入固定点和可复制命令；
-3. 人确认并执行命令；
-4. 完成后在同一上下文继续，或重新调用 `/skill:ask-yet` 恢复。
-
-这是高影响 Gate 的可见性，不是让人重新承担路由。
+`setup-matt-pocock-skills`、`triage`、`to-spec`、`to-tickets` 和 `admit-ticket` 是 model-invoked helper；`ask-yet` 在当前 Gate 匹配时读取其合同并在同一运行中继续。它只在产品选择、策略变更、Ticket 图批准和 Admission 激活等人工 Gate 停止。`wayfinder` 与 `to-questionnaire` 仍是独立的人类交互，确实需要时只输出一个精确命令。
 
 ### 7.4 交付执行
 
@@ -319,7 +313,7 @@ return_to:
 - `provided-artifact`：人提供了可读取的原始材料；
 - `summary-only`：只有转述，不足以关闭阻塞性 unknown。
 
-研究能力缺失是 `CAPABILITY_GAP`，不是产品事实缺失，也不是要求人回答可检索事实。若它阻塞 Commitment，checkpoint 保持 `verdict: NEEDS_RESEARCH`、`forbidden_transition: COMMIT`。
+研究能力缺失是 `CAPABILITY_GAP`，不是产品事实缺失，也不是要求人回答可检索事实。若它阻塞 Commitment，checkpoint 使用 `PRODUCT/EVIDENCE · <id>/<revision> · NEEDS_RESEARCH`，并令 `Blocked: COMMIT`。
 
 ### 8.4 Repository policy 生命周期
 
@@ -371,6 +365,8 @@ Admission 维持现有简单契约：strict-frontier 检查、fresh-context read
 
 Ticket 内容或任务图在交接前发生修改时，重新运行 Admission。当前不增加机器封条、摘要协议或 Harness 侧重算；只有真实出现“已审内容被替换并导致错误执行”的失败，才重新评估跨系统强化。
 
+Admission 激活后，tracker 只证明 `HANDOFF_READY`；只有 Harness ledger 能证明 `IN_PROGRESS` 或执行终态。`ask-yet` 不常驻、不轮询，恢复时按需重读当前事实。所有预期子票终态且无 active claim 后，规划侧才移除父票 ready 状态并按权限关闭父票；这不等于 Release 已发布或 Outcome 成功。
+
 ## 9. 交互契约
 
 ### 9.1 对话行为
@@ -385,19 +381,13 @@ Ticket 内容或任务图在交接前发生修改时，重新运行 Admission。
 
 ### 9.2 固定 checkpoint
 
-自然语言说明之后，只保留一个紧凑 checkpoint：
+自然语言说明之后，只保留四行紧凑 checkpoint；Release 字段只能是 `NONE` 或 `<id>/<revision>`：
 
-```yaml
-lane: PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT
-stage: ORIENT | FRAME | EVIDENCE | COMMIT | SPEC | TICKETS | ADMISSION | EXECUTION | OUTCOME
-active_release: <id and revision, or NONE>
-verdict: <current stage enum>
-established: <one sentence with source boundary>
-blocker: <one blocker for the next gate, or NONE>
-next_action: <one smallest action>
-next_command: <copyable command, or NONE>
-human_input: <one exact decision/evidence/approval, or NONE>
-forbidden_transition: <next gate that is not yet allowed>
+```text
+Checkpoint: <LANE>/<STAGE> · <release or NONE> · <verdict>
+Next: <one smallest action>
+Need: <one exact evidence, decision, approval, or NONE>
+Blocked: <next forbidden gate or NONE>
 ```
 
 完整事实不在每轮重复打印；它们写入已获批准的 Release Frame，checkpoint 只承担恢复和可观察性。
@@ -436,7 +426,7 @@ Outcome window
 
 - `ORIENT`：只识别 repo、lane、stage 和下一 Gate；不得启动子代理或扫描完整 Issue 图。
 - `ADVANCE`：推进当前 Stage，只读取能改变 verdict、blocker 或 next action 的证据。
-- `RESUME`：读取 active Release revision 之后的新证据和实时状态，不从头重建。
+- `RESUME`：只读取上一个 durable record 之后的新事实和当前 blocker，不重放完整 Release、graph 或 ledger。
 - `STATUS`：只报告状态与下一动作，不做新取证。
 
 每次工具使用前，Agent 必须能说明它可能改变：
@@ -623,7 +613,7 @@ Package 接线需要：
 
 ### Phase 4：Gate C 交付接缝
 
-**状态：实现完成、运行验收未完成。** normalized graph、coverage、walking skeleton、fresh-start ticket context、显式 Admission handoff 和 greenfield base 均已接入；仍需一个人类确认的 `COMMITTED` Release 完成真实 Harness canary。
+**状态：实现和 R001 内部 canary 已完成。** normalized graph、coverage、walking skeleton、fresh-start ticket context、显式 Admission handoff、greenfield base 和父图收尾均已验证；内部 canary 只证明工作流，不作为客户价值证据。
 
 - `COMMITTED` 的空仓库先建立最小 Git/Tracker 基线，不生成应用脚手架；
 - `to-spec` 固定 trusted source、base SHA 和稳定 Scenario ID；
@@ -632,6 +622,7 @@ Package 接线需要：
 - 人决定 `COMMITTED` 后验证 `to-spec → to-tickets → admission → Harness`；
 - 验证 Repository Contract Impact Review、Spec、Ticket graph 和 Admission 能从真实目标仓库正确交接；
 - 候选或任务图变化时重新 Admission，不修改 HerdrHarness 的现有领取协议。
+- 用独立、只读、`--no-session` 的 PI 进程验证研究降级、等待 Harness、已交付未发布和已发布待证据四类恢复行为。
 
 退出条件：已准入 Ticket 可追溯到 Release revision 和 Scenario；空仓库能建立真实 base；没有让下游猜产品决定；HerdrHarness 能按现有契约领取并完成一张真实 Ticket。
 

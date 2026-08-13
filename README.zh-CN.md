@@ -103,7 +103,13 @@ ask-yet
   -> 子票进入 ready-for-agent / ready-for-human
   -> 最后激活 Delivery Parent
   -> Harness 领取
+  -> Harness 负责执行和审查
+  -> 所有预期子票终态后由规划侧收尾
+  -> 真实启用目标受众，并记录 Release Record、smoke 和 rollback 证据
+  -> 到 evidence window 后复核 Outcome
 ```
+
+`ask-yet` 不是常驻监控进程。需要恢复时再次调用即可：Admission 以 tracker 为准，执行以 Harness ledger 为准，接受的源码以 Git/PR 为准，发布以 Release Record 和真实启用为准，Outcome 以证据窗口后的信号为准。只有 Harness 可以常驻。`HANDOFF_READY`、`IN_PROGRESS`、`DELIVERED`、merged、released 和 outcome achieved 始终是不同状态。
 
 Wayfinder Map 只包含决策、研究、原型和人工输入，不进入实现队列。`READY | SPLIT | NEEDS_INFO` 判断票是否可以执行；`AGENT | HUMAN` 决定执行 lane。
 
@@ -161,6 +167,14 @@ npm run verify
 ```
 
 Profile 烟测的预期结果是 `profile isolation: ok (27 skills)`。
+
+发布 package 前，用当前模型运行四个普通、只读、全新进程场景：
+
+```sh
+npm run eval:pi
+```
+
+这个需要认证的评测会产生模型费用且会随模型变化，因此不进入 CI。它会确认 `ask-yet` 来自当前 checkout、每个场景都使用 `--no-session`、工作区没有变化，并且研究、Harness 交接、交付、发布和 Outcome 边界没有混淆。单个失败可用 `npm run eval:pi -- --case <id>` 重跑。
 
 升级必须显式选择 Release：
 

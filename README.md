@@ -103,7 +103,13 @@ ask-yet
   -> ready-for-agent / ready-for-human children
   -> delivery parent activated last
   -> Harness claim
+  -> Harness-owned execution and review
+  -> planning closeout after every intended child is terminal
+  -> audience enablement with Release Record, smoke, and rollback evidence
+  -> outcome review at the evidence window
 ```
+
+`ask-yet` is not a resident monitor. Invoke it again to resume: it resolves Admission from the tracker, execution from the Harness ledger, accepted source from Git/PR state, release from the Release Record and actual enablement, and outcome from post-window signal evidence. Harness alone may remain resident. `HANDOFF_READY`, `IN_PROGRESS`, `DELIVERED`, merged, released, and outcome achieved remain distinct states.
 
 Wayfinder maps contain decisions, research, prototypes, and human input. They never enter the implementation queue. `READY | SPLIT | NEEDS_INFO` judges ticket readiness; `AGENT | HUMAN` selects the execution lane.
 
@@ -161,6 +167,14 @@ npm run verify
 ```
 
 The expected Profile smoke result is `profile isolation: ok (27 skills)`.
+
+Before a package release, run the current model against four ordinary, read-only fresh-process cases:
+
+```sh
+npm run eval:pi
+```
+
+This authenticated evaluation is intentionally outside CI because it incurs model cost and can vary by model. It verifies that `ask-yet` loads from this checkout, starts each case with `--no-session`, preserves the workspace, and keeps research, Harness handoff, delivery, release, and outcome boundaries intact. Use `npm run eval:pi -- --case <id>` to rerun one failure.
 
 Updates are explicit and release-based:
 

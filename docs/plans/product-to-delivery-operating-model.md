@@ -1,8 +1,8 @@
 # 从产品意图到可验证结果：全阶段运行方案
 
-> 状态：Phase 1–3 的运行时接缝已在未发布的 `main` 实现；真实产品证据循环与 Gate C Release→Harness 验证仍未完成
+> 状态：Phase 1–3 和 Gate C 内部 Release→Harness canary 已完成；真实客户证据到 Outcome 的循环仍未完成
 >
-> 日期：2026-08-12
+> 日期：2026-08-13
 >
 > 批准记录：用户于 2026-08-12 同意第 12 节全部十项决策。
 >
@@ -364,6 +364,8 @@ Reviewer 不采信作者的完成声明，只采信受信 Spec、固定 SHA/diff
 
 Admission 是对当前候选和任务图的一次时间点审查。候选内容或任务图发生修改后重新 Admission；当前不增加额外封条或 Harness 侧交接协议。
 
+Admission 激活只建立 `HANDOFF_READY`。Harness ledger 独占领取、执行、审查、恢复和终态事实；`pi-ticket-plan` 无常驻进程，只在再次调用 `ask-yet` 时按需重建状态。所有子票终态后的父票收尾、真实 audience enablement 和 Outcome evidence 分属后续三个独立事实门。
+
 ### G7：实现、审查与合并
 
 完成链必须分层：
@@ -552,7 +554,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 3：v0.3，补已确认的交付接缝
 
-**状态：实现完成、尚未发布。** 下列接缝已落在 `v0.2.0` 之后的 `main` 并通过 package/Profile 检查；只有真实 `COMMITTED` Release→Harness canary 通过后，才发布为下一版本。
+**状态：实现和内部 canary 完成、尚未发布。** 下列接缝已落在 `v0.2.0` 之后的 `main`，通过 package/Profile 检查和四个全新 PI 进程行为评测；内部 canary 不替代客户价值证据。
 
 用户审核后已确认实现以下最小门禁，而不是整包预建：
 
@@ -560,6 +562,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 - `to-tickets` 输出 scenario coverage matrix 和首个 walking skeleton；
 - `admit-ticket` 的受信 bundle 增加 Release/Scenario 引用；
 - 空仓库只有在 exact `COMMITTED` revision 后才能建立最小 Git/Tracker 交付基线；
+- Admission、Harness、Git/PR、Release Record 和 Outcome signal 各自只裁决自己的事实；恢复无需 planning daemon；
 
 仍不增加第二套产品 Reviewer、Receipt 或 Harness 协议；只有后续真实失败证明必要时再评估。
 
@@ -606,6 +609,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 | Repository policy 沉积 | Release/单票事实或可发现命令不断写入根策略 | 仅保留稳定跨票约束，局部事实回到 Frame/Spec/Ticket |
 | Merge 被当作 Release | 没有 artifact、环境、启用或 smoke 证据 | 状态保持 `MERGED_NOT_RELEASED` |
 | Release 被当作 Outcome | 没到 evidence window 就宣布成功 | 只能记 `RELEASED_AWAITING_EVIDENCE` |
+| Tracker 或 PR 被当作 Harness 状态 | ready/merged 存在但 ledger 无 claim 或 terminal | 以 Harness ledger 为准，保持 `HANDOFF_READY` 或 `BLOCKED` |
 | 指标被游戏化 | 为提高数字而拆碎 Ticket 或频繁空部署 | 停止该指标作为目标，审查真实失败样本 |
 
 ## 12. 已批准的十项决策
@@ -621,7 +625,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 7. **暂不建通用包**：继续 PI 宿主 + portable Skill core；五个闭环且出现第二个真实 runtime 后再决定抽取。
 8. **研究能力 fail-closed**：外部研究先检查实际能力；缺少访问能力时输出标准 Research Handoff，阻塞性未知项保持 `NEEDS_RESEARCH`。
 9. **Repository policy 分层**：根级 policy 只放稳定跨票约束；Commitment 后做影响检查，当前 Ticket 依赖的新规则必须先进入基线。
-10. **简单交接**：Admission 使用 strict frontier、fresh review、人工确认和 tracker ready 状态；暂不增加 Admission Receipt 或 Harness 重算。候选或任务图修改后重新 Admission，只有真实失败证明必要时才扩展。
+10. **简单交接**：Admission 使用 strict frontier、fresh review、人工确认和 tracker ready 状态；暂不增加 Admission Receipt、Harness 重算或 planning daemon。候选或任务图修改后重新 Admission，执行事实只读 Harness ledger，只有真实失败证明必要时才扩展。
 
 ## 13. 一手资料索引
 

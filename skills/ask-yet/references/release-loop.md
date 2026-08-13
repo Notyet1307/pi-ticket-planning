@@ -281,6 +281,8 @@ A candidate-branch policy cannot govern the Worker that creates it. If the Relea
 
 The committed artifact revision is the product source for `to-spec`; the accepted Spec assigns stable Scenario IDs and explicit state/artifact handoffs; `to-tickets` persists the Scenario coverage matrix, walking skeleton, and candidate graph; the unchanged snapshot goes through independent Admission. Do not make downstream stages guess a product decision.
 
+Execution fact ownership, no-daemon resume, parent closeout, and delivery failure behavior are defined in [execution-closeout.md](execution-closeout.md). The `ask-yet` entry point must load it directly when those facts exist.
+
 Keep these facts distinct:
 
 - `merged`: the accepted diff reached a branch.
@@ -289,7 +291,9 @@ Keep these facts distinct:
 
 The Release Record includes Release ID and revision, source SHA and artifact identity, environment and enabled scope, migration or flag state, smoke/health evidence, rollback condition and result, and responsible human.
 
-At the evidence window, assess baseline validity, primary signal, guardrail, qualitative explanation, sample or instrumentation limits, and supported or disproved assumptions. Return exactly one outcome verdict:
+Before the evidence window, or while its stated minimum evidence is still accruing, return `AWAITING_EVIDENCE`; do not call ordinary waiting `UNEVALUABLE`.
+
+At or after the evidence window, assess baseline validity, primary signal, guardrail, qualitative explanation, sample or instrumentation limits, and supported or disproved assumptions. Return exactly one outcome verdict:
 
 - `ACHIEVED`
 - `PARTIAL`

@@ -4,7 +4,7 @@
     "packageRef": "unreleased-main",
     "model": "openai-codex/gpt-5.6-sol",
     "observedAt": "2026-08-13",
-    "note": "Redacted excerpts from fresh read-only PI canaries; wording is not a golden answer."
+    "note": "Frozen redacted regression excerpts; wording is not a golden answer. Run npm run eval:pi for current fresh-process behavior."
   },
   "cases": [
     {

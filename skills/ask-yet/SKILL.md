@@ -24,6 +24,7 @@ The human invokes:
 - In an existing Git repository, treat a Release revision as authoritative only when its exact artifact blob is reachable from the accepted remote delivery base. A working-tree file, patch preview, or unpublished local commit is still a draft.
 - Never enter `SPEC` before a human commits an exact Release revision.
 - Never route the formal product path to `/skill:implement`. Admitted implementation tickets go to the configured Harness.
+- Run only when invoked. `ask-yet` reconstructs current facts on demand; it is not a daemon and does not poll Harness.
 - Continue through discoverable, reversible mechanical steps. Stop only for a non-delegable product decision, policy change, graph approval, Admission activation, forbidden operation, or material drift/failure.
 
 ## Choose the run mode
@@ -32,7 +33,7 @@ Infer one mode; do not ask the human to choose it.
 
 - `ORIENT`: no active Release is established, or the input needs classification.
 - `ADVANCE`: progress the current stage to its next gate.
-- `RESUME`: an authoritative Release artifact exists; inspect only its open blocker and facts added since its recorded revision.
+- `RESUME`: an authoritative Release artifact exists; inspect only its open blocker and facts added since its last durable record. Do not replay the full Release or prior checkpoint.
 - `STATUS`: report current state without starting new discovery.
 
 ## Reconstruct the minimum true state
@@ -86,7 +87,9 @@ During `FRAME` and `EVIDENCE`:
 - While actor, workflow, or value remains blocking, keep AI and automation outside `smallest_closed_loop`, `primary_signal`, and the primary pass threshold. They may run as an isolated shadow only after the deterministic user loop is frozen.
 - Router `stage` names the gate currently being worked. Artifact `product_stage` names the highest evidence state already achieved. After an approved Frame write is reread, route to `EVIDENCE` while the artifact remains `product_stage: FRAME`; protocol design alone does not advance product evidence.
 
-For public facts, establish a Research Contract and inspect actual capabilities first. A discoverable skill is not proof that network, browser, source access, background agents, or writes are available. Use high-trust primary sources when reachable. If they are not reachable, keep `NEEDS_RESEARCH` and emit the reference's Research Handoff.
+For public facts, establish a Research Contract and inspect actual capabilities first. A discoverable skill is not proof that network, browser, source access, background agents, or writes are available. Use high-trust primary sources when reachable. If required sources are unreachable, keep `NEEDS_RESEARCH`, state `CAPABILITY_GAP`, and emit the reference's complete `Research Handoff` block under that exact heading.
+
+When missing source access is the reason for `NEEDS_RESEARCH`, put the literal line `Reason: CAPABILITY_GAP` immediately before the `Research Handoff` heading.
 
 For customer behavior, produce a story-interview, task-observation, or controlled-Pilot protocol; never answer it on the customer's behalf. If an asynchronous questionnaire is the one next action, return an exact `/skill:to-questionnaire` command. For one UI, state, or logic question, follow the available `prototype` skill only after the artifact write is authorized. Use `grilling` or `domain-modeling` only inside the current product question, not as competing entry points.
 
@@ -98,6 +101,8 @@ If Wayfinder is genuinely required, return only the destination, why one context
 
 ### DELIVERY
 
+If admitted tickets, ready labels, a Harness claim or terminal record, accepted Git/PR facts, a Release Record, or outcome evidence exists, read [references/execution-closeout.md](references/execution-closeout.md) in full before resolving or changing execution, closeout, release, or outcome state.
+
 Advance through these gates by loading and following the named model-invoked helper. Continue in the same run until that helper reaches a human gate:
 
 1. If Git `HEAD` does not resolve or repository tracker support is missing, follow `setup-matt-pocock-skills` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
@@ -105,6 +110,7 @@ Advance through these gates by loading and following the named model-invoked hel
 3. With an accepted Delivery Spec, follow `to-tickets` with its exact identity. Stop for the required split and graph approval before candidate publication.
 4. After approved candidates are persisted, follow `admit-ticket` with the parent identity. Stop for the required activation confirmation after fresh review.
 5. After Admission, report `ADMITTED` with the exact ticket, graph, base, source, policy, and execution lane. Any candidate or graph edit requires Admission again.
+6. After activation, use the execution-closeout reference to resolve `HANDOFF_READY | IN_PROGRESS | BLOCKED | DELIVERED`; do not infer Harness state from tracker or PR state.
 
 ### TRIAGE
 
@@ -138,15 +144,15 @@ Use only these stage verdicts:
 |---|---|
 | `ORIENT` | `NEEDS_TARGET`, `ROUTED` |
 | `FRAME` | `FRAME_CANDIDATE`, `FRAME_WRITE_AWAITING_APPROVAL` |
-| `EVIDENCE` | `EVIDENCE_ACTION_NEEDED`, `EVIDENCE_WRITE_AWAITING_APPROVAL`, `EVIDENCE_DESIGNED_NOT_AUTHORIZED`, `EVIDENCE_AUTHORIZED`, `EVIDENCE_RECORDED` |
+| `EVIDENCE` | `NEEDS_RESEARCH`, `NEEDS_PROTOTYPE`, `NEEDS_DECISION`, `EVIDENCE_WRITE_AWAITING_APPROVAL`, `EVIDENCE_AUTHORIZED`, `EVIDENCE_RECORDED` |
 | `COMMIT` | `NOT_READY`, `READY_TO_COMMIT`, `COMMITTED`, `HOLD`, `REWORK`, `DROP` |
 | `SPEC` | `SPEC_IN_PROGRESS`, `SPEC_ACCEPTED`, `BLOCKED` |
 | `TICKETS` | `TICKET_GRAPH_CANDIDATE`, `TICKETS_ACCEPTED`, `BLOCKED` |
 | `ADMISSION` | `REVIEW_IN_PROGRESS`, `ACTIVATION_AWAITING_CONFIRMATION`, `ADMITTED`, `BLOCKED` |
 | `EXECUTION` | `HANDOFF_READY`, `IN_PROGRESS`, `BLOCKED`, `DELIVERED` |
-| `OUTCOME` | `ACHIEVED`, `PARTIAL`, `NOT_ACHIEVED`, `UNEVALUABLE` |
+| `OUTCOME` | `AWAITING_EVIDENCE`, `ACHIEVED`, `PARTIAL`, `NOT_ACHIEVED`, `UNEVALUABLE` |
 
-The lane is one of `PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT`. End every response with exactly four short, unfenced lines; keep each under 120 characters and put any exact command once in the body:
+The lane is one of `PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT`. End every response with exactly four short, unfenced lines; keep each under 120 characters and put any exact command once in the body. In `Checkpoint`, the identity field is exactly `NONE` or `<release-id>/<revision>`; put draft, local, source, or status qualifiers in the body, never in that field.
 
 ```text
 Checkpoint: <LANE>/<STAGE> · <release id and revision or NONE> · <allowed verdict>
