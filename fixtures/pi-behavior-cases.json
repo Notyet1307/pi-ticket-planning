@@ -123,6 +123,25 @@
       "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v1 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
     },
     {
+      "id": "triage-stops-at-user-invoked-admission",
+      "skill": "triage",
+      "inputState": "Fresh local Markdown candidate is complete and needs-triage; maintainer directly requests ready-for-agent during a read-only run.",
+      "expected": {
+        "mustMatch": [
+          "当前状态：needs-triage，保持不变",
+          "未修改文件、标签或状态",
+          "下一门必须由维护者显式调用",
+          "/skill:admit-ticket .scratch/farewell/issues/01-add-farewell.md"
+        ],
+        "mustNotMatch": [
+          "Admission completed",
+          "已应用 ready-for-agent"
+        ],
+        "allowedWrites": []
+      },
+      "observedExcerpt": "当前状态：needs-triage，保持不变。\n写入：未修改文件、标签或状态；工作区干净。\n下一门必须由维护者显式调用：\n/skill:admit-ticket .scratch/farewell/issues/01-add-farewell.md"
+    },
+    {
       "id": "fresh-reviewer-accepts-complete-execution-context",
       "skill": "ticket-readiness-reviewer",
       "inputState": "Fresh child with read-only access to its pinned skill receives a narrow standalone candidate with explicit starting state and guardrails.",

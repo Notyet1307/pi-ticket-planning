@@ -17,7 +17,7 @@ Every tracker comment posted during triage starts with:
 - Read [AGENT-BRIEF.md](AGENT-BRIEF.md) before writing a candidate brief.
 - Read [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) before recording a rejected enhancement.
 - Use /ticket-readiness for the executable-ticket contract.
-- Use /admit-ticket for every ready-for-agent or ready-for-human transition.
+- Hand off every ready-for-agent or ready-for-human transition to user-invoked /skill:admit-ticket.
 
 ## Roles
 
@@ -77,7 +77,7 @@ When behavior or terminology remains undecided, use /grilling and /domain-modeli
 
 ### 5. Apply the chosen path
 
-- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, then invoke /admit-ticket. Apply the label selected by its reviewed execution lane only through the confirmed outcome.
+- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, print the exact `/skill:admit-ticket <issue identity>` command, and stop. Admission alone applies the label selected by its reviewed execution lane after confirmation.
 - **Too broad:** keep needs-triage and propose /to-tickets with the issue as parent/source.
 - **needs-info:** post exact established facts and outstanding questions, then apply needs-info.
 - **wontfix, already implemented:** point to the implementation and close without adding an out-of-scope record.
@@ -87,7 +87,7 @@ When behavior or terminology remains undecided, use /grilling and /domain-modeli
 
 ## Direct activation requests
 
-When a maintainer asks to move an item directly to ready-for-agent or ready-for-human, treat that as a request to run /admit-ticket now. Build the candidate brief if it is missing, show the independent verdict and execution lane, and require confirmation of the resulting state change. The direct request does not bypass the fresh review.
+When a maintainer asks to move an item directly to ready-for-agent or ready-for-human, prepare the candidate brief if it is missing, keep needs-triage, print the exact `/skill:admit-ticket <issue identity>` command, and stop. The direct request does not bypass the user-invoked fresh review and its later mutation confirmation.
 
 ## Needs-info comment
 
@@ -99,4 +99,4 @@ When a maintainer asks to move an item directly to ready-for-agent or ready-for-
     **What is still needed:**
     - specific question and decision owner
 
-Do not re-ask questions already answered in prior notes. Completion means the tracker category, state, durable brief or notes, and admission result all agree.
+Do not re-ask questions already answered in prior notes. For a candidate, triage completes when its category, needs-triage state, durable brief, and exact Admission handoff agree; activation completes only in /skill:admit-ticket.

@@ -2,3 +2,5 @@ interface:
   display_name: "Admit Ticket"
   short_description: "Review candidate issues before agent activation"
   default_prompt: "Use $admit-ticket to independently review these candidate issues before adding a ready label."
+policy:
+  allow_implicit_invocation: false

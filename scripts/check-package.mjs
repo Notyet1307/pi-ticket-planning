@@ -15,6 +15,14 @@ const REQUIRED_PACKAGE_SKILLS = [
   "to-tickets",
   "triage",
 ];
+const HUMAN_INVOKED_SKILLS = new Set([
+  "admit-ticket",
+  "ask-yet",
+  "setup-matt-pocock-skills",
+  "to-spec",
+  "to-tickets",
+  "triage",
+]);
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -97,6 +105,17 @@ export function validatePackage(root) {
     if (name !== dir.name) errors.push(`${dir.name}: frontmatter name mismatch`);
     if (!description) errors.push(`${dir.name}: missing description`);
     if (/\bTODO\b/.test(text)) errors.push(`${dir.name}: TODO remains`);
+    if (HUMAN_INVOKED_SKILLS.has(dir.name) && frontmatterValue(text, "disable-model-invocation") !== "true") {
+      errors.push(`${dir.name}: human gate allows implicit model invocation`);
+    }
+    const metadataFile = path.join(skillRoot, dir.name, "agents", "openai.yaml");
+    if (
+      HUMAN_INVOKED_SKILLS.has(dir.name)
+      && fs.existsSync(metadataFile)
+      && !fs.readFileSync(metadataFile, "utf8").includes("allow_implicit_invocation: false")
+    ) {
+      errors.push(`${dir.name}: UI metadata allows implicit invocation`);
+    }
 
     for (const match of text.matchAll(/(?:^|[\s(])\/(?:skill:)?([a-z][a-z0-9-]*)/gm)) {
       const target = match[1];
@@ -118,9 +137,6 @@ export function validatePackage(root) {
   const triageBrief = fs.readFileSync(path.join(skillRoot, "triage", "AGENT-BRIEF.md"), "utf8");
   const readiness = fs.readFileSync(path.join(skillRoot, "ticket-readiness", "SKILL.md"), "utf8");
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
-  if (frontmatterValue(askYet, "disable-model-invocation") !== "true") {
-    errors.push("ask-yet must remain a human-invoked router");
-  }
   for (const required of [
     "references/release-loop.md",
     "PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT",
@@ -242,6 +258,9 @@ export function validatePackage(root) {
     "Walking skeleton: PASS | FAIL",
     "Re-run the Delivery Graph checker",
     "no admission check invents a missing handoff",
+    "trusted source revision, repository base SHA, effective policy identity",
+    "For a delivery map, include all four graph verdicts",
+    "creates no additional artifact",
   ]) {
     if (!admission.includes(required)) errors.push(`admit-ticket lacks coverage recheck: ${required}`);
   }
@@ -272,6 +291,18 @@ export function validatePackage(root) {
   if (!toTickets.includes("## Execution lane")) errors.push("to-tickets omits execution lane from candidate bodies");
   if (!triage.includes("ready-for-agent or ready-for-human transition")) {
     errors.push("triage does not route both ready labels through admission");
+  }
+  if (!triage.includes("print the exact `/skill:admit-ticket <issue identity>` command, and stop")) {
+    errors.push("triage does not stop at the user-invoked Admission handoff");
+  }
+
+  const toSpecMetadata = fs.readFileSync(path.join(skillRoot, "to-spec", "agents", "openai.yaml"), "utf8");
+  if (!toSpecMetadata.includes("exact COMMITTED Release or decision-complete source")) {
+    errors.push("to-spec UI prompt accepts an untrusted conversational source");
+  }
+  const toTicketsMetadata = fs.readFileSync(path.join(skillRoot, "to-tickets", "agents", "openai.yaml"), "utf8");
+  if (!toTicketsMetadata.includes("stop at the Admission handoff")) {
+    errors.push("to-tickets UI prompt bypasses the explicit Admission command");
   }
 
   const reviewer = fs.readFileSync(path.join(root, "agents", "ticket-readiness-reviewer.md"), "utf8");

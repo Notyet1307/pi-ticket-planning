@@ -30,6 +30,7 @@ export function validatePiBehaviorCases(file) {
     "missing-handoffs-fail-closed",
     "complete-handoffs-reach-approval-gate",
     "normalized-delivery-graph-reaches-approval-gate",
+    "triage-stops-at-user-invoked-admission",
     "fresh-reviewer-accepts-complete-execution-context",
     "fresh-reviewer-rejects-missing-execution-context"
   ]) {

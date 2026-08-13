@@ -1,6 +1,7 @@
 ---
 name: admit-ticket
-description: Run the independent admission gate before an implementation issue or delivery map receives a ready label. Use after to-tickets, during triage, after candidate edits, or whenever a user asks to activate an implementation issue.
+description: Independently review and activate unchanged candidate implementation tickets or delivery maps after human confirmation.
+disable-model-invocation: true
 ---
 
 # Admit Ticket
@@ -81,4 +82,4 @@ For a delivery map, activate children in their reviewed lanes first. Add ready-f
 
 ### 6. Report completion
 
-Report issue identifiers, final labels, reviewer verdicts, execution lanes, reviewed timestamps, and whether the delivery parent was activated. A partial label update is a failed admission; surface it and stop rather than claiming success.
+Report issue identifiers, final labels, reviewer verdicts, execution lanes, reviewed timestamps, trusted source revision, repository base SHA, effective policy identity, and whether the delivery parent was activated. For a delivery map, include all four graph verdicts. This transient operator output creates no additional artifact; Harness authority remains the current ready label, ticket body, native relationships, and repository policy. A partial label update is a failed admission; surface it and stop rather than claiming success.
