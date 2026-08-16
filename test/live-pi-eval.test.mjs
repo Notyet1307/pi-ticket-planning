@@ -100,10 +100,12 @@ test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () 
 
 test("STANDARD fixture accepts the Chinese Release-lite label", () => {
   const standard = fixture.cases.find(({ id }) => id === "workflow-tier-standard-known-feature");
-  assert.deepEqual(matchLiveEvalOutput([
-    "已经确认：行为已批准，因此走标准路径。",
-    "仍然缺少：一个精确的精简发布修订，以及负责人的提交决定。",
-  ].join("\n"), standard.expected), []);
+  for (const decision of ["负责人的提交决定", "你对该修订的明确提交决定"]) {
+    assert.deepEqual(matchLiveEvalOutput([
+      "已经确认：行为已批准，因此走标准路径。",
+      `仍然缺少：一个精确的精简发布修订，以及${decision}。`,
+    ].join("\n"), standard.expected), []);
+  }
 });
 
 test("DISCOVERY fixture accepts a recent concrete experience request", () => {
@@ -131,6 +133,7 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
   assert.match(bundle, /The approved enum is exactly dependency, test, infrastructure, or unsupported/u);
   assert.match(bundle, /Primary command: `npm test -- build-failure-v1`/u);
   assert.match(bundle, /Current blockers: none/u);
+  assert.doesNotMatch(bundle, /public classify/u);
 });
 
 test("admission live fixture keeps candidate criteria bounded", () => {
@@ -141,6 +144,7 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   assert.deepEqual(counts, [5, 3]);
   const c02 = bundle.match(/## Candidate C02 exact body\n([\s\S]*?)\n## Exact normalized Delivery Graph JSON/u)[1];
   assert.match(c02, /dependency -> `Dependency installation failed\.`[\s\S]*unsupported -> `Unsupported build failure\.` with no link/u);
+  assert.doesNotMatch(bundle, /public (?:classify|explain)|public explain-command/u);
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
@@ -154,6 +158,11 @@ test("ticket-graph live fixture binds its exact Spec and candidate bodies", () =
   assert.equal(graph.source.specContentHash, hashText(spec));
   assert.equal(graph.children[0].bodyHash, hashText(c01));
   assert.equal(graph.children[1].bodyHash, hashText(c02));
+  assert.deepEqual(graph.scenarios.map(({ releaseSignal }) => releaseSignal), [
+    "approved frozen-log classification result with no raw log",
+    "approved explanation and existing link, or unsupported no-link response, with no raw log",
+  ]);
+  assert.doesNotMatch(`${spec}\n${snapshotText}`, /public (?:classify|explain)|public explain-command/u);
   assert.deepEqual(validateDeliveryGraph(graph).problems, []);
   assert.deepEqual(matchLiveEvalOutput([
     "### Scenario coverage",
