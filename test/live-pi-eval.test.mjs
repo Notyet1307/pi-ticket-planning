@@ -139,6 +139,8 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
     .map(([, criteria]) => criteria.trim().split("\n").length);
   assert.deepEqual(counts, [5, 3]);
+  const c02 = bundle.match(/## Candidate C02 exact body\n([\s\S]*?)\n## Exact normalized Delivery Graph JSON/u)[1];
+  assert.match(c02, /dependency -> `Dependency installation failed\.`[\s\S]*unsupported -> `Unsupported build failure\.` with no link/u);
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
