@@ -1,6 +1,0 @@
-interface:
-  display_name: "Setup Matt Pocock Skills"
-  short_description: "Configure tracker, domain docs, and delivery gate"
-  default_prompt: "Use $setup-matt-pocock-skills when the current ask-yet delivery run needs repository or tracker setup."
-policy:
-  allow_implicit_invocation: true

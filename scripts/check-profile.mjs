@@ -32,7 +32,7 @@ const REQUIRED_MODEL_INVOKED = new Set([
   "grilling",
   "prototype",
   "research",
-  "setup-matt-pocock-skills",
+  "setup-delivery-repository",
   "ticket-readiness",
   "to-spec",
   "to-tickets",

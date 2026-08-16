@@ -1,5 +1,6 @@
-The compatible setup-matt-pocock-skills, to-spec, to-tickets, and triage skills
-are adapted from mattpocock/skills at commit
+The compatible setup-delivery-repository (adapted from upstream
+setup-matt-pocock-skills), to-spec, to-tickets, and triage skills are adapted
+from mattpocock/skills at commit
 84fdeffd12f2ee307994d1eb6feb48173b6e0502 under the MIT License.
 
 All later upstream adoption is manual and must update the recorded commit.

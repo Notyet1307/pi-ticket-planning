@@ -1,0 +1,6 @@
+interface:
+  display_name: "Setup Delivery Repository"
+  short_description: "Configure tracker, domain docs, and delivery gate"
+  default_prompt: "Use $setup-delivery-repository when the current ask-yet delivery run needs repository or tracker setup."
+policy:
+  allow_implicit_invocation: true

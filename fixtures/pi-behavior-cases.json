@@ -17,7 +17,7 @@
           "Blocked: Release 写入、EVIDENCE 与 COMMIT"
         ],
         "mustNotMatch": [
-          "/skill:setup-matt-pocock-skills",
+          "/skill:setup-delivery-repository",
           "/skill:to-spec"
         ],
         "allowedWrites": []
@@ -36,7 +36,7 @@
           "Need: One decision covering policy, two labels, and maintainer publication"
         ],
         "mustNotMatch": [
-          "/skill:setup-matt-pocock-skills",
+          "/skill:setup-delivery-repository",
           "/skill:to-spec"
         ],
         "allowedWrites": []

@@ -7,7 +7,7 @@ description: Draft and publish a traceable candidate graph when ask-yet has an a
 
 Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; `admit-ticket` alone owns ready labels.
 
-The issue tracker and triage labels must be configured by `setup-matt-pocock-skills`. Load `/ticket-readiness` before drafting.
+The issue tracker and triage labels must be configured by `setup-delivery-repository`. Load `/ticket-readiness` before drafting.
 
 ## Process
 

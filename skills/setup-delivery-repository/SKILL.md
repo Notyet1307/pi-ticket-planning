@@ -1,9 +1,9 @@
 ---
-name: setup-matt-pocock-skills
-description: Configure delivery setup when ask-yet finds a COMMITTED Release whose existing or greenfield target lacks tracker labels, policy pointers, or admission/Harness prerequisites.
+name: setup-delivery-repository
+description: Configure an existing or greenfield repository when ask-yet finds missing tracker, policy, delivery-gate, or Admission/Harness prerequisites.
 ---
 
-# Setup Matt Pocock Skills
+# Setup Delivery Repository
 
 Establish the repository facts consumed by planning and admission. Explore, resolve authorization once, apply the smallest permitted setup, and verify the resulting delivery base.
 
