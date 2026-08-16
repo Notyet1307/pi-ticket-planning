@@ -18,7 +18,7 @@
 克隆指定 Release tag，然后运行安装器：
 
 ```sh
-git clone --branch v0.3.0 --depth 1 \
+git clone --branch v0.3.1 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -259,7 +259,7 @@ npm run eval:pi:nightly -- --report /tmp/pi-ticket-plan-live-eval.json
 
 ```sh
 git fetch --tags
-git checkout v0.3.0
+git checkout v0.3.1
 ./install.sh
 ```
 

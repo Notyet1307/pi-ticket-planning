@@ -22,6 +22,10 @@ const fixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
+  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 300_000);
+  const invalidTimeout = structuredClone(fixture);
+  invalidTimeout.cases[0].timeoutMs = 0;
+  assert.match(validateLiveEvalFixture(invalidTimeout).join("\n"), /timeoutMs must be a positive integer/u);
   assert.deepEqual(matchLiveEvalOutput("Checkpoint: PRODUCT/OUTCOME · R004/r1 · AWAITING_EVIDENCE", {
     mustMatch: ["PRODUCT/OUTCOME.*AWAITING_EVIDENCE"],
     mustNotMatch: ["ACHIEVED$"],
