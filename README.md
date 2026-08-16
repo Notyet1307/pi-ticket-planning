@@ -18,7 +18,7 @@ Requirements:
 Clone a released tag, then run the installer:
 
 ```sh
-git clone --branch v0.2.0 --depth 1 \
+git clone --branch v0.3.0 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -259,7 +259,7 @@ Updates are explicit and release-based:
 
 ```sh
 git fetch --tags
-git checkout v0.2.0
+git checkout v0.3.0
 ./install.sh
 ```
 

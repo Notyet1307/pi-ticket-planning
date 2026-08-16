@@ -554,7 +554,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 3：v0.3，补已确认的交付接缝
 
-**状态：实现和内部 canary 完成、尚未发布。** 下列交付接缝已落在 `v0.2.0` 之后的当前工作树；三档规划深度加风险覆盖、五字段人类状态卡、分层只读 `pi-ticket-plan doctor`、幂等 Admission plan/apply 和真实模型 Release Gate 已实现，并通过 package/Profile 检查、确定性回归和十四个全新 PI 进程行为评测。内部 canary 不替代客户价值证据。
+**状态：已随 `v0.3.0` 发布。** 三档规划深度加风险覆盖、五字段人类状态卡、分层只读 `pi-ticket-plan doctor`、幂等 Admission plan/apply 和真实模型 Release Gate 已实现，并通过 package/Profile 检查、确定性回归和十四个全新 PI 进程行为评测。内部 canary 不替代客户价值证据。
 
 用户审核后已确认实现以下最小门禁，而不是整包预建：
 
