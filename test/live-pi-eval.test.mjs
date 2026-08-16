@@ -133,6 +133,14 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
   assert.match(bundle, /Current blockers: none/u);
 });
 
+test("admission live fixture keeps candidate criteria bounded", () => {
+  const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
+  const bundle = admission.files["tracker/admission-bundle-r006.md"];
+  const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
+    .map(([, criteria]) => criteria.trim().split("\n").length);
+  assert.deepEqual(counts, [5, 3]);
+});
+
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
   const item = fixture.cases.find(({ id }) => id === "lifecycle-accepted-spec-compiles-ticket-graph");
   const spec = item.files["tracker/delivery-spec-70.md"].trimEnd();
