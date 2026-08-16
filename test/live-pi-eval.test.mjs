@@ -22,6 +22,10 @@ const fixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
+  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 300_000);
+  const invalidTimeout = structuredClone(fixture);
+  invalidTimeout.cases[0].timeoutMs = 0;
+  assert.match(validateLiveEvalFixture(invalidTimeout).join("\n"), /timeoutMs must be a positive integer/u);
   assert.deepEqual(matchLiveEvalOutput("Checkpoint: PRODUCT/OUTCOME · R004/r1 · AWAITING_EVIDENCE", {
     mustMatch: ["PRODUCT/OUTCOME.*AWAITING_EVIDENCE"],
     mustNotMatch: ["ACHIEVED$"],
@@ -127,6 +131,16 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
   assert.match(bundle, /The approved enum is exactly dependency, test, infrastructure, or unsupported/u);
   assert.match(bundle, /Primary command: `npm test -- build-failure-v1`/u);
   assert.match(bundle, /Current blockers: none/u);
+});
+
+test("admission live fixture keeps candidate criteria bounded", () => {
+  const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
+  const bundle = admission.files["tracker/admission-bundle-r006.md"];
+  const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
+    .map(([, criteria]) => criteria.trim().split("\n").length);
+  assert.deepEqual(counts, [5, 3]);
+  const c02 = bundle.match(/## Candidate C02 exact body\n([\s\S]*?)\n## Exact normalized Delivery Graph JSON/u)[1];
+  assert.match(c02, /dependency -> `Dependency installation failed\.`[\s\S]*unsupported -> `Unsupported build failure\.` with no link/u);
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {

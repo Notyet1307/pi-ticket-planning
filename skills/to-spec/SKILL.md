@@ -7,7 +7,7 @@ description: Compile an exact COMMITTED Release or other decision-complete sourc
 
 Compile decided behavior into one durable parent Delivery Spec. Do not interview the human, choose product behavior, or recover authority from conversation memory.
 
-The repository, issue tracker, triage labels, and exact Git base must already be configured by the `setup-matt-pocock-skills` helper. Use `ticket-readiness` for artifact roles and activation invariants.
+The repository, issue tracker, triage labels, and exact Git base must already be configured by the `setup-delivery-repository` helper. Use `ticket-readiness` for artifact roles and activation invariants.
 
 ## Process
 

@@ -4,7 +4,7 @@
 
 A profile-only PI package with `/skill:ask-yet` as the single product-to-outcome entry point, followed by committed Release compilation, independent ticket admission, and strict-frontier Harness activation.
 
-It pins the Matt Pocock stable skill set, replaces its upstream router with package-owned `ask-yet`, and overrides specification, ticket generation, triage, and admission. Upstream adoption is manual.
+It pins the Matt Pocock stable skill set, suppresses the upstream router and repository-setup skill in favor of package-owned `ask-yet` and `setup-delivery-repository`, and provides the package-controlled specification, ticket, triage, and Admission flow. Upstream adoption is manual.
 
 ## Install from GitHub
 
@@ -18,7 +18,7 @@ Requirements:
 Clone a released tag, then run the installer:
 
 ```sh
-git clone --branch v0.3.0 --depth 1 \
+git clone --branch v0.3.1 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -84,7 +84,7 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-Humans normally invoke only `/skill:ask-yet`. Setup, triage, spec, ticket, and Admission skills are model-invoked helpers; their direct `/skill:<name>` commands remain available for recovery and debugging.
+Humans normally invoke only `/skill:ask-yet`. `setup-delivery-repository`, triage, spec, ticket, and Admission are model-invoked helpers; their direct `/skill:<name>` commands remain available for recovery and debugging.
 
 ## Workflow
 
@@ -94,7 +94,7 @@ Start every product idea, feature, issue, and resumed flow through one entry poi
 /skill:ask-yet [optional idea, issue, Release artifact, or current goal]
 ```
 
-`ask-yet` reconstructs state from the repository and authoritative artifacts, then advances automatically through reversible planning work covered by the human's standing authorization. It stops for product choices, repository-policy changes, Ticket-graph approval, Admission activation, forbidden operations, or material drift. In an existing Git target, a Release is authoritative only when its exact blob is present in the accepted remote base; a working-tree file or unpublished commit cannot feed `to-spec`. An empty or unborn repository remains in product shaping until a human commits an exact Release revision; only then may the setup helper create the minimal Git/tracker delivery base. That bootstrap does not choose an application stack or create implementation scaffolding.
+`ask-yet` reconstructs state from the repository and authoritative artifacts, then advances automatically through reversible planning work covered by the human's standing authorization. It stops for product choices, repository-policy changes, Ticket-graph approval, Admission activation, forbidden operations, or material drift. In an existing Git target, a Release is authoritative only when its exact blob is present in the accepted remote base; a working-tree file or unpublished local commit cannot feed `to-spec`. An empty or unborn repository remains in product shaping until a human commits an exact Release revision; only then may `setup-delivery-repository` create the minimal Git/tracker delivery base. That bootstrap does not choose an application stack or create implementation scaffolding.
 
 `ask-yet` independently infers planning depth and risk control; the human does not choose either:
 
@@ -259,11 +259,11 @@ Updates are explicit and release-based:
 
 ```sh
 git fetch --tags
-git checkout v0.3.0
+git checkout v0.3.1
 ./install.sh
 ```
 
-Do not follow Matt upstream directly. A package release must deliberately update the pinned commit, replay the four overrides and suppressed upstream router, update `upstream-lock.json`, and pass verification.
+Do not follow Matt upstream directly. A package release must deliberately update the pinned commit, reconcile the three same-name overrides, the renamed `setup-delivery-repository` adaptation, and both suppressed upstream skills, update `upstream-lock.json`, and pass verification.
 
 ## Security and provenance
 

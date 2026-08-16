@@ -37,7 +37,7 @@ Use Git as the durability boundary; add no parallel receipt:
 
 - In an existing Git repository, a Release revision becomes authoritative only when its exact regular-file blob is reachable from the accepted remote delivery base. A conversation, patch preview, working-tree file, staged file, or unpublished local commit is a draft and cannot feed `to-spec`.
 - Include the exact file write, paths to stage, commit message, and permitted pre-delivery publication owner in the mutation plan. If repository policy forbids agent publication, prepare only the approved scope and stop with an exact human-maintainer or already-configured pre-delivery handoff. The implementation Harness/controller consumes admitted tickets and cannot publish the Release or setup needed to reach Admission. Do not report the revision as recorded until the live accepted ref contains it.
-- In greenfield, the approved local artifact may carry the product revision through `COMMIT`, but the `setup-matt-pocock-skills` helper must put that exact artifact into the first delivery base before `to-spec` is allowed.
+- In greenfield, the approved local artifact may carry the product revision through `COMMIT`, but the `setup-delivery-repository` helper must put that exact artifact into the first delivery base before `to-spec` is allowed.
 
 The artifact contains these sections; omit empty optional subsections rather than inventing content:
 

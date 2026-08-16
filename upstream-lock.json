@@ -32,17 +32,18 @@
     "writing-for-agents"
   ],
   "overriddenSkills": [
-    "setup-matt-pocock-skills",
     "to-spec",
     "to-tickets",
     "triage"
   ],
   "suppressedSkills": [
-    "ask-matt"
+    "ask-matt",
+    "setup-matt-pocock-skills"
   ],
   "packageSkills": [
     "admit-ticket",
     "ask-yet",
+    "setup-delivery-repository",
     "ticket-readiness"
   ]
 }

@@ -242,7 +242,7 @@ flowchart TD
 
 ### 7.3 阶段 Gate
 
-`setup-matt-pocock-skills`、`triage`、`to-spec`、`to-tickets` 和 `admit-ticket` 是 model-invoked helper；`ask-yet` 在当前 Gate 匹配时读取其合同并在同一运行中继续。它只在产品选择、策略变更、Ticket 图批准和 Admission 激活等人工 Gate 停止。`wayfinder` 与 `to-questionnaire` 仍是独立的人类交互，确实需要时只输出一个精确命令。
+`setup-delivery-repository`、`triage`、`to-spec`、`to-tickets` 和 `admit-ticket` 是 model-invoked helper；`ask-yet` 在当前 Gate 匹配时读取其合同并在同一运行中继续。它只在产品选择、策略变更、Ticket 图批准和 Admission 激活等人工 Gate 停止。`wayfinder` 与 `to-questionnaire` 仍是独立的人类交互，确实需要时只输出一个精确命令。
 
 ### 7.4 交付执行
 

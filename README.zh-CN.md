@@ -4,7 +4,7 @@
 
 这是一个只通过专用 PI Profile 启用的 package。它以 `/skill:ask-yet` 作为产品到结果的统一入口，再把已承诺 Release 编译成实现票、执行独立 admission，并且只激活能够被严格前沿 Harness 安全领取的任务图。
 
-它固定 Matt Pocock 稳定技能集，由本 package 用 `ask-yet` 替换上游 Router，并覆盖 spec、拆票、triage 和 admission 流程。上游更新必须手动处理。
+它固定 Matt Pocock 稳定技能集，屏蔽上游 Router 和仓库初始化 Skill，改用本 package 的 `ask-yet` 与 `setup-delivery-repository`，并由本 package 控制 spec、拆票、triage 和 Admission 流程。上游更新必须手动处理。
 
 ## 从 GitHub 安装
 
@@ -18,7 +18,7 @@
 克隆指定 Release tag，然后运行安装器：
 
 ```sh
-git clone --branch v0.3.0 --depth 1 \
+git clone --branch v0.3.1 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -84,7 +84,7 @@ cd /absolute/path/to/project
 pi-ticket-plan --name "project-planning"
 ```
 
-人通常只需调用 `/skill:ask-yet`。setup、triage、spec、ticket 和 Admission 都是由模型自动调用的 helper；各自的 `/skill:<name>` 只保留给恢复和调试。
+人通常只需调用 `/skill:ask-yet`。`setup-delivery-repository`、triage、spec、ticket 和 Admission 都是由模型自动调用的 helper；各自的 `/skill:<name>` 只保留给恢复和调试。
 
 ## 工作流
 
@@ -94,7 +94,7 @@ pi-ticket-plan --name "project-planning"
 /skill:ask-yet [可选：想法、Issue、Release 文档或当前目标]
 ```
 
-`ask-yet` 会从仓库和权威产物恢复当前状态，并在人的持续授权范围内自动推进可逆的规划工作。只有遇到产品选择、仓库策略变更、Ticket 图批准、Admission 激活、禁止操作或重大漂移时才停下。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，setup helper 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
+`ask-yet` 会从仓库和权威产物恢复当前状态，并在人的持续授权范围内自动推进可逆的规划工作。只有遇到产品选择、仓库策略变更、Ticket 图批准、Admission 激活、禁止操作或重大漂移时才停下。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`setup-delivery-repository` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
 
 `ask-yet` 会分别推断规划深度和风险控制，不要求人选择：
 
@@ -259,11 +259,11 @@ npm run eval:pi:nightly -- --report /tmp/pi-ticket-plan-live-eval.json
 
 ```sh
 git fetch --tags
-git checkout v0.3.0
+git checkout v0.3.1
 ./install.sh
 ```
 
-不要直接跟随 Matt 上游。发布 package 新版本时，必须有意更新固定提交、重新核对四个 override 和被隐藏的上游 Router、更新 `upstream-lock.json`，并通过完整验证。
+不要直接跟随 Matt 上游。发布 package 新版本时，必须有意更新固定提交，重新核对三个同名 override、改名后的 `setup-delivery-repository` 适配以及两个被屏蔽的上游 Skill，更新 `upstream-lock.json`，并通过完整验证。
 
 ## 安全和来源
 

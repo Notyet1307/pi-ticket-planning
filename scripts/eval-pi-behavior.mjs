@@ -29,6 +29,9 @@ export function validateLiveEvalFixture(fixture) {
     if (item.tools && (!Array.isArray(item.tools) || item.tools.some((tool) => !READ_ONLY_TOOLS.has(tool)))) {
       errors.push(`${item.id}: tools must contain only read-only eval tools`);
     }
+    if (item.timeoutMs !== undefined && (!Number.isInteger(item.timeoutMs) || item.timeoutMs < 1)) {
+      errors.push(`${item.id}: timeoutMs must be a positive integer`);
+    }
     for (const [relative, content] of Object.entries(item.files ?? {})) {
       if (!safeRelativePath(relative)) errors.push(`${item.id}: unsafe workspace path ${relative}`);
       if (typeof content !== "string") errors.push(`${item.id}: ${relative} content must be a string`);
@@ -166,6 +169,7 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
 
   async function runAttempt(item, round) {
     const attemptStarted = Date.now();
+    const caseTimeoutMs = item.timeoutMs ?? timeoutMs;
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ticket-planning-eval-"));
     let before;
     let output = "";
@@ -180,7 +184,7 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
           launcher,
           model,
           thinking,
-          timeoutMs,
+          timeoutMs: caseTimeoutMs,
           skill: item.skill,
           tools: item.tools ?? ["read", "grep", "find", "ls"],
           prompt: `/skill:${item.skill} ${item.prompt}`,
@@ -202,6 +206,7 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
       skill: item.skill,
       attempt: round,
       status,
+      timeoutMs: caseTimeoutMs,
       durationMs: Date.now() - attemptStarted,
       errors: errors.length ? errors : infraError ? [infraError] : [],
     };

@@ -10,7 +10,7 @@ const SCOUT_THINKING = "max";
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
   "ask-yet",
-  "setup-matt-pocock-skills",
+  "setup-delivery-repository",
   "ticket-readiness",
   "to-spec",
   "to-tickets",
@@ -19,7 +19,7 @@ const REQUIRED_PACKAGE_SKILLS = [
 const HUMAN_INVOKED_SKILLS = new Set(["ask-yet"]);
 const MODEL_INVOKED_PACKAGE_SKILLS = new Set([
   "admit-ticket",
-  "setup-matt-pocock-skills",
+  "setup-delivery-repository",
   "to-spec",
   "to-tickets",
   "triage",
@@ -171,7 +171,7 @@ export function validatePackage(root) {
   const executionCloseout = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "execution-closeout.md"), "utf8");
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
-  const setup = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "SKILL.md"), "utf8");
+  const setup = fs.readFileSync(path.join(skillRoot, "setup-delivery-repository", "SKILL.md"), "utf8");
   const triage = fs.readFileSync(path.join(skillRoot, "triage", "SKILL.md"), "utf8");
   const triageBrief = fs.readFileSync(path.join(skillRoot, "triage", "AGENT-BRIEF.md"), "utf8");
   const readiness = fs.readFileSync(path.join(skillRoot, "ticket-readiness", "SKILL.md"), "utf8");
@@ -205,7 +205,7 @@ export function validatePackage(root) {
     "Repository Contract Impact Review",
     "standing approval for reversible planning mutations",
     "do not re-ask per file, commit, or tracker write",
-    "setup-matt-pocock-skills",
+    "setup-delivery-repository",
     "to-spec",
     "to-tickets",
     "admit-ticket",
@@ -535,12 +535,12 @@ export function validatePackage(root) {
     errors.push("profile launcher is not executable");
   }
 
-  const tracker = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", "issue-tracker-github.md"), "utf8");
+  const tracker = fs.readFileSync(path.join(skillRoot, "setup-delivery-repository", "issue-tracker-github.md"), "utf8");
   if (!tracker.includes('$PI_TICKET_PLANNING_ROOT/scripts/check-frontier-order.mjs')) {
     errors.push("GitHub frontier check is not package-root portable");
   }
   for (const trackerName of ["issue-tracker-github.md", "issue-tracker-gitlab.md", "issue-tracker-local.md"]) {
-    const trackerText = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", trackerName), "utf8");
+    const trackerText = fs.readFileSync(path.join(skillRoot, "setup-delivery-repository", trackerName), "utf8");
     if (!trackerText.includes("pi-ticket-planning:delivery-graph:v2") || !trackerText.includes("check-delivery-graph.mjs")) {
       errors.push(`${trackerName} lacks the normalized Delivery Graph check`);
     }
@@ -556,7 +556,7 @@ export function validatePackage(root) {
     "scripts/admit.mjs",
     "scripts/workflow-contract.mjs",
     "scripts/doctor.mjs",
-    "skills/setup-matt-pocock-skills/issue-tracker-github.md",
+    "skills/setup-delivery-repository/issue-tracker-github.md",
   ]) {
     const text = fs.readFileSync(path.join(root, relative), "utf8");
     const absoluteHome = new RegExp(String.raw`/(?:Users|home)/[^/$\s]+`);

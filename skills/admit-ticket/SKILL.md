@@ -13,7 +13,7 @@ Use /ticket-readiness as the contract. The ticket-readiness-reviewer subagent is
 
 Require:
 
-- the configured issue tracker and triage-label mapping from /setup-matt-pocock-skills;
+- the configured issue tracker and triage-label mapping from `setup-delivery-repository`;
 - the subagent tool;
 - the ticket-readiness-reviewer agent;
 - candidate issues in needs-triage or needs-info.

@@ -101,7 +101,7 @@ Progress only one stage:
 1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain or reuse scoped write approval. For an existing Git target, include the exact stage, commit, and permitted pre-delivery publication handoff needed to make that artifact durable; remain in `FRAME` until the accepted remote base contains the approved blob. Never route this publication through the implementation Harness, which starts only after Admission.
 2. `EVIDENCE`: label claims, preserve the highest-risk unknown, and choose the cheapest bounded action that can change the Release decision. Design the protocol in conversation first. Fix appetite, pass/fail threshold, evidence to capture, and stop condition before requesting approval for the exact artifact revision. When that action is a customer interview and the human asks to start or the participant is present, read [references/interview-session.md](references/interview-session.md) in full and conduct it in this session: one question per turn, redacted capture, follow-up for the next missing field, then a recommended verdict. Stop after each question. Never invent an interviewee answer.
 3. `COMMIT`: apply all six readiness tests. `READY_TO_COMMIT` requires a human choice of `COMMITTED | HOLD | REWORK | DROP`; never choose for them. In the same decision, recommend standing automatic advancement for reversible planning work or stepwise mode so this choice is asked once.
-4. After `COMMITTED`, require a real delivery base containing the exact Release blob. If the target is non-Git, unborn, or missing delivery setup, load and follow the `setup-matt-pocock-skills` helper. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. A required stable policy change remains a human decision; show its minimum diff once and stop. Never let setup choose implementation behavior.
+4. After `COMMITTED`, require a real delivery base containing the exact Release blob. If the target is non-Git, unborn, or missing delivery setup, load and follow the `setup-delivery-repository` helper. Once `HEAD` resolves, run the Repository Contract Impact Review from the reference. A required stable policy change remains a human decision; show its minimum diff once and stop. Never let setup choose implementation behavior.
 5. `OUTCOME`: evaluate only after release evidence and the stated evidence window. Return an outcome verdict and a candidate next decision, never a ready implementation ticket.
 
 During `FRAME` and `EVIDENCE`:
@@ -127,7 +127,7 @@ If admitted tickets, ready labels, a Harness claim or terminal record, accepted 
 
 Advance through these gates by loading and following the named model-invoked helper. Continue in the same run until that helper reaches a human gate:
 
-1. If Git `HEAD` does not resolve or repository tracker support is missing, follow `setup-matt-pocock-skills` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
+1. If Git `HEAD` does not resolve or repository tracker support is missing, follow `setup-delivery-repository` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
 2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted delivery base, and the repository contract ready, follow `to-spec` with the artifact path, revision, and base.
 3. With an accepted Delivery Spec, follow `to-tickets` with its exact identity. Stop for the required split and graph approval before candidate publication.
 4. After approved candidates are persisted, follow `admit-ticket` with the parent identity. Stop for the required activation confirmation after fresh review.
@@ -152,7 +152,7 @@ Stop ordinary planning. Preserve evidence and follow the repository's incident a
 
 ## Invocation rule
 
-The human needs to remember only `/skill:ask-yet`. `setup-matt-pocock-skills`, `triage`, `to-spec`, `to-tickets`, and `admit-ticket` are model-invoked helpers: read their `SKILL.md` when their gate matches and follow them in the current run. A human may still invoke one directly for recovery.
+The human needs to remember only `/skill:ask-yet`. `setup-delivery-repository`, `triage`, `to-spec`, `to-tickets`, and `admit-ticket` are model-invoked helpers: read their `SKILL.md` when their gate matches and follow them in the current run. A human may still invoke one directly for recovery.
 
 `wayfinder` and `to-questionnaire` remain separate human interactions. When either is genuinely required, print one exact command and stop.
 
