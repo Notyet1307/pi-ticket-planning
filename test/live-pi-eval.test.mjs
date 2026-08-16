@@ -119,11 +119,13 @@ test("DISCOVERY fixture accepts a recent concrete experience request", () => {
 
 test("DELIVERED fixture accepts an equivalent Chinese missing-release fact", () => {
   const delivered = fixture.cases.find(({ id }) => id === "delivered-not-released");
-  assert.deepEqual(matchLiveEvalOutput([
-    "已经确认：工程交付完成，但尚无发布、启用或结果证据。",
-    "仍然缺少：移除父项的 ready-for-agent 标签。",
-    "Checkpoint: DELIVERY/EXECUTION · R003/r1 · DELIVERED",
-  ].join("\n"), delivered.expected), []);
+  for (const boundary of ["尚无发布、启用或结果证据", "不代表已发布或结果达成"]) {
+    assert.deepEqual(matchLiveEvalOutput([
+      `已经确认：工程交付完成，但${boundary}。`,
+      "仍然缺少：移除父项的 ready-for-agent 标签。",
+      "Checkpoint: DELIVERY/EXECUTION · R003/r1 · DELIVERED",
+    ].join("\n"), delivered.expected), []);
+  }
 });
 
 test("readiness live fixture supplies the exact fresh-review facts", () => {

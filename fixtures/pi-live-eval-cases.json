@@ -67,7 +67,7 @@
         "mustMatch": [
           "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*R003/r1\\s*·\\s*DELIVERED",
           "ready-for-agent",
-          "(?:Release Record|(?:尚无|没有|缺少|未记录)[^\\n]{0,80}(?:发布|启用))"
+          "(?:Release Record|(?:尚无|没有|缺少|未记录)[^\\n]{0,80}(?:发布|启用)|(?:不代表|并非|不等于)[^\\n]{0,40}(?:已)?(?:发布|启用))"
         ],
         "mustNotMatch": [
           "Checkpoint:[^\\n]*ACHIEVED",
