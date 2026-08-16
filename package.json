@@ -20,16 +20,22 @@
     "node": ">=22.16.0"
   },
   "scripts": {
+    "admit": "node scripts/admit.mjs",
     "check": "node scripts/check-package.mjs",
+    "check:admission-state": "node scripts/check-admission-state.mjs",
     "check:delivery-graph": "node scripts/check-delivery-graph.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
-    "check:pi-behavior": "node scripts/check-pi-behavior-cases.mjs",
+    "check:behavior-fixtures": "node scripts/check-behavior-fixtures.mjs",
     "check:profile": "node scripts/check-profile.mjs",
+    "check:workflow": "node scripts/workflow-contract.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
+    "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite release --repeat 3 --report-only",
     "install:profile": "node scripts/install-profile.mjs",
     "test": "node --test test/*.test.mjs",
-    "verify:ci": "npm run check && npm run check:pi-behavior && npm test",
-    "verify": "npm run verify:ci && npm run check:profile"
+    "verify:ci": "npm run check && npm run check:behavior-fixtures && npm test",
+    "verify": "npm run verify:ci && npm run check:profile",
+    "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean"
   },
   "pi": {
     "skills": [

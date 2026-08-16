@@ -17,4 +17,25 @@ package_root=$(CDPATH= cd "$script_dir/.." && pwd)
 
 export PI_TICKET_PLANNING_ROOT="$package_root"
 export PI_CODING_AGENT_DIR="${PI_TICKET_PLAN_PROFILE_DIR:-$HOME/.pi/ticket-planning}"
+
+if [ "${1-}" = "doctor" ]; then
+  shift
+  if ! command -v node >/dev/null 2>&1; then
+    echo "FAIL  Node.js — command not found" >&2
+    echo "FIX  Install Node.js >= 22.16.0, then rerun doctor" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/doctor.mjs" "$@"
+fi
+
+if [ "${1-}" = "admit" ]; then
+  shift
+  if ! command -v node >/dev/null 2>&1; then
+    echo "FAIL  Node.js — command not found" >&2
+    echo "FIX  Install Node.js >= 22.16.0, then rerun admit" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/admit.mjs" "$@"
+fi
+
 exec pi "$@"

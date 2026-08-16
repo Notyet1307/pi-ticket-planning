@@ -68,6 +68,22 @@ For one candidate, return exactly:
     Downstream consumers and exit condition: <required for ENABLER>
     Proposed split: <only for SPLIT>
 
+After the human-readable fields, return one machine block. Echo the review timestamp supplied in the Admission bundle; do not invent a different time:
+
+```json
+{
+  "schema": "pi-ticket-planning:admission-review:v1",
+  "reviewer": "ticket-readiness-reviewer",
+  "reviewedAt": "<exact bundle review timestamp>",
+  "graphVerdict": "READY | NEEDS_INFO",
+  "candidates": [
+    { "id": "<exact candidate identity>", "verdict": "READY | SPLIT | NEEDS_INFO", "executionLane": "AGENT | HUMAN" }
+  ]
+}
+```
+
+The JSON is a machine projection of the prose verdict, not a second judgment. Any disagreement between them makes the review malformed.
+
 For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the deterministic checker result, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
 
 The batch output must include:

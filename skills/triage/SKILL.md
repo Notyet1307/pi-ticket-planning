@@ -1,11 +1,11 @@
 ---
 name: triage
-description: Verify and triage an incoming issue or pull request when ask-yet routes to TRIAGE, then continue automatically to independent admission for ready candidates.
+description: Verify and triage an incoming issue, pull request, or decision-complete QUICK request when ask-yet routes to TRIAGE, then continue automatically to independent admission for ready candidates.
 ---
 
 # Triage
 
-Move incoming tracker requests through category and state roles. Generated implementation tickets normally enter through the `to-tickets` helper; use triage for raw reports and external PRs.
+Move incoming tracker requests and one-ticket `QUICK` changes through category and state roles. Generated implementation graphs normally enter through the `to-tickets` helper; use triage for raw reports, external PRs, and one decision-complete standalone candidate.
 
 Every tracker comment posted during triage starts with:
 
@@ -51,6 +51,8 @@ When the tracker configuration enables external PRs as a request surface, includ
 
 Read the full issue or PR, comments, labels, author, dates, linked decisions, and prior triage notes. For a PR, read the exact diff.
 
+A `QUICK` request may arrive without a tracker identity. Require the exact human request, target repository and base, verified current behavior or reproduction, trusted decision sources, one primary outcome, one primary verification, and no open product, architecture, data, compatibility, rollout, or controlled-risk decision. Closed applicable controls may be carried by a `QUICK + CONTROLLED` standalone candidate. If these facts cannot support one `READY/STANDALONE` candidate, return to `ask-yet` for deeper planning before any tracker write.
+
 Explore the codebase using its domain glossary and ADRs. Perform two searches:
 
 - **Redundancy:** find existing behavior by domain concept, and report where you looked.
@@ -76,7 +78,7 @@ When behavior or terminology remains undecided, use /grilling and /domain-modeli
 
 ### 5. Apply the chosen path
 
-- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, and continue to `admit-ticket`. Admission alone applies the label selected by its reviewed execution lane after confirmation.
+- **Candidate for a ready label:** write or update the Agent Brief, keep needs-triage, and continue to `admit-ticket`. For a direct `QUICK` request, create exactly one candidate in needs-triage only when scoped tracker-write approval covers it; copy the complete durable contract into its body so conversation is not the implementation specification. Admission alone applies the label selected by its reviewed execution lane after confirmation.
 - **Too broad:** keep needs-triage, return the issue to `ask-yet` for source shaping, and follow `to-tickets` only after the source is accepted.
 - **needs-info:** post exact established facts and outstanding questions, then apply needs-info.
 - **wontfix, already implemented:** point to the implementation and close without adding an out-of-scope record.

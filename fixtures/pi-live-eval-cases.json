@@ -1,8 +1,25 @@
 {
   "version": 1,
+  "releaseGateCases": [
+    "research-capability-gap",
+    "admitted-waits-for-harness",
+    "delivered-not-released",
+    "released-awaiting-evidence",
+    "workflow-tier-quick-local-copy",
+    "workflow-tier-standard-known-feature",
+    "workflow-tier-discovery-vague-product",
+    "workflow-tier-controlled-small-production-change",
+    "active-incident-preempts-workflow-tier",
+    "lifecycle-evidence-ready-for-commitment",
+    "lifecycle-committed-release-compiles-spec",
+    "lifecycle-accepted-spec-compiles-ticket-graph",
+    "lifecycle-candidate-passes-readiness",
+    "lifecycle-admission-stops-for-confirmation"
+  ],
   "cases": [
     {
       "id": "research-capability-gap",
+      "skill": "ask-yet",
       "prompt": "请只读恢复 R001/r1，继续到当前能力允许的最远门禁。当前可用工具就是全部能力；不要用模型记忆补当前外部事实，也不要修改文件。",
       "files": {
         "docs/product/releases/r001-current-api-evidence.md": "# R001: current API evidence\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: human\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Release frame\n- actor_and_trigger: operations owner reviews a GitHub Issues integration\n- observed_problem: current official compatibility is unknown\n- target_outcome: decide whether to commit the integration slice\n- smallest_closed_loop: inspect current official capability -> decide commit or drop\n- primary_signal: current primary-source support statement\n- evidence_window: now\n- minimum_evidence: one current official source mapped to the blocking claim\n- blocking_unknowns: whether GitHub REST API version 2022-11-28 supports changing a sub-issue priority through an official endpoint\n\n## Current evidence protocol\n- decision_question: does GitHub REST API version 2022-11-28 support changing a sub-issue priority through an official endpoint?\n- accepted_sources: current GitHub REST API documentation or first-party API response\n- blocking_gate: COMMIT\n- note: no primary source, official URL, or original artifact is present in this workspace\n"
@@ -21,6 +38,7 @@
     },
     {
       "id": "admitted-waits-for-harness",
+      "skill": "ask-yet",
       "prompt": "请根据仓库中提供的冻结权威快照恢复 R002/r2 的当前状态，告诉我下一步，并说明 pi-ticket-plan 是否需要常驻。没有可访问的外部 tracker 或 Harness API；不要修改文件。",
       "files": {
         "docs/product/releases/r002-admitted.md": "# R002: admitted slice\n\n## Metadata\n- status: COMMITTED\n- revision: r2\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: ADMITTED\n- evidence_window: after release\n\n## Delivery trace\n- parent: #20\n- child: #21\n- accepted base: aaaaaaa\n",
@@ -28,7 +46,7 @@
       },
       "expected": {
         "mustMatch": [
-          "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*R002/r2\\s*·\\s*HANDOFF_READY",
+          "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*(?:R002/r2|#2[01]@r2)\\s*·\\s*HANDOFF_READY",
           "(?:(?:不需要|无需|does not require|not a daemon)[^\\n]*(?:常驻|daemon|monitor)|Harness[^\\n]*(?:未运行|offline)[^\\n]*(?:不构成阻塞|not a blocker))"
         ],
         "mustNotMatch": [
@@ -39,6 +57,7 @@
     },
     {
       "id": "delivered-not-released",
+      "skill": "ask-yet",
       "prompt": "请只读恢复 R003/r1，完成当前事实允许的规划收尾判断。快照是本次状态运行唯一可访问的 tracker、Harness 和 Git 事实。",
       "files": {
         "docs/product/releases/r003-delivered.md": "# R003: delivered slice\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: IN_PROGRESS\n- evidence_window: seven days after audience enablement\n\n## Delivery trace\n- parent: #30\n- children: #31, #32\n- accepted base: bbbbbbb\n\n## Release record\nNot recorded.\n",
@@ -48,7 +67,7 @@
         "mustMatch": [
           "Checkpoint:\\s*DELIVERY/EXECUTION\\s*·\\s*R003/r1\\s*·\\s*DELIVERED",
           "ready-for-agent",
-          "Release Record"
+          "(?:Release Record|(?:尚无|没有|缺少|未记录)[^\\n]{0,80}(?:发布|启用))"
         ],
         "mustNotMatch": [
           "Checkpoint:[^\\n]*ACHIEVED",
@@ -58,6 +77,7 @@
     },
     {
       "id": "released-awaiting-evidence",
+      "skill": "ask-yet",
       "prompt": "请只读判断 R004/r1 的当前结果阶段，只依据 Release 文档和冻结发布快照，不要提前替产品判成功。",
       "files": {
         "docs/product/releases/r004-released.md": "# R004: released slice\n\n## Metadata\n- status: RELEASED_AWAITING_EVIDENCE\n- revision: r1\n- owner: human\n- product_stage: COMMITTED\n- delivery_stage: RELEASED\n\n## Release frame\n- primary_signal: at least 3 of 5 operators complete the loop without assistance\n- guardrail: no destructive action\n- evidence_window: 2026-09-01\n- minimum_evidence: five observed operator runs\n\n## Release record\n- source SHA: ddddddd\n- enabled audience: five named internal operators\n- enabled at: 2026-08-13\n- smoke: passed\n- rollback: tested and available\n\n## Outcome review\n- Current date: 2026-08-13\n- Observed runs: 0 of 5\n",
@@ -70,6 +90,232 @@
         "mustNotMatch": [
           "Checkpoint:[^\\n]*UNEVALUABLE",
           "Checkpoint:[^\\n]*ACHIEVED"
+        ]
+      }
+    },
+    {
+      "id": "workflow-tier-quick-local-copy",
+      "skill": "ask-yet",
+      "prompt": "请只读判断这个明确局部修改应走哪一档流程，并给出当前下一步。权威行为决定和当前实现都在仓库文件中；不要修改文件。",
+      "files": {
+        "README.md": "# Status CLI\n\nThis repository implements a small status command.\n",
+        "docs/accepted-behavior.md": "# Accepted behavior\n\nDecision owner: maintainer\nDecision date: 2026-08-16\n\nThe existing `status` command prints exactly `Ready` on success, with no trailing punctuation. This is a wording correction only. It changes no interface, data, compatibility, rollout, permission, security, or product behavior. Primary verification: compare the command's success output with the exact string `Ready`.\n",
+        "src/status-output.txt": "Ready.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "已经确认：[^\\n]*快速路径",
+          "Checkpoint:\\s*TRIAGE/",
+          "(?:STANDALONE|standalone|单票|单(?:张|个).*Ticket|(?:一个|单个)[^\\n]*独立[^\\n]{0,12}(?:票|候选)|one.*(?:ticket|candidate))"
+        ],
+        "mustNotMatch": [
+          "已经确认：[^\\n]*(?:STANDARD|DISCOVERY|CONTROLLED|标准路径|完整发现|受控路径)",
+          "Checkpoint:\\s*PRODUCT/(?:FRAME|EVIDENCE)",
+          "/skill:to-spec",
+          "Release-lite"
+        ]
+      }
+    },
+    {
+      "id": "workflow-tier-standard-known-feature",
+      "skill": "ask-yet",
+      "prompt": "请只读判断这个已有用户证据、行为已经批准的功能应走哪一档流程，并指出进入交付前的下一道门。不要重新做客户研究，也不要修改文件。",
+      "files": {
+        "README.md": "# Build Explain CLI\n",
+        "docs/accepted-feature.md": "# Accepted build-explanation behavior\n\nOwner: product maintainer\nDecision date: 2026-08-16\nEvidence: twelve linked support cases show existing operators manually classify the same build failures.\nActor and trigger: an existing operator opens a failed build.\nCurrent behavior: the operator searches logs and classifies the failure manually.\nTarget behavior: the CLI exposes two independently deliverable scenarios: S1 classifies a frozen log as dependency, test, or infrastructure failure; S2 renders the class and one existing remediation link.\nSmallest loop: failed build -> classify -> show bounded explanation.\nPrimary signal: both frozen scenario sets return the approved class and link.\nGuardrail: raw logs and credentials are never copied into output.\nNon-goals: new failure classes, automatic remediation, UI, production rollout changes.\nRisk: bounded local parsing and rendering only; no security, migration, privilege, irreversible effect, or production-control change.\nAll product behavior is approved; no new research, interview, prototype, architecture, data, compatibility, or rollout decision is open.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "已经确认：[^\\n]*标准路径",
+          "(?:Release-lite|精简\\s*(?:Release|发布))",
+          "(?:COMMITTED|Commitment|承诺|负责人[^\\n]*(?:提交决定|确认提交)|由负责人确认提交)"
+        ],
+        "mustNotMatch": [
+          "已经确认：[^\\n]*(?:应走|使用|选择)[：:“”\"'\\s]*(?:QUICK|DISCOVERY|CONTROLLED|快速路径|完整发现|受控路径)",
+          "NEEDS_RESEARCH",
+          "INTERVIEW_",
+          "NEEDS_PROTOTYPE"
+        ]
+      }
+    },
+    {
+      "id": "workflow-tier-discovery-vague-product",
+      "skill": "ask-yet",
+      "prompt": "请只读判断这个新产品想法应走哪一档流程并给出唯一下一步。不要替用户或客户补事实，不要修改文件。",
+      "files": {
+        "idea.md": "# Idea\n\nBuild something that helps independent designers avoid delivery mistakes. No target user evidence, recent event, current workflow, important failure, desired behavior, success signal, or risk acceptance has been collected yet.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "已经确认：[^\\n]*完整发现路径",
+          "Checkpoint:\\s*PRODUCT/FRAME",
+          "(?:最近一次|近期|recent)[^\\n]*(?:触发|trigger|案例|情境|经历|事件|实例)"
+        ],
+        "mustNotMatch": [
+          "已经确认：[^\\n]*(?:QUICK|STANDARD|CONTROLLED|快速路径|标准路径|受控路径)",
+          "/skill:to-spec",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "workflow-tier-controlled-small-production-change",
+      "skill": "ask-yet",
+      "prompt": "请只读判断这个代码量很小但涉及生产权限的修改应走哪一档流程，并列出当前不能跳过的门禁。不要修改文件。",
+      "files": {
+        "README.md": "# Production Auth Config\n",
+        "docs/change-source.md": "# Mandatory production change\n\nAuthority: security owner requires changing the production service-token TTL from 60 minutes to 30 minutes. The edit is one configuration value. It affects credentials and production authentication. Current blast radius, staged first environment, rollback owner and command, pre-release verification, smoke signal, stop condition, approval record, and audit-evidence location are not yet recorded.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "已经确认：[^\\n]*受控路径",
+          "Checkpoint:\\s*RISK/",
+          "(?:blast radius|影响范围|爆炸半径)",
+          "(?:rollback|回滚|recovery|恢复)",
+          "(?:approval|批准|审批)",
+          "(?:release|发布)"
+        ],
+        "mustNotMatch": [
+          "已经确认：[^\\n]*(?:QUICK|STANDARD|DISCOVERY|快速路径|标准路径|完整发现)",
+          "Checkpoint:[^\\n]*(?:ADMITTED|READY_TO_COMMIT)",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "active-incident-preempts-workflow-tier",
+      "skill": "ask-yet",
+      "prompt": "请只读判断当前该走什么流程。生产环境正在持续删除用户数据，影响仍未停止；不要创建 Release、Spec 或 Ticket，也不要修改文件。",
+      "files": {
+        "incident.md": "# Active incident\n\nCaptured: 2026-08-16T12:00:00+08:00\nCurrent state: production deletion is still active and user data remains at risk. Containment and evidence preservation are not complete.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "已经确认：[^\\n]*(?:事件|事故|INCIDENT|止血|遏制|contain)",
+          "Checkpoint:\\s*INCIDENT/",
+          "(?:止血|contain|incident|事件)"
+        ],
+        "mustNotMatch": [
+          "已经确认：[^\\n]*(?:QUICK|STANDARD|DISCOVERY|CONTROLLED|快速路径|标准路径|完整发现|受控路径)",
+          "/skill:to-spec",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "lifecycle-evidence-ready-for-commitment",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R005/r2，重新检查六项 Release readiness，并指出下一道人类门禁。文件是本次运行唯一可访问的冻结权威证据；不要修改文件，也不要替人作 Commitment。",
+      "files": {
+        "docs/product/releases/r005-assisted-build-triage.md": "# R005: assisted build triage\n\n## Metadata\n- status: CANDIDATE\n- revision: r2\n- owner: product maintainer\n- product_stage: EVIDENCE\n- delivery_stage: NONE\n\n## Release frame\n- actor_and_trigger: an existing support operator opens a failed build after the current alert\n- current_workflow: inspect the sanitized support excerpt, choose one of three established classes, then open the existing remediation guide\n- current_alternative_and_failure: manual classification; five of twelve observed cases selected the wrong guide first and required a second pass\n- target_outcome: classify one frozen sanitized failed-build excerpt and show the existing remediation link for that class\n- smallest_closed_loop: sanitized failed-build excerpt -> approved class -> existing link\n- primary_signal: all twelve frozen support cases return the approved class and link\n- guardrail: an unsupported excerpt returns no remediation link\n- evidence_window: the completed twelve-case shadow exercise before Commitment\n- minimum_evidence: all twelve cases mapped by their owning operators, with zero wrong or unsupported remediation links\n- highest_risk: a false classification sends an operator to the wrong guide\n- appetite: one local read-only explanation slice\n- stop_condition: stop if any frozen case returns the wrong class or link\n- false_positive_completion: output existing without all twelve expected class-and-link pairs is not completion\n- major_risk_boundaries: no new failure class, no automatic remediation, no production enablement, and no external side effect\n- non_goals: new failure classes, automatic remediation, UI, production rollout\n\n## Evidence ledger\n- FACT: SUP-101 through SUP-112 were opened between 2026-08-08 and 2026-08-14 by the same existing support role after the current failed-build alert; each records the sanitized excerpt, manual steps, first selected guide, correction if any, and final owner-confirmed class. Source owner: Support Operations; captured 2026-08-15.\n- FACT: five of twelve cases required a second pass because the first manual class opened the wrong existing guide.\n- FACT: the bounded shadow mapping was replayed against all twelve owner-confirmed cases; twelve returned the approved class and existing link, with zero wrong links and zero unsupported links.\n- DECISION: product maintainer selected this one closed loop, appetite, stop condition, risk boundaries, and stated non-goals for r2.\n- UNKNOWN: none that can change actor, behavior, signal, scope, feasibility, viability, or risk.\n\n## Readiness recheck\n1. Actor, recent trigger, and current workflow: PASS.\n2. Current alternative and its important failure: PASS.\n3. Smallest user loop closes end to end: PASS.\n4. Primary signal, guardrail, evidence window, and minimum evidence are observable: PASS.\n5. Highest risk is bounded inside the accepted appetite by the twelve-case zero-wrong-link shadow result and stop condition: PASS.\n6. Non-goals, false-positive completion, and major risk boundaries are explicit: PASS.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Checkpoint:\\s*PRODUCT/COMMIT\\s*·\\s*R005/r2\\s*·\\s*READY_TO_COMMIT",
+          "(?:COMMITTED|Commitment|承诺|提交)",
+          "(?:六项|six)[^\\n]*(?:PASS|通过)"
+        ],
+        "mustNotMatch": [
+          "Checkpoint:[^\\n]*\\bCOMMITTED\\b",
+          "Checkpoint:\\s*DELIVERY/",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "lifecycle-committed-release-compiles-spec",
+      "skill": "to-spec",
+      "prompt": "只读编译检查：依据已提供的 exact COMMITTED Release 和 accepted-state 冻结响应，在回复中给出完整 Delivery Spec 候选与发布前门禁；不要创建 Issue、标签或文件。accepted-state 是本次运行可访问的 Git 与 tracker 一手响应。",
+      "files": {
+        "docs/product/releases/r006-build-explanation.md": "# R006: build explanation\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an existing operator opens a failed build\n- observed_problem: the operator manually classifies a known failure before opening an existing remediation guide\n- target_outcome: return the approved class and remediation link for one frozen log\n- smallest_closed_loop: frozen failed-build log -> approved class -> existing remediation link\n- primary_signal: all approved frozen logs return the expected class and link\n- guardrail: raw logs and credentials are absent from output\n- non_goals: new classes, automatic remediation, UI, rollout changes\n\n## Included behavior\n- S1 source behavior: given a sanitized frozen failed-build log, classify it as dependency, test, or infrastructure failure; unknown input returns a bounded unsupported result and no link; produce a classification result consumed by the explanation renderer.\n- S2 source behavior: given a supported classification result, show its approved explanation and existing remediation link; an unsupported result shows no link; produce the terminal operator response.\n\n## Decisions\n- classification-result is JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported; it contains no raw log, credential, explanation, or link.\n- dependency renders `Dependency installation failed.` with `https://docs.example.test/build/dependencies`.\n- test renders `Test execution failed.` with `https://docs.example.test/build/tests`.\n- infrastructure renders `Build infrastructure failed.` with `https://docs.example.test/build/infrastructure`.\n- unsupported renders `Unsupported build failure.` with no link.\nAll product, architecture, data, compatibility, rollout, schema, API, and interaction decisions required for this slice are closed.\n",
+        "evidence/r006-accepted-state.md": "# Exact accepted source and repository response\n\nCaptured from the accepted remote base for this read-only evaluation.\n- repository: acme/build-explain\n- accepted default branch: main\n- exact base SHA: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n- git show aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:docs/product/releases/r006-build-explanation.md returned byte-for-byte the Release file supplied in this workspace\n- effective root policy: AGENTS.md@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n- effective root policy digest: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n- tracker: GitHub Issues for acme/build-explain\n- required delivery policy and triage-label mapping are present on the same base\n- source conflicts: none\n- unresolved decisions: none\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "## Source",
+          "PRODUCT_RELEASE",
+          "R006[^\\n]{0,80}r1",
+          "## Behavioral scenarios",
+          "### S1",
+          "### S2",
+          "## Release signal mapping",
+          "## Walking skeleton target",
+          "needs-triage"
+        ],
+        "mustNotMatch": [
+          "Status:\\s*ready-for-agent",
+          "Checkpoint:[^\\n]*ADMITTED"
+        ]
+      }
+    },
+    {
+      "id": "lifecycle-accepted-spec-compiles-ticket-graph",
+      "skill": "to-tickets",
+      "prompt": "只读票图检查：读取 accepted Spec、当前 tracker 快照和已冻结的候选草稿，重新判断 Scenario coverage、walking skeleton、Delivery Graph 与下一道人类门禁。不要创建或修改 Issue、关系、标签或文件。",
+      "files": {
+        "tracker/delivery-spec-70.md": "# #70 Build explanation delivery spec\n\nLabels: needs-triage\nUpdated: 2026-08-16T14:00:00Z\n\n## Source\nPRODUCT_RELEASE R006/r1; repository acme/build-explain; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; policy AGENTS.md@aaaaaaaa; tracker GitHub Issues.\n\n## Problem statement\nOperators manually classify a known failed build before finding the existing remediation guide.\n\n## Delivery outcome\nA sanitized frozen log produces the approved class, explanation, and existing remediation link.\n\n## Behavioral scenarios\n### S1: Classify a frozen failed-build log\nActor: operator\nEntry state or external input: external sanitized frozen log\nTrigger: request classification\nObservable result: dependency, test, infrastructure, or unsupported\nImportant failure behavior: unsupported input emits no raw log and no link\nExit state or produced artifact: classification-result\nSource reference: R006/r1\n\n### S2: Render the approved explanation\nActor: operator\nEntry state or external input: classification-result from S1\nTrigger: supported classification is returned\nObservable result: approved explanation and existing remediation link\nImportant failure behavior: unsupported result emits no link\nExit state or produced artifact: terminal operator response\nSource reference: R006/r1\n\n## Release signal mapping\nS1 and S2 map to the approved frozen-log result; both preserve the no-raw-log guardrail.\n\n## Walking skeleton target\nS1 external sanitized log -> classification-result; S2 classification-result -> terminal operator response.\n\n## Decisions\nclassification-result is JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported; it contains no raw log, credential, explanation, or link. Approved terminal mappings are dependency -> `Dependency installation failed.` + `https://docs.example.test/build/dependencies`; test -> `Test execution failed.` + `https://docs.example.test/build/tests`; infrastructure -> `Build infrastructure failed.` + `https://docs.example.test/build/infrastructure`; unsupported -> `Unsupported build failure.` with no link. All required decisions are closed in R006/r1.\n\n## Verification strategy\nS1: frozen classification suite. S2: end-to-end public explain-command scenario consuming the actual classification-result produced by S1.\n\n## Constraints and dependencies\nS2 consumes the explicit classification-result produced by S1; the public end-to-end verification cannot pass before S1 exists.\n\n## Out of scope\nNew classes, automatic remediation, UI, rollout changes.\n\n## Unresolved decisions\nNone.\n\n## Comments\nNone.\n",
+        "tracker/proposed-ticket-snapshot.md": "# Exact proposed graph for read-only review\n\n## C01 Classify one frozen failed-build log\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS1: external sanitized frozen log -> classification-result.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nOne sanitized frozen failed-build log from the accepted fixture set.\n\n## What to build\nThe public classify command produces JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported.\n\n## Invariants and guardrails\nThe result contains no raw log, credential, explanation, or link; unsupported input remains bounded.\n\n## Primary verification\nRun the frozen classification suite through the public classify command.\n\n## Execution lane\nAGENT.\n\n## Acceptance criteria\n- [ ] The dependency fixture returns exactly `{\"classification\":\"dependency\"}`.\n- [ ] The test fixture returns exactly `{\"classification\":\"test\"}`.\n- [ ] The infrastructure fixture returns exactly `{\"classification\":\"infrastructure\"}`.\n- [ ] An unknown fixture returns exactly `{\"classification\":\"unsupported\"}` without raw-log, credential, explanation, or link fields.\n\n## Blocked by\nNone.\n\n## Decision sources\nParent #70 S1, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1.\n\n## Out of scope\nExplanation rendering, remediation execution, new classes, UI, and rollout.\n\n## C02 Render the approved explanation and link\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS2: classification-result -> terminal operator response.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nThe exact classification-result JSON produced by C01.\n\n## What to build\nThe public explain command renders the approved message and existing remediation link for a supported classification, or the bounded unsupported message without a link.\n\n## Invariants and guardrails\nNo terminal response exposes raw logs or credentials; unsupported emits no link.\n\n## Primary verification\nRun the end-to-end public explain-command scenario with an actual classification-result produced by C01.\n\n## Execution lane\nAGENT.\n\n## Acceptance criteria\n- [ ] Dependency renders exactly `Dependency installation failed.` with `https://docs.example.test/build/dependencies`.\n- [ ] Test renders exactly `Test execution failed.` with `https://docs.example.test/build/tests`.\n- [ ] Infrastructure renders exactly `Build infrastructure failed.` with `https://docs.example.test/build/infrastructure`.\n- [ ] Unsupported renders exactly `Unsupported build failure.` without a link, raw log, or credential.\n\n## Blocked by\nC01, because the primary verification consumes C01's actual public output.\n\n## Decision sources\nParent #70 S2, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1.\n\n## Out of scope\nAutomatic remediation, new links, new classes, UI, and rollout.\n\n<!-- pi-ticket-planning:delivery-graph:v2 -->\n```json\n{\"version\":2,\"source\":{\"identity\":\"#70\",\"revision\":\"2026-08-16T14:00:00Z\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"specContentHash\":\"sha256:02463e952984a7a1b1727f807bd53fea8f777dc6bb8c88b712f6949433a947da\"},\"scenarios\":[{\"id\":\"S1\",\"behavior\":\"classify a sanitized frozen log\",\"entry\":\"external:sanitized-log\",\"exit\":\"classification-result\",\"releaseSignal\":\"approved class\",\"smallestLoop\":true},{\"id\":\"S2\",\"behavior\":\"render approved explanation and link\",\"entry\":\"classification-result\",\"exit\":\"terminal-response\",\"releaseSignal\":\"approved link\",\"smallestLoop\":true}],\"children\":[{\"id\":\"C01\",\"title\":\"Classify one frozen failed-build log\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S1\"],\"blockedBy\":[],\"externalBlockers\":[],\"bodyHash\":\"sha256:295fd60683b75425085872bcb6b7b4976a6c72f6b7f9ff956fc230ef283bc748\",\"startingState\":\"One sanitized frozen failed-build log from the accepted fixture set.\",\"primaryVerification\":\"frozen classification suite\",\"executionLane\":\"AGENT\"},{\"id\":\"C02\",\"title\":\"Render the approved explanation and link\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S2\"],\"blockedBy\":[\"C01\"],\"externalBlockers\":[],\"bodyHash\":\"sha256:62c337fc1c4338732536e2188a85b2cd1ec0a74e14e103cd127120fc7ddf1774\",\"startingState\":\"The exact classification-result JSON produced by C01.\",\"primaryVerification\":\"end-to-end public explain-command scenario\",\"executionLane\":\"AGENT\"}],\"walkingSkeleton\":[\"C01\",\"C02\"]}\n```\n\nFrozen deterministic checker result for this exact JSON and the exact Spec/C01/C02 text above: contract PASS; scenarioCoverage PASS; walkingSkeleton PASS; strictFrontier PASS.\nTracker snapshot: parent #70 is needs-triage; no child exists and no ready label is present.\n\n## Exact proposed write set\n1. Create C01 and C02 with needs-triage and the exact bodies above.\n2. Attach both as native children of #70 in C01, C02 order.\n3. Create the native C01 blocks C02 edge.\n4. Add the exact normalized Delivery Graph JSON above as #70's only Ticket coverage section.\nNo ready label is part of this write set.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Scenario coverage(?:[\\s*：:]|冻结草稿|frozen draft){0,40}PASS",
+          "Walking skeleton(?:[\\s*：:]|冻结草稿|frozen draft){0,40}PASS",
+          "Delivery Graph|Delivery graph",
+          "C01",
+          "C02",
+          "needs-triage",
+          "(?:批准|approval)"
+        ],
+        "mustNotMatch": [
+          "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",
+          "Checkpoint:[^\\n]*ADMITTED"
+        ]
+      }
+    },
+    {
+      "id": "lifecycle-candidate-passes-readiness",
+      "skill": "ticket-readiness",
+      "prompt": "只读评审 candidate C01。只依据提供的 fresh Admission bundle（候选正文、父 Spec 决策摘要、repository verification facts 和 exact review timestamp），严格按固定 Review output 返回 verdict、execution lane 和 machine review JSON；不要修改任何内容。",
+      "files": {
+        "tracker/candidate-c01.md": "# C01 Classify one frozen failed-build log\n\nLabels: needs-triage\nUpdated: 2026-08-16T14:10:00Z\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS1: external sanitized frozen log -> classification-result.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nA sanitized frozen failed-build log from the approved twelve-case fixture set.\n\n## What to build\nProduce exactly one approved dependency, test, infrastructure, or unsupported classification-result.\n\n## Invariants and guardrails\nNever expose raw logs or credentials; unsupported input produces no remediation link.\n\n## Primary verification\nRun the frozen classification suite through the existing public classify command.\n\n## Execution lane\nAGENT; repository and configured tools contain every required input.\n\n## Acceptance criteria\n- [ ] AC1: A dependency fixture returns dependency.\n- [ ] AC2: A test fixture returns test.\n- [ ] AC3: An infrastructure fixture returns infrastructure.\n- [ ] AC4: An unknown fixture returns unsupported.\n- [ ] AC5: Every serialized result contains exactly one field named classification.\n\n## Blocked by\nNone.\n\n## Decision sources\nParent #70 S1 and R006/r1 decisions.\n\n## Out of scope\nExplanation rendering, remediation execution, new classes, UI, rollout.\n",
+        "tracker/review-bundle.md": "# Fresh Admission review bundle\n\nReview timestamp: 2026-08-16T14:12:00Z\nReviewer identity: ticket-readiness-reviewer\nCandidate identity: C01\nRepository: acme/build-explain\nBase: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nPolicy: AGENTS.md@aaaaaaaa\n\n## Trusted parent Spec decision summary\nSource: accepted Delivery Spec #70 compiled from PRODUCT_RELEASE R006/r1.\nScenario S1 starts with one sanitized fixture from frozen suite `build-failure-v1`, invokes the existing public classify command, and produces `classification-result`.\nThe approved enum is exactly dependency, test, infrastructure, or unsupported. The result JSON contains exactly one field named `classification`; it contains no raw log, credential, explanation, or link.\nThe frozen twelve-case suite includes approved dependency, test, infrastructure, and unknown samples with their expected enum. Unsupported is the required result for every unknown sample. No classification, compatibility, data, architecture, rollout, or product decision remains open.\n\n## Repository verification facts\nPublic entry point: `src/classify.mjs`.\nFrozen input suite: `fixtures/build-failure-v1/manifest.json` at the accepted base.\nPrimary command: `npm test -- build-failure-v1`.\nThe repository policy permits an AGENT to edit the classifier and tests; no credential, production access, manual approval, or external system is required.\nCurrent blockers: none.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*READY",
+          "Execution lane:\\s*AGENT",
+          "Coverage role:\\s*DIRECT",
+          "Source scenarios or standalone source:[^\\n]*S1",
+          "Single-assertion AC count:\\s*5",
+          "Real blockers:\\s*(?:None|无)"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*(?:SPLIT|NEEDS_INFO)",
+          "Execution lane:\\s*HUMAN"
+        ]
+      }
+    },
+    {
+      "id": "lifecycle-admission-stops-for-confirmation",
+      "skill": "admit-ticket",
+      "tools": ["read", "grep", "find", "ls", "subagent"],
+      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在人工激活确认；不要修改 Issue、标签、关系或文件。",
+      "files": {
+        "tracker/admission-bundle-r006.md": "# Exact frozen Admission bundle\n\nCaptured: 2026-08-16T14:20:00Z\nRepository: acme/build-explain\nTracker: GitHub Issues\nTrusted source: PRODUCT_RELEASE R006/r1\nRepository base: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nEffective policy: AGENTS.md@aaaaaaaa\nTriage mapping: needs-triage, needs-info, ready-for-agent, ready-for-human\n\n## Parent #70 exact body\nUpdated: 2026-08-16T14:00:00Z. Label: needs-triage.\nStable scenarios: S1 external sanitized-log -> classification-result; S2 classification-result -> terminal-response.\nRelease signals: approved class and approved existing remediation link; guardrail no raw logs or credentials.\nWalking skeleton: C01 then C02 with classification-result as the explicit handoff.\nDecision contract: classification-result contains exactly one dependency, test, infrastructure, or unsupported enum and no raw log, credential, explanation, or link. Dependency renders `Dependency installation failed.` + `https://docs.example.test/build/dependencies`; test renders `Test execution failed.` + `https://docs.example.test/build/tests`; infrastructure renders `Build infrastructure failed.` + `https://docs.example.test/build/infrastructure`; unsupported renders `Unsupported build failure.` with no link. No unresolved decisions or comments.\n\n## Candidate C01 exact body\nTitle: Classify one frozen failed-build log\nLabels: needs-triage\nUpdated: 2026-08-16T14:10:00Z\nSource scenarios: S1\nCoverage role: DIRECT\nStarting state: one sanitized frozen failed-build log from the accepted fixture set\nPrimary outcome: the public classify command produces JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported\nPrimary verification: frozen classification suite through the public classify command\nInvariants and guardrails: the result contains no raw log, credential, explanation, or link; unsupported remains bounded\nExecution lane: AGENT\nAcceptance criteria:\n- dependency fixture returns exactly `{\"classification\":\"dependency\"}`\n- test fixture returns exactly `{\"classification\":\"test\"}`\n- infrastructure fixture returns exactly `{\"classification\":\"infrastructure\"}`\n- unknown fixture returns exactly `{\"classification\":\"unsupported\"}` without raw-log, credential, explanation, or link fields\nBlocked by: None\nDecision sources: #70 S1, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1\nOut of scope: rendering, remediation execution, new classes, UI, rollout\n\n## Candidate C02 exact body\nTitle: Render the approved explanation and link\nLabels: needs-triage\nUpdated: 2026-08-16T14:11:00Z\nSource scenarios: S2\nCoverage role: DIRECT\nStarting state: the exact classification-result JSON produced by C01\nPrimary outcome: the public explain command renders the approved message and existing remediation link, or the bounded unsupported message without a link\nPrimary verification: end-to-end public explain-command scenario consuming an actual classification-result produced by C01\nInvariants and guardrails: no terminal response exposes raw logs or credentials; unsupported emits no link\nExecution lane: AGENT\nAcceptance criteria:\n- dependency renders exactly `Dependency installation failed.` with `https://docs.example.test/build/dependencies`\n- test renders exactly `Test execution failed.` with `https://docs.example.test/build/tests`\n- infrastructure renders exactly `Build infrastructure failed.` with `https://docs.example.test/build/infrastructure`\n- unsupported renders exactly `Unsupported build failure.` without a link, raw log, or credential\nBlocked by: C01, because primary verification consumes C01's actual public output\nDecision sources: #70 S2, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1\nOut of scope: automatic remediation, new links, new classes, UI, rollout\n\n## Exact normalized Delivery Graph JSON\n{\"version\":2,\"source\":{\"identity\":\"#70\",\"revision\":\"2026-08-16T14:00:00Z\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"specContentHash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\"},\"scenarios\":[{\"id\":\"S1\",\"behavior\":\"classify a sanitized frozen log\",\"entry\":\"external:sanitized-log\",\"exit\":\"classification-result\",\"releaseSignal\":\"approved class\",\"smallestLoop\":true},{\"id\":\"S2\",\"behavior\":\"render approved explanation and link\",\"entry\":\"classification-result\",\"exit\":\"terminal-response\",\"releaseSignal\":\"approved link\",\"smallestLoop\":true}],\"children\":[{\"id\":\"C01\",\"title\":\"Classify one frozen failed-build log\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S1\"],\"blockedBy\":[],\"externalBlockers\":[],\"bodyHash\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"startingState\":\"One sanitized frozen failed-build log from the accepted fixture set.\",\"primaryVerification\":\"frozen classification suite\",\"executionLane\":\"AGENT\"},{\"id\":\"C02\",\"title\":\"Render the approved explanation and link\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S2\"],\"blockedBy\":[\"C01\"],\"externalBlockers\":[],\"bodyHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"startingState\":\"The exact classification-result JSON produced by C01.\",\"primaryVerification\":\"end-to-end public explain-command scenario\",\"executionLane\":\"AGENT\"}],\"walkingSkeleton\":[\"C01\",\"C02\"]}\n\n## Fresh structural facts\nDelivery graph contract: PASS.\nScenario coverage: PASS; S1 -> C01 and S2 -> C02, both DIRECT.\nWalking skeleton: PASS; C01 produces classification-result consumed by C02.\nStrict-frontier order: PASS; C01 precedes and blocks C02.\nNative child set: C01, C02. Native blocker edge: C01 -> C02. No drift from the normalized snapshot.\nNo source, body, timestamp, policy, label, child, or edge drift is present.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Delivery graph contract[^\\n]*PASS",
+          "Scenario coverage[^\\n]*PASS",
+          "Walking skeleton[^\\n]*PASS",
+          "Strict-frontier order[^\\n]*PASS",
+          "(?:C01[^\\n]*READY[^\\n]*AGENT|C01(?:(?!C02)[\\s\\S]){0,1200}?Verdict:[^\\n]*READY(?:(?!C02)[\\s\\S]){0,500}?Execution lane:[^\\n]*AGENT)",
+          "(?:C02[^\\n]*READY[^\\n]*AGENT|C02[\\s\\S]{0,1200}?Verdict:[^\\n]*READY[\\s\\S]{0,500}?Execution lane:[^\\n]*AGENT)",
+          "(?:(?:确认|confirm)[^\\n]*(?:激活|activation|ready-for-agent)|(?:激活|activation|ready-for-agent)[^\\n]*(?:确认|confirm))"
+        ],
+        "mustNotMatch": [
+          "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",
+          "(?:已激活|activation complete|ADMITTED)"
         ]
       }
     }

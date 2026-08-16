@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
-import { validateLiveEvalFixture } from "./eval-pi-behavior.mjs";
+import { validateContracts } from "./workflow-contract.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
@@ -35,6 +35,8 @@ function frontmatterValue(text, key) {
 
 export function validatePackage(root) {
   const errors = [];
+  const contractCheck = validateContracts();
+  for (const problem of contractCheck.problems) errors.push(`machine workflow contract: ${problem.code}${problem.subject ? ` ${problem.subject}` : ""}`);
   const pkg = readJson(path.join(root, "package.json"));
   const lock = readJson(path.join(root, "upstream-lock.json"));
   const profile = readJson(path.join(root, "profile", "settings.template.json"));
@@ -47,14 +49,29 @@ export function validatePackage(root) {
   if (pkg.mattpocockUpstream?.commit !== EXPECTED_COMMIT) errors.push("package.json upstream commit drifted");
   if (lock.commit !== EXPECTED_COMMIT) errors.push("upstream-lock.json commit drifted");
   if (pkg.mattpocockUpstream?.updatePolicy !== "manual") errors.push("upstream policy must remain manual");
-  if (pkg.scripts?.["verify:ci"] !== "npm run check && npm run check:pi-behavior && npm test") {
+  if (pkg.scripts?.["verify:ci"] !== "npm run check && npm run check:behavior-fixtures && npm test") {
     errors.push("package lacks the repository-only CI check");
   }
   if (pkg.scripts?.verify !== "npm run verify:ci && npm run check:profile") {
     errors.push("full verification must include the live Profile check");
   }
+  if (pkg.scripts?.["verify:release"] !== "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean") {
+    errors.push("release verification must include a clean-checkout live PI evaluation");
+  }
   if (pkg.scripts?.["eval:pi"] !== "node scripts/eval-pi-behavior.mjs") {
     errors.push("package does not expose the fresh-process PI behavior eval");
+  }
+  if (pkg.scripts?.["eval:pi:nightly"] !== "node scripts/eval-pi-behavior.mjs --suite release --repeat 3 --report-only") {
+    errors.push("package does not expose the repeat-three advisory live evaluation");
+  }
+  if (pkg.scripts?.["check:behavior-fixtures"] !== "node scripts/check-behavior-fixtures.mjs") {
+    errors.push("package does not expose the unified behavior-fixture check");
+  }
+  if (pkg.scripts?.doctor !== "node scripts/doctor.mjs") {
+    errors.push("package does not expose the doctor command");
+  }
+  if (pkg.scripts?.admit !== "node scripts/admit.mjs") {
+    errors.push("package does not expose the Admission transaction command");
   }
 
   const releaseTag = `v${pkg.version}`;
@@ -65,6 +82,12 @@ export function validatePackage(root) {
     }
     if (!text.includes(`git checkout ${releaseTag}`)) {
       errors.push(`${relative} update command does not match package version ${releaseTag}`);
+    }
+    for (const required of ["pi-ticket-plan doctor", "PASS", "FAIL", "FIX", "SKIP"]) {
+      if (!text.includes(required)) errors.push(`${relative} does not document doctor output: ${required}`);
+    }
+    for (const required of ["npm run verify:release", "eval:pi:nightly", "SEMANTIC_FAIL", "INFRA_FAIL", "FLAKY"]) {
+      if (!text.includes(required)) errors.push(`${relative} does not document the live Release Gate: ${required}`);
     }
   }
 
@@ -144,6 +167,7 @@ export function validatePackage(root) {
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
   const releaseLoop = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "release-loop.md"), "utf8");
+  const interviewSession = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "interview-session.md"), "utf8");
   const executionCloseout = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "execution-closeout.md"), "utf8");
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
@@ -154,8 +178,28 @@ export function validatePackage(root) {
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
   for (const required of [
     "references/release-loop.md",
+    "references/interview-session.md",
     "references/execution-closeout.md",
     "PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT",
+    "Choose planning depth and risk control",
+    "`QUICK`",
+    "`STANDARD`",
+    "`DISCOVERY`",
+    "`CONTROLLED`",
+    "It does not force customer discovery or a multi-ticket Delivery Spec",
+    "Neither grants mutation authority",
+    "Create no Release artifact, Delivery Spec, Delivery Parent, or graph",
+    "当前目标：",
+    "已经确认：",
+    "仍然缺少：",
+    "为什么现在不能继续：",
+    "你只需要决定：",
+    "inside `已经确认`",
+    "use exactly `快速路径`, `标准路径`, or `完整发现路径`",
+    "under `仍然缺少`",
+    "final non-empty line",
+    "<ticket-or-map-id>@<reviewed-revision>",
+    "Do not append anything after the checkpoint",
     "READY_TO_COMMIT",
     "Research Handoff",
     "Repository Contract Impact Review",
@@ -171,15 +215,13 @@ export function validatePackage(root) {
     "model-invoked helpers",
     "A required stable policy change remains a human decision",
     "ADMITTED",
-    "FRAME_WRITE_AWAITING_APPROVAL",
     "NEEDS_RESEARCH",
-    "NEEDS_PROTOTYPE",
-    "NEEDS_DECISION",
-    "AWAITING_EVIDENCE",
+    "Never invent an interviewee answer",
+    "contracts/workflow.json",
+    "contracts/authority.json",
+    "workflow-contract.mjs --input -",
+    "allowed: true",
     "Checkpoint:",
-    "Next:",
-    "Need:",
-    "Blocked:",
     "system facts, not customer-actor evidence",
     "cannot displace a higher-risk actor",
     "protocol design alone does not advance product evidence",
@@ -195,6 +237,9 @@ export function validatePackage(root) {
   }
   for (const obsolete of ["active_release:", "next_command:", "forbidden_transition:"]) {
     if (askYet.includes(obsolete)) errors.push(`ask-yet retains verbose checkpoint field: ${obsolete}`);
+  }
+  for (const obsolete of ["Next:", "Need:", "Blocked:"]) {
+    if (new RegExp(`^${obsolete}`, "m").test(askYet)) errors.push(`ask-yet retains obsolete footer field: ${obsolete}`);
   }
   if (askYet.includes("FRAME_RECORDED")) errors.push("ask-yet may not remain in FRAME after the approved artifact write");
   for (const obsolete of [
@@ -229,8 +274,30 @@ export function validatePackage(root) {
     "standing automation approval",
     "do not request permission for each file, commit, or tracker mutation",
     "Ticket-graph publication and Admission activation",
+    "Release-lite for `STANDARD`",
+    "not another artifact kind, status, or schema",
+    "authority_and_scope",
+    "rollback_or_recovery",
+    "staged_release",
+    "a decision-complete `QUICK + CONTROLLED` change does not need a product Release artifact",
+    "production enablement or rollback",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
+  }
+  if (!releaseLoop.includes("interview-session.md")) {
+    errors.push("release-loop does not hand live interviews to interview-session.md");
+  }
+  for (const required of [
+    "Never answer on the interviewee's behalf",
+    "FORMAL",
+    "INFORMAL",
+    "INTERVIEW_STOPPED",
+    "one question for the next missing required field",
+    "They may not choose `FRAME_SUPPORTED` to be polite",
+    "do not refuse",
+    "INFORMAL` session under this contract",
+  ]) {
+    if (!interviewSession.includes(required)) errors.push(`interview-session lacks required contract: ${required}`);
   }
   for (const required of [
     "Authority by fact",
@@ -249,6 +316,7 @@ export function validatePackage(root) {
   if (/Status:\s*ready-for-agent/i.test(toTickets)) errors.push("to-tickets publishes ready candidates");
   if (/trust them and apply/i.test(triage)) errors.push("triage retains the upstream direct-ready bypass");
   if (!readiness.includes("Execution lane: AGENT | HUMAN")) errors.push("ticket-readiness lacks the execution-lane output");
+  if (!readiness.includes("pi-ticket-planning:admission-review:v1")) errors.push("ticket-readiness lacks the machine review projection");
   if (!readiness.includes("cannot be completed and pass its primary verification independently")) {
     errors.push("ticket-readiness uses the wrong blocker boundary");
   }
@@ -263,6 +331,9 @@ export function validatePackage(root) {
   }
   for (const required of ["## Starting state", "## Invariants and guardrails"]) {
     if (!triageBrief.includes(required)) errors.push(`triage brief lacks execution context: ${required}`);
+  }
+  for (const required of ["## Coverage role", "STANDALONE"]) {
+    if (!triageBrief.includes(required)) errors.push(`triage brief lacks standalone coverage: ${required}`);
   }
   if (!triageBrief.includes("choose the first correct action from this brief and repository policy")) {
     errors.push("triage brief depends on hidden tracker context");
@@ -292,8 +363,9 @@ export function validatePackage(root) {
     "Do not infer an omitted producer",
     "read them directly in the main context",
     "Search for no sidecar",
-    "pi-ticket-planning:delivery-graph:v1",
+    "pi-ticket-planning:delivery-graph:v2",
     "check-delivery-graph.mjs",
+    "check-admission-state.mjs",
     "Do not persist a duplicate prose matrix",
     "## Starting state",
     "## Invariants and guardrails",
@@ -313,19 +385,25 @@ export function validatePackage(root) {
   }
   for (const required of [
     "Matrix Scenario IDs equal the parent Scenario IDs",
-    "pi-ticket-planning:delivery-graph:v1",
+    "pi-ticket-planning:delivery-graph:v2",
     "check-delivery-graph.mjs",
+    "check-admission-state.mjs",
     "Delivery graph contract: PASS | FAIL",
     "artifacts: false",
     "mission: false",
     "The readiness verdict is the gate output",
     "Scenario coverage: PASS | FAIL",
     "Walking skeleton: PASS | FAIL",
-    "Re-run the Delivery Graph checker",
+    "Re-run `check-admission-state.mjs`",
     "no admission check invents a missing handoff",
     "trusted source revision, repository base SHA, effective policy identity",
     "For a delivery map, include all four graph verdicts",
     "creates no additional artifact",
+    "pi-ticket-plan admit plan",
+    "pi-ticket-plan admit apply",
+    "Plan fingerprint",
+    "PARTIAL",
+    "CONFLICT",
   ]) {
     if (!admission.includes(required)) errors.push(`admit-ticket lacks coverage recheck: ${required}`);
   }
@@ -341,14 +419,20 @@ export function validatePackage(root) {
   ]) {
     if (!setup.includes(required)) errors.push(`setup lacks greenfield contract: ${required}`);
   }
-  if (!admission.includes("On READY + AGENT") || !admission.includes("On READY + HUMAN")) {
-    errors.push("admit-ticket does not apply both execution lanes");
+  if (!admission.includes("--issue <number>") || !admission.includes("any READY activation")) {
+    errors.push("admit-ticket does not route standalone READY candidates through transactional Admission");
   }
   if (pkg.scripts?.["check:frontier"] !== "node scripts/check-frontier-order.mjs") {
     errors.push("package does not expose the strict-frontier check");
   }
   if (pkg.scripts?.["check:delivery-graph"] !== "node scripts/check-delivery-graph.mjs") {
     errors.push("package does not expose the delivery-graph check");
+  }
+  if (pkg.scripts?.["check:admission-state"] !== "node scripts/check-admission-state.mjs") {
+    errors.push("package does not expose the live Admission-state check");
+  }
+  if (pkg.scripts?.["check:workflow"] !== "node scripts/workflow-contract.mjs") {
+    errors.push("package does not expose the machine workflow contract check");
   }
   if (!toTickets.includes("stable topological order")) errors.push("to-tickets does not topologically order children");
   if (!readiness.includes("Strict-frontier order: PASS | FAIL")) {
@@ -362,6 +446,14 @@ export function validatePackage(root) {
   if (!triage.includes("continue to `admit-ticket`") || !triage.includes("does not bypass fresh review or its later mutation confirmation")) {
     errors.push("triage does not continue through the model-invoked Admission helper");
   }
+  for (const required of [
+    "decision-complete QUICK request",
+    "one `READY/STANDALONE` candidate",
+    "create exactly one candidate in needs-triage",
+    "conversation is not the implementation specification",
+  ]) {
+    if (!triage.includes(required)) errors.push(`triage lacks QUICK contract: ${required}`);
+  }
 
   const toSpecMetadata = fs.readFileSync(path.join(skillRoot, "to-spec", "agents", "openai.yaml"), "utf8");
   if (!toSpecMetadata.includes("exact COMMITTED Release or decision-complete source")) {
@@ -371,6 +463,10 @@ export function validatePackage(root) {
   if (!toTicketsMetadata.includes("stop for graph approval, then continue to Admission")) {
     errors.push("to-tickets UI prompt does not preserve the graph gate before automatic Admission");
   }
+  const triageMetadata = fs.readFileSync(path.join(skillRoot, "triage", "agents", "openai.yaml"), "utf8");
+  if (!triageMetadata.includes("decision-complete QUICK request")) {
+    errors.push("triage UI prompt does not expose the QUICK helper path");
+  }
 
   const reviewer = fs.readFileSync(path.join(root, "agents", "ticket-readiness-reviewer.md"), "utf8");
   if (frontmatterValue(reviewer, "defaultContext") !== "fresh") errors.push("reviewer is not fresh by default");
@@ -379,6 +475,7 @@ export function validatePackage(root) {
   if (frontmatterValue(reviewer, "tools") !== "read") errors.push("reviewer must permit only read for its configured skill");
   if (!/^extensions:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable ambient extensions");
   if (!reviewer.includes("READY/HUMAN, not NEEDS_INFO")) errors.push("reviewer conflates human execution with missing information");
+  if (!reviewer.includes("machine review JSON")) errors.push("reviewer lacks the machine review projection");
   if (!reviewer.includes("normalized Delivery Graph snapshot")) errors.push("reviewer uses a stale graph input contract");
   if (!reviewer.includes('"level":"none"') || !reviewer.includes("Use `read` for no other path")) {
     errors.push("reviewer cannot load only its configured skill without a redundant acceptance wrapper");
@@ -388,7 +485,42 @@ export function validatePackage(root) {
   if (!launcher.includes("PI_TICKET_PLANNING_ROOT") || !launcher.includes("PI_TICKET_PLAN_PROFILE_DIR")) {
     errors.push("launcher does not select the portable dedicated profile");
   }
+  if (!launcher.includes('= "doctor"') || !launcher.includes('scripts/doctor.mjs')) {
+    errors.push("launcher does not dispatch the doctor command");
+  }
+  if (!launcher.includes('= "admit"') || !launcher.includes('scripts/admit.mjs')) {
+    errors.push("launcher does not dispatch the Admission transaction command");
+  }
   if (!launcher.includes('exec pi "$@"')) errors.push("launcher does not resolve Pi from PATH");
+
+  const doctor = fs.readFileSync(path.join(root, "scripts", "doctor.mjs"), "utf8");
+  for (const required of [
+    "Profile loads current checkout",
+    "Reviewer loaded from expected path",
+    "GitHub authentication",
+    "Sub-issue API",
+    "Dependency API",
+    "Accepted repository policy",
+    "Harness merge rules",
+    "Missing label:",
+    "Latest package release",
+    "Package checkout vs main",
+  ]) {
+    if (!doctor.includes(required)) errors.push(`doctor lacks required check: ${required}`);
+  }
+
+  const admit = fs.readFileSync(path.join(root, "scripts", "admit.mjs"), "utf8");
+  for (const required of [
+    "pi-ticket-planning:admission-plan:v1",
+    "EXPECTED_FINGERPRINT_MISMATCH",
+    "CONTROLLED_LABEL_DRIFT",
+    "HARNESS_CLAIM_DETECTED",
+    "WRITE_NOT_COMPLETED",
+    "roll-forward",
+    "createGitHubAdapter",
+  ]) {
+    if (!admit.includes(required)) errors.push(`Admission transaction lacks ${required}`);
+  }
 
   const installer = fs.readFileSync(path.join(root, "scripts", "install-profile.mjs"), "utf8");
   if (!installer.includes('run(piBin, ["install", UPSTREAM_SOURCE]') || !installer.includes('run(piBin, ["install", SUBAGENTS_SOURCE]')) {
@@ -409,7 +541,7 @@ export function validatePackage(root) {
   }
   for (const trackerName of ["issue-tracker-github.md", "issue-tracker-gitlab.md", "issue-tracker-local.md"]) {
     const trackerText = fs.readFileSync(path.join(skillRoot, "setup-matt-pocock-skills", trackerName), "utf8");
-    if (!trackerText.includes("pi-ticket-planning:delivery-graph:v1") || !trackerText.includes("check-delivery-graph.mjs")) {
+    if (!trackerText.includes("pi-ticket-planning:delivery-graph:v2") || !trackerText.includes("check-delivery-graph.mjs")) {
       errors.push(`${trackerName} lacks the normalized Delivery Graph check`);
     }
   }
@@ -420,6 +552,10 @@ export function validatePackage(root) {
     "profile/pi-ticket-plan",
     "profile/settings.template.json",
     "scripts/check-profile.mjs",
+    "scripts/check-admission-state.mjs",
+    "scripts/admit.mjs",
+    "scripts/workflow-contract.mjs",
+    "scripts/doctor.mjs",
     "skills/setup-matt-pocock-skills/issue-tracker-github.md",
   ]) {
     const text = fs.readFileSync(path.join(root, relative), "utf8");
@@ -471,10 +607,6 @@ export function validatePackage(root) {
     if (actual !== item.expectedGraphVerdict) {
       errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
     }
-  }
-
-  for (const error of validateLiveEvalFixture(readJson(path.join(root, "fixtures", "pi-live-eval-cases.json")))) {
-    errors.push(`live PI eval fixture: ${error}`);
   }
 
   return errors;

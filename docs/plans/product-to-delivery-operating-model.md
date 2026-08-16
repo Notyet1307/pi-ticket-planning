@@ -1,10 +1,10 @@
 # 从产品意图到可验证结果：全阶段运行方案
 
-> 状态：Phase 1–3 和 Gate C 内部 Release→Harness canary 已完成；真实客户证据到 Outcome 的循环仍未完成
+> 状态：Phase 1–3、Gate C 内部 Release→Harness canary、显式流程分级、人类状态卡、统一 doctor 和真实模型 Release Gate 已实现；十四个只读 fresh-process PI 场景已通过，真实客户证据到 Outcome 的循环仍未完成
 >
-> 日期：2026-08-13
+> 日期：2026-08-16
 >
-> 批准记录：用户于 2026-08-12 同意第 12 节全部十项决策。
+> 批准记录：用户于 2026-08-12 同意前十项决策，并于 2026-08-16 同意第 11–14 项。
 >
 > 入口修订：原第 5 项 `/to-release` 公开入口已由用户改为统一 `/skill:ask-yet`；Release 规则降为其内部 reference。完整设计见 [`ask-yet` 架构](./ask-yet-skill-architecture.md)。
 >
@@ -119,16 +119,16 @@ AI 可以整理四类内容、指出矛盾和缺口，但不得把 `ASSUMPTION` 
 
 ## 5. 入口分流：不同工作不强行走同一条路
 
-| 变更类型 | 识别信号 | 默认路径 | 可跳过内容 |
+| 变更类型 | 识别信号 | 默认规划深度 / 路径 | 可跳过内容 |
 |---|---|---|---|
-| A. 新产品 / 重大产品赌注 | 新用户、新核心工作、价值不确定、跨多次 Release | 完整发现 → Release Frame → Commitment → Spec → Tickets | 无 |
-| B. 有界增强 | 用户和目标已知，但行为或范围有调整 | 轻量证据 → Release Frame → Commitment → Spec → Tickets | 完整 OST、长期 Wayfinder map |
-| C. Bug / Regression | 现有承诺行为可复现地失效 | Triage → 根因诊断 → 回归验证 → Ticket admission | 产品发现、方案赌注 |
-| D. 维护 / 安全 / 合规 | 依赖、漏洞、平台迁移、强制控制 | 风险契约 → 验证/回滚方案 → Ticket admission | 产品假设，但不能跳过风险门禁 |
-| E. 研究 / 原型 | 目标是得到决定或证据，而非上线 | Wayfinder / research / prototype → 决策记录 | 实现队列；结论前不得贴 `ready-for-agent` |
-| F. 生产事件 | 正在影响用户、数据或安全 | 止血 → 证据保全 → 恢复 → 事后复盘 | 常规 Release 节奏；不能跳过审计和恢复验证 |
+| A. 新产品 / 重大产品赌注 | 新用户、新核心工作、价值不确定、跨多次 Release | `DISCOVERY`：完整发现 → Release Frame → Commitment → Spec → Tickets | 无 |
+| B. 有界增强 | 用户和目标行为已有可信事实，但仍需 Spec 或多票 | `STANDARD`：Release-lite → Commitment → Spec → Tickets | 新证据动作、完整 OST、长期 Wayfinder map |
+| C. Bug / Regression / 明确局部修改 | 已承诺行为可复现地失效，或一张独立 Ticket 已能完整表达 | `QUICK`：Source → 单 Ticket → fresh Readiness → Admission | Release、Spec、Delivery Parent 和 graph |
+| D. 维护 / 安全 / 合规 | 依赖、漏洞、权限、平台迁移、高风险生产切换或强制控制 | 先按事实选 QUICK/STANDARD/DISCOVERY；高风险叠加 `CONTROLLED`：风险契约 → 验证/回滚 → Admission → 发布门禁 | 不适用的产品发现，但不能跳过实际风险门禁 |
+| E. 研究 / 原型 | 目标是得到决定或证据，而非上线 | `DISCOVERY` 内的 Wayfinder / research / prototype → 决策记录 | 实现队列；结论前不得贴 `ready-for-agent` |
+| F. 生产事件 | 正在影响用户、数据或安全 | `INCIDENT`：止血 → 证据保全 → 恢复 → 事后复盘；不进入普通 Tier | 常规 Release 节奏；不能跳过审计和恢复验证 |
 
-分流本身由人确认。AI 可以建议类型，但不能借“这是 Bug”绕过产品或风险决策。
+`ask-yet` 先识别 `INCIDENT`，再自动选择能由权威事实证明的最浅 `QUICK | STANDARD | DISCOVERY` 规划深度，并独立叠加 `NORMAL | CONTROLLED` 风险控制，只用一句话解释决定性理由。人不选择档位，只纠正错误事实、做非委派决定并接受重大风险。无法证明短路径时默认 `DISCOVERY`；高风险不强制补做无关产品发现，但“Bug”标签和小 diff 也不能绕过适用的风险 Gate。
 
 ## 6. 权威产物：每个事实只有一个归属
 
@@ -157,10 +157,10 @@ AI 可以整理四类内容、指出矛盾和缺口，但不得把 `ASSUMPTION` 
 **动作**：
 
 1. 记录提出者、触发事件、预期变化和证据来源。
-2. 按第 5 节选择路径。
+2. 按第 5 节自动推断 planning depth、control mode 和路径。
 3. 判断是否为事件、安全或数据风险，必要时升级。
 
-**退出条件**：工作类型明确；知道下一份应产生的产物；没有把未知产品问题直接塞进实现票。
+**退出条件**：工作类型、planning depth 与 control mode 明确；知道下一份应产生的产物；没有把未知产品问题直接塞进实现票。
 
 **失败输出**：`NEEDS_TRIAGE`，而不是自动进入 backlog。
 
@@ -554,7 +554,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 3：v0.3，补已确认的交付接缝
 
-**状态：实现和内部 canary 完成、尚未发布。** 下列接缝已落在 `v0.2.0` 之后的 `main`，通过 package/Profile 检查和四个全新 PI 进程行为评测；内部 canary 不替代客户价值证据。
+**状态：实现和内部 canary 完成、尚未发布。** 下列交付接缝已落在 `v0.2.0` 之后的当前工作树；三档规划深度加风险覆盖、五字段人类状态卡、分层只读 `pi-ticket-plan doctor`、幂等 Admission plan/apply 和真实模型 Release Gate 已实现，并通过 package/Profile 检查、确定性回归和十四个全新 PI 进程行为评测。内部 canary 不替代客户价值证据。
 
 用户审核后已确认实现以下最小门禁，而不是整包预建：
 
@@ -597,6 +597,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 | 失败模式 | 识别信号 | 默认动作 |
 |---|---|---|
 | AI 发明用户需求 | 没有证据引用却出现肯定用户结论 | 标为 `ASSUMPTION`，退回 G1 |
+| 流程错误降档 | 小 diff、Bug 标签或用户催促导致跳过产品/风险 Gate | 重新判定 QUICK/STANDARD/DISCOVERY 规划深度和 NORMAL/CONTROLLED 风险控制；短路径无法由事实证明时用 `DISCOVERY` |
 | 一次规划完整产品 | 远期 Ticket 依赖多层未验证假设 | 保留 outcome roadmap，删除未承诺实现票 |
 | 发现变成无限研究 | 未知项增加但没有 appetite / 决策点 | 只测最高风险假设；到 appetite 触发 `COMMIT/HOLD/DROP` |
 | 研究环境能力不足 | 需要当前外部事实，但无搜索/访问/原始资料 | 输出 Research Handoff，保持 `NEEDS_RESEARCH`，不以模型记忆补证据 |
@@ -612,9 +613,9 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 | Tracker 或 PR 被当作 Harness 状态 | ready/merged 存在但 ledger 无 claim 或 terminal | 以 Harness ledger 为准，保持 `HANDOFF_READY` 或 `BLOCKED` |
 | 指标被游戏化 | 为提高数字而拆碎 Ticket 或频繁空部署 | 停止该指标作为目标，审查真实失败样本 |
 
-## 12. 已批准的十项决策
+## 12. 已批准的十四项决策
 
-以下十项已于 2026-08-12 全部获得用户批准；后续发生实质变更时重新审核：
+前十项于 2026-08-12 获得用户批准；第 11–14 项于 2026-08-16 获得用户批准。后续发生实质变更时重新审核：
 
 1. **双闭环**：连续发现与当前 Release 交付并行，不采用串行阶段瀑布。
 2. **Release 是规划单位**：Roadmap 写用户结果，只详细规划下一次已承诺 Release。
@@ -625,7 +626,11 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 7. **暂不建通用包**：继续 PI 宿主 + portable Skill core；五个闭环且出现第二个真实 runtime 后再决定抽取。
 8. **研究能力 fail-closed**：外部研究先检查实际能力；缺少访问能力时输出标准 Research Handoff，阻塞性未知项保持 `NEEDS_RESEARCH`。
 9. **Repository policy 分层**：根级 policy 只放稳定跨票约束；Commitment 后做影响检查，当前 Ticket 依赖的新规则必须先进入基线。
-10. **简单交接**：Admission 使用 strict frontier、fresh review、人工确认和 tracker ready 状态；暂不增加 Admission Receipt、Harness 重算或 planning daemon。候选或任务图修改后重新 Admission，执行事实只读 Harness ledger，只有真实失败证明必要时才扩展。
+10. **简单交接**：Admission 使用 strict frontier、fresh review、exact Plan fingerprint、人工确认和可恢复 apply 写入 tracker ready 状态；graph 与 standalone QUICK 共用事务，逐标签更新、逐资源漂移检查，并在父任务或 standalone 激活前最终重读。不增加独立权威 Receipt、Harness 重算或 planning daemon，Plan 与 reviewed fingerprint 留在结果和幂等 comment。候选或任务图修改后重新 Admission，执行事实只读 Harness ledger。
+11. **显式流程分级**：`ask-yet` 自动推断 `QUICK | STANDARD | DISCOVERY` 规划深度，再叠加 `NORMAL | CONTROLLED` 风险控制；用户只看到一句决定性理由。不增加公开 Quick Skill、状态机或 Reviewer，Readiness 继续复用 Admission 的 fresh reviewer。
+12. **人类状态卡**：每轮用户界面固定为“当前目标、已经确认、仍然缺少、为什么现在不能继续、你只需要决定”；内部 lane、stage 和 verdict 只进入最后一行机器 `Checkpoint`。
+13. **统一 doctor**：`pi-ticket-plan doctor` 只读检查安装/Profile、GitHub、版本和当前目标仓库的 Harness 就绪条件，并分别汇总 Planning、Admission、Release readiness；默认只有 Planning 阻塞影响退出码，发布或自动化可用 `--require admission|release|all` 收紧。依赖事实不足时使用 `SKIP`，可操作失败同时给出 `FIX`，不自动改仓库或授权状态。
+14. **真实模型 Release Gate**：确定性 CI 只验证冻结 fixture 合同；package Release 必须从干净 checkout 运行固定十四个 fresh-process PI case，覆盖 `Frame → Evidence → Commit → Spec → Tickets → Readiness → Admission` 的相邻权威快照。只重试失败 case 一次，恢复记为 `FLAKY`，并记录语义失败、基础设施失败和成功率。提供三次 advisory 的 `eval:pi:nightly`；PR CI 不使用维护者个人 OAuth，仓库有专用 runner、机器凭据和非门禁评分合同后才接定时任务、无 Skill 基线和双能力档模型矩阵。
 
 ## 13. 一手资料索引
 

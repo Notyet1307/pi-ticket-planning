@@ -1,6 +1,6 @@
 interface:
   display_name: "Triage"
-  short_description: "Verify incoming issues before agent admission"
-  default_prompt: "Use $triage when ask-yet routes an incoming issue or PR to verified triage and admission."
+  short_description: "Verify issues and one-ticket changes before admission"
+  default_prompt: "Use $triage when ask-yet routes an issue, PR, or decision-complete QUICK request to verified triage and admission."
 policy:
   allow_implicit_invocation: true

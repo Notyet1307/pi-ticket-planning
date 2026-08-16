@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "lanes": ["PRODUCT", "DELIVERY", "TRIAGE", "RISK", "INCIDENT"],
+  "identityPatterns": {
+    "none": "^NONE$",
+    "release": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+    "ticket": "^[^@\\s]+@[^@\\s]+$"
+  },
+  "stages": {
+    "ORIENT": {
+      "identityKinds": ["none", "release", "ticket"],
+      "verdicts": ["NEEDS_TARGET", "ROUTED"]
+    },
+    "FRAME": {
+      "identityKinds": ["none", "release"],
+      "verdicts": ["FRAME_CANDIDATE", "FRAME_WRITE_AWAITING_APPROVAL"]
+    },
+    "EVIDENCE": {
+      "identityKinds": ["release"],
+      "verdicts": ["NEEDS_RESEARCH", "NEEDS_PROTOTYPE", "NEEDS_DECISION", "EVIDENCE_WRITE_AWAITING_APPROVAL", "EVIDENCE_AUTHORIZED", "INTERVIEW_AWAITING_CONSENT", "INTERVIEW_IN_PROGRESS", "INTERVIEW_RECORDED", "INTERVIEW_STOPPED", "EVIDENCE_RECORDED"]
+    },
+    "COMMIT": {
+      "identityKinds": ["release"],
+      "verdicts": ["NOT_READY", "READY_TO_COMMIT", "COMMITTED", "HOLD", "REWORK", "DROP"]
+    },
+    "SPEC": {
+      "identityKinds": ["release"],
+      "verdicts": ["SPEC_IN_PROGRESS", "SPEC_ACCEPTED", "BLOCKED"]
+    },
+    "TICKETS": {
+      "identityKinds": ["release", "ticket"],
+      "verdicts": ["TICKET_GRAPH_CANDIDATE", "TICKETS_ACCEPTED", "BLOCKED"]
+    },
+    "ADMISSION": {
+      "identityKinds": ["release", "ticket"],
+      "verdicts": ["REVIEW_IN_PROGRESS", "ACTIVATION_AWAITING_CONFIRMATION", "ADMITTED", "BLOCKED"]
+    },
+    "EXECUTION": {
+      "identityKinds": ["release", "ticket"],
+      "verdicts": ["HANDOFF_READY", "IN_PROGRESS", "BLOCKED", "DELIVERED"]
+    },
+    "OUTCOME": {
+      "identityKinds": ["release"],
+      "verdicts": ["AWAITING_EVIDENCE", "ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "UNEVALUABLE"]
+    }
+  },
+  "allowedTransitions": {
+    "ORIENT": ["ORIENT", "FRAME", "EVIDENCE", "COMMIT", "SPEC", "TICKETS", "ADMISSION", "EXECUTION", "OUTCOME"],
+    "FRAME": ["FRAME", "EVIDENCE", "COMMIT"],
+    "EVIDENCE": ["FRAME", "EVIDENCE", "COMMIT"],
+    "COMMIT": ["FRAME", "EVIDENCE", "COMMIT", "SPEC"],
+    "SPEC": ["COMMIT", "SPEC", "TICKETS"],
+    "TICKETS": ["SPEC", "TICKETS", "ADMISSION"],
+    "ADMISSION": ["TICKETS", "ADMISSION", "EXECUTION"],
+    "EXECUTION": ["ADMISSION", "EXECUTION", "OUTCOME"],
+    "OUTCOME": ["OUTCOME", "ORIENT", "FRAME"]
+  },
+  "verdictRequirements": {
+    "EVIDENCE_RECORDED": ["evidence.persisted"],
+    "READY_TO_COMMIT": ["release.readinessPassed"],
+    "COMMITTED": ["human.commitment", "release.persisted"],
+    "SPEC_IN_PROGRESS": ["human.commitment", "release.persisted", "git.deliveryBase"],
+    "SPEC_ACCEPTED": ["human.commitment", "release.persisted", "git.deliveryBase", "spec.persisted"],
+    "TICKETS_ACCEPTED": ["spec.persisted", "tickets.persisted", "graph.passed", "human.graphApproval"],
+    "REVIEW_IN_PROGRESS": ["tickets.persisted", "graph.passed"],
+    "ACTIVATION_AWAITING_CONFIRMATION": ["source.unchanged", "policy.accepted", "review.ready"],
+    "ADMITTED": ["source.unchanged", "policy.accepted", "review.ready", "human.activation", "tracker.ready"],
+    "HANDOFF_READY": ["tracker.ready"],
+    "IN_PROGRESS": ["harness.active"],
+    "DELIVERED": ["harness.terminalSuccess", "git.acceptedSource"],
+    "AWAITING_EVIDENCE": ["release.recorded", "release.enabled", "release.smokePassed"],
+    "ACHIEVED": ["outcome.windowElapsed", "outcome.evidence"],
+    "PARTIAL": ["outcome.windowElapsed", "outcome.evidence"],
+    "NOT_ACHIEVED": ["outcome.windowElapsed", "outcome.evidence"],
+    "UNEVALUABLE": ["outcome.windowElapsed", "outcome.evidence"]
+  }
+}

@@ -144,11 +144,12 @@
     {
       "id": "ready-complete-walking-skeleton",
       "expectedGraphVerdict": "READY",
-      "version": 1,
+      "version": 2,
       "source": {
         "identity": "SPEC-READY",
         "revision": "r1",
-        "baseSha": "1111111111111111111111111111111111111111"
+        "baseSha": "1111111111111111111111111111111111111111",
+        "specContentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "scenarios": [
         {
@@ -177,6 +178,8 @@
             "S1"
           ],
           "blockedBy": [],
+          "bodyHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "startingState": "Two comparison inputs are available.",
           "primaryVerification": "Submit two valid inputs.",
           "executionLane": "AGENT"
         },
@@ -190,6 +193,8 @@
           "blockedBy": [
             "T1"
           ],
+          "bodyHash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "startingState": "The comparison inputs have been accepted.",
           "primaryVerification": "Compare accepted inputs and inspect the result.",
           "executionLane": "AGENT"
         }
@@ -206,11 +211,12 @@
         "UNCOVERED_SCENARIO",
         "SCENARIO_ABSENT_FROM_SKELETON"
       ],
-      "version": 1,
+      "version": 2,
       "source": {
         "identity": "SPEC-UNCOVERED",
         "revision": "r1",
-        "baseSha": "2222222222222222222222222222222222222222"
+        "baseSha": "2222222222222222222222222222222222222222",
+        "specContentHash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
       },
       "scenarios": [
         {
@@ -239,6 +245,8 @@
             "S1"
           ],
           "blockedBy": [],
+          "bodyHash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "startingState": "One valid input is available.",
           "primaryVerification": "Submit one valid input.",
           "executionLane": "AGENT"
         }
@@ -254,11 +262,12 @@
         "MISSING_ENABLER_EXIT",
         "MISSING_ENABLER_CONSUMER"
       ],
-      "version": 1,
+      "version": 2,
       "source": {
         "identity": "SPEC-ORPHAN",
         "revision": "r1",
-        "baseSha": "3333333333333333333333333333333333333333"
+        "baseSha": "3333333333333333333333333333333333333333",
+        "specContentHash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       },
       "scenarios": [
         {
@@ -279,6 +288,8 @@
             "S1"
           ],
           "blockedBy": [],
+          "bodyHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "startingState": "A result request is available.",
           "primaryVerification": "Request and verify the result.",
           "executionLane": "AGENT"
         },
@@ -292,6 +303,8 @@
           "downstreamConsumers": [],
           "exitCondition": "",
           "blockedBy": [],
+          "bodyHash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "startingState": "The result-verification seam is absent.",
           "primaryVerification": "Run the result-verification seam.",
           "executionLane": "AGENT"
         }
@@ -307,11 +320,12 @@
         "INVALID_SKELETON_ORDER",
         "SCENARIO_ABSENT_FROM_SKELETON"
       ],
-      "version": 1,
+      "version": 2,
       "source": {
         "identity": "SPEC-BROKEN-SKELETON",
         "revision": "r1",
-        "baseSha": "4444444444444444444444444444444444444444"
+        "baseSha": "4444444444444444444444444444444444444444",
+        "specContentHash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
       },
       "scenarios": [
         {
@@ -340,6 +354,8 @@
             "S1"
           ],
           "blockedBy": [],
+          "bodyHash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "startingState": "One valid input is available.",
           "primaryVerification": "Submit one valid input.",
           "executionLane": "AGENT"
         },
@@ -353,6 +369,8 @@
           "blockedBy": [
             "T1"
           ],
+          "bodyHash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "startingState": "The input has been accepted.",
           "primaryVerification": "Return a result from accepted input.",
           "executionLane": "AGENT"
         }
@@ -367,11 +385,12 @@
       "expectedProblemCodes": [
         "BROKEN_SCENARIO_HANDOFF"
       ],
-      "version": 1,
+      "version": 2,
       "source": {
         "identity": "SPEC-BROKEN-HANDOFF",
         "revision": "r1",
-        "baseSha": "5555555555555555555555555555555555555555"
+        "baseSha": "5555555555555555555555555555555555555555",
+        "specContentHash": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
       },
       "scenarios": [
         {
@@ -400,6 +419,8 @@
             "S1"
           ],
           "blockedBy": [],
+          "bodyHash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "startingState": "One valid input is available.",
           "primaryVerification": "Submit one valid input.",
           "executionLane": "AGENT"
         },
@@ -413,6 +434,8 @@
           "blockedBy": [
             "T1"
           ],
+          "bodyHash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "startingState": "A normalized input is available.",
           "primaryVerification": "Return a result from normalized input.",
           "executionLane": "AGENT"
         }

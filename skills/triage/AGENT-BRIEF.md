@@ -10,6 +10,9 @@ Use this structure:
 
     **Category:** bug | enhancement
 
+    ## Coverage role
+    STANDALONE
+
     ## What to build
     One sentence describing one observable outcome.
 

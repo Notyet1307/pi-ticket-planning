@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "facts": {
+    "evidence.persisted": { "owner": "release-artifact", "sources": ["git", "provided-artifact"] },
+    "release.readinessPassed": { "owner": "release-readiness", "sources": ["release-readiness-check"] },
+    "human.commitment": { "owner": "human", "sources": ["operator-asserted"] },
+    "release.persisted": { "owner": "release-artifact", "sources": ["git", "accepted-artifact"] },
+    "git.deliveryBase": { "owner": "git", "sources": ["git"] },
+    "spec.persisted": { "owner": "tracker", "sources": ["tracker-api", "git"] },
+    "tickets.persisted": { "owner": "tracker", "sources": ["tracker-api", "git"] },
+    "graph.passed": { "owner": "deterministic-checker", "sources": ["check-admission-state"] },
+    "human.graphApproval": { "owner": "human", "sources": ["operator-asserted"] },
+    "source.unchanged": { "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli"] },
+    "policy.accepted": { "owner": "git-policy", "sources": ["git-policy-check"] },
+    "review.ready": { "owner": "fresh-reviewer", "sources": ["ticket-readiness-reviewer"] },
+    "human.activation": { "owner": "human", "sources": ["operator-asserted"] },
+    "tracker.ready": { "owner": "tracker", "sources": ["tracker-api", "admission-cli"] },
+    "harness.active": { "owner": "harness", "sources": ["harness-ledger"] },
+    "harness.terminalSuccess": { "owner": "harness", "sources": ["harness-ledger"] },
+    "git.acceptedSource": { "owner": "git", "sources": ["git"] },
+    "release.recorded": { "owner": "release-record", "sources": ["release-record"] },
+    "release.enabled": { "owner": "runtime", "sources": ["deployment-fact"] },
+    "release.smokePassed": { "owner": "release-record", "sources": ["release-record"] },
+    "outcome.windowElapsed": { "owner": "outcome-evaluator", "sources": ["outcome-evaluator"] },
+    "outcome.evidence": { "owner": "signal-evidence", "sources": ["signal-evidence"] }
+  },
+  "mutations": {
+    "admission.apply": {
+      "actor": "admission-cli",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "ADMISSION",
+      "targetVerdict": "ADMITTED",
+      "approvalFact": "human.activation",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "human.activation"],
+      "producesFacts": ["tracker.ready"]
+    },
+    "admission.applyStandalone": {
+      "actor": "admission-cli",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "ADMISSION",
+      "targetVerdict": "ADMITTED",
+      "approvalFact": "human.activation",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "human.activation"],
+      "producesFacts": ["tracker.ready"]
+    }
+  }
+}

@@ -66,19 +66,19 @@ Represent the same proposed graph once as JSON:
 
 ```json
 {
-  "version": 1,
-  "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "baseSha": "<exact base>" },
+  "version": 2,
+  "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "baseSha": "<exact base>", "specContentHash": "sha256:<Spec body without Ticket coverage>" },
   "scenarios": [
     { "id": "S1", "behavior": "<observable behavior>", "entry": "external:<input> or <artifact>", "exit": "<artifact>", "releaseSignal": "<signal>", "smallestLoop": true }
   ],
   "children": [
-    { "id": "C01", "title": "<title>", "coverageRole": "DIRECT", "sourceScenarios": ["S1"], "blockedBy": [], "externalBlockers": [], "primaryVerification": "<behavioral check>", "executionLane": "AGENT" }
+    { "id": "C01", "title": "<title>", "coverageRole": "DIRECT", "sourceScenarios": ["S1"], "blockedBy": [], "externalBlockers": [], "bodyHash": "sha256:<exact UTF-8 body>", "startingState": "<entry state>", "primaryVerification": "<behavioral check>", "executionLane": "AGENT" }
   ],
   "walkingSkeleton": ["C01"]
 }
 ```
 
-`blockedBy` contains only children in this map; put other exact prerequisites in `externalBlockers`. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
+`blockedBy` contains only children in this map; put unresolved outside prerequisites in `externalBlockers`, which makes the graph ineligible for Admission. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. Hash the exact proposed child body bytes and the parent Spec body with its complete `## Ticket coverage` section removed. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
 
 ```sh
 node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -
@@ -145,14 +145,14 @@ Use this child body:
 
 Update or replace one `## Ticket coverage` section in the parent. Store exactly one normalized snapshot, using real tracker child identities throughout:
 
-    <!-- pi-ticket-planning:delivery-graph:v1 -->
+    <!-- pi-ticket-planning:delivery-graph:v2 -->
     ```json
-    <the approved version 1 object>
+    <the approved version 2 object>
     ```
 
 The JSON is the durable Scenario matrix, handoff chain, child order, roles, verifications, lanes, and blocker graph. Do not persist a duplicate prose matrix, table, or receipt. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, lane, order, or edge requires renewed approval.
 
-Re-fetch the parent and run the Delivery Graph checker against its body using the tracker command. Then compare its child set and blocker edges with the fresh native graph and run the configured strict-frontier check. All checks must pass before handoff.
+Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, complete parent body, and native-order children with exact bodies and open blocker identities. Run `check-admission-state.mjs` against that bundle, then run the configured strict-frontier check. Both checks must pass before handoff.
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 

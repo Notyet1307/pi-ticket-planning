@@ -1,6 +1,6 @@
 # Release loop contract
 
-Use this reference for `PRODUCT`, `COMMIT`, repository-contract review, and `OUTCOME`. It defines product evidence and gates; it does not replace a Delivery Spec, ticket readiness review, or Harness.
+Use this reference for `PRODUCT`, `CONTROLLED`, `COMMIT`, repository-contract review, and `OUTCOME`. It defines product evidence and gates; it does not replace a Delivery Spec, ticket readiness review, or Harness.
 
 ## 1. Evidence language
 
@@ -99,6 +99,12 @@ Show the candidate content or minimum diff in conversation and wait for explicit
 
 A human may grant standing automation approval for one exact target and Release. Reuse it for reversible planning writes it clearly covers; do not request permission for each file, commit, or tracker mutation. It expires on source, scope, target, policy, or risk drift. It never silently includes credentials, destructive actions, production effects, implementation, merge, or a repository-forbidden operation. Ticket-graph publication and Admission activation retain their own human confirmations.
 
+### Release-lite for `STANDARD`
+
+Release-lite is the compact use of this same Release artifact, revision, durability rule, and human Commitment. It is not another artifact kind, status, or schema.
+
+Use it only when trusted existing sources already establish the actor and trigger, current behavior or alternative, target behavior, smallest closed loop, observable signal and guardrail, scope and non-goals, and bounded risk. Record those sources in the Evidence ledger, apply all six readiness tests, and omit `Current evidence protocol` when no new evidence action is needed. If any readiness item needs new research, interview, observation, prototype, or product decision, route the work through `DISCOVERY` instead of filling the gap or calling the draft Release-lite.
+
 ## 3. Frame one Release
 
 A Release is the smallest end-to-end product bet that can produce new outcome evidence. It is not a feature list or a batch of issues.
@@ -170,6 +176,8 @@ return_format: <what updates the Release artifact>
 
 Do not expand discovery after this action is sufficient to change the next decision.
 
+When the chosen action is a customer interview or live observation and the human starts it or the participant is present, stop designing and follow [interview-session.md](interview-session.md). The interviewer may collect answers in this conversation. Only a redacted return block may later update the Release artifact, and only after explicit write approval. Raw responses stay out of Git.
+
 ## 5. Capability-aware research
 
 Before external research, freeze:
@@ -215,6 +223,8 @@ return_to:
   evidence_item: <ledger item>
 ```
 
+When `ask-yet` renders this handoff, keep it inside the human card's `仍然缺少` field (or its translation). Put `Reason: CAPABILITY_GAP` and `Research Handoff:` in that field and indent the remaining lines; do not create another top-level status section.
+
 Missing research capability is `CAPABILITY_GAP`, not a product answer and not a request for the human to guess a searchable fact.
 
 ## 6. Readiness and human Commitment
@@ -229,6 +239,22 @@ Judge each item `PASS | FAIL | UNKNOWN`:
 6. Non-goals, false-positive completion, and major risk boundaries are explicit.
 
 Only six `PASS` results with no blocking unknown yield `READY_TO_COMMIT`. High-uncertainty work cannot pass items 1 or 2 using only market articles, competitor existence, or technical feasibility.
+
+When `control_mode` is `CONTROLLED`, also require a decision-complete control record in the Release artifact or trusted operating source:
+
+```yaml
+authority_and_scope: <mandate, policy, incident follow-up, or named human decision>
+protected_assets_and_data: []
+blast_radius: <affected users, data, systems, and environments>
+pre_release_verification: []
+rollback_or_recovery: <trigger, owner, exact safe action, and verification>
+approval_owners: []
+staged_release: <order, bounded first audience or environment, and hold points>
+smoke_and_stop_conditions: []
+audit_evidence: <what is retained, where, and by whom>
+```
+
+Carry applicable controls into the standalone Ticket or Delivery Spec constraints, Ticket invariants and guardrails, Admission bundle, and Release Record. A missing applicable control is `NEEDS_INFO` or `BLOCKED`, not an implementation detail. Human approval remains mandatory for risk acceptance, Admission activation, and production enablement or rollback. A small diff never removes these controls, but a decision-complete `QUICK + CONTROLLED` change does not need a product Release artifact, customer discovery, or multi-ticket Spec solely because it is risky. When product behavior is uncertain, use `DISCOVERY + CONTROLLED` and complete the evidence gates.
 
 The human then chooses:
 
@@ -289,7 +315,7 @@ Keep these facts distinct:
 - `released`: a specific artifact/SHA is enabled for a stated audience or environment, with smoke and rollback evidence.
 - `outcome achieved`: post-release evidence satisfies the Frame's signal and guardrail after its evidence window.
 
-The Release Record includes Release ID and revision, source SHA and artifact identity, environment and enabled scope, migration or flag state, smoke/health evidence, rollback condition and result, and responsible human.
+The Release Record includes Release ID and revision, source SHA and artifact identity, environment and enabled scope, migration or flag state, smoke/health evidence, rollback condition and result, and responsible human. When `control_mode` is `CONTROLLED`, also record the approving authority, staged-release step, stop-condition result, and retained audit-evidence identity.
 
 Before the evidence window, or while its stated minimum evidence is still accruing, return `AWAITING_EVIDENCE`; do not call ordinary waiting `UNEVALUABLE`.
 
@@ -304,4 +330,4 @@ Then recommend one human decision: `CONTINUE | ITERATE | PIVOT | STOP | MEASURE_
 
 ## 9. Admission to Harness
 
-Admission provides Scenario-coverage, state/artifact-handoff, walking-skeleton, and strict-frontier checks, a fresh readiness review, snapshot comparison, and human confirmation. After confirmation, the tracker ready label and admission comment are the handoff to Harness. Any source, matrix, candidate, or graph edit requires Admission again. Keep Harness within its existing execution contract; add no second handoff protocol without an observed failure that requires one.
+Admission provides Scenario-coverage, state/artifact-handoff, walking-skeleton, and strict-frontier checks, a fresh readiness review, snapshot comparison, and human confirmation of one exact Plan fingerprint. For a GitHub delivery map, `admit apply` reconciles that plan blockers-first and writes the parent last; `PARTIAL` resumes the same plan and `CONFLICT` requires review again. The tracker ready label and idempotent admission comment remain the only handoff to Harness, so this adds no second protocol or receipt artifact. Any source, matrix, candidate, or graph edit requires Admission again.

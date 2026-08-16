@@ -1,0 +1,225 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+import {
+  DELIVERY_GRAPH_MARKER,
+  hashText,
+} from "../scripts/check-delivery-graph.mjs";
+import {
+  buildAdmissionPlan,
+  buildStandaloneAdmissionPlan,
+  createGitHubAdapter,
+  validateAdmissionPlan,
+} from "../scripts/admit.mjs";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const graphFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "admission-cases.json"), "utf8"))
+  .graphCases.find(({ expectedGraphVerdict }) => expectedGraphVerdict === "READY");
+
+function readyInput() {
+  const snapshot = structuredClone(graphFixture);
+  snapshot.children[0].id = "101";
+  snapshot.children[1].id = "102";
+  snapshot.children[1].blockedBy = ["101"];
+  snapshot.children[1].executionLane = "HUMAN";
+  snapshot.walkingSkeleton = ["101", "102"];
+  const specBody = [
+    "# Delivery Spec",
+    "",
+    "## Behavioral scenarios",
+    "### S1: Accept inputs",
+    "Accepted behavior.",
+    "",
+    "### S2: Return result",
+    "Accepted behavior.",
+  ].join("\n");
+  const children = [
+    {
+      id: "101",
+      title: "Accept comparison inputs",
+      body: "# Accept comparison inputs\n\nExact reviewed body.",
+      blockedBy: [],
+      labels: ["needs-triage", "product"],
+      state: "open",
+      updatedAt: "2026-08-16T10:00:00Z",
+    },
+    {
+      id: "102",
+      title: "Return an explainable result",
+      body: "# Return an explainable result\n\nExact reviewed body.",
+      blockedBy: ["101"],
+      labels: ["needs-triage"],
+      state: "open",
+      updatedAt: "2026-08-16T10:01:00Z",
+    },
+  ];
+  snapshot.source.specContentHash = hashText(specBody);
+  snapshot.children[0].bodyHash = hashText(children[0].body);
+  snapshot.children[1].bodyHash = hashText(children[1].body);
+  const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
+  return {
+    repo: "acme/product",
+    parent: {
+      id: "100",
+      title: "Deliver comparison behavior",
+      body: parentBody,
+      labels: ["needs-triage", "release"],
+      state: "open",
+      updatedAt: "2026-08-16T10:02:00Z",
+    },
+    source: structuredClone(snapshot.source),
+    children,
+    policy: {
+      identity: "AGENTS.md@1111111",
+      digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      accepted: true,
+    },
+    harness: {
+      identity: "HerdrHarness Lite@1111111",
+      digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      parentReadyFence: true,
+    },
+    review: {
+      schema: "pi-ticket-planning:admission-review:v1",
+      reviewer: "ticket-readiness-reviewer",
+      reviewedAt: "2026-08-16T10:03:00Z",
+      graphVerdict: "READY",
+      candidates: [
+        { id: "101", verdict: "READY", executionLane: "AGENT" },
+        { id: "102", verdict: "READY", executionLane: "HUMAN" },
+      ],
+    },
+    currentCheckpoint: {
+      lane: "DELIVERY",
+      stage: "ADMISSION",
+      identity: `100@${snapshot.source.revision}`,
+      verdict: "ACTIVATION_AWAITING_CONFIRMATION",
+    },
+  };
+}
+
+function standaloneInput() {
+  return {
+    repo: "acme/product",
+    candidate: {
+      id: "42",
+      title: "Correct status output",
+      body: "# Correct status output\n\n## Agent Brief\n\nReturn `Ready`.",
+      blockedBy: [],
+      labels: ["needs-triage", "copy"],
+      state: "open",
+    },
+    source: {
+      identity: "accepted-status-behavior",
+      revision: "r1",
+      baseSha: "1111111111111111111111111111111111111111",
+    },
+    policy: {
+      identity: "AGENTS.md@1111111",
+      digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      accepted: true,
+    },
+    review: {
+      schema: "pi-ticket-planning:admission-review:v1",
+      reviewer: "ticket-readiness-reviewer",
+      reviewedAt: "2026-08-16T10:03:00Z",
+      graphVerdict: "READY",
+      candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
+    },
+    currentCheckpoint: {
+      lane: "TRIAGE",
+      stage: "ADMISSION",
+      identity: "42@r1",
+      verdict: "ACTIVATION_AWAITING_CONFIRMATION",
+    },
+  };
+}
+
+test("Admission Plan is deterministic and activates children before the parent", () => {
+  const first = buildAdmissionPlan(readyInput());
+  const second = buildAdmissionPlan(readyInput());
+  assert.equal(first.planFingerprint, second.planFingerprint);
+  assert.equal(first.reviewedFingerprint, second.reviewedFingerprint);
+  assert.equal(first.graphFingerprint, second.graphFingerprint);
+  assert.deepEqual(validateAdmissionPlan(first), { ok: true, problems: [] });
+
+  const labelOperations = first.operations.filter(({ kind }) => kind === "labels");
+  assert.deepEqual(labelOperations.map(({ issue }) => issue), ["101", "102", "100"]);
+  assert.deepEqual(labelOperations[0].after, ["ready-for-agent"]);
+  assert.deepEqual(labelOperations[1].after, ["ready-for-human"]);
+  assert.deepEqual(labelOperations[2].after, ["ready-for-agent"]);
+  assert.equal(first.operations.at(-1).issue, "100");
+  assert.match(first.operations[0].body, new RegExp(`Plan fingerprint: ${first.planFingerprint}`));
+});
+
+test("Admission Plan records exact additions/removals without controlling unrelated labels", () => {
+  const plan = buildAdmissionPlan(readyInput());
+  const firstChild = plan.resources.find(({ issue }) => issue === "101");
+  assert.deepEqual(firstChild.observedLabels, ["needs-triage", "product"]);
+  assert.deepEqual(firstChild.controlledLabelsBefore, ["needs-triage"]);
+  assert.deepEqual(firstChild.controlledLabelsAfter, ["ready-for-agent"]);
+  assert.deepEqual(firstChild.addLabels, ["ready-for-agent"]);
+  assert.deepEqual(firstChild.removeLabels, ["needs-triage"]);
+});
+
+test("Admission Plan fails closed on reviewer or reviewed-body drift", () => {
+  const rejectedReview = readyInput();
+  rejectedReview.review.candidates[0].verdict = "NEEDS_INFO";
+  assert.throws(() => buildAdmissionPlan(rejectedReview), /review is not READY/);
+
+  const bodyDrift = readyInput();
+  bodyDrift.children[0].body += " changed";
+  assert.throws(() => buildAdmissionPlan(bodyDrift), /BODY_HASH_MISMATCH/);
+
+  const titleDrift = readyInput();
+  titleDrift.children[0].title = "Different scope";
+  assert.throws(() => buildAdmissionPlan(titleDrift), /TITLE_MISMATCH/);
+
+  const closed = readyInput();
+  closed.children[0].state = "closed";
+  assert.throws(() => buildAdmissionPlan(closed), /ISSUE_NOT_OPEN/);
+});
+
+test("Admission Plan requires the exact activation checkpoint", () => {
+  const wrongVerdict = readyInput();
+  wrongVerdict.currentCheckpoint.verdict = "BLOCKED";
+  assert.throws(() => buildAdmissionPlan(wrongVerdict), /ACTIVATION_AWAITING_CONFIRMATION/);
+
+  const wrongIdentity = readyInput();
+  wrongIdentity.currentCheckpoint.identity = "999@r2";
+  assert.throws(() => buildAdmissionPlan(wrongIdentity), /CHECKPOINT_IDENTITY_MISMATCH/);
+});
+
+test("standalone QUICK produces one exact Admission Plan", () => {
+  const plan = buildStandaloneAdmissionPlan(standaloneInput());
+  assert.equal(plan.kind, "STANDALONE");
+  assert.equal(plan.target, "42");
+  assert.deepEqual(plan.resources.map(({ issue }) => issue), ["42"]);
+  assert.deepEqual(plan.operations.map(({ kind }) => kind), ["comment", "labels"]);
+  assert.deepEqual(plan.operations[1].after, ["ready-for-agent"]);
+  assert.deepEqual(validateAdmissionPlan(plan), { ok: true, problems: [] });
+  assert.match(plan.operations[0].body, new RegExp(`Plan fingerprint: ${plan.planFingerprint}`));
+});
+
+test("Admission Plan validation detects any changed approved operation", () => {
+  const plan = buildAdmissionPlan(readyInput());
+  plan.operations.at(-1).after = ["ready-for-human"];
+  const checked = validateAdmissionPlan(plan);
+  assert.equal(checked.ok, false);
+  assert.equal(checked.problems.some(({ code }) => code === "INVALID_PLAN_LABEL_OPERATION"), true);
+
+  const structurallyInvalid = buildAdmissionPlan(readyInput());
+  [structurallyInvalid.operations[0], structurallyInvalid.operations[2]] = [structurallyInvalid.operations[2], structurallyInvalid.operations[0]];
+  const semanticCheck = validateAdmissionPlan(structurallyInvalid);
+  assert.equal(semanticCheck.ok, false);
+  assert.equal(semanticCheck.problems.some(({ code }) => code === "INVALID_PLAN_COMMENT_OPERATION"), true);
+});
+
+test("GitHub Admission rejects an ambiguous target before any API call", () => {
+  assert.throws(
+    () => createGitHubAdapter({ repo: "acme/product", kind: "STANDALONE", target: "undefined", context: {} }),
+    /positive GitHub Issue number/,
+  );
+});

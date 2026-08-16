@@ -4,7 +4,7 @@
     "packageRef": "unreleased-main",
     "model": "openai-codex/gpt-5.6-sol",
     "observedAt": "2026-08-13",
-    "note": "Frozen redacted regression excerpts; wording is not a golden answer. Run npm run eval:pi for current fresh-process behavior."
+    "note": "Frozen redacted pre-status-card regression excerpts; wording and legacy footer shape are historical, not a golden answer. Run npm run eval:pi for the current five-field fresh-process behavior."
   },
   "cases": [
     {
@@ -132,7 +132,7 @@
           "Scenario coverage: PASS",
           "Walking skeleton: PASS",
           "Strict-frontier order: PASS",
-          "pi-ticket-planning:delivery-graph:v1",
+          "pi-ticket-planning:delivery-graph:v2",
           "等待人类批准"
         ],
         "mustNotMatch": [
@@ -141,7 +141,7 @@
         ],
         "allowedWrites": []
       },
-      "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v1 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
+      "observedExcerpt": "未写入任何文件。实际运行 check-delivery-graph.mjs。\nDelivery graph contract: PASS\nScenario coverage: PASS\nWalking skeleton: PASS\nStrict-frontier order: PASS\n输出唯一 pi-ticket-planning:delivery-graph:v2 JSON 与 exact write set 后等待人类批准；没有应用 ready label。"
     },
     {
       "id": "triage-auto-continues-to-admission",

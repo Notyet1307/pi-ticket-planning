@@ -1,8 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateLiveEvalFixture } from "./eval-pi-behavior.mjs";
 
-export function validatePiBehaviorCases(file) {
+export function validateBehaviorFixtures(root) {
+  const errors = validateObservedBehaviorCases(path.join(root, "fixtures", "pi-behavior-cases.json"));
+  const live = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
+  return [...errors, ...validateLiveEvalFixture(live).map((error) => `live: ${error}`)];
+}
+
+function validateObservedBehaviorCases(file) {
   const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
   const errors = [];
   const ids = new Set();
@@ -43,12 +50,12 @@ export function validatePiBehaviorCases(file) {
 
 const ownPath = fs.realpathSync(fileURLToPath(import.meta.url));
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
-  const file = path.resolve(path.dirname(ownPath), "..", "fixtures", "pi-behavior-cases.json");
-  const errors = validatePiBehaviorCases(file);
+  const root = path.resolve(path.dirname(ownPath), "..");
+  const errors = validateBehaviorFixtures(root);
   if (errors.length) {
     for (const error of errors) console.error(`ERROR ${error}`);
     process.exitCode = 1;
   } else {
-    console.log("PI behavior cases: ok");
+    console.log("behavior fixtures: ok");
   }
 }
