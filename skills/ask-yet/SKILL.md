@@ -50,9 +50,20 @@ Do not scan the full issue graph or history during `ORIENT`. Read one obvious lo
 
 ### Greenfield fallback
 
-An empty directory, a non-Git directory, or an unborn Git repository is a valid `PRODUCT / ORIENT` starting point. Record absent code, commits, root policy, README, product entry points, and tracker support as absent facts, not blockers. If the human supplied a product intent, continue to `PRODUCT / FRAME` and ask at most one product question needed to identify the actor, trigger, observed problem, target outcome, or smallest closed loop.
+An empty directory, a non-Git directory, or an unborn Git repository is a valid `PRODUCT / ORIENT` starting point. Record absent code, commits, root policy, README, product entry points, and tracker support as absent facts, not blockers. If the human supplied a product intent, continue to `PRODUCT / FRAME` and use the candidate-first framing below.
 
 During greenfield `FRAME` and `EVIDENCE`, do not initialize Git, bootstrap repository or tracker support, choose a stack or architecture, or create application code merely because those artifacts are absent. Repository bootstrap becomes eligible only after a human has `COMMITTED` an exact Release revision; apply it automatically only when standing approval covers the target operations.
+
+## Shape vague intent candidate-first
+
+During `ORIENT` or `FRAME`, when the input is not decision-complete, do this before asking a product question:
+
+1. Separate **confirmed facts**, **candidate interpretations**, and **remaining unknowns**. Confirmed facts come only from the human's words or a live first-party source. Mark every candidate as an assumption. Keep only unknowns that can change the product outcome, scope, or verification.
+2. For an existing product, inspect the smallest relevant set of README material, current product entry points, domain vocabulary, related interfaces or state, ADRs, and the nearest Issue or existing behavior. Resolve discoverable product and technical facts yourself. Return only recent customer experience, priority, business tradeoffs, and risk acceptance to the human.
+3. When the evidence supports them, form two or three candidates with materially different product outcomes or work types. Label them `A`, `B`, and optionally `C`; keep them inside one existing five-field line rather than adding a heading or free-standing list; recommend one from the confirmed facts; state its main tradeoff and what it defers; give the safest default. Use the narrowest reversible candidate as the default for further framing; use no action only when every candidate crosses an open evidence or risk boundary. The default never authorizes implementation. Ask exactly one easy choice question: which candidate is closer? Accept a letter or a correction. After the answer, automatically derive the first end-to-end flow and the next validation need.
+4. If the input cannot support two real candidates, do not pad the list. Ask one concrete recent-event question in ordinary language and include one answer example: who was doing what, and which step failed or was omitted? After the answer, derive the candidates and first flow automatically.
+
+A selected candidate is a human-confirmed direction, not customer `FACT`, product Evidence, or `COMMITTED`. While awaiting the answer, use the existing `FRAME_CANDIDATE` verdict with the applicable identity after workflow-contract validation. Stay in `PRODUCT / FRAME`; do not create a Release artifact, Spec, Tickets, or Admission state until their existing gates are satisfied. Never expose `actor_and_trigger`, `current_workflow`, `smallest_closed_loop`, or other internal field names as a questionnaire.
 
 ## Choose planning depth and risk control
 
@@ -100,7 +111,7 @@ For `STANDARD`, use the reference's Release-lite rule and consume existing evide
 
 Progress only one stage:
 
-1. `FRAME`: identify one actor, trigger, observed problem, target outcome, and smallest closed loop. Before the human selects a candidate, keep only the checkpoint in conversation. After selection, propose the one Release artifact and obtain or reuse scoped write approval. For an existing Git target, include the exact stage, commit, and human-approved remote draft ref needed to preserve that artifact; after its exact commit and blob are re-read from that ref, continue to `EVIDENCE`. The candidate cannot enter `SPEC` until the human has `COMMITTED` it and the exact blob is in the accepted remote base. Never route draft or accepted-base publication through the implementation Harness, which starts only after Admission.
+1. `FRAME`: use candidate-first framing when the intent is vague. After the human selects or corrects a candidate, translate their ordinary wording internally into one actor, trigger, observed problem, target outcome, and smallest closed loop. Before that selection, keep the candidate framing and checkpoint in conversation and create no product file. After selection, propose the one Release artifact and obtain or reuse scoped write approval. For an existing Git target, include the exact stage, commit, and human-approved remote draft ref needed to preserve that artifact; after its exact commit and blob are re-read from that ref, continue to `EVIDENCE`. The candidate cannot enter `SPEC` until the human has `COMMITTED` it and the exact blob is in the accepted remote base. Never route draft or accepted-base publication through the implementation Harness, which starts only after Admission.
 2. `EVIDENCE`: label claims, preserve the highest-risk unknown, and choose the cheapest bounded action that can change the Release decision. Design the protocol in conversation first. Fix appetite, pass/fail threshold, evidence to capture, and stop condition before requesting approval for the exact artifact revision. When that action is a customer interview and the human asks to start or the participant is present, read [references/interview-session.md](references/interview-session.md) in full and conduct it in this session: one question per turn, redacted capture, follow-up for the next missing field, then a recommended verdict. Stop after each question. Never invent an interviewee answer.
 3. `COMMIT`: apply all six readiness tests. Only six `PASS` results permit `COMMITTED` and yield `READY_TO_COMMIT`. The human may instead choose `HOLD`, `REWORK`, or `DROP` even when readiness fails: `HOLD` pauses all evidence and delivery work for that Release until one recorded reopen condition occurs; `REWORK` keeps exactly one named evidence or scope action active; `DROP` stops the Release. Persist the exact human decision before emitting its verdict, and never choose for them. For `COMMITTED`, recommend standing automatic advancement for reversible planning work or stepwise mode so this choice is asked once.
    When resuming `HOLD` into `FRAME` or `EVIDENCE`, submit `release.reopenConditionMet` and `human.releaseReopened` to the machine workflow contract. When resuming `REWORK`, submit `release.reworkActionRecorded`. The sources must match `contracts/authority.json`; absent facts keep the transition blocked.
@@ -173,9 +184,25 @@ Render one human status card with exactly five fields in this order, translated 
 你只需要决定：<one human action; then state what the system will do automatically>
 ```
 
+Use ordinary language in the human body by default:
+
+| Internal concept | Default Simplified Chinese |
+| --- | --- |
+| Release | 本轮最小可验证目标 |
+| Commitment | 确认值得进入交付 |
+| Admission | 交给执行 Agent 前的最终复核 |
+| Evidence | 判断依据或验证结果 |
+| Walking skeleton | 最小端到端闭环 |
+| Delivery Graph | 任务及其依赖关系 |
+| accepted base | 已接受的代码基线 |
+| draft ref | 用于保存候选内容的草稿分支 |
+| blast radius | 影响范围 |
+
+Keep internal terms in Skill contracts, machine structures, and the final Checkpoint. Explain a term in the human body only when that term is itself the decision. Show SHA, blob, digest, or fingerprint details only when the corresponding gate actually requires the human to confirm them.
+
 Do not lead with repository, source boundary, planning depth, control mode, lane, stage, or verdict fields. Put relevant repository and source facts in `已经确认` in plain language. Explain the derived human-facing path exactly once as one sentence inside `已经确认`; do not expose `planning_depth`, `control_mode`, or rejected alternatives. In Simplified Chinese, use exactly `快速路径`, `标准路径`, or `完整发现路径` when control mode is normal, and `受控路径` whenever control mode is controlled. For an active incident, say that containment must finish before ordinary planning instead of assigning a path. Keep internal lane, stage, and verdict names out of the card.
 
-Ask at most one question by default; group no more than three only when they are inseparable. For every human decision, give a recommendation, reason, tradeoff, and safest default inside the five fields. Put any exact command once in `你只需要决定`. If no human action is needed, say so and state what the system completed or will re-read on the next invocation. Keep each field concise; the complete indented Research Handoff is the only multiline exception. Do not add another top-level heading, roadmap, secondary action, or skill menu.
+Ask at most one question by default; group no more than three only when they are inseparable outside candidate-first `ORIENT` or `FRAME`. For every human decision, give a recommendation, reason, main tradeoff, safest default, and the work the system will complete automatically after the answer inside the five fields. Put any exact command once in `你只需要决定`. If no human action is needed, say so and state what the system completed or will re-read on the next invocation. Keep each field concise; the complete indented Research Handoff is the only multiline exception. Do not add another top-level heading, roadmap, secondary action, or skill menu.
 
 The machine source for lanes, stages, verdicts, legal stage transitions, required facts, and their trusted provenance is `contracts/workflow.json` plus `contracts/authority.json`. Before emitting a final Checkpoint or performing a state-bearing write, read those files from `$PI_TICKET_PLANNING_ROOT` and pipe the current state, proposed state, and provenance-bearing facts as JSON to `node "$PI_TICKET_PLANNING_ROOT/scripts/workflow-contract.mjs" --input -`. The model proposes the state; only an `allowed: true` result legalizes it. Prompt prose, conversation, or an invented fact source cannot add a state or transition.
 

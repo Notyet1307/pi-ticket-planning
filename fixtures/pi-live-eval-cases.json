@@ -127,8 +127,8 @@
       "expected": {
         "mustMatch": [
           "已经确认：[^\\n]*标准路径",
-          "(?:Release-lite|精简\\s*(?:Release|发布))",
-          "(?:COMMITTED|Commitment|承诺|(?:你|负责人|维护者)[^\\n]*(?:提交决定|确认提交)|由负责人确认提交)"
+          "(?:Release-lite|精简\\s*(?:Release|发布)|精简(?:的)?(?:本轮最小可验证目标|目标)(?:文档|修订|版本)?)",
+          "(?:COMMITTED|Commitment|承诺|确认值得进入交付|(?:你|负责人|维护者)[^\\n]*(?:提交决定|确认提交|提交确认)|由负责人确认提交)"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:应走|使用|选择)[：:“”\"'\\s]*(?:QUICK|DISCOVERY|CONTROLLED|快速路径|完整发现|受控路径)",
@@ -149,12 +149,72 @@
         "mustMatch": [
           "已经确认：[^\\n]*完整发现路径",
           "Checkpoint:\\s*PRODUCT/FRAME",
-          "(?:最近一次|近期|recent)[^\\n]*(?:触发|trigger|案例|情境|经历|事件|实例)"
+          "(?:最近(?:一次|发生)?|近期|recent)[^\\n]*(?:触发|trigger|案例|情境|经历|事件|实例|失误|失败|遗漏)"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:QUICK|STANDARD|CONTROLLED|快速路径|标准路径|受控路径)",
           "/skill:to-spec",
           "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "ux-candidate-first-existing-bulk-import",
+      "skill": "ask-yet",
+      "prompt": "我想给现有系统增加批量导入功能，但具体怎么做还没想清楚。请先帮我把方向想清楚；只读，不要修改文件。",
+      "files": {
+        "README.md": "# Inventory Desk\n\nInventory Desk lets an administrator create one inventory record at a time through the existing create form.\n",
+        "src/create-record.mjs": "export function createRecord(input) {\n  if (!input.id || !input.name) throw new Error(\"id and name are required\");\n  return { id: input.id, name: input.name };\n}\n",
+        "docs/frozen-product-state.md": "# Frozen first-party product state\n\n- The current product has one administrator-facing single-record create entry.\n- The create path already validates required id and name fields.\n- There is no batch-import, historical-migration, or recurring-sync entry.\n- No customer interview, support case, accepted product decision, or other evidence establishes whether the request means repeated creation, one-time migration, or recurring synchronization.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:候选理解|候选方向|待确认假设|哪一种假设|均为假设|假设)",
+          "A[.、：:]?(?:(?!B[.、：:])[^\\n]){0,120}(?:批量|多条|迁移|旧数据|同步|外部|导入)",
+          "B[.、：:]?(?:(?!C[.、：:])[^\\n]){0,120}(?:批量|多条|迁移|旧数据|同步|外部|导入)",
+          "(?:(?:推荐|建议)[^\\n]{0,200}(?:[ABC]|批量|迁移|同步|导入)|(?:[ABC]|批量|迁移|同步|导入)[^\\n]{0,80}(?:推荐|建议))[^\\n]{0,200}(?:因为|依据|理由|单条|校验|复用|现有|最贴近|边界|改动|最窄|可逆|成本|风险|范围|最小)",
+          "(?:代价|暂不|排除|不包含)[^\\n]{0,160}(?:其他|迁移|同步|导入|外部|方向|范围|能力|场景|流程)",
+          "(?:(?:不确定|拿不准|信息不足|最安全默认|安全默认|默认(?:方案|值|选项))[^\\n]{0,120}(?:[ABC]|候选|方向)|(?:[ABC]|候选|方向)[^\\n]{0,120}(?:最安全默认|安全默认|默认(?:方案|值|选项)))",
+          "你只需要决定：[^\\n]{0,300}(?:(?:A[^\\n]{0,120}B)|(?:哪个|哪一个)[^\\n]{0,40}(?:候选|更接近))",
+          "你只需要决定：[^\\n]{0,500}(?:自动|我会|系统会)[^\\n]{0,160}(?:校验|权限|第一版|完整流程|端到端流程|风险|验证|候选)",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
+        ],
+        "mustNotMatch": [
+          "(?:[?？][\\s\\S]*){2}",
+          "(?:客户|用户)(?:已经|明确|普遍|都)[^\\n]{0,100}(?:批量|迁移|同步)",
+          "(?:访谈|客户反馈)(?:已经|明确)(?:表明|证明|确认)",
+          "actor_and_trigger|current_workflow|smallest_closed_loop|target_outcome",
+          "\\b(?:QUICK|STANDARD|DISCOVERY|CONTROLLED)\\b",
+          "(?:SHA|blob|digest|fingerprint)",
+          "/skill:to-spec|ready-for-agent|Checkpoint:\\s*(?:DELIVERY|TRIAGE)/(?:SPEC|TICKETS|ADMISSION)|Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)"
+        ]
+      }
+    },
+    {
+      "id": "ux-candidate-first-greenfield-delivery-omissions",
+      "skill": "ask-yet",
+      "prompt": "我想做一个帮助小团队减少项目交付遗漏的产品，但还没想清楚。请先帮我把第一步想清楚；只读，不要创建任何文件。",
+      "files": {},
+      "expected": {
+        "mustMatch": [
+          "(?:空目录|仓库为空|当前目录为空|没有代码|没有 Git|缺少 README)",
+          "(?:(?:候选理解|候选方向|待确认假设|假设)|(?:最近一次|近期)[^\\n]{0,160}(?:例如|示例))",
+          "(?:推荐|建议)[^\\n]{0,180}(?:[ABC]|真实事件|最近一次|近期|方向|候选|先从)",
+          "(?:(?:不确定|拿不准|最安全的?默认|安全默认|默认方案)[^\\n]{0,140}(?:[ABC]|最近一次|近期|真实事件|例子|经历|推荐)|(?:[ABC]|最近一次|近期|真实事件|例子|经历)[^\\n]{0,140}(?:最安全的?默认|安全默认|默认方案))",
+          "你只需要决定：[^\\n]*(?:(?:A[^\\n]{0,160}B)|(?:(?:最近一次|近期)[^\\n]{0,160}(?:例如|示例)))",
+          "你只需要决定：[^\\n]{0,500}(?:自动|我会|系统会)[^\\n]{0,160}(?:第一版|完整流程|端到端流程|风险|验证|候选)",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
+        ],
+        "mustNotMatch": [
+          "(?:[?？][\\s\\S]*){2}",
+          "(?:客户|用户)(?:已经|明确|普遍|通常|经常)[^\\n]{0,100}(?:遗漏|交付|问题)",
+          "(?:访谈|客户反馈)(?:已经|明确)(?:表明|证明|确认)",
+          "actor_and_trigger|current_workflow|smallest_closed_loop|target_outcome",
+          "(?:React|Vue|Next\\.js|Node\\.js|Python|PostgreSQL|技术栈|应用架构)",
+          "(?:已创建|创建了|已初始化|初始化了)[^\\n]{0,60}(?:Git|仓库|文件|代码)",
+          "\\b(?:QUICK|STANDARD|DISCOVERY|CONTROLLED)\\b",
+          "(?:SHA|blob|digest|fingerprint)",
+          "/skill:to-spec|ready-for-agent|Checkpoint:\\s*(?:DELIVERY|TRIAGE)/(?:SPEC|TICKETS|ADMISSION)|Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)"
         ]
       }
     },
