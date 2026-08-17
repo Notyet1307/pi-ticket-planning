@@ -106,7 +106,7 @@
         "mustMatch": [
           "已经确认：[^\\n]*快速路径",
           "Checkpoint:\\s*TRIAGE/",
-          "(?:STANDALONE|standalone|单票|单(?:张|个).*Ticket|(?:一个|单个)[^\\n]*独立[^\\n]{0,12}(?:票|候选)|one.*(?:ticket|candidate))"
+          "(?:STANDALONE|standalone|单票|单(?:张|个).*Ticket|(?:一个|单个|单张)[^\\n]*独立[^\\n]{0,12}(?:票|候选)|one.*(?:ticket|candidate))"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:STANDARD|DISCOVERY|CONTROLLED|标准路径|完整发现|受控路径)",
@@ -128,7 +128,7 @@
         "mustMatch": [
           "已经确认：[^\\n]*标准路径",
           "(?:Release-lite|精简\\s*(?:Release|发布)|精简(?:的)?(?:本轮最小可验证目标|目标)(?:文档|修订|版本)?)",
-          "(?:COMMITTED|Commitment|承诺|确认值得进入交付|(?:你|负责人|维护者)[^\\n]*(?:提交决定|确认提交|提交确认)|由负责人确认提交)"
+          "(?:COMMITTED|Commitment|承诺|确认值得进入交付|(?:你|负责人|维护者)[^\\n]*(?:提交决定|确认提交|提交确认)|(?:你|负责人|维护者)[^\\n]{0,80}确认[^\\n]{0,80}值得进入交付|由负责人确认提交)"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:应走|使用|选择)[：:“”\"'\\s]*(?:QUICK|DISCOVERY|CONTROLLED|快速路径|完整发现|受控路径)",
@@ -149,7 +149,7 @@
         "mustMatch": [
           "已经确认：[^\\n]*完整发现路径",
           "Checkpoint:\\s*PRODUCT/FRAME",
-          "(?:最近(?:一次|发生)?|近期|recent)[^\\n]*(?:触发|trigger|案例|情境|经历|事件|实例|失误|失败|遗漏)"
+          "(?:(?:最近(?:一次|发生)?|近期|recent)[^\\n]*(?:触发|trigger|案例|情境|经历|事件|实例|失误|失败|遗漏)|你只需要决定：[^\\n]{0,300}A[^\\n]{0,160}B)"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:QUICK|STANDARD|CONTROLLED|快速路径|标准路径|受控路径)",
@@ -219,6 +219,63 @@
       }
     },
     {
+      "id": "hypothesis-frame-greenfield-selected-candidate",
+      "skill": "ask-yet",
+      "prompt": "请只读续接这段产品塑形，不要创建文件。当前目录为空、无 Git、无代码，也没有客户证据。上一轮候选是：A. 交付前检查；B. 团队交接防漏；C. 过程预警。用户最新回复：\"选 A，先做交付前检查。\"请继续到当前事实允许的下一道门。",
+      "files": {},
+      "expected": {
+        "mustMatch": [
+          "(?:候选(?:工作模型|方向|框架| Frame)|待验证假设|假设)",
+          "(?:(?:选中|选择|选 A)[^\\n]{0,140}(?:调查|验证|塑形|候选|方向)|(?:调查|验证|塑形|候选|方向)[^\\n]{0,140}(?:选中|选择|选 A))",
+          "(?:(?:不是|不等于|并非|不代表|不构成)[^\\n]{0,120}(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据))|(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据))[^\\n]{0,120}(?:不是|不等于|并非|不代表|不构成))",
+          "(?:(?:候选|最小端到端|第一版)[^\\n]{0,40}闭环[^\\n]{0,220}|(?:提交|发起|开始|准备交付)[^\\n]{0,180}(?:检查|发现|结果|修正))",
+          "(?:(?:最高风险|最大风险|最危险的?假设|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}|仍然缺少：[^\\n]{0,220}(?:近期|最近)[^\\n]{0,100}(?:案例|经历|事件))",
+          "你只需要决定：[^\\n]{0,500}(?:验证|纠正|记录|写入|允许)",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
+        ],
+        "mustNotMatch": [
+          "(?:[?？][\\s\\S]*){2}",
+          "actor_and_trigger|current_workflow|smallest_closed_loop|target_outcome",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent",
+          "Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)",
+          "(?:React|Vue|Next\\.js|Node\\.js|Python|PostgreSQL|技术栈|应用架构)",
+          "(?:已创建|创建了|已初始化|初始化了)[^\\n]{0,60}(?:Git|仓库|文件|代码)",
+          "(?:没有|缺少)(?:代码|Git)[^\\n]{0,80}(?:阻塞|不能继续)"
+        ]
+      }
+    },
+    {
+      "id": "hypothesis-frame-brownfield-selected-candidate",
+      "skill": "ask-yet",
+      "prompt": "请只读续接产品塑形，不要修改文件。上一轮候选是：A. 批量创建新记录；B. 一次性迁移历史数据；C. 与外部系统持续同步。用户最新回复：\"选 A，先做批量创建。\"请依据仓库中的冻结事实继续到当前允许的下一道门。",
+      "files": {
+        "README.md": "# Inventory Desk\n\nInventory Desk lets an administrator create one inventory record at a time through the existing create form.\n",
+        "src/create-record.mjs": "export function createRecord(input) {\n  if (!input.id || !input.name) throw new Error(\"id and name are required\");\n  return { id: input.id, name: input.name };\n}\n",
+        "docs/frozen-product-state.md": "# Frozen first-party product state\n\nCaptured: 2026-08-17.\n- The current product has one administrator-facing single-record create entry.\n- The create path validates required id and name fields.\n- There is no batch-create, historical-migration, or recurring-sync entry.\n- No customer event, support case, usage record, or accepted product decision establishes that administrators need batch creation or that repeated entry is their important problem.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:现有|当前|仓库)[^\\n]{0,120}(?:单条|一条|逐条)[^\\n]{0,120}(?:字段校验|校验)",
+          "(?:(?:仅|只)证明[^\\n]{0,120}(?:现有|当前|入口|代码|系统)|(?:没有|缺少)[^\\n]{0,24}(?:客户|用户)[^\\n]{0,24}(?:证据|事件|工单|记录)|(?:不能|无法|不|未|没有)[^\\n]{0,12}证明[^\\n]{0,100}(?:客户|价值|需求|痛点|批量)|(?:不是|不等于)[^\\n]{0,60}(?:客户依据|客户事实|价值证据))",
+          "(?:待验证假设|假设)[^\\n]{0,180}(?:管理员|批量|多条)",
+          "(?:(?:选择|选中|选 A)[^\\n]{0,140}(?:调查|验证|塑形|方向)|(?:调查|验证|塑形|方向)[^\\n]{0,140}(?:选择|选中|选 A))",
+          "(?:(?:不是|不等于|并非|不代表)[^\\n]{0,100}(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)|(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)[^\\n]{0,100}(?:不是|不等于|并非|不代表))",
+          "(?:最小端到端闭环|(?:提交|粘贴|上传)[^\\n]{0,180}(?:校验|成功|失败|修正|结果))",
+          "(?:(?:暂不|排除|不包含)[^\\n]{0,180}(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)|(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)[^\\n]{0,80}(?:不在范围|不包含|排除))",
+          "(?:最高风险|最大风险|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
+        ],
+        "mustNotMatch": [
+          "(?:[?？][\\s\\S]*){2}",
+          "(?:客户|用户)(?:已经|明确|普遍|都)[^\\n]{0,100}(?:批量|多条)",
+          "actor_and_trigger|current_workflow|smallest_closed_loop|target_outcome",
+          "已经确认：[^\\n]*标准路径",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent",
+          "Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)"
+        ]
+      }
+    },
+    {
       "id": "workflow-tier-controlled-small-production-change",
       "skill": "ask-yet",
       "prompt": "请只读判断这个代码量很小但涉及生产权限的修改应走哪一档流程，并列出当前不能跳过的门禁。不要修改文件。",
@@ -272,7 +329,7 @@
       "expected": {
         "mustMatch": [
           "Checkpoint:\\s*PRODUCT/COMMIT\\s*·\\s*R005/r2\\s*·\\s*READY_TO_COMMIT",
-          "(?:COMMITTED|Commitment|承诺|提交)",
+          "(?:COMMITTED|Commitment|承诺|提交|确认值得进入交付)",
           "(?:六项|six)[^\\n]*(?:PASS|通过)"
         ],
         "mustNotMatch": [
