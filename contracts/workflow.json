@@ -59,12 +59,14 @@
     {
       "sourceStage": "COMMIT",
       "sourceVerdict": "HOLD",
+      "sameRelease": true,
       "targetStages": ["FRAME", "EVIDENCE"],
       "requiredFacts": ["release.reopenConditionMet", "human.releaseReopened"]
     },
     {
       "sourceStage": "COMMIT",
       "sourceVerdict": "REWORK",
+      "sameRelease": true,
       "targetStages": ["FRAME", "EVIDENCE"],
       "requiredFacts": ["release.reworkActionRecorded"]
     }

@@ -52,6 +52,9 @@ export function validateContracts(workflow = defaultWorkflow, authority = defaul
     if (!workflow.stages?.[rule.sourceStage]?.verdicts?.includes(rule.sourceVerdict)) {
       problems.push(issue("INVALID_TRANSITION_REQUIREMENT_SOURCE", subject));
     }
+    if (rule.sameRelease !== undefined && typeof rule.sameRelease !== "boolean") {
+      problems.push(issue("INVALID_TRANSITION_REQUIREMENT_SCOPE", subject));
+    }
     if (!Array.isArray(rule.targetStages) || rule.targetStages.some((stage) => !workflow.stages?.[stage])) {
       problems.push(issue("INVALID_TRANSITION_REQUIREMENT_TARGET", subject));
     }
@@ -107,6 +110,8 @@ function transitionFacts(current, proposed, workflow) {
   return (workflow.transitionRequirements ?? [])
     .filter((rule) => rule.sourceStage === current.stage
       && rule.sourceVerdict === current.verdict
+      && (!rule.sameRelease
+        || current.identity?.split("/", 1)[0] === proposed.identity?.split("/", 1)[0])
       && rule.targetStages.includes(proposed.stage))
     .flatMap((rule) => rule.requiredFacts ?? []);
 }

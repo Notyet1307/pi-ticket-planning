@@ -189,6 +189,7 @@ export function validatePackage(root) {
     "It does not force customer discovery or a multi-ticket Delivery Spec",
     "Neither grants mutation authority",
     "Create no Release artifact, Delivery Spec, Delivery Parent, or graph",
+    "Evidence-enabling surface",
     "当前目标：",
     "已经确认：",
     "仍然缺少：",
@@ -294,6 +295,8 @@ export function validatePackage(root) {
     "`next_evidence_action: NONE`",
     "`reopen_condition`",
     "keep exactly one named evidence or scope action active",
+    "A `HOLD` decision applies only to its Release ID",
+    "It cannot establish customer value",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
   }

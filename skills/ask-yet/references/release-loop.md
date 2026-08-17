@@ -159,6 +159,17 @@ Choose the cheapest valid method:
 - Technical feasibility unknown: bounded spike or canary with a pass/fail signal.
 - Several interdependent decisions that cannot close in one context: Wayfinder.
 
+### Evidence-enabling surface
+
+A `HOLD` decision applies only to its Release ID; it does not freeze the repository. Preserve the held artifact and require its reopen condition only when continuing that same Release.
+
+When the blocking signal cannot be observed until a minimum surface exists:
+
+- If an accepted product source, architecture, or mandate already fixes the behavior, scope, and risk boundaries, frame a distinct `QUICK` or `STANDARD` candidate for the smallest reversible, non-production surface. Its outcome is operability or observability only. Use fixtures or explicitly authorized data, retain existing authoritative results and fallback, and exclude production/default enablement and irreversible effects.
+- Otherwise keep the current Release in `REWORK` and use one throwaway prototype as its active evidence action; create no Delivery Spec or implementation tickets.
+
+Passing this surface can establish feasibility or make a later test possible. It cannot establish customer value, satisfy the held Release's reopen condition, or become evidence for that Release without the planned real participant or workflow signal.
+
 Before action, record:
 
 ```yaml
@@ -260,7 +271,7 @@ Carry applicable controls into the standalone Ticket or Delivery Spec constraint
 At the decision gate, the human chooses. `COMMITTED` is available only after all six readiness checks pass; the other decisions may close or redirect a not-ready candidate without fabricating readiness:
 
 - `COMMITTED`: bind the decision to the exact draft revision, record `status: COMMITTED` without changing its approved content, then put the resulting exact committed blob into the accepted remote delivery base before repository-contract review and Delivery Spec.
-- `HOLD`: pause all evidence and delivery work. Record `next_evidence_action: NONE` and one externally observable `reopen_condition`; resume only after that condition occurs and the human reopens the Release.
+- `HOLD`: pause all evidence and delivery work for that Release. Record `next_evidence_action: NONE` and one externally observable `reopen_condition`; resume only after that condition occurs and the human reopens the Release.
 - `REWORK`: keep exactly one named evidence or scope action active, with its owner, appetite, and stop condition.
 - `DROP`: stop and record the disproved assumption plus the fact required to reopen.
 

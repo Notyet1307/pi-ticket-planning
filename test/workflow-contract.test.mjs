@@ -8,6 +8,7 @@ import {
 } from "../scripts/workflow-contract.mjs";
 
 const releaseIdentity = "R001/r2";
+const nextReleaseIdentity = "R002/r1";
 const ticketIdentity = "123@r2";
 
 function fact(source, subject) {
@@ -103,7 +104,7 @@ test("HOLD pauses a not-ready Release only after a persisted human decision", ()
 
   const resume = {
     current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "HOLD" },
-    proposed: { lane: "PRODUCT", stage: "EVIDENCE", identity: releaseIdentity, verdict: "NEEDS_RESEARCH" },
+    proposed: { lane: "PRODUCT", stage: "EVIDENCE", identity: "R001/r3", verdict: "NEEDS_RESEARCH" },
   };
   const premature = evaluateTransition({ ...resume, facts: {} });
   assert.equal(premature.allowed, false);
@@ -118,6 +119,13 @@ test("HOLD pauses a not-ready Release only after a persisted human decision", ()
     },
   });
   assert.equal(reopened.allowed, true);
+
+  const independentRelease = evaluateTransition({
+    current: resume.current,
+    proposed: { lane: "PRODUCT", stage: "FRAME", identity: nextReleaseIdentity, verdict: "FRAME_CANDIDATE" },
+    facts: {},
+  });
+  assert.equal(independentRelease.allowed, true);
 });
 
 test("REWORK resumes only from one persisted active action", () => {
