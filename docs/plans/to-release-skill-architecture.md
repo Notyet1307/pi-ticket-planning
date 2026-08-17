@@ -98,10 +98,12 @@ flowchart TD
     PT --> E
     E --> RF["候选 Release Frame"]
     RF --> V{"Readiness verdict"}
-    V -->|"NEEDS_*"| A
-    V -->|"DROP"| D["记录理由并停止"]
+    V -->|"NEEDS_* 且继续取证"| A
+    V -->|"NEEDS_* 且人工停止/改向"| H
     V -->|"READY_TO_COMMIT"| H{"人工 Commitment"}
-    H -->|"HOLD / REWORK / DROP"| E
+    H -->|"REWORK"| A
+    H -->|"HOLD"| PH["暂停到重开条件"]
+    H -->|"DROP"| D["记录理由并停止"]
     H -->|"COMMITTED exact revision"| S["/skill:to-spec"]
     S --> TT["/skill:to-tickets → admission → Harness"]
 ```
@@ -128,7 +130,8 @@ Skill 接受一句想法、现有 Issue、产品文档、Wayfinder 结果或 Rel
 
 ```yaml
 route: RELEASE | TRIAGE | RISK | WAYFINDER | INCIDENT
-verdict: READY_TO_COMMIT | NEEDS_RESEARCH | NEEDS_PROTOTYPE | NEEDS_DECISION | DROP | N/A
+verdict: READY_TO_COMMIT | NEEDS_RESEARCH | NEEDS_PROTOTYPE | NEEDS_DECISION | N/A
+human_decision: COMMITTED | HOLD | REWORK | DROP | N/A
 release_frame: <path and revision, or N/A>
 product_stage: <what product evidence currently establishes>
 delivery_stage: <what engineering and release evidence currently establishes>
@@ -233,12 +236,12 @@ Frame 至少包含：actor/trigger、observed problem、target outcome、solutio
 
 ### S7：人工 Commitment
 
-`READY_TO_COMMIT` 只触发一次人工选择：
+人工决定可以关闭或改向未就绪候选；只有 `COMMITTED` 要求 `READY_TO_COMMIT`：
 
 - `COMMITTED`：锁定 Frame exact revision，允许进入 `/skill:to-spec`；
-- `HOLD`：材料成立，但当前不占用交付槽位；
-- `REWORK`：退回明确的证据或范围项；
-- `DROP`。
+- `HOLD`：暂停全部主动工作，记录无下一证据动作和一个重开条件；
+- `REWORK`：保留一个明确的活动证据或范围动作；
+- `DROP`：停止并记录重开所需事实。
 
 AI 可以推荐，不能代选。Scope、目标结果、风险接受、appetite 或 evidence window 的实质变化会生成新 revision，并重新过门。
 
@@ -449,7 +452,7 @@ forbidden:
 
 同时满足：
 
-1. R001 能稳定产生一个真实的 `READY_TO_COMMIT`、`REWORK/PIVOT` 或 `DROP` 决定；
+1. R001 能稳定产生一个真实的人类 `COMMITTED`、`HOLD`、`REWORK/PIVOT` 或 `DROP` 决定；
 2. 第二个有界增强不需要 `to-spec` 猜产品决定；
 3. 两次都能使用同一组核心字段和 verdict；
 4. 已明确哪些步骤可由 Agent 完成、哪些只能交还人类。

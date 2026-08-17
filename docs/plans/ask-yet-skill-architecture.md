@@ -115,12 +115,11 @@ flowchart TD
     HP --> E
     PT --> E
     W --> E
-    E --> C{"READY_TO_COMMIT?"}
-    C -->|"否"| E
-    C -->|"是"| HC{"人工 Commitment"}
-    HC -->|"HOLD / REWORK"| E
+    E --> HC{"人工 Release 决定"}
+    HC -->|"REWORK：一个活动证据动作"| E
+    HC -->|"HOLD：暂停到重开条件"| PH["停止主动推进"]
     HC -->|"DROP"| X["停止并记录重开条件"]
-    HC -->|"COMMITTED revision"| B{"Git base exists?"}
+    HC -->|"六项 PASS + COMMITTED revision"| B{"Git base exists?"}
     B -->|"否"| GB["Greenfield delivery bootstrap"]
     GB --> B
     B -->|"是"| P["Repository Contract Impact Review"]
@@ -186,7 +185,7 @@ flowchart TD
 | `ORIENT` | 目标仓库、lane、当前权威产物和唯一下一 Gate 已确定 |
 | `FRAME` | 只剩一个候选 Release，actor、trigger、outcome 和最小闭环可描述 |
 | `EVIDENCE` | 最高风险假设有最小证据动作、appetite、阈值和停止条件 |
-| `COMMIT` | Readiness 全部满足；人给出 `COMMITTED/HOLD/REWORK/DROP`；`COMMITTED` 后完成 repository contract impact review |
+| `COMMIT` | Readiness 已逐项判断，人的决定已持久化；只有全部 PASS 才能 `COMMITTED`，`HOLD` 暂停到重开条件，`REWORK` 保留一个活动动作 |
 | `SPEC` | 已决定行为被编译为 Delivery Spec，无阻塞产品决定 |
 | `TICKETS` | 场景覆盖完整，Ticket 是纵向、独立可验收切片 |
 | `ADMISSION` | frontier、fresh review、snapshot、有效 repository policy 和人工确认一致；ready 状态已写入 tracker |
@@ -195,7 +194,7 @@ flowchart TD
 
 每个 Stage 使用自己的 verdict，不制造一个混合所有含义的万能状态：
 
-- Product readiness：`READY_TO_COMMIT | NEEDS_RESEARCH | NEEDS_PROTOTYPE | NEEDS_DECISION | DROP`
+- Product readiness：`READY_TO_COMMIT | NEEDS_RESEARCH | NEEDS_PROTOTYPE | NEEDS_DECISION`
 - Commitment：`COMMITTED | HOLD | REWORK | DROP`
 - Ticket readiness：`READY | SPLIT | NEEDS_INFO`，另带 `AGENT | HUMAN` lane
 - Outcome：`AWAITING_EVIDENCE | ACHIEVED | PARTIAL | NOT_ACHIEVED | UNEVALUABLE`
@@ -216,7 +215,7 @@ flowchart TD
 | 客户证据 | 生成故事访谈或受控 Pilot 协议，不模拟客户答案 | `to-questionnaire` 或最小协议 | 真实客户参与和隐私边界 |
 | 原型验证 | 只回答一个交互、状态或业务逻辑问题，写明丢弃条件 | `prototype` | 创建原型前确认 |
 | Wayfinder 升级 | 只有相互依赖决定无法在一次上下文收口时提供精确命令 | `wayfinder` | 人显式调用 |
-| Release readiness | 使用固定 rubric 给出产品 verdict | release-loop reference | `READY_TO_COMMIT` 后由人承诺 |
+| Release readiness | 使用固定 rubric 给出产品 verdict | release-loop reference | 人决定 `COMMITTED/HOLD/REWORK/DROP`；只有 `COMMITTED` 要求 `READY_TO_COMMIT` |
 | Repository contract | Commitment 后判断新决定是否属于稳定跨票约束；必要时起草最小根策略 diff 并先进入基线 | 有效根级 policy、Git exact base SHA | 人审核并合入策略变更 |
 | Delivery 编译 | 只把 `COMMITTED` exact revision 和已就绪 repository contract 交给 Spec | `to-spec` | 人显式调用 |
 | Ticket 与准入 | 跟踪 scenario coverage、frontier、fresh review 和 execution lane | `to-tickets`、`ticket-readiness`、`admit-ticket` | 发布/激活标签前确认 |
@@ -614,7 +613,7 @@ Package 接线需要：
 
 ### Phase 2：Fixture A Gate A 用户前向测试
 
-**状态：部分完成。** 隔离 fresh session 已验证入口、恢复、能力边界和人工 Gate；真实产品样本的用户前向证据仍未闭环。
+**状态：部分完成。** 隔离 fresh session 已验证入口、恢复、能力边界和人工 Gate；首个真实证据回合已产生非伪造的 `HOLD`，但第二样本和完整 Frame→Outcome 闭环仍未完成。
 
 - 用户启动 PI 并亲自对话；
 - 观察者读取 session JSONL；
@@ -625,14 +624,14 @@ Package 接线需要：
 
 ### Phase 3：Fixture A Gate B 产品证据循环
 
-**状态：进行中。** 已有 `NEEDS_RESEARCH` Frame，但尚未得到基于真实外部证据的 `READY_TO_COMMIT | REWORK | DROP`。
+**状态：进行中。** 首个真实证据回合已得到人类 `HOLD`，证明系统可以在没有活动下一动作时停止；尚未得到可进入 Delivery 的 `COMMITTED` 样本。
 
 - 真实完成访谈/Pilot；
 - 用 `ask-yet` 恢复并更新唯一 Frame；
 - 用至少一个缺外部访问能力的 fresh session 验证 Research Handoff；
 - 记录重复追问、过度读取、虚构证据和错误 Gate。
 
-退出条件：得到真实 `READY_TO_COMMIT/REWORK/DROP`，而不是靠预设答案模拟通过。
+退出条件：得到并持久化真实的人类 `COMMITTED | HOLD | REWORK | DROP` 决定，而不是靠预设答案模拟通过；只有 `COMMITTED` 继续进入 Delivery。
 
 ### Phase 4：Gate C 交付接缝
 

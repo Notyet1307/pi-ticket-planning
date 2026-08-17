@@ -6,6 +6,8 @@
 >
 > 日期：2026-08-12
 >
+> 记录性质：历史起始快照；后续 Release artifact 和实时 tracker/Harness 事实优先，本文不再表示当前进度。
+>
 > 当前结论：问题类别成立，具体客户机会、独立产品价值和 AI 增量尚未成立；不得进入 `to-spec`、`to-tickets` 或 `ready-for-agent`。
 
 ## 1. Pilot 要回答的唯一问题

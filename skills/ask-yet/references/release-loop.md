@@ -257,11 +257,11 @@ audit_evidence: <what is retained, where, and by whom>
 
 Carry applicable controls into the standalone Ticket or Delivery Spec constraints, Ticket invariants and guardrails, Admission bundle, and Release Record. A missing applicable control is `NEEDS_INFO` or `BLOCKED`, not an implementation detail. Human approval remains mandatory for risk acceptance, Admission activation, and production enablement or rollback. A small diff never removes these controls, but a decision-complete `QUICK + CONTROLLED` change does not need a product Release artifact, customer discovery, or multi-ticket Spec solely because it is risky. When product behavior is uncertain, use `DISCOVERY + CONTROLLED` and complete the evidence gates.
 
-The human then chooses:
+At the decision gate, the human chooses. `COMMITTED` is available only after all six readiness checks pass; the other decisions may close or redirect a not-ready candidate without fabricating readiness:
 
 - `COMMITTED`: bind the decision to the exact draft revision, record `status: COMMITTED` without changing its approved content, then put the resulting exact committed blob into the accepted remote delivery base before repository-contract review and Delivery Spec.
-- `HOLD`: evidence is adequate but this Release does not take the delivery slot.
-- `REWORK`: return to one named evidence or scope item.
+- `HOLD`: pause all evidence and delivery work. Record `next_evidence_action: NONE` and one externally observable `reopen_condition`; resume only after that condition occurs and the human reopens the Release.
+- `REWORK`: keep exactly one named evidence or scope action active, with its owner, appetite, and stop condition.
 - `DROP`: stop and record the disproved assumption plus the fact required to reopen.
 
 The agent may recommend but cannot choose.

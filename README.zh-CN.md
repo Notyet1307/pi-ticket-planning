@@ -204,7 +204,7 @@ pi-ticket-plan admit plan \
   --out /tmp/admission-plan.json
 ```
 
-`plan` 完全只读。`apply` 只接受获批快照，把 Plan fingerprint 写入幂等 Admission comment，通过逐项标签操作保留无关标签，并在响应不确定时重新读取、向前补齐。时间戳只用于触发重读；真正阻断的是 title、open state、body、blockers、source、policy、受控标签，以及适用的 graph/Harness 事实。Delivery Parent 只有在最终重新读取所有子票后才会激活。只有 `COMPLETE` 表示成功；`PARTIAL` 可用同一 Plan 恢复，`CONFLICT` 必须重新 review；检测到 Harness claim 后绝不会自动撤销 ready 标签。
+`plan` 完全只读。`apply` 只接受获批快照，把 Plan fingerprint 写入幂等 Admission comment，通过逐项标签操作保留无关标签，并在响应不确定时重新读取、向前补齐。时间戳只用于触发重读；真正阻断的是 title、open state、body、blockers、source、policy、受控标签，以及适用的 graph/Harness 事实。Harness 部分只是 operator 提供的兼容性断言；Admission 会绑定并比对它，但不会独立探测实际部署的 Harness。Delivery Parent 只有在最终重新读取所有子票后才会激活。只有 `COMPLETE` 表示成功；`PARTIAL` 可用同一 Plan 恢复，`CONFLICT` 必须重新 review；检测到 Harness claim 后绝不会自动撤销 ready 标签。
 
 ## 继续会话
 

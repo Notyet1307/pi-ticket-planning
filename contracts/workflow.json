@@ -55,10 +55,27 @@
     "EXECUTION": ["ADMISSION", "EXECUTION", "OUTCOME"],
     "OUTCOME": ["OUTCOME", "ORIENT", "FRAME"]
   },
+  "transitionRequirements": [
+    {
+      "sourceStage": "COMMIT",
+      "sourceVerdict": "HOLD",
+      "targetStages": ["FRAME", "EVIDENCE"],
+      "requiredFacts": ["release.reopenConditionMet", "human.releaseReopened"]
+    },
+    {
+      "sourceStage": "COMMIT",
+      "sourceVerdict": "REWORK",
+      "targetStages": ["FRAME", "EVIDENCE"],
+      "requiredFacts": ["release.reworkActionRecorded"]
+    }
+  ],
   "verdictRequirements": {
     "EVIDENCE_RECORDED": ["evidence.persisted"],
     "READY_TO_COMMIT": ["release.readinessPassed"],
-    "COMMITTED": ["human.commitment", "release.persisted"],
+    "COMMITTED": ["release.readinessPassed", "human.commitment", "release.persisted"],
+    "HOLD": ["human.releaseDecision", "release.persisted"],
+    "REWORK": ["human.releaseDecision", "release.persisted"],
+    "DROP": ["human.releaseDecision", "release.persisted"],
     "SPEC_IN_PROGRESS": ["human.commitment", "release.persisted", "release.accepted", "git.deliveryBase"],
     "SPEC_ACCEPTED": ["human.commitment", "release.persisted", "release.accepted", "git.deliveryBase", "spec.persisted"],
     "TICKETS_ACCEPTED": ["spec.persisted", "tickets.persisted", "graph.passed", "human.graphApproval"],

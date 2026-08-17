@@ -40,14 +40,25 @@ test("workflow contract rejects unknown states and illegal stage skips", () => {
   assert.equal(invented.problems.some(({ code }) => code === "INVALID_STAGE_VERDICT"), true);
 });
 
-test("human Commitment cannot be supplied by an LLM provenance", () => {
+test("COMMITTED requires passed readiness and human provenance", () => {
   const transition = {
     current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "READY_TO_COMMIT" },
     proposed: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "COMMITTED" },
   };
+  const notReady = evaluateTransition({
+    ...transition,
+    facts: {
+      "human.commitment": fact("operator-asserted"),
+      "release.persisted": fact("git"),
+    },
+  });
+  assert.equal(notReady.allowed, false);
+  assert.equal(notReady.problems.some(({ code, subject }) => code === "MISSING_REQUIRED_FACT" && subject === "release.readinessPassed"), true);
+
   const denied = evaluateTransition({
     ...transition,
     facts: {
+      "release.readinessPassed": fact("release-readiness-check"),
       "human.commitment": fact("llm"),
       "release.persisted": fact("git"),
     },
@@ -58,9 +69,69 @@ test("human Commitment cannot be supplied by an LLM provenance", () => {
   const allowed = evaluateTransition({
     ...transition,
     facts: {
+      "release.readinessPassed": fact("release-readiness-check"),
       "human.commitment": fact("operator-asserted"),
       "release.persisted": fact("git"),
     },
+  });
+  assert.equal(allowed.allowed, true);
+});
+
+test("HOLD pauses a not-ready Release only after a persisted human decision", () => {
+  const transition = {
+    current: { lane: "PRODUCT", stage: "EVIDENCE", identity: releaseIdentity, verdict: "NEEDS_RESEARCH" },
+    proposed: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "HOLD" },
+  };
+  const denied = evaluateTransition({
+    ...transition,
+    facts: {
+      "human.releaseDecision": fact("llm"),
+      "release.persisted": fact("git"),
+    },
+  });
+  assert.equal(denied.allowed, false);
+  assert.equal(denied.problems.some(({ code, subject }) => code === "UNTRUSTED_FACT_SOURCE" && subject === "human.releaseDecision:llm"), true);
+
+  const allowed = evaluateTransition({
+    ...transition,
+    facts: {
+      "human.releaseDecision": fact("operator-asserted"),
+      "release.persisted": fact("git"),
+    },
+  });
+  assert.equal(allowed.allowed, true);
+
+  const resume = {
+    current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "HOLD" },
+    proposed: { lane: "PRODUCT", stage: "EVIDENCE", identity: releaseIdentity, verdict: "NEEDS_RESEARCH" },
+  };
+  const premature = evaluateTransition({ ...resume, facts: {} });
+  assert.equal(premature.allowed, false);
+  assert.equal(premature.problems.some(({ code, subject }) => code === "MISSING_REQUIRED_FACT" && subject === "release.reopenConditionMet"), true);
+  assert.equal(premature.problems.some(({ code, subject }) => code === "MISSING_REQUIRED_FACT" && subject === "human.releaseReopened"), true);
+
+  const reopened = evaluateTransition({
+    ...resume,
+    facts: {
+      "release.reopenConditionMet": fact("reopen-condition-check"),
+      "human.releaseReopened": fact("operator-asserted"),
+    },
+  });
+  assert.equal(reopened.allowed, true);
+});
+
+test("REWORK resumes only from one persisted active action", () => {
+  const transition = {
+    current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "REWORK" },
+    proposed: { lane: "PRODUCT", stage: "EVIDENCE", identity: releaseIdentity, verdict: "NEEDS_RESEARCH" },
+  };
+  const missing = evaluateTransition({ ...transition, facts: {} });
+  assert.equal(missing.allowed, false);
+  assert.equal(missing.problems.some(({ code, subject }) => code === "MISSING_REQUIRED_FACT" && subject === "release.reworkActionRecorded"), true);
+
+  const allowed = evaluateTransition({
+    ...transition,
+    facts: { "release.reworkActionRecorded": fact("git") },
   });
   assert.equal(allowed.allowed, true);
 });
@@ -89,6 +160,7 @@ test("an approved local greenfield Release can reach COMMITTED before repository
     current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "READY_TO_COMMIT" },
     proposed: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "COMMITTED" },
     facts: {
+      "release.readinessPassed": fact("release-readiness-check"),
       "human.commitment": fact("operator-asserted"),
       "release.persisted": fact("approved-local-artifact"),
     },

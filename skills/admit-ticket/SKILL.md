@@ -35,7 +35,7 @@ Re-fetch and include:
 - exact title, body, state, labels, native blockers, comments containing the current agent brief, and updated timestamp for every candidate;
 - parent delivery spec body and updated timestamp;
 - trusted source identity, exact Release revision when applicable, exact repository base, and effective policy identity;
-- the verified Harness parent-ready fence identity and content digest for a GitHub delivery map; without this enforced claim fence, leave every child unactivated;
+- the operator-provided Harness compatibility assertion (`parentReadyFence: true`), identity, and content digest for a GitHub delivery map; Admission binds and rechecks this assertion but does not independently inspect the deployed Harness; without it, leave every child unactivated;
 - parent Scenario definitions, explicit state/artifact handoffs, and Release signal mapping;
 - the exact normalized Delivery Graph JSON from `## Ticket coverage` and its checker output;
 - child order, native sub-issue relationships, and blocking edges;
@@ -63,7 +63,7 @@ The reviewer must return the /ticket-readiness output for every candidate plus a
 
 ### 4. Present the result
 
-For a GitHub delivery map, place the exact machine review JSON and a freshly resolved context JSON in a private temporary directory, then run `pi-ticket-plan admit plan --repo <owner/repo> --parent <number> --review <review.json> --context <context.json> --out <plan.json>`. For one standalone candidate, use the same command with `--issue <number>` instead of `--parent`. The context contains the trusted source identity/revision/base, accepted policy identity/digest, and current Checkpoint; a delivery map also contains the verified Harness identity/digest with `parentReadyFence: true`. This command is read-only and must return a passing plan.
+For a GitHub delivery map, place the exact machine review JSON and a freshly resolved context JSON in a private temporary directory, then run `pi-ticket-plan admit plan --repo <owner/repo> --parent <number> --review <review.json> --context <context.json> --out <plan.json>`. For one standalone candidate, use the same command with `--issue <number>` instead of `--parent`. The context contains the trusted source identity/revision/base, accepted policy identity/digest, and current Checkpoint; a delivery map also contains the operator-provided Harness identity/digest and `parentReadyFence: true` compatibility assertion. This command is read-only and must return a passing plan.
 
 Show the verdicts, execution lanes, proposed splits, unresolved decisions, blockers, coverage findings, walking-skeleton finding, frontier finding, exact label additions/removals, Graph fingerprint, and Admission Plan fingerprint. Ask the user to confirm that exact Plan fingerprint. A reviewer result or a general “continue” alone grants no mutation authority.
 
@@ -71,7 +71,7 @@ When a candidate is edited, a blocker edge changes, a source decision changes, o
 
 ### 5. Apply the confirmed outcome
 
-Re-fetch the admission set first. Treat updated timestamps as reread signals, then compare the gate-critical projection: exact title, open state, body hash, native blockers, source revision/base, policy, controlled labels, and, for a delivery map, normalized snapshot, walking skeleton, graph, and Harness fence. Re-run `check-admission-state.mjs` and the strict-frontier order check for a delivery map before the first label mutation. Unrelated comments and labels do not invalidate an otherwise unchanged Plan.
+Re-fetch the admission set first. Treat updated timestamps as reread signals, then compare the gate-critical projection: exact title, open state, body hash, native blockers, source revision/base, policy, controlled labels, and, for a delivery map, normalized snapshot, walking skeleton, graph, and asserted Harness compatibility projection. Re-run `check-admission-state.mjs` and the strict-frontier order check for a delivery map before the first label mutation. Unrelated comments and labels do not invalidate an otherwise unchanged Plan.
 
 For a READY GitHub delivery map or standalone candidate, rebuild the context JSON from those fresh facts and run only:
 

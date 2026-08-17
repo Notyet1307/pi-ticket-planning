@@ -204,7 +204,7 @@ pi-ticket-plan admit plan \
   --out /tmp/admission-plan.json
 ```
 
-`plan` is read-only. `apply` accepts only the approved snapshot, records the Plan fingerprint in its idempotent Admission comment, preserves unrelated labels through per-label changes, and rolls completed operations forward after ambiguous failures. It treats timestamps as reread hints and blocks only on the gate-critical projection: title, open state, body, blockers, source, policy, controlled labels, and graph/Harness facts when applicable. A delivery parent is activated only after a final full child reread. `COMPLETE` is success; `PARTIAL` is resumable with the same plan; `CONFLICT` requires a new review. It never removes a ready label after a Harness claim.
+`plan` is read-only. `apply` accepts only the approved snapshot, records the Plan fingerprint in its idempotent Admission comment, preserves unrelated labels through per-label changes, and rolls completed operations forward after ambiguous failures. It treats timestamps as reread hints and blocks only on the gate-critical projection: title, open state, body, blockers, source, policy, controlled labels, and graph/Harness facts when applicable. The Harness projection is an operator-provided compatibility assertion that Admission binds and compares; Admission does not independently inspect the deployed Harness. A delivery parent is activated only after a final full child reread. `COMPLETE` is success; `PARTIAL` is resumable with the same plan; `CONFLICT` requires a new review. It never removes a ready label after a Harness claim.
 
 ## Continue sessions
 

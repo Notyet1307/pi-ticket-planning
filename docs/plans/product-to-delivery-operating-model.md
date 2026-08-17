@@ -255,10 +255,9 @@ false_positive_completion: "什么情况看似交付完成但实际不算成功"
 - `READY_TO_COMMIT`：有真实证据、最小闭环、可评估结果、关键风险和可接受 appetite；
 - `NEEDS_RESEARCH`；
 - `NEEDS_PROTOTYPE`；
-- `NEEDS_DECISION`；
-- `DROP`。
+- `NEEDS_DECISION`。
 
-`READY_TO_COMMIT` 只是材料就绪，不代表已排期。
+`READY_TO_COMMIT` 只是材料就绪，不代表已排期。`DROP` 是下一节的人类 Release 决定，不是 Agent 生成的 readiness verdict。
 
 ### G4：人工 Commitment Gate
 
@@ -272,12 +271,12 @@ false_positive_completion: "什么情况看似交付完成但实际不算成功"
 4. success signal 是否真能被观察；
 5. 不做和做到一半各有什么后果。
 
-输出只有：
+输出只有。`COMMITTED` 仅在六项 readiness 全部通过后可选；其余决定可以诚实关闭或改向一个未就绪候选：
 
 - `COMMITTED`：冻结 Release Frame 修订号，允许进入 `to-spec`；
-- `HOLD`：保留候选但不拆实现票；
-- `REWORK`：退回指定未知项；
-- `DROP`。
+- `HOLD`：停止全部主动证据和交付工作，记录 `next_evidence_action: NONE` 与一个可观察的重开条件；
+- `REWORK`：只保留一个有 owner、appetite 和停止条件的活动证据或范围动作；
+- `DROP`：停止并记录被证伪假设与重开所需事实。
 
 任何 scope、核心结果、风险接受或 evidence window 的重大变化都必须重新过此门。文案和非语义澄清不必重审。
 
@@ -511,7 +510,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 1：统一入口与首个真实 Release Pilot
 
-**状态：进行中。** `ask-yet` Router 与内部 Release loop 已实现，并通过隔离 Profile、fresh-session 路由和只读恢复检查；真实产品证据循环尚未完成。第一个高不确定性候选是 Exposure-Agent 的“暴露面资产差异确认闭环”；既有手工 Frame verdict 为 `NEEDS_RESEARCH`，见 [`R001 Pilot`](../pilots/exposure-agent-r001-product-validation.md)。
+**状态：进行中。** `ask-yet` Router 与内部 Release loop 已实现，并通过隔离 Profile、fresh-session 路由和只读恢复检查；Exposure-Agent 的首个真实证据回合已产生非伪造的 `HOLD`，但还没有 `COMMITTED` Delivery 或 Outcome，第二个产品样本也未开始。[`R001 Pilot`](../pilots/exposure-agent-r001-product-validation.md) 仅保留为 2026-08-12 的起始快照。
 
 该产品只是一项外部试验样本；其领域术语、事实和预期答案不进入 `ask-yet` 核心契约。
 
@@ -537,7 +536,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 2：`ask-yet` Gate A/B 用户前向测试
 
-**状态：部分完成。** fresh-session 的入口、恢复、能力边界和人工 Gate 已有只读验证；真实产品样本的证据获取与 Human Commitment 仍待完成。
+**状态：部分完成。** fresh-session 的入口、恢复、能力边界和人工 Gate 已有只读验证；首个真实产品证据回合已由人选择 `HOLD`。仍待验证第二样本、`COMMITTED` 路径和真实 Outcome。
 
 在 fresh PI session 中由用户亲自测试入口恢复、Lane/Stage 路由、产品证据和能力降级；观察者不把预期答案注入被测上下文。每次只修一个可重复失败。
 
@@ -548,7 +547,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 3. Commitment 后正确区分 repository policy 与 Release/Ticket 局部事实；
 4. 只有 exact committed revision 才允许 `ask-yet` 自动进入 setup 或 `to-spec`。
 
-连续两个 fresh session 通过 Gate A，且首个真实 Release 得到非伪造的 `READY_TO_COMMIT | REWORK | DROP` 后，再进入 Gate C。六类 fixture 只在两个真实样本暴露出稳定结构后冻结，不预写 expected result。
+连续两个 fresh session 通过 Gate A，且首个真实 Release 得到并持久化非伪造的 `COMMITTED | HOLD | REWORK | DROP` 人类决定后，才算完成该证据 Gate；只有 `COMMITTED` 继续进入 Gate C，其余决定按重开、返工或停止条件处理。六类 fixture 只在两个真实样本暴露出稳定结构后冻结，不预写 expected result。
 
 **明确跳过**：不增加第二套产品 Reviewer、不修改 HerdrHarness、不建立通用包、不自动生成全产品 Roadmap。
 

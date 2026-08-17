@@ -201,6 +201,10 @@ export function validatePackage(root) {
     "<ticket-or-map-id>@<reviewed-revision>",
     "Do not append anything after the checkpoint",
     "READY_TO_COMMIT",
+    "Only six `PASS` results permit `COMMITTED`",
+    "release.reopenConditionMet",
+    "human.releaseReopened",
+    "release.reworkActionRecorded",
     "Research Handoff",
     "Repository Contract Impact Review",
     "standing approval for reversible planning mutations",
@@ -219,7 +223,7 @@ export function validatePackage(root) {
     "Never invent an interviewee answer",
     "contracts/workflow.json",
     "contracts/authority.json",
-    "workflow-contract.mjs --input -",
+    "node \"$PI_TICKET_PLANNING_ROOT/scripts/workflow-contract.mjs\" --input -",
     "allowed: true",
     "Checkpoint:",
     "system facts, not customer-actor evidence",
@@ -287,6 +291,9 @@ export function validatePackage(root) {
     "staged_release",
     "a decision-complete `QUICK + CONTROLLED` change does not need a product Release artifact",
     "production enablement or rollback",
+    "`next_evidence_action: NONE`",
+    "`reopen_condition`",
+    "keep exactly one named evidence or scope action active",
   ]) {
     if (!releaseLoop.includes(required)) errors.push(`release-loop lacks required contract: ${required}`);
   }
@@ -412,6 +419,8 @@ export function validatePackage(root) {
     "Plan fingerprint",
     "PARTIAL",
     "CONFLICT",
+    "operator-provided Harness compatibility assertion",
+    "does not independently inspect the deployed Harness",
   ]) {
     if (!admission.includes(required)) errors.push(`admit-ticket lacks coverage recheck: ${required}`);
   }

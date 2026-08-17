@@ -176,7 +176,7 @@ export function buildAdmissionPlan(input) {
     || typeof input.harness.identity !== "string"
     || !SHA256.test(input.harness.digest ?? "")
   ) {
-    throw planError("verified Harness parent-ready fence identity and sha256 digest are required");
+    throw planError("operator-provided Harness compatibility assertion (parentReadyFence: true), identity, and sha256 digest are required");
   }
   if (!validateReview(input.review)) {
     throw planError("review is not READY or does not use the fresh reviewer contract");
@@ -512,8 +512,12 @@ function immutableStateProblems(plan, state) {
     });
     problems.push(...checked.problems);
     if (String(state.parent?.id) !== plan.parent) problems.push(issue("PARENT_IDENTITY_DRIFT"));
-    if (fingerprint(state.harness) !== fingerprint(plan.reviewed.harness)) problems.push(issue("HARNESS_CONTRACT_DRIFT"));
-    if (state.harness?.parentReadyFence !== true) problems.push(issue("HARNESS_PARENT_FENCE_UNVERIFIED"));
+    if (fingerprint(state.harness) !== fingerprint(plan.reviewed.harness)) {
+      problems.push(issue("HARNESS_CONTRACT_DRIFT", "operator-provided compatibility assertion changed"));
+    }
+    if (state.harness?.parentReadyFence !== true) {
+      problems.push(issue("HARNESS_PARENT_FENCE_UNVERIFIED", "operator-provided compatibility assertion missing"));
+    }
     try {
       if (fingerprint(parseDeliveryGraph(state.parent.body)) !== plan.graphFingerprint) problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
     } catch (error) {

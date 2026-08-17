@@ -172,6 +172,25 @@ test("Admission apply rejects foreign drift before any write", () => {
   assert.deepEqual(adapter.mutations, []);
 });
 
+test("Admission apply binds the operator-provided Harness compatibility assertion", () => {
+  const plan = buildAdmissionPlan(input());
+  const drifted = new MemoryAdapter(input());
+  drifted.state.harness.digest = `sha256:${"d".repeat(64)}`;
+  const driftResult = apply(plan, drifted);
+  assert.equal(driftResult.status, "CONFLICT");
+  assert.equal(driftResult.problems.some(({ code }) => code === "HARNESS_CONTRACT_DRIFT"), true);
+  assert.equal(driftResult.problems.some(({ subject }) => subject === "operator-provided compatibility assertion changed"), true);
+  assert.deepEqual(drifted.mutations, []);
+
+  const missing = new MemoryAdapter(input());
+  missing.state.harness.parentReadyFence = false;
+  const missingResult = apply(plan, missing);
+  assert.equal(missingResult.status, "CONFLICT");
+  assert.equal(missingResult.problems.some(({ code }) => code === "HARNESS_PARENT_FENCE_UNVERIFIED"), true);
+  assert.equal(missingResult.problems.some(({ subject }) => subject === "operator-provided compatibility assertion missing"), true);
+  assert.deepEqual(missing.mutations, []);
+});
+
 test("Admission apply never rolls labels back after a Harness claim", () => {
   const plan = buildAdmissionPlan(input());
   const adapter = new MemoryAdapter(input(), { claimAfter: "11" });

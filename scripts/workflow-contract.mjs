@@ -47,6 +47,18 @@ export function validateContracts(workflow = defaultWorkflow, authority = defaul
       if (!authority.facts?.[fact]) problems.push(issue("UNKNOWN_REQUIRED_FACT", `${verdict}:${fact}`));
     }
   }
+  for (const [index, rule] of (workflow?.transitionRequirements ?? []).entries()) {
+    const subject = `transitionRequirements[${index}]`;
+    if (!workflow.stages?.[rule.sourceStage]?.verdicts?.includes(rule.sourceVerdict)) {
+      problems.push(issue("INVALID_TRANSITION_REQUIREMENT_SOURCE", subject));
+    }
+    if (!Array.isArray(rule.targetStages) || rule.targetStages.some((stage) => !workflow.stages?.[stage])) {
+      problems.push(issue("INVALID_TRANSITION_REQUIREMENT_TARGET", subject));
+    }
+    for (const fact of rule.requiredFacts ?? []) {
+      if (!authority.facts?.[fact]) problems.push(issue("UNKNOWN_TRANSITION_REQUIREMENT_FACT", `${subject}:${fact}`));
+    }
+  }
   for (const [name, mutation] of Object.entries(authority?.mutations ?? {})) {
     if (!workflow.stages?.[mutation.targetStage]?.verdicts?.includes(mutation.targetVerdict)) {
       problems.push(issue("INVALID_MUTATION_TARGET", name));
@@ -90,6 +102,15 @@ function evaluateTransitionShape(current, proposed, workflow) {
   return problems;
 }
 
+function transitionFacts(current, proposed, workflow) {
+  if (!current || !proposed) return [];
+  return (workflow.transitionRequirements ?? [])
+    .filter((rule) => rule.sourceStage === current.stage
+      && rule.sourceVerdict === current.verdict
+      && rule.targetStages.includes(proposed.stage))
+    .flatMap((rule) => rule.requiredFacts ?? []);
+}
+
 function evaluateFacts(requiredFacts, facts, authority) {
   const problems = [];
   for (const factName of requiredFacts) {
@@ -119,7 +140,10 @@ export function evaluateTransition({ current, proposed, facts = {} }, contracts 
 
   const problems = [
     ...evaluateTransitionShape(current, proposed, workflow),
-    ...evaluateFacts(workflow.verdictRequirements[proposed?.verdict] ?? [], facts, authority),
+    ...evaluateFacts([
+      ...(workflow.verdictRequirements[proposed?.verdict] ?? []),
+      ...transitionFacts(current, proposed, workflow),
+    ], facts, authority),
   ];
   return { allowed: problems.length === 0, problems, requiredHumanGates: humanGates(problems, authority) };
 }
@@ -146,7 +170,10 @@ export function evaluateMutation({ mutation, actor, transition, facts = {} }, co
     }
   }
   problems.push(...evaluateTransitionShape(transition?.current, transition?.proposed, workflow));
-  problems.push(...evaluateFacts(rule.requiredFacts ?? [], facts, authority));
+  problems.push(...evaluateFacts([
+    ...(rule.requiredFacts ?? []),
+    ...transitionFacts(transition?.current, transition?.proposed, workflow),
+  ], facts, authority));
   return {
     allowed: problems.length === 0,
     problems,

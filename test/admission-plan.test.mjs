@@ -180,6 +180,10 @@ test("Admission Plan fails closed on reviewer or reviewed-body drift", () => {
   const closed = readyInput();
   closed.children[0].state = "closed";
   assert.throws(() => buildAdmissionPlan(closed), /ISSUE_NOT_OPEN/);
+
+  const missingHarnessAssertion = readyInput();
+  missingHarnessAssertion.harness.parentReadyFence = false;
+  assert.throws(() => buildAdmissionPlan(missingHarnessAssertion), /operator-provided Harness compatibility assertion/);
 });
 
 test("Admission Plan requires the exact activation checkpoint", () => {
