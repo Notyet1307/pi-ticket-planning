@@ -15,7 +15,7 @@ The repository, issue tracker, triage labels, and exact Git base must already be
 
 Classify the source:
 
-- `PRODUCT_RELEASE`: a new product, uncertain feature, or bounded enhancement. Require the Release artifact path, Release ID, exact revision, `status: COMMITTED`, and the accepted base commit containing that exact regular-file blob. Re-read the blob from the base commit, not the working tree; a candidate Frame, conversation, patch, unpublished commit, plan, or completed Wayfinder map is not a substitute for durable human Commitment.
+- `PRODUCT_RELEASE`: a new product, uncertain feature, or bounded enhancement. Require the Release artifact path, Release ID, exact revision, `status: COMMITTED`, and the accepted base commit containing that exact regular-file blob. Re-read the blob from the base commit, not the working tree; a remote draft ref, candidate Frame, conversation, patch, unpublished commit, plan, or completed Wayfinder map is not a substitute for durable human Commitment and accepted delivery source.
 - `OPERATING_SOURCE`: a confirmed bug, mandatory maintenance/risk change, or incident follow-up with an exact issue, reproduction, policy, ADR, or other decision-complete authority. Record why the shorter product path is valid.
 
 Completed Wayfinder decisions, research, prototypes, and questionnaires may support either source. Fetch the exact linked artifacts needed to recover a decision. An open decision or conflicting authority that changes behavior is `NEEDS_INFO`.

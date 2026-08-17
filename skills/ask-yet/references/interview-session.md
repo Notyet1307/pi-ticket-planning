@@ -14,8 +14,8 @@ Never answer on the interviewee's behalf. Silence, "I don't know", or a skipped 
 
 ## Formal or informal
 
-- `FORMAL`: the exact protocol revision is reachable from the accepted remote delivery base, the participant still matches the protocol, and live consent is obtained. Only then may results update the Release artifact.
-- `INFORMAL`: any other live session. Ask the same questions. Say clearly that the result cannot be written as formal Evidence until the protocol blob is on the accepted base.
+- `FORMAL`: the exact protocol revision is reachable from the human-approved remote draft ref or accepted remote delivery base, the participant still matches the protocol, and live consent is obtained. Only then may results update the Release artifact.
+- `INFORMAL`: any other live session. Ask the same questions. Say clearly that the result cannot be written as formal Evidence until the protocol blob is on an approved remote draft ref or the accepted base.
 
 Do not block an informal session just because a documentation PR is unmerged.
 

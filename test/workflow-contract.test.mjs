@@ -65,6 +65,38 @@ test("human Commitment cannot be supplied by an LLM provenance", () => {
   assert.equal(allowed.allowed, true);
 });
 
+test("a durable draft Release cannot enter SPEC until its blob is accepted", () => {
+  const transition = {
+    current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "COMMITTED" },
+    proposed: { lane: "DELIVERY", stage: "SPEC", identity: releaseIdentity, verdict: "SPEC_IN_PROGRESS" },
+  };
+  const facts = {
+    "human.commitment": fact("operator-asserted"),
+    "release.persisted": fact("git"),
+    "git.deliveryBase": fact("git"),
+  };
+
+  const draftOnly = evaluateTransition({ ...transition, facts });
+  assert.equal(draftOnly.allowed, false);
+  assert.equal(draftOnly.problems.some(({ code, subject }) => code === "MISSING_REQUIRED_FACT" && subject === "release.accepted"), true);
+
+  facts["release.accepted"] = fact("accepted-artifact");
+  assert.equal(evaluateTransition({ ...transition, facts }).allowed, true);
+});
+
+test("an approved local greenfield Release can reach COMMITTED before repository setup", () => {
+  const result = evaluateTransition({
+    current: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "READY_TO_COMMIT" },
+    proposed: { lane: "PRODUCT", stage: "COMMIT", identity: releaseIdentity, verdict: "COMMITTED" },
+    facts: {
+      "human.commitment": fact("operator-asserted"),
+      "release.persisted": fact("approved-local-artifact"),
+    },
+  });
+
+  assert.equal(result.allowed, true);
+});
+
 test("Admission mutation requires the CLI actor and exact approved fingerprint", () => {
   const fingerprint = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   const transition = {

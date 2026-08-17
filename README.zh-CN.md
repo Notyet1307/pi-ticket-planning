@@ -94,7 +94,7 @@ pi-ticket-plan --name "project-planning"
 /skill:ask-yet [可选：想法、Issue、Release 文档或当前目标]
 ```
 
-`ask-yet` 会从仓库和权威产物恢复当前状态，并在人的持续授权范围内自动推进可逆的规划工作。只有遇到产品选择、仓库策略变更、Ticket 图批准、Admission 激活、禁止操作或重大漂移时才停下。已有 Git 的目标中，只有 exact Release blob 已进入被接受的远端基线时才算权威；工作树文件或未发布的本地 commit 不能进入 `to-spec`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`setup-delivery-repository` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
+`ask-yet` 会从仓库和权威产物恢复当前状态，并在人的持续授权范围内自动推进可逆的规划工作。只有遇到产品选择、仓库策略变更、Ticket 图批准、Admission 激活、禁止操作或重大漂移时才停下。已有 Git 的目标中，一条经人批准的远端 draft ref 可以在 `FRAME` 和 `EVIDENCE` 持久化 exact 候选 commit 与 blob；持续授权明确覆盖更新时，可跨 revision 复用同一条 ref/PR。它不是被接受的交付来源，不能进入 `to-spec`。人在 `COMMITTED` 后，exact blob 必须先进入被接受的远端基线才能进入 `SPEC`。空目录或尚无 commit 的仓库会继续停留在产品塑形；只有人明确提交 exact Release revision 后，`setup-delivery-repository` 才能建立最小 Git/Tracker 交付基线，并且不会选择应用技术栈或创建实现脚手架。
 
 `ask-yet` 会分别推断规划深度和风险控制，不要求人选择：
 

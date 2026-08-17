@@ -230,8 +230,10 @@ export function validatePackage(root) {
     "choose a stack or architecture",
     "Repository bootstrap becomes eligible only after",
     "accepted remote delivery base",
-    "remain in `FRAME` until the accepted remote base contains the approved blob",
-    "Never route this publication through the implementation Harness",
+    "human-approved remote draft ref",
+    "continue to `EVIDENCE`",
+    "exact committed blob into the accepted remote delivery base",
+    "Never route draft or accepted-base publication through the implementation Harness",
   ]) {
     if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
   }
@@ -270,9 +272,13 @@ export function validatePackage(root) {
     "Scenario-coverage",
     "Use Git as the durability boundary",
     "cannot feed `to-spec`",
+    "remote draft candidate is durable planning evidence",
+    "Reuse one approved remote draft ref and its PR across revisions",
+    "remote draft updates it clearly covers",
+    "after the exact committed blob is in the accepted remote delivery base",
     "cannot publish the Release or setup needed to reach Admission",
     "standing automation approval",
-    "do not request permission for each file, commit, or tracker mutation",
+    "do not request permission for each file, commit, tracker mutation, or approved draft-ref update",
     "Ticket-graph publication and Admission activation",
     "Release-lite for `STANDARD`",
     "not another artifact kind, status, or schema",
@@ -287,6 +293,7 @@ export function validatePackage(root) {
   if (!releaseLoop.includes("interview-session.md")) {
     errors.push("release-loop does not hand live interviews to interview-session.md");
   }
+  if (!toSpec.includes("remote draft ref")) errors.push("to-spec does not reject a draft ref as delivery source");
   for (const required of [
     "Never answer on the interviewee's behalf",
     "FORMAL",
@@ -296,6 +303,7 @@ export function validatePackage(root) {
     "They may not choose `FRAME_SUPPORTED` to be polite",
     "do not refuse",
     "INFORMAL` session under this contract",
+    "human-approved remote draft ref or accepted remote delivery base",
   ]) {
     if (!interviewSession.includes(required)) errors.push(`interview-session lacks required contract: ${required}`);
   }

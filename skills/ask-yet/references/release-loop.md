@@ -35,8 +35,9 @@ Maintain one file per active Release. Do not split Product Context, Evidence Log
 
 Use Git as the durability boundary; add no parallel receipt:
 
-- In an existing Git repository, a Release revision becomes authoritative only when its exact regular-file blob is reachable from the accepted remote delivery base. A conversation, patch preview, working-tree file, staged file, or unpublished local commit is a draft and cannot feed `to-spec`.
-- Include the exact file write, paths to stage, commit message, and permitted pre-delivery publication owner in the mutation plan. If repository policy forbids agent publication, prepare only the approved scope and stop with an exact human-maintainer or already-configured pre-delivery handoff. The implementation Harness/controller consumes admitted tickets and cannot publish the Release or setup needed to reach Admission. Do not report the revision as recorded until the live accepted ref contains it.
+- In an existing Git repository, a human-approved remote draft ref may preserve an exact Release candidate commit and regular-file blob during `FRAME` and `EVIDENCE`. Re-read the remote ref and blob after every update. A conversation, patch preview, working-tree file, staged file, or unpublished local commit remains non-durable; a remote draft candidate is durable planning evidence but cannot feed `to-spec`.
+- A Release revision becomes authoritative only when its exact regular-file blob is reachable from the accepted remote delivery base. After the human chooses `COMMITTED`, record that decision in the same revision without changing its approved content, then put the resulting exact committed blob into the accepted base before `SPEC` or `to-spec`.
+- Reuse one approved remote draft ref and its PR across revisions. Standing automation approval for the exact target and Release may cover its reversible remote draft updates; a changed ref, scope, policy, or risk requires new approval. Include the exact file write, paths to stage, commit message, remote draft ref, and permitted publication owner in the mutation plan. If repository policy forbids agent publication, prepare only the approved scope and stop with an exact human-maintainer or already-configured pre-delivery handoff. The implementation Harness/controller consumes admitted tickets and cannot publish the Release or setup needed to reach Admission. Report the candidate commit and blob while it is on the draft ref; report the revision as authoritative only after the live accepted ref contains it.
 - In greenfield, the approved local artifact may carry the product revision through `COMMIT`, but the `setup-delivery-repository` helper must put that exact artifact into the first delivery base before `to-spec` is allowed.
 
 The artifact contains these sections; omit empty optional subsections rather than inventing content:
@@ -95,9 +96,9 @@ target_revision: <same revision for editorial change, next revision for material
 material_changes: []
 ```
 
-Show the candidate content or minimum diff in conversation and wait for explicit write approval covering the displayed file and Git operations. Words such as “design”, “review”, “continue”, or content acceptance alone authorize conversation, not mutation. Apply only the approved scopes. For an existing Git target, re-fetch the accepted ref and reread the exact blob before advancing beyond `FRAME`; for greenfield, reread the approved local artifact and keep delivery blocked until bootstrap. Never silently rewrite a stable revision.
+Show the candidate content or minimum diff in conversation and wait for explicit write approval covering the displayed file and Git operations. Words such as “design”, “review”, “continue”, or content acceptance alone authorize conversation, not mutation. Apply only the approved scopes. For an existing Git target, re-fetch the approved remote draft ref and reread the exact blob before advancing from `FRAME` to `EVIDENCE`; after `COMMITTED`, record the decision and re-fetch the accepted ref to reread the resulting committed blob before `SPEC`. For greenfield, reread the approved local artifact and keep delivery blocked until bootstrap. Never silently rewrite a stable revision.
 
-A human may grant standing automation approval for one exact target and Release. Reuse it for reversible planning writes it clearly covers; do not request permission for each file, commit, or tracker mutation. It expires on source, scope, target, policy, or risk drift. It never silently includes credentials, destructive actions, production effects, implementation, merge, or a repository-forbidden operation. Ticket-graph publication and Admission activation retain their own human confirmations.
+A human may grant standing automation approval for one exact target and Release. Reuse it for reversible planning writes and remote draft updates it clearly covers; do not request permission for each file, commit, tracker mutation, or approved draft-ref update. It expires on source, scope, target, policy, or risk drift. It never silently includes credentials, destructive actions, production effects, implementation, merge, or a repository-forbidden operation. Ticket-graph publication and Admission activation retain their own human confirmations.
 
 ### Release-lite for `STANDARD`
 
@@ -258,7 +259,7 @@ Carry applicable controls into the standalone Ticket or Delivery Spec constraint
 
 The human then chooses:
 
-- `COMMITTED`: freeze the exact revision and permit repository-contract review, then Delivery Spec.
+- `COMMITTED`: bind the decision to the exact draft revision, record `status: COMMITTED` without changing its approved content, then put the resulting exact committed blob into the accepted remote delivery base before repository-contract review and Delivery Spec.
 - `HOLD`: evidence is adequate but this Release does not take the delivery slot.
 - `REWORK`: return to one named evidence or scope item.
 - `DROP`: stop and record the disproved assumption plus the fact required to reopen.
@@ -267,7 +268,7 @@ The agent may recommend but cannot choose.
 
 ## 7. Repository Contract Impact Review
 
-Run this after `COMMITTED` and before `to-spec`.
+Run this after `COMMITTED` and after the exact committed blob is in the accepted remote delivery base, before `to-spec`.
 
 If the target is non-Git or has an unborn `HEAD`, first route to the repository setup Skill with the exact COMMITTED Release artifact and revision. Apply a delivery-bootstrap plan when the standing automation approval clearly covers it; otherwise present one consolidated approval request. The bootstrap may establish Git, the committed Release artifact, minimal Agent/tracker policy, and a remote; it may not choose an application stack or create implementation scaffolding. Return here after a real base SHA exists.
 
