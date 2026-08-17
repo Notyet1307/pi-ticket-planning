@@ -1,79 +1,147 @@
 # Interview session contract
 
-Use this reference only to run an already designed customer-evidence protocol. It does not design a Frame, invent answers, or replace Commitment.
+Use this reference to run a live customer-evidence session. It may discover a Candidate Frame or test one frozen hypothesis; it never invents answers, replaces Commitment, or authorizes delivery.
 
-Load it when the current evidence action is a story interview, task observation, or live protocol, and the human asked to start, confirmed the participant is present, or the latest message is a participant answer.
+Load it when interview is the selected method and the human asks to start, confirms a participant is present, or supplies the participant's latest answer.
 
-## Roles
+## Two independent axes
 
-- `ask-yet` is the interviewer, redacting scribe, and protocol judge.
+Identify both axes from current facts; never ask the human to choose them.
+
+| Axis | Value | Meaning |
+| --- | --- | --- |
+| `purpose` | `EXPLORATORY` | Discover a recent event, correct the Candidate Frame, or form the next hypothesis. |
+| `purpose` | `VALIDATION` | Test one frozen falsifiable hypothesis against precommitted evidence and thresholds. |
+| `durability` | `FORMAL` | The applicable guide or protocol and participant satisfy the existing persistence contract. |
+| `durability` | `INFORMAL` | The session may continue, but its result cannot close formal Evidence. |
+
+These axes are orthogonal. All four combinations are valid: formal exploration may durably correct a Candidate Frame without proving a threshold; informal validation may rehearse a frozen protocol without closing its Evidence item.
+
+Infer `EXPLORATORY` when the decision-changing unknown is the real actor, trigger, ordered workflow, current alternative, important failure, observable consequence, completion signal, or whether the Candidate Frame is wrong. Infer `VALIDATION` only when one explicit hypothesis and its decision rule were frozen before the participant answers.
+
+Infer durability rather than offering it as a choice:
+
+- `FORMAL`: the exact applicable guide or protocol revision is reachable from the human-approved remote draft ref or accepted remote delivery base, the participant matches it, live consent is obtained, and the session follows the frozen boundaries. Only a redacted result may update the Release artifact, and only after write approval.
+- `INFORMAL`: any other live session. Keep the result in conversation. It cannot close blocking Evidence, change readiness to `PASS`, or support `READY_TO_COMMIT` until formal evidence is obtained under the existing contract.
+
+Use ordinary language in the human status card. Show `EXPLORATORY`, `VALIDATION`, `FORMAL`, `INFORMAL`, protocol identity, thresholds, or machine verdicts only for debugging, protocol review, or an explicit request.
+
+## Freeze only what the purpose needs
+
+For exploration, form this bounded guide before consent:
+
+```yaml
+purpose: EXPLORATORY
+learning_question: <one thing to understand>
+participant_role_candidate: <candidate role or UNKNOWN>
+opening_story_question: <one recent real-event question>
+follow_up_dimensions:
+  - trigger
+  - ordered steps
+  - current alternative
+  - important failure
+  - observable consequence
+  - completion signal
+evidence_to_capture:
+  - redacted event facts
+  - explicit unknowns
+privacy_and_safety: []
+appetite: <question, time, or single-session ceiling>
+stop_condition: <enough to form or correct one Candidate Frame>
+return_format: <Candidate Frame changes and limitations>
+```
+
+Do not invent a pass threshold, fail threshold, generalization sample, Release artifact, six readiness passes, or Commitment detail to make this guide look like validation. Exploration may begin during `FRAME`, including in an empty or non-Git directory with no persisted Candidate Frame. Without an applicable guide on an approved remote draft ref or accepted base, it is informal; missing a Candidate Frame file, Git repository, or `EVIDENCE` state does not prevent listening to a present participant.
+
+For validation, freeze every field below before the participant answers:
+
+```yaml
+purpose: VALIDATION
+decision_question: <one decision this result can change>
+riskiest_assumption: <one falsifiable hypothesis>
+participant_criteria: <who qualifies>
+scope_and_sample: <bounded sample>
+opening_story_question: <one unaided question>
+follow_up_boundaries: []
+evidence_to_capture: []
+privacy_and_safety: []
+appetite: <question, time, or cost ceiling>
+pass_threshold: <fixed evidence condition>
+fail_or_stop_threshold: <fixed failure or stop condition>
+return_format: <result relative to the hypothesis>
+```
+
+Call the session validation only when a Candidate Frame exists and every field is fixed before answers. If the human says “start validation” without that contract and the participant is present, explain that no hypothesis and decision rule were fixed in advance, infer exploratory and informal, then proceed to consent. If the human insists on validation, finish and obtain product-owner confirmation of the protocol before asking the participant anything; the participant does not design the protocol they will answer.
+
+If an existing guide or protocol requires an offline facilitator, forbids in-session answers, or waits for a documentation merge while the participant is present, do not refuse. State the conflict, run an `INFORMAL` session under this contract, and propose the minimum later amendment. A validation result from that session cannot close formal Evidence.
+
+## Roles and legal workflow state
+
+- `ask-yet` is interviewer, redacting scribe, and protocol judge.
 - The product owner starts the session, may relay answers, and approves any writeback.
-- The interviewee answers. They may type directly. Relayed answers are treated as the interviewee's words, not the owner's interpretation.
+- The participant answers directly or through the owner. Treat relayed words as the participant's words, not the owner's interpretation.
 
-Never answer on the interviewee's behalf. Silence, "I don't know", or a skipped step is `UNKNOWN`. Do not complete a missing step from product knowledge.
+Never answer on the interviewee's behalf. Silence, “I don't know”, or a skipped step is `UNKNOWN`; do not complete it from product knowledge.
 
-## Formal or informal
+During `FRAME`, run only exploration. Keep the legal `PRODUCT/FRAME · <identity or NONE> · FRAME_CANDIDATE`, or use `FRAME_WRITE_AWAITING_APPROVAL` when the next action is the existing Candidate Frame write approval. Put consent and interview progress in the five-field human card; do not use the `INTERVIEW_*` verdicts, which belong to `EVIDENCE`.
 
-- `FORMAL`: the exact protocol revision is reachable from the human-approved remote draft ref or accepted remote delivery base, the participant still matches the protocol, and live consent is obtained. Only then may results update the Release artifact.
-- `INFORMAL`: any other live session. Ask the same questions. Say clearly that the result cannot be written as formal Evidence until the protocol blob is on an approved remote draft ref or the accepted base.
+During `EVIDENCE`, either purpose may use the existing `INTERVIEW_AWAITING_CONSENT`, `INTERVIEW_IN_PROGRESS`, `INTERVIEW_RECORDED`, or `INTERVIEW_STOPPED` verdict with a Release identity. Purpose and durability never become a lane, stage, verdict, Checkpoint field, or new persisted state.
 
-Do not block an informal session just because a documentation PR is unmerged.
+## First participant turn
 
-## Start
+Do exactly three things: explain the purpose and limit in ordinary language, state the redaction and exit boundary, and ask whether they consent. In the same boundary explanation, say whether the current source and participant facts meet the conditions for a formal redacted record or whether the result must remain only in this conversation; live consent is still required. Do not also ask for their role, recent event, workflow, or success metric.
 
-If the protocol is not yet frozen, finish protocol design first. Do not interview during `FRAME`.
+Default exploratory wording:
 
-If the human asks to start a live interview and the current protocol forbids in-session answers, requires an offline human facilitator, or waits for a documentation PR to merge: do not refuse. State the conflict in one sentence, treat the start request as approval to run an `INFORMAL` session under this contract, and later propose the minimum protocol amendment. Then continue.
+> 这不是绩效考核，也不是产品演示。本轮只了解最近发生的一次真实事件，用于理解流程和形成或修正候选方向，不代表已经决定开发。请不要提供真实 IP、系统名、客户名、账号或凭据；你可以随时停止。你是否同意继续？
 
-On the first interview turn, state `FORMAL` or `INFORMAL`, then ask only the consent and boundary question. Default if the protocol has none:
+For validation, say instead that the session tests one already fixed hypothesis and that its participant scope, questions, and judgment rule will not change in response to the answers. Keep the same privacy and withdrawal boundary, then ask only for consent.
 
-> This is not an evaluation or a product demo. Please describe a recent real event. Do not give real IPs, hostnames, system names, customer names, accounts, or credentials. We will only keep process categories. You may stop at any time. Do you agree to continue?
-
-Stop with `INTERVIEW_STOPPED` if consent is refused, a live incident appears, or the participant withdraws.
+Stop with `INTERVIEW_STOPPED` in `EVIDENCE`, or the current legal `FRAME` verdict during Frame exploration, if consent is refused, the participant withdraws, or a live safety or privacy incident appears.
 
 ## Each later turn
 
-Do exactly one of these:
+Do exactly one action:
 
-1. After consent: ask only the protocol's unaided opening story question. Do not preview later questions or show a product.
-2. After an answer that contains a real IP, hostname, URL, system name, customer name, account, credential, filename, or verbatim dump: do not repeat the secret. Ask them to restate that part as a category. Keep `INTERVIEW_IN_PROGRESS`.
-3. After a usable answer: show a short redacted capture of what is now known, then ask one question for the next missing required field.
-4. When required fields are filled, the stated appetite is exhausted, or the participant is done: stop asking. Produce the closeout.
+1. After consent, ask only the guide or protocol's unaided opening story question. Do not preview follow-ups or show a product.
+2. If an answer contains a real IP, hostname, URL, system name, customer name, account, credential, filename, or verbatim dump, do not repeat it. Ask only for that part to be restated as a category.
+3. After a usable answer, show one short redacted capture and ask one question for the next missing required field allowed by the guide or protocol.
+4. When the stop condition is met, the appetite is exhausted, or the participant is done, ask nothing else and close out.
 
-Do not recap the whole protocol each turn. Do not ask leading questions such as whether the work is painful or whether a product would help. Do not show, translate, or operate a product UI. Record any such contamination as a limitation.
+Do not use a feature-usefulness question as the opening, imply that the participant should feel pain, lead them toward the current candidate, present a question list, show or operate a product UI, or fill missing answers. Record facilitator or product exposure as contamination.
 
-## What to capture
+## Validation drift
 
-Use the protocol's `evidence_to_capture` and `return_format` when present. Otherwise capture only:
+Keep the decision question, participant criteria, sample, questions, evidence fields, and thresholds frozen during validation. Stop the original judgment if the participant is outside the target role, the answers describe another workflow or trigger, the Frame is wrong, a question is materially leading, or the sample or threshold no longer applies.
 
-- participant role category and what they personally did
-- how recent the event was
-- trigger
-- current alternative, as a tool or channel category
-- ordered steps
-- handoffs: role category and information category
-- one important failure and its observable consequence
-- how they knew it was finished, and whether anyone rechecked
-- explicit `UNKNOWN` items
-- facilitator contamination, if any
+Record the deviation, explain why the protocol no longer answers its decision question, and recommend either a Frame correction or one explicit `REWORK` action. Do not swap actor, hypothesis, sample, or threshold and continue counting the same session; do not reinterpret a different positive finding as the original hypothesis passing.
 
-Keep a running redacted capture in conversation. Do not write raw answers, names, or identifiers into Git, Issues, or the Release artifact.
+## Capture and privacy
+
+For exploration, capture only redacted facts about the recent event: participant role category and personal action, recency, trigger, ordered steps, current alternative, handoffs by role and information category, important failure and observable consequence, completion or recheck signal, explicit unknowns, and contamination.
+
+For validation, capture only the protocol fields needed to compare the frozen hypothesis with its thresholds. Keep raw answers, recordings, names, identifiers, credentials, IPs, and unredacted material outside Git in an approved location.
+
+Never change a threshold after seeing an answer.
 
 ## Closeout
 
-Recommend one protocol verdict from the protocol's own thresholds. If the protocol has none, use:
+Exploratory closeout must include:
 
-- `FRAME_SUPPORTED`: unaided recent real event, personal role in the loop, unprompted important failure or cost, and a real completion or explicit lack of retest
-- `ACTOR_REWORK`: recent event, but this person is not in the target loop
-- `PROBLEM_REWORK`: they are in the loop, but no important failure, cost, or relevant outcome
-- `INCONCLUSIVE`: no recent concrete event, only general opinions, or the session did not finish
-- `STOP_SAFETY`: consent, privacy, or incident stop
+- recent-event facts observed in this session
+- what remains unknown
+- suggested Candidate Frame changes
+- what this result cannot prove
+- the next Evidence item
+
+Describe the next step as collecting the next Evidence item. Keep the purpose exploratory even when the router stage is `EVIDENCE`; reserve “validation phase” for a frozen validation protocol.
+
+The optional labels remain `FRAME_SUPPORTED | ACTOR_REWORK | PROBLEM_REWORK | INCONCLUSIVE | STOP_SAFETY`. `FRAME_SUPPORTED` means only that this participant's recent story supports retaining the Candidate Frame for further evidence. It does not establish prevalence, sufficient value, any readiness `PASS`, `READY_TO_COMMIT`, or `COMMITTED`.
 
 The owner may correct a factual capture. They may not choose `FRAME_SUPPORTED` to be polite.
 
-Then show the redacted return block and:
+Validation closeout must include the protocol identity and purpose, actual participant and sample, redacted evidence summary, result against the frozen thresholds, limitations and contamination, the one hypothesis supported or disproved, readiness items still open, and one next action. A valid result may close only the named Evidence item or small set named by the protocol; it never automatically produces `READY_TO_COMMIT`, `COMMITTED`, Spec, Tickets, Admission, or `ready-for-agent`.
 
-- `FORMAL`: request write approval for the minimum Release-artifact update. Do not write until approved.
-- `INFORMAL`: keep the summary in conversation. Next action is to publish the protocol revision, then rerun closeout, or accept the session as non-durable.
+In `EVIDENCE`, use `INTERVIEW_RECORDED` for a normal closeout when required fields are complete, appetite is exhausted, or the participant is done. Reserve `INTERVIEW_STOPPED` for refused consent, withdrawal, or a safety or privacy stop. During `FRAME`, keep the current legal Frame verdict.
 
-A completed interview updates product evidence only. It does not enter `COMMIT`, `SPEC`, or tickets.
+For a formal closeout, request approval for the minimum redacted Release-artifact update and do not write before approval. For an informal closeout, keep the summary in conversation and state that it cannot close the blocking gate; rerun formally if that evidence is required.

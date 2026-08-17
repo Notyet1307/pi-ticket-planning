@@ -192,6 +192,13 @@ Choose the cheapest valid method:
 - Technical feasibility unknown: bounded spike or canary with a pass/fail signal.
 - Several interdependent decisions that cannot close in one context: Wayfinder.
 
+For an interview, infer its purpose from the unknown rather than asking the human to choose:
+
+- `EXPLORATORY`: discover or correct the real actor, trigger, ordered workflow, current alternative, important failure, observable consequence, completion signal, or Candidate Frame. It may run during `FRAME` and does not need a validation threshold.
+- `VALIDATION`: test one already explicit falsifiable hypothesis against evidence conditions fixed before participant answers. It requires a Candidate Frame and a complete frozen validation protocol.
+
+Purpose answers why the interview runs. `FORMAL | INFORMAL` durability answers whether its redacted result may become official Evidence; infer durability from the existing source, participant, and consent facts in [interview-session.md](interview-session.md), while writeback remains approval-gated. Do not merge the axes or add either to workflow state.
+
 ### Evidence-enabling surface
 
 A `HOLD` decision applies only to its Release ID; it does not freeze the repository. Preserve the held artifact and require its reopen condition only when continuing that same Release.
@@ -203,7 +210,40 @@ When the blocking signal cannot be observed until a minimum surface exists:
 
 Passing this surface can establish feasibility or make a later test possible. It cannot establish customer value, satisfy the held Release's reopen condition, or become evidence for that Release without the planned real participant or workflow signal.
 
-Before action, record:
+For an exploratory interview, record only this bounded Exploration Guide:
+
+```yaml
+purpose: EXPLORATORY
+learning_question: <one thing to understand>
+participant_role_candidate: <candidate role or UNKNOWN>
+opening_story_question: <one recent real-event question>
+follow_up_dimensions: [trigger, ordered steps, current alternative, important failure, observable consequence, completion signal]
+evidence_to_capture: [redacted event facts, explicit unknowns]
+privacy_and_safety: []
+appetite: <question, time, or one-session ceiling>
+stop_condition: <enough to form or correct one Candidate Frame>
+return_format: <Candidate Frame changes and limitations>
+```
+
+Do not invent pass/fail thresholds or require a persisted Release artifact, six readiness passes, or Commitment to run exploration. For a validation interview, freeze this complete protocol before answers:
+
+```yaml
+purpose: VALIDATION
+decision_question: <one decision the evidence will change>
+riskiest_assumption: <one falsifiable hypothesis>
+participant_criteria: <who qualifies>
+scope_and_sample: <bounded scope>
+opening_story_question: <one unaided question>
+follow_up_boundaries: []
+evidence_to_capture: []
+privacy_and_safety: []
+appetite: <time or cost ceiling>
+pass_threshold: <fixed before running>
+fail_or_stop_threshold: <fixed before running>
+return_format: <result relative to the hypothesis>
+```
+
+For every non-interview evidence action, retain the existing bounded protocol:
 
 ```yaml
 decision_question: <one decision the evidence will change>
@@ -219,9 +259,9 @@ fail_or_stop_threshold: <fixed before running>
 return_format: <what updates the Release artifact>
 ```
 
-Do not expand discovery after this action is sufficient to change the next decision.
+Do not expand discovery after the chosen action is sufficient to change the next decision.
 
-When the chosen action is a customer interview or live observation and the human starts it or the participant is present, stop designing and follow [interview-session.md](interview-session.md). The interviewer may collect answers in this conversation. Only a redacted return block may later update the Release artifact, and only after explicit write approval. Raw responses stay out of Git.
+When the chosen action is an interview and the human starts it or the participant is present, follow [interview-session.md](interview-session.md). Start exploration after its bounded guide; start validation only after its complete protocol is frozen. If validation was requested without that protocol and the participant is present, default to an exploratory informal session unless the human insists on finishing protocol design first. Only a redacted return block may later update the Release artifact under the existing durability and write-approval rules. Raw responses stay out of Git.
 
 ## 5. Capability-aware research
 

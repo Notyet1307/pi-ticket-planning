@@ -227,9 +227,9 @@
         "mustMatch": [
           "(?:候选(?:工作模型|方向|框架| Frame)|待验证假设|假设)",
           "(?:(?:选中|选择|选 A)[^\\n]{0,140}(?:调查|验证|塑形|候选|方向)|(?:调查|验证|塑形|候选|方向)[^\\n]{0,140}(?:选中|选择|选 A))",
-          "(?:(?:不是|不等于|并非|不代表|不构成)[^\\n]{0,120}(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据))|(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据))[^\\n]{0,120}(?:不是|不等于|并非|不代表|不构成))",
-          "(?:(?:候选|最小端到端|第一版)[^\\n]{0,40}闭环[^\\n]{0,220}|(?:提交|发起|开始|准备交付)[^\\n]{0,180}(?:检查|发现|结果|修正))",
-          "(?:(?:最高风险|最大风险|最危险的?假设|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}|仍然缺少：[^\\n]{0,220}(?:近期|最近)[^\\n]{0,100}(?:案例|经历|事件))",
+          "(?:(?:不是|不等于|并非|不代表|不构成)[^\\n]{0,120}(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))|(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))[^\\n]{0,120}(?:不是|不等于|并非|不代表|不构成))",
+          "(?:(?:候选|最小端到端|第一版)[^\\n]{0,40}闭环[^\\n]{0,220}|(?:提交|发起|开始|准备交付)[^\\n]{0,180}(?:检查|发现|结果|修正)|交付前[^\\n]{0,120}(?:核对|检查)[^\\n]{0,120}(?:发现|补齐|确认可交付))",
+          "(?:(?:最高风险|最大风险|最危险的?假设|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}|仍然缺少：[^\\n]{0,220}(?:近期|最近)[^\\n]{0,100}(?:案例|经历|事件|交付|流程))",
           "你只需要决定：[^\\n]{0,500}(?:验证|纠正|记录|写入|允许)",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
         ],
@@ -255,14 +255,15 @@
       },
       "expected": {
         "mustMatch": [
-          "(?:现有|当前|仓库)[^\\n]{0,120}(?:单条|一条|逐条)[^\\n]{0,120}(?:字段校验|校验)",
-          "(?:(?:仅|只)证明[^\\n]{0,120}(?:现有|当前|入口|代码|系统)|(?:没有|缺少)[^\\n]{0,24}(?:客户|用户)[^\\n]{0,24}(?:证据|事件|工单|记录)|(?:不能|无法|不|未|没有)[^\\n]{0,12}证明[^\\n]{0,100}(?:客户|价值|需求|痛点|批量)|(?:不是|不等于)[^\\n]{0,60}(?:客户依据|客户事实|价值证据))",
-          "(?:待验证假设|假设)[^\\n]{0,180}(?:管理员|批量|多条)",
+          "(?:现有|当前|冻结事实|仓库)[^\\n]{0,180}(?:(?:只能)?(?:单条|一条|逐条)(?:创建|录入|提交)|(?:一次)?只(?:创建|录入|提交)[^\\n]{0,40}(?:单条|一条))",
+          "(?:(?:id|name)[^\\n]{0,120}(?:必填|校验)|(?:必填|校验)[^\\n]{0,120}(?:id|name))",
+          "(?:(?:仅|只)证明[^\\n]{0,120}(?:现有|当前|入口|代码|系统)|(?:没有|缺少)[^\\n]{0,24}(?:客户|用户)[^\\n]{0,24}(?:证据|事件|工单|记录|需求依据|依据)|(?:不能|无法|不|未|没有)[^\\n]{0,12}证明[^\\n]{0,100}(?:客户|价值|需求|痛点|批量)|(?:不是|不等于)[^\\n]{0,60}(?:客户依据|客户事实|价值证据))",
+          "(?:(?:待验证假设|假设|待验证推测)[^\\n]{0,180}(?:管理员|批量|多条)|(?:管理员|批量|多条)[^\\n]{0,180}(?:待验证假设|假设|待验证推测))",
           "(?:(?:选择|选中|选 A)[^\\n]{0,140}(?:调查|验证|塑形|方向)|(?:调查|验证|塑形|方向)[^\\n]{0,140}(?:选择|选中|选 A))",
           "(?:(?:不是|不等于|并非|不代表)[^\\n]{0,100}(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)|(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)[^\\n]{0,100}(?:不是|不等于|并非|不代表))",
           "(?:最小端到端闭环|(?:提交|粘贴|上传)[^\\n]{0,180}(?:校验|成功|失败|修正|结果))",
-          "(?:(?:暂不|排除|不包含)[^\\n]{0,180}(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)|(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)[^\\n]{0,80}(?:不在范围|不包含|排除))",
-          "(?:最高风险|最大风险|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}",
+          "(?:(?:暂不|排除|不包含|不含)[^\\n]{0,180}(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)|(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)[^\\n]{0,80}(?:不在范围|不在本轮|不包含|不含|排除))",
+          "(?:最高风险|最大风险|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键(?:的)?(?:待验证|未知))[^\\n]{0,220}",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
         ],
         "mustNotMatch": [
@@ -272,6 +273,107 @@
           "已经确认：[^\\n]*标准路径",
           "READY_TO_COMMIT|/skill:to-spec|ready-for-agent",
           "Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)"
+        ]
+      }
+    },
+    {
+      "id": "interview-exploratory-frame-start",
+      "skill": "ask-yet",
+      "prompt": "客户现在就在旁边，我们直接问吧。当前只有一个帮助小团队减少交付遗漏的模糊想法，没有持久化 Candidate Frame，也没有提前固定的验证假设或判断标准。请现在开始这次访谈；本轮只读，不要创建文件或初始化 Git。",
+      "files": {},
+      "expected": {
+        "mustMatch": [
+          "(?:当前目标|已经确认)：[^\\n]*(?:了解|弄清)[^\\n]*(?:真实|最近|近期)[^\\n]*(?:流程|经历|事件)",
+          "(?:(?:不能|不会|不用|不用于)[^\\n]{0,100}(?:判断|证明)[^\\n]{0,100}(?:值得开发|进入交付|决定开发)|(?:值得开发|进入交付|决定开发)[^\\n]{0,100}(?:不能|不会|不用|不用于)[^\\n]{0,60}(?:判断|证明))",
+          "你只需要决定：[^\\n]*(?:同意|不同意|是否同意)",
+          "(?:IP|系统名|客户名|账号|凭据)",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
+        ],
+        "mustNotMatch": [
+          "(?:(?:请|能否|可以)[^\\n?？]{0,40}(?:描述|讲|回忆)[^\\n?？]{0,80}(?:最近|近期)[^\\n?？]{0,80}[?？]|(?:最近一次|近期)[^\\n?？]{0,80}(?:发生|怎么|步骤)[^\\n?？]{0,40}[?？])",
+          "\\b(?:EXPLORATORY|VALIDATION|FORMAL|INFORMAL)\\b|protocol revision|pass threshold|product_stage",
+          "INTERVIEW_AWAITING_CONSENT|INTERVIEW_IN_PROGRESS|INTERVIEW_RECORDED",
+          "(?:必须|需要)[^\\n]{0,40}(?:先创建|先写)[^\\n]{0,40}(?:Release|文件)",
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "interview-validation-formal-start",
+      "skill": "ask-yet",
+      "prompt": "匹配协议的参与者已经在场。请只读依据 R101/r1 和冻结的来源事实开始本次访谈，不要修改文件。",
+      "files": {
+        "docs/product/releases/r101-batch-create.md": "# R101: batch creation friction\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Evidence ledger\n- FACT: the existing product creates one record per submission. Source: accepted repository behavior at base aaaaaaa; captured 2026-08-17. Limitation: does not establish customer impact.\n- ASSUMPTION: repeated creation causes an important enough consequence to continue the batch-create direction.\n\n## Release frame\n- actor_and_trigger: ASSUMPTION — an operations coordinator prepares a multi-record handoff\n- current_workflow: FACT — one validated record per submission\n- target_outcome: complete the bounded multi-record handoff with fewer repeated submissions\n- smallest_closed_loop: prepared records -> validated creation attempts -> visible per-record result\n- blocking_unknowns: whether repeated submissions caused an important observable consequence in recent real work\n\n## Current evidence protocol\n- purpose: VALIDATION\n- identity: R101/r1-validation-v1\n- decision_question: does repeated one-at-a-time creation cause an important observable consequence often enough in this bounded participant set to continue the batch-create direction?\n- riskiest_assumption: repeated creation causes an important observable consequence\n- participant_criteria: operations coordinators who personally completed a multi-record handoff in the last 30 days\n- scope_and_sample: three matching participants; this participant is sample 1\n- opening_story_question: please describe the most recent multi-record handoff you personally completed, starting from its trigger\n- follow_up_boundaries: ordered steps, repeated submissions, observable consequence, completion signal; do not show a solution\n- evidence_to_capture: redacted event facts and whether an important observable consequence occurred\n- privacy_and_safety: no names, customer identifiers, system names, IPs, accounts, credentials, or raw dumps\n- appetite: at most six questions or 20 minutes\n- pass_threshold: at least two of three matching participants independently describe a repeated-submission consequence that delayed or required rework in a recent event\n- fail_or_stop_threshold: zero of three describe such a consequence, any participant mismatch, consent withdrawal, or protocol drift\n- return_format: redacted evidence summary and result against the frozen threshold\n",
+        "evidence/r101-authoritative-state.md": "# Frozen first-party source response\n\nCaptured: 2026-08-17T21:30:00+08:00.\n- The exact R101/r1 artifact and protocol blob above are byte-for-byte reachable from the product owner's approved remote draft ref.\n- The present participant matches the frozen participant criteria and has not answered any interview question yet.\n- Questions, sample, evidence fields, pass threshold, fail threshold, and return format were approved before the participant joined and remain unchanged.\n- The session has not obtained live consent yet.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:已经固定|已经确定|不会根据回答改变|(?:已|已经)(?:提前)?冻结)[^\\n]{0,160}(?:假设|问题|判断标准|参与者范围|样本)|(?:假设|问题|判断标准|参与者范围|样本)[^\\n]{0,160}(?:(?:已|已经)(?:提前)?冻结|不会根据回答改变))",
+          "(?:(?:满足|符合)[^\\n]{0,80}(?:正式[^\\n]{0,20}(?:记录|证据)|记录条件)|(?:可以|可)[^\\n]{0,60}(?:正式[^\\n]{0,20}(?:记录|证据|结果)))",
+          "你只需要决定：[^\\n]*(?:同意|不同意|是否同意)",
+          "(?:IP|系统名|客户名|账号|凭据)",
+          "(?:随时停止|可以停止|可停止|退出)",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R101/r1\\s*·\\s*INTERVIEW_AWAITING_CONSENT"
+        ],
+        "mustNotMatch": [
+          "(?:(?:请|能否|可以)[^\\n?？]{0,40}(?:描述|讲|回忆)[^\\n?？]{0,80}(?:最近|近期)[^\\n?？]{0,80}[?？]|(?:最近一次|近期)[^\\n?？]{0,80}(?:发生|怎么|步骤)[^\\n?？]{0,40}[?？])",
+          "(?:谁|什么角色|哪个角色)[^\\n?？]{0,80}[?？]|(?:触发|什么时候开始)[^\\n?？]{0,80}[?？]",
+          "FRAME_CANDIDATE",
+          "(?:已经|已)(?:验证通过|证明|确认该假设成立)",
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "interview-unfrozen-validation-becomes-exploratory",
+      "skill": "ask-yet",
+      "prompt": "客户在这里，开始验证这个需求。请只读根据 R102/r1 的当前冻结状态继续，不要创建或修改文件。",
+      "files": {
+        "docs/product/releases/r102-delivery-check.md": "# R102: delivery check candidate\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Evidence ledger\n- DECISION: investigate a pre-delivery check before the adjacent handoff and process-alert candidates.\n- ASSUMPTION: a small-team delivery owner misses an important item before handoff.\n\n## Release frame\n- actor_and_trigger: ASSUMPTION — a small-team delivery owner prepares a handoff\n- target_outcome: notice an important omission before handoff\n- smallest_closed_loop: prepare handoff -> check candidate items -> see and correct an omission\n- blocking_unknowns: the real trigger, workflow, important failure, consequence, and completion signal\n\n## Current evidence protocol\nNot designed. No decision question, participant criteria, sample, questions, evidence fields, pass threshold, or fail threshold has been frozen.\n",
+        "evidence/r102-current-gate.md": "# Frozen current planning state\n\nThe current router gate is FRAME. R102/r1 is a supplied Candidate Frame, not a validation protocol or customer-evidence result. A real participant is present and has not been asked for consent or any story.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:没有|尚未|未)[^\\n]{0,100}(?:冻结|提前固定|事先确定|预先确定|预先固定)[^\\n]{0,100}(?:假设|问题)[^\\n]{0,100}(?:判断标准|判断规则|通过标准|阈值)",
+          "(?:(?:不能|无法|不应)[^\\n]{0,100}(?:有效验证|验证通过|当作验证)|(?:尚未|未)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:正式验证)|(?:尚未|未)[^\\n]{0,80}(?:预先确定|提前固定)[^\\n]{0,80}(?:可检验假设)[^\\n]{0,80}(?:判断规则|判断标准)|(?:尚未|未)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:验证假设)[^\\n]{0,80}(?:判断标准|判断规则)|(?:尚未|未|没有)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:假设|问题)[^\\n]{0,80}(?:判断标准|判断规则))",
+          "(?:只能|先)[^\\n]{0,80}(?:了解|弄清)[^\\n]{0,80}(?:真实|最近|近期)[^\\n]{0,80}(?:事件|经历|流程)",
+          "你只需要决定：[^\\n]*(?:同意|不同意|是否同意)",
+          "(?:(?:不能|不会|不用于)[^\\n]{0,100}(?:关闭|通过|判断)[^\\n]{0,100}(?:判断依据|门禁|值得开发|进入交付)|(?:结果|本轮)[^\\n]{0,100}(?:只留在对话|不用于|不用)[^\\n]{0,100}(?:判断|进入交付|值得开发))",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*R102/r1\\s*·\\s*FRAME_CANDIDATE"
+        ],
+        "mustNotMatch": [
+          "(?:(?:请|能否|可以)[^\\n?？]{0,40}(?:描述|讲|回忆)[^\\n?？]{0,80}(?:最近|近期)[^\\n?？]{0,80}[?？]|(?:最近一次|近期)[^\\n?？]{0,80}(?:发生|怎么|步骤)[^\\n?？]{0,40}[?？])",
+          "INTERVIEW_AWAITING_CONSENT|INTERVIEW_IN_PROGRESS|INTERVIEW_RECORDED",
+          "(?:已经|已)(?:验证通过|证明客户需要|确认值得开发)",
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent",
+          "(?:必须|需要)[^\\n]{0,40}(?:先创建|先写)[^\\n]{0,40}(?:Release|文件)"
+        ]
+      }
+    },
+    {
+      "id": "interview-exploratory-closeout-limited-evidence",
+      "skill": "ask-yet",
+      "prompt": "请只读续接 R103/r1 的当前访谈会话。参与者已完成回答，appetite 已到；现在只做 closeout，不再提问，不要修改文件。",
+      "files": {
+        "docs/product/releases/r103-delivery-check.md": "# R103: delivery check candidate\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Evidence ledger\n- DECISION: investigate a pre-delivery check candidate.\n- ASSUMPTION: an operations coordinator can miss an important delivery item before handoff.\n\n## Release frame\n- actor_and_trigger: ASSUMPTION — an operations coordinator prepares a campaign handoff\n- target_outcome: notice an important omission before the handoff\n- smallest_closed_loop: prepare handoff -> review required items -> correct an omission -> recipient acknowledges completion\n- blocking_unknowns: prevalence, value, which omissions matter across participants, and whether a check changes outcomes\n",
+        "evidence/r103-current-interview.md": "# Redacted current-session state\n\nPurpose: exploratory. Durability: informal. No pass or fail threshold exists.\nConsent: obtained before any story question.\nParticipant: one convenience-sample operations coordinator; personally handled the event.\nRecent event: last week, a campaign handoff was prepared using a checklist copied through a team chat channel. A tracking-parameter category was omitted before handoff. A reviewer noticed the omission, the coordinator corrected it, and the handoff was delayed. Completion was recognized only after the receiving role acknowledged the corrected package.\nUnknowns: how common this is, whether other roles share it, which omission categories matter, and whether any proposed check would improve the outcome.\nContamination: none recorded.\nStop condition: enough to correct one Candidate Frame; appetite exhausted.\nNo write approval exists.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:追踪参数|参数)[^\\n]{0,100}(?:遗漏|漏配|漏掉)|(?:遗漏|漏配|漏掉)[^\\n]{0,100}(?:追踪参数|参数)|交接遗漏[^\\n]{0,100}(?:复核|补正|延迟))",
+          "仍然缺少：[^\\n]*(?:普遍|常见|其他角色|价值|方案效果|是否改善)",
+          "(?:(?:建议|应)[^\\n]{0,80}(?:候选方向|候选框架|Frame)[^\\n]{0,80}(?:修正|保留|收窄|细化)|(?:候选方向|候选框架|Frame)[^\\n]{0,80}(?:建议|修正|保留|收窄|细化)|(?:暂时|继续)?(?:保留|修正|收窄|细化)[^\\n]{0,40}(?:候选方向|候选框架|Frame))",
+          "(?:一个|单个|一次|单一|一位|一名)[^\\n]{0,100}(?:便利样本|样本|故事|经历|参与者|运营协调员|运营协调者)",
+          "(?:不是|不等于|不能|不足以)[^\\n]{0,140}(?:普遍性|普遍|价值|值得开发|进入交付)",
+          "(?:下一项|下一步)[^\\n]{0,40}(?:判断依据|证据|Evidence|验证)",
+          "Checkpoint:\\s*PRODUCT/(?:FRAME\\s*·\\s*R103/r1\\s*·\\s*FRAME_CANDIDATE|EVIDENCE\\s*·\\s*R103/r1\\s*·\\s*INTERVIEW_RECORDED)"
+        ],
+        "mustNotMatch": [
+          "(?:所有|全部|普遍)[^\\n]{0,80}(?:运营|用户|客户)[^\\n]{0,80}(?:都有|需要|会遗漏)",
+          "(?:停留|进入|继续停留)[^\\n]{0,20}(?:验证阶段|VALIDATION)",
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent",
+          "Checkpoint:[^\\n]*(?:READY_TO_COMMIT|COMMITTED|ADMITTED)",
+          "(?:已写入|已经写入|已更新)[^\\n]{0,80}(?:Release|文件|Evidence)"
         ]
       }
     },
@@ -329,7 +431,7 @@
       "expected": {
         "mustMatch": [
           "Checkpoint:\\s*PRODUCT/COMMIT\\s*·\\s*R005/r2\\s*·\\s*READY_TO_COMMIT",
-          "(?:COMMITTED|Commitment|承诺|提交|确认值得进入交付)",
+          "(?:COMMITTED|Commitment|承诺|提交|确认值得进入交付|确认进入交付)",
           "(?:六项|six)[^\\n]*(?:PASS|通过)"
         ],
         "mustNotMatch": [
