@@ -11,6 +11,10 @@ Every material claim is exactly one of:
 - `DECISION`: a choice made by the named authority, with date and tradeoff.
 - `UNKNOWN`: a missing answer that can change the next gate.
 
+In a Candidate Frame, a `FACT` may come only from an explicit human report of an occurred event, live repository code or configuration, an identifiable first-party source, a supplied primary artifact, or completed formal Evidence. State its source identity, date or locatable revision, and limitation. Use `ASSUMPTION` for inferred actors, triggers, workflows, problems, value, frequency, solution effect, and unobserved steps. A selected candidate is a `DECISION` to investigate one direction and temporarily exclude its alternatives; it is not customer evidence, Release Commitment, or approval to implement. Keep `UNKNOWN` only when the answer can change the target outcome, smallest loop, scope, evidence method, major risk, or `COMMIT | REWORK | DROP` decision.
+
+Type each claim once in the Evidence ledger. Release-frame fields may reference or plainly restate that claim without changing its type; do not create a second authority or let the ledger and Frame contradict each other. Repository roles, interfaces, and code paths remain system facts whose limitation is that they do not establish customer behavior or value.
+
 External research can establish public context, standards, or alternatives. It cannot prove that a particular customer has a problem. Code, a prototype, CI, a merged PR, or a canary can establish feasibility or delivery; none alone establishes value or usability.
 
 Track product and delivery separately:
@@ -110,7 +114,36 @@ Use it only when trusted existing sources already establish the actor and trigge
 
 A Release is the smallest end-to-end product bet that can produce new outcome evidence. It is not a feature list or a batch of issues.
 
-Minimum frame:
+A Frame may be wrong, but it must be coherent and falsifiable: it exists to decide what to verify next. A Commitment may not rely on unresolved assumptions that can change the target outcome, behavior, scope, or major risk.
+
+### Candidate Frame and Commitment-ready Frame
+
+A **Candidate Frame** may contain `FACT`, `ASSUMPTION`, `DECISION`, and decision-changing `UNKNOWN` claims. Keep `status: CANDIDATE` and `product_stage: FRAME`. Its actor, trigger, current workflow, observed problem, value, baseline, signal, or value/usability/feasibility risk may still be unverified. It may route the next work to `EVIDENCE`, but it cannot enter `to-spec`, `to-tickets`, Admission, or Harness.
+
+A **Commitment-ready Frame** is the same Release artifact after all six readiness tests pass, no blocking unknown can change its outcome, behavior, scope, or major risk, and a human can decide on the exact revision. Continue to use `READY_TO_COMMIT` and `COMMITTED`; do not create another artifact type, status, or product stage.
+
+### Candidate Frame Sufficiency
+
+A selected direction is sufficient to design the next Evidence action when all eight conditions hold:
+
+1. A human selected or explicitly corrected one candidate direction.
+2. One user-visible target outcome can be stated.
+3. One candidate actor and trigger can be proposed.
+4. One candidate observed problem or current alternative can be described.
+5. One smallest end-to-end loop can be described.
+6. Adjacent but materially different candidate directions are temporarily excluded.
+7. One assumption is named that is most likely to cause continuing, redirecting, narrowing, or stopping the Release.
+8. One bounded next decision question can be asked whose answer would test that assumption.
+
+Conditions 3–5 may be explicit `ASSUMPTION` claims; never present them as `FACT`. Frame Sufficiency does not require six readiness passes, a customer interview, a known baseline, a validated primary signal, a fixed evidence window, architecture or technology decisions, every scenario, every risk closed, or enough detail to generate Tickets. When all eight conditions hold, compile the Candidate Frame instead of asking the human to fill product fields one by one.
+
+### Compile a selected candidate
+
+After candidate-first selection, recover the selected direction, read only repository facts that can change it, separate repository facts and human statements from inference, and draft the Frame from the available material. Record the selection and excluded alternatives as a `DECISION`, inferred actor/trigger/problem/loop elements as `ASSUMPTION`, and only decision-changing gaps as `UNKNOWN`. Name one riskiest assumption and one next decision question; do not design the full evidence protocol yet. When showing the draft, make explicit that the selection chooses what to investigate rather than supplying customer evidence or Commitment.
+
+Use the existing Evidence ledger, Release frame, `risks` or `blocking_unknowns`, and `Current evidence protocol` decision question rather than adding permanent fields or another file. Show the candidate artifact content and follow the existing scoped or standing write-approval rule. In a read-only request, show it without writing. Ask one ordinary-language question only when the available material cannot support any coherent, falsifiable Frame.
+
+The same Release frame progressively fills these existing fields; absent or unverified values are not a questionnaire:
 
 ```yaml
 actor_and_trigger: <who starts, in what recent situation>
@@ -142,7 +175,7 @@ For a multi-step journey, describe a walking skeleton across the whole loop. For
 
 Repository roles, RBAC names, UI personas, and issue labels establish system vocabulary only. Until a recent customer story or observation establishes the actor and trigger, record them as `ASSUMPTION` or `UNKNOWN` rather than promoting repository vocabulary into a product fact.
 
-A human preference for AI, automation, or another solution updates `solution_hypothesis`; it does not reprioritize the evidence risks by itself. While actor, current workflow, or value is the higher-risk unknown, keep that solution outside the walking skeleton, primary signal, and primary pass threshold. If useful, evaluate it later as an isolated shadow against the same frozen evidence.
+A human preference for AI, automation, or another solution updates `solution_hypothesis`; it is not the `target_outcome`, `smallest_closed_loop`, or `primary_signal`, and it does not reprioritize the evidence risks by itself. Keep the target outcome implementation-independent. While actor, current workflow, or value is the higher-risk unknown, keep that solution outside the walking skeleton, primary signal, and primary pass threshold. If useful, evaluate it later as an isolated shadow against the same frozen evidence.
 
 ## 4. Pick one evidence action
 
@@ -240,6 +273,8 @@ When `ask-yet` renders this handoff, keep it inside the human card's `仍然缺�
 Missing research capability is `CAPABILITY_GAP`, not a product answer and not a request for the human to guess a searchable fact.
 
 ## 6. Readiness and human Commitment
+
+Apply these six tests at the `COMMIT` gate. They define Commitment Readiness, not Candidate Frame Sufficiency or permission to design the next Evidence action.
 
 Judge each item `PASS | FAIL | UNKNOWN`:
 
