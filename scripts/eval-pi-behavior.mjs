@@ -3,14 +3,15 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import readline from "node:readline";
+import { StringDecoder } from "node:string_decoder";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseCheckpoint, validateCheckpointState } from "./workflow-contract.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v1";
+const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v2";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "subagent"]);
+const MULTITURN_TOOLS = new Set([...READ_ONLY_TOOLS, "bash", "edit", "write"]);
 
 export function validateLiveEvalFixture(fixture) {
   const errors = [];
@@ -63,6 +64,114 @@ export function validateLiveEvalFixture(fixture) {
     }
   }
   return errors;
+}
+
+export function validateMultiTurnEvalFixture(fixture, existingIds = []) {
+  const errors = [];
+  const ids = new Set(existingIds);
+  if (fixture?.version !== 1) errors.push("fixture version must be 1");
+  if (!Array.isArray(fixture?.cases) || fixture.cases.length === 0) errors.push("fixture must contain cases");
+
+  for (const item of fixture?.cases ?? []) {
+    if (!item.id || ids.has(item.id)) errors.push(`${item.id || "unnamed"}: duplicate or missing id`);
+    ids.add(item.id);
+    if (!/^[a-z][a-z0-9-]*$/u.test(item.skill ?? "")) errors.push(`${item.id}: missing or invalid skill`);
+    if (!item.files || Array.isArray(item.files) || typeof item.files !== "object") errors.push(`${item.id}: files must be an object`);
+    if (!Array.isArray(item.turns) || item.turns.length < 2) errors.push(`${item.id}: multiturn case must contain at least two turns`);
+    if (item.hiddenContext !== undefined || item.transcript !== undefined) errors.push(`${item.id}: hidden context or transcript is not allowed`);
+    if (item.timeoutMs !== undefined && (!Number.isInteger(item.timeoutMs) || item.timeoutMs < 1)) {
+      errors.push(`${item.id}: timeoutMs must be a positive integer`);
+    }
+    if (item.git !== undefined && item.git !== true) errors.push(`${item.id}: git must be true when present`);
+    if (item.workingTreeFiles && (Array.isArray(item.workingTreeFiles) || typeof item.workingTreeFiles !== "object")) {
+      errors.push(`${item.id}: workingTreeFiles must be an object`);
+    }
+    if (item.workingTreeFiles && !item.git) errors.push(`${item.id}: workingTreeFiles requires git: true`);
+    if (item.tools && (!Array.isArray(item.tools) || item.tools.some((tool) => !MULTITURN_TOOLS.has(tool)))) {
+      errors.push(`${item.id}: tools contain an unsupported eval tool`);
+    }
+    validateFiles(errors, item.id, item.files ?? {});
+    validateFiles(errors, item.id, item.workingTreeFiles ?? {});
+    validateExpected(errors, item.id, item.expected, false);
+    if (item.forbiddenStrings !== undefined && (!Array.isArray(item.forbiddenStrings) || item.forbiddenStrings.some((value) => typeof value !== "string" || !value))) {
+      errors.push(`${item.id}: forbiddenStrings must contain non-empty strings`);
+    }
+
+    const turnIds = new Set();
+    for (const turn of Array.isArray(item.turns) ? item.turns : []) {
+      const turnName = `${item.id}/${turn?.id || "unnamed"}`;
+      if (!turn?.id || turnIds.has(turn.id)) errors.push(`${turnName}: duplicate or missing turn id`);
+      turnIds.add(turn?.id);
+      if (!turn?.prompt?.trim()) errors.push(`${turnName}: missing prompt`);
+      validateExpected(errors, turnName, turn?.expected, true);
+      if (turn?.allowedWrites !== undefined && (!Array.isArray(turn.allowedWrites) || turn.allowedWrites.some((relative) => !safeRelativePath(relative) || relative === ".git" || relative.startsWith(".git/")))) {
+        errors.push(`${turnName}: allowedWrites must contain safe non-Git paths`);
+      }
+      if (turn?.expectedWrites !== undefined && (!Array.isArray(turn.expectedWrites) || turn.expectedWrites.some((relative) => !(turn.allowedWrites ?? []).includes(relative)))) {
+        errors.push(`${turnName}: expectedWrites must be a subset of allowedWrites`);
+      }
+      if (turn?.allowedGit !== undefined && turn.allowedGit !== true) errors.push(`${turnName}: allowedGit must be true when present`);
+      if (turn?.allowedGit && !item.git) errors.push(`${turnName}: allowedGit requires git: true`);
+      if (turn?.allowedGit && !(item.tools ?? []).includes("bash")) errors.push(`${turnName}: allowedGit requires the bash tool`);
+      if (turn?.allowedGit && !Array.isArray(turn.allowedRemoteRefs)) errors.push(`${turnName}: allowedGit requires allowedRemoteRefs`);
+      if (turn?.allowedRemoteRefs !== undefined && (!Array.isArray(turn.allowedRemoteRefs) || turn.allowedRemoteRefs.some((ref) => !/^refs\/heads\/[A-Za-z0-9._/-]+$/u.test(ref)))) {
+        errors.push(`${turnName}: allowedRemoteRefs must contain explicit branch refs`);
+      }
+      if (turn?.beforeTurn !== undefined) {
+        if (!turn.beforeTurn || Array.isArray(turn.beforeTurn) || typeof turn.beforeTurn !== "object" || !turn.beforeTurn.files) {
+          errors.push(`${turnName}: beforeTurn must declare files`);
+        } else {
+          validateFiles(errors, turnName, turn.beforeTurn.files);
+        }
+      }
+    }
+
+    if (item.finalArtifacts !== undefined && !Array.isArray(item.finalArtifacts)) errors.push(`${item.id}: finalArtifacts must be an array`);
+    for (const artifact of Array.isArray(item.finalArtifacts) ? item.finalArtifacts : []) {
+      if (!item.git) errors.push(`${item.id}: finalArtifacts require git: true`);
+      if (!safeRelativePath(artifact?.path)) errors.push(`${item.id}: final artifact has unsafe path`);
+      if (!/^refs\/heads\/[A-Za-z0-9._/-]+$/u.test(artifact?.ref ?? "")) errors.push(`${item.id}: final artifact has invalid ref`);
+      validateExpected(errors, `${item.id}/${artifact?.ref ?? "artifact"}`, artifact?.expected, true);
+    }
+  }
+  return errors;
+}
+
+export function combineLiveEvalFixtures(singleTurn, multiTurn) {
+  return {
+    version: 1,
+    releaseGateCases: [...singleTurn.releaseGateCases],
+    cases: [...singleTurn.cases, ...multiTurn.cases],
+  };
+}
+
+function validateFiles(errors, id, files) {
+  if (Array.isArray(files) || typeof files !== "object" || files === null) {
+    errors.push(`${id}: files must be an object`);
+    return;
+  }
+  for (const [relative, content] of Object.entries(files)) {
+    if (!safeRelativePath(relative)) errors.push(`${id}: unsafe workspace path ${relative}`);
+    if (typeof content !== "string") errors.push(`${id}: ${relative} content must be a string`);
+  }
+}
+
+function validateExpected(errors, id, expected, required) {
+  if (required && (!expected || typeof expected !== "object")) {
+    errors.push(`${id}: missing expected`);
+    return;
+  }
+  if (!expected) return;
+  for (const field of ["mustMatch", "mustNotMatch"]) {
+    if (!Array.isArray(expected[field])) errors.push(`${id}: expected.${field} must be an array`);
+    for (const pattern of expected[field] ?? []) {
+      try {
+        new RegExp(pattern, "isu");
+      } catch (error) {
+        errors.push(`${id}: invalid ${field} pattern ${pattern}: ${error.message}`);
+      }
+    }
+  }
 }
 
 export function matchLiveEvalOutput(output, expected) {
@@ -165,51 +274,162 @@ export function summarizeLiveEvalAttempts(attempts) {
   };
 }
 
-export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, model, thinking, timeoutMs, repeat = 1, retryFailures = 0, requireClean = false, onProgress = () => {} }) {
+export async function runLivePiEval({
+  fixture,
+  caseId,
+  suite = "all",
+  launcher,
+  model,
+  thinking,
+  timeoutMs,
+  repeat = 1,
+  retryFailures = 0,
+  requireClean = false,
+  onProgress = () => {},
+  runtime = {},
+}) {
   const selected = selectLiveEvalCases(fixture, { caseId, suite });
   if (!Number.isInteger(repeat) || repeat < 1) throw new Error("repeat must be a positive integer");
   if (!Number.isInteger(retryFailures) || retryFailures < 0) throw new Error("retryFailures must be a non-negative integer");
   const source = gitState();
   if (requireClean && source.dirty) throw new Error("release evaluation requires a clean package checkout");
+  const createSession = runtime.createSession ?? createPiRpcSession;
+  const makeTempDir = runtime.makeTempDir ?? ((prefix) => fs.mkdtempSync(prefix));
+  const removeTree = runtime.removeTree ?? ((target) => fs.rmSync(target, { recursive: true, force: true }));
   const attempts = [];
   const startedAt = new Date().toISOString();
 
-  async function runAttempt(item, round) {
+  async function runAttempt(item, round, retryReason = "") {
     const attemptStarted = Date.now();
     const caseTimeoutMs = item.timeoutMs ?? timeoutMs;
-    const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ticket-planning-eval-"));
-    let before;
-    let output = "";
+    const isMultiturn = Array.isArray(item.turns);
+    const workspace = makeTempDir(path.join(os.tmpdir(), "pi-ticket-planning-eval-"));
+    const sessionRoot = isMultiturn ? makeTempDir(path.join(os.tmpdir(), "pi-ticket-planning-session-")) : "";
+    const turns = isMultiturn
+      ? item.turns
+      : [{ id: "response", prompt: item.prompt, expected: item.expected, allowedWrites: [] }];
+    const turnReports = [];
+    const outputs = [];
+    const allMutations = [];
     let infraError = "";
     const errors = [];
+    let session;
+    let sessionIdentity = "UNAVAILABLE";
+    const cleanup = {
+      session: isMultiturn ? "PENDING" : "NOT_APPLICABLE",
+      workspace: "PENDING",
+    };
     try {
       writeWorkspace(workspace, item.files);
       if (item.git) initializeGitWorkspace(workspace);
       if (item.workingTreeFiles) writeWorkspace(workspace, item.workingTreeFiles);
-      before = snapshotTree(workspace);
-      try {
-        output = await runPiCase({
-          cwd: workspace,
-          launcher,
-          model,
-          thinking,
-          timeoutMs: caseTimeoutMs,
-          skill: item.skill,
-          tools: item.tools ?? ["read", "grep", "find", "ls"],
-          prompt: `/skill:${item.skill} ${item.prompt}`,
+      if (turns.some(({ allowedGit }) => allowedGit)) assertIsolatedOrigin(workspace);
+      session = await createSession({
+        cwd: workspace,
+        launcher,
+        model,
+        thinking,
+        timeoutMs: caseTimeoutMs,
+        skill: item.skill,
+        tools: item.tools ?? ["read", "grep", "find", "ls"],
+        persisted: isMultiturn,
+        sessionDir: sessionRoot,
+        sessionName: `eval-${item.id}-${round}`,
+      });
+      sessionIdentity = redactSessionIdentity(session.identity);
+
+      for (const [index, turn] of turns.entries()) {
+        let output = "";
+        let observerMutations = [];
+        let modelMutations = [];
+        let remoteMutations = [];
+        const turnErrors = [];
+        try {
+          if (turn.beforeTurn?.files) {
+            const beforeObserver = snapshotTree(workspace);
+            writeWorkspace(workspace, turn.beforeTurn.files);
+            observerMutations = diffSnapshots(beforeObserver, snapshotTree(workspace));
+          }
+          const beforeModel = snapshotTree(workspace);
+          const beforeRemoteRefs = item.git ? snapshotOriginRefs(workspace) : [];
+          const message = index === 0 ? `/skill:${item.skill} ${turn.prompt}` : turn.prompt;
+          const response = await session.prompt(message);
+          output = typeof response === "string" ? response : response.text;
+          if (typeof output !== "string") throw new Error("PI returned no final assistant text");
+          outputs.push(output);
+          if (item.skill === "ask-yet") turnErrors.push(...matchChineseAskYetCard(output));
+          turnErrors.push(...matchLiveEvalOutput(output, turn.expected));
+
+          modelMutations = diffSnapshots(beforeModel, snapshotTree(workspace));
+          remoteMutations = item.git ? diffSnapshots(beforeRemoteRefs, snapshotOriginRefs(workspace)) : [];
+          allMutations.push(...modelMutations);
+          const allowedWrites = new Set(turn.allowedWrites ?? []);
+          for (const mutation of modelMutations) {
+            if (mutation.path.startsWith(".git/") && turn.allowedGit) continue;
+            if (allowedWrites.has(mutation.path)) continue;
+            turnErrors.push(`unauthorized workspace mutation: ${mutation.path}`);
+          }
+          const allowedRemoteRefs = new Set(turn.allowedRemoteRefs ?? []);
+          for (const mutation of remoteMutations) {
+            if (!allowedRemoteRefs.has(mutation.path)) turnErrors.push(`unauthorized remote ref mutation: ${mutation.path}`);
+          }
+          const changedPaths = new Set(modelMutations.map(({ path: relative }) => relative));
+          for (const relative of turn.expectedWrites ?? []) {
+            if (!changedPaths.has(relative)) turnErrors.push(`expected workspace write missing: ${relative}`);
+          }
+          turnErrors.push(...findForbiddenStrings(workspace, item.forbiddenStrings ?? []));
+        } catch (error) {
+          infraError = error instanceof Error ? error.message : String(error);
+        }
+
+        const turnStatus = infraError ? "INFRA_FAIL" : turnErrors.length ? "SEMANTIC_FAIL" : "PASS";
+        turnReports.push({
+          id: turn.id,
+          index: index + 1,
+          status: turnStatus,
+          outputExcerpt: excerpt(output),
+          errors: infraError ? [infraError] : turnErrors,
+          observerActions: {
+            files: Object.keys(turn.beforeTurn?.files ?? {}),
+            mutations: summarizeMutations(observerMutations),
+          },
+          workspaceMutations: summarizeMutations(modelMutations),
+          remoteRefMutations: summarizeMutations(remoteMutations),
+          sessionIdentity,
         });
-        if (item.skill === "ask-yet") errors.push(...matchChineseAskYetCard(output));
-        errors.push(...matchLiveEvalOutput(output, item.expected));
-      } catch (error) {
-        infraError = error instanceof Error ? error.message : String(error);
+        if (infraError) break;
+        if (turnErrors.length) {
+          errors.push(...turnErrors.map((error) => `${turn.id}: ${error}`));
+          break;
+        }
       }
-      if (before && JSON.stringify(snapshotTree(workspace)) !== JSON.stringify(before)) errors.push("read-only workspace changed");
+
+      if (!infraError && errors.length === 0 && turnReports.length === turns.length) {
+        if (isMultiturn && item.expected) errors.push(...matchLiveEvalOutput(outputs.join("\n\n"), item.expected));
+        for (const artifact of item.finalArtifacts ?? []) {
+          try {
+            const content = readOriginArtifact(workspace, artifact.ref, artifact.path);
+            errors.push(...matchLiveEvalOutput(content, artifact.expected).map((error) => `${artifact.ref}:${artifact.path}: ${error}`));
+          } catch (error) {
+            errors.push(`${artifact.ref}:${artifact.path}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
     } catch (error) {
       infraError = error instanceof Error ? error.message : String(error);
     } finally {
-      fs.rmSync(workspace, { recursive: true, force: true });
+      if (session) {
+        try {
+          await session.close();
+        } catch (error) {
+          infraError ||= error instanceof Error ? error.message : String(error);
+        }
+      }
+      if (isMultiturn) cleanup.session = cleanupPath(sessionRoot, removeTree);
+      cleanup.workspace = cleanupPath(workspace, removeTree);
+      if (cleanup.session === "FAIL" || cleanup.workspace === "FAIL") infraError ||= "eval cleanup failed";
     }
-    const status = errors.length ? "SEMANTIC_FAIL" : infraError ? "INFRA_FAIL" : "PASS";
+    const status = infraError ? "INFRA_FAIL" : errors.length ? "SEMANTIC_FAIL" : "PASS";
     const attempt = {
       caseId: item.id,
       skill: item.skill,
@@ -217,9 +437,14 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
       status,
       timeoutMs: caseTimeoutMs,
       durationMs: Date.now() - attemptStarted,
-      errors: errors.length ? errors : infraError ? [infraError] : [],
+      errors: [...errors, ...(infraError ? [infraError] : [])],
+      sessionIdentity,
+      turns: turnReports,
+      workspaceMutations: summarizeMutations(allMutations),
+      cleanup,
     };
-    if (status !== "PASS" && output) attempt.output = output;
+    if (retryReason) attempt.retryReason = retryReason;
+    if (status !== "PASS" && outputs.length) attempt.output = outputs.join("\n\n--- next turn ---\n\n");
     attempts.push(attempt);
     onProgress(`${status} ${item.id}${round > 1 ? ` [attempt ${round}]` : ""}`);
   }
@@ -230,14 +455,19 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
   for (let retry = 1; retry <= retryFailures; retry += 1) {
     const failed = new Set(evaluateCaseGate(attempts, selected.map(({ id }) => id)).failed);
     if (failed.size === 0) break;
-    for (const item of selected.filter(({ id }) => failed.has(id))) await runAttempt(item, repeat + retry);
+    for (const item of selected.filter(({ id }) => failed.has(id))) {
+      const previous = attempts.findLast(({ caseId: id }) => id === item.id);
+      await runAttempt(item, repeat + retry, `${previous.status}: ${previous.errors.join("; ")}`);
+    }
   }
 
   const gate = evaluateCaseGate(attempts, selected.map(({ id }) => id));
+  const evaluatedFixture = { version: fixture.version, cases: selected };
   return {
     schema: REPORT_SCHEMA,
     source,
-    fixtureSha256: crypto.createHash("sha256").update(JSON.stringify(fixture)).digest("hex"),
+    fixtureSha256: crypto.createHash("sha256").update(JSON.stringify(evaluatedFixture)).digest("hex"),
+    fixtureCaseIds: selected.map(({ id }) => id),
     model,
     thinking,
     suite: caseId ? "single" : suite,
@@ -251,12 +481,13 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
   };
 }
 
-async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, tools, prompt }) {
+async function createPiRpcSession({ cwd, launcher, model, thinking, timeoutMs, skill, tools, persisted, sessionDir, sessionName }) {
+  if (persisted) fs.mkdirSync(sessionDir, { recursive: true });
   const child = spawn(
     launcher,
     [
       "--mode", "rpc",
-      "--no-session",
+      ...(persisted ? ["--session-dir", sessionDir, "--name", sessionName] : ["--no-session"]),
       "--offline",
       "--no-approve",
       "--no-context-files",
@@ -273,20 +504,14 @@ async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, too
   let stderr = "";
   let sequence = 0;
   const pending = new Map();
-  const reader = readline.createInterface({ input: child.stdout });
+  let settleWaiter = null;
+  let terminalError = null;
+  let closedResult = null;
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-
-  let settleResolve;
-  let settleReject;
-  const settled = new Promise((resolve, reject) => {
-    settleResolve = resolve;
-    settleReject = reject;
-  });
-  settled.catch(() => {});
   child.once("error", failPending);
 
-  reader.on("line", (line) => {
+  const stopReading = attachJsonlLineReader(child.stdout, (line) => {
     let message;
     try {
       message = JSON.parse(line);
@@ -294,7 +519,10 @@ async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, too
       failPending(new Error(`PI emitted invalid JSONL: ${line}\n${error.message}`));
       return;
     }
-    if (message.type === "agent_settled") settleResolve();
+    if (message.type === "agent_settled" && settleWaiter) {
+      settleWaiter.resolve();
+      settleWaiter = null;
+    }
     if (message.type === "extension_ui_request" && message.id) {
       child.stdin.write(`${JSON.stringify({ type: "extension_ui_response", id: message.id, cancelled: true })}\n`);
     }
@@ -308,14 +536,19 @@ async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, too
     child.once("close", (code, signal) => {
       const error = code === 0 ? null : new Error(stderr || `PI exited ${code ?? signal}`);
       if (error) failPending(error);
-      resolve({ code, signal });
+      closedResult = { code, signal };
+      resolve(closedResult);
     });
   });
 
   function failPending(error) {
+    terminalError ??= error;
     for (const waiter of pending.values()) waiter.reject(error);
     pending.clear();
-    settleReject(error);
+    if (settleWaiter) {
+      settleWaiter.reject(error);
+      settleWaiter = null;
+    }
   }
 
   function request(command) {
@@ -326,13 +559,19 @@ async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, too
     });
   }
 
-  const timer = setTimeout(() => {
-    failPending(new Error(`PI case timed out after ${timeoutMs}ms`));
-    child.kill("SIGTERM");
-  }, timeoutMs);
+  const terminate = () => {
+    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
+  };
+  const timed = (promise, label) => withTimeout(promise, timeoutMs, () => {
+    const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+    failPending(error);
+    terminate();
+    return error;
+  });
 
+  let identity;
   try {
-    const catalog = await request({ type: "get_commands" });
+    const catalog = await timed(request({ type: "get_commands" }), "PI command catalog");
     if (!catalog.success) throw new Error("PI did not return its command catalog");
     const loadedSkill = catalog.data?.commands?.find((command) => command.name === `skill:${skill}` && command.source === "skill");
     const loadedPath = loadedSkill?.sourceInfo?.path ?? loadedSkill?.path;
@@ -341,20 +580,210 @@ async function runPiCase({ cwd, launcher, model, thinking, timeoutMs, skill, too
       throw new Error(`${skill} did not load from this checkout: ${loadedPath ?? "missing"}`);
     }
 
-    const accepted = await request({ type: "prompt", message: prompt });
-    if (!accepted.success) throw new Error(`PI rejected prompt: ${JSON.stringify(accepted)}`);
-    await settled;
-    const last = await request({ type: "get_last_assistant_text" });
-    if (!last.success || typeof last.data?.text !== "string") throw new Error("PI returned no final assistant text");
-    child.stdin.end();
-    const result = await closed;
-    if (result.code !== 0) throw new Error(stderr || `PI exited ${result.code ?? result.signal}`);
-    return last.data.text;
-  } finally {
-    clearTimeout(timer);
-    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
-    reader.close();
+    const initialState = await timed(request({ type: "get_state" }), "PI session state");
+    if (!initialState.success || !initialState.data?.sessionId) throw new Error("PI returned no session identity");
+    if (persisted) assertSessionPath(initialState.data.sessionFile, sessionDir);
+    identity = {
+      id: initialState.data.sessionId,
+      file: initialState.data.sessionFile ?? "",
+      name: initialState.data.sessionName ?? sessionName,
+    };
+  } catch (error) {
+    terminate();
+    await withTimeout(closed, 5_000, () => {
+      if (child.exitCode === null) child.kill("SIGKILL");
+    }).catch(() => {});
+    stopReading();
+    throw error;
   }
+  let closedByClient = false;
+
+  return {
+    identity,
+    async prompt(message) {
+      if (terminalError) throw terminalError;
+      if (settleWaiter) throw new Error("PI session already has a prompt in flight");
+      const settled = new Promise((resolve, reject) => { settleWaiter = { resolve, reject }; });
+      settled.catch(() => {});
+      const accepted = await timed(request({ type: "prompt", message }), "PI prompt acceptance");
+      if (!accepted.success) {
+        settleWaiter = null;
+        throw new Error(`PI rejected prompt: ${JSON.stringify(accepted)}`);
+      }
+      await timed(settled, "PI turn");
+      const last = await timed(request({ type: "get_last_assistant_text" }), "PI assistant response");
+      const state = await timed(request({ type: "get_state" }), "PI session state");
+      if (!last.success || typeof last.data?.text !== "string") throw new Error("PI returned no final assistant text");
+      if (!state.success || state.data?.sessionId !== identity.id) throw new Error("PI session identity changed during case");
+      if (persisted) assertSessionPath(state.data.sessionFile, sessionDir);
+      return { text: last.data.text, state: state.data };
+    },
+    async close() {
+      if (closedByClient) return;
+      closedByClient = true;
+      if (child.exitCode === null && !child.stdin.destroyed) child.stdin.end();
+      const result = closedResult ?? await withTimeout(closed, 5_000, terminate);
+      stopReading();
+      if (result.code !== 0) throw terminalError ?? new Error(stderr || `PI exited ${result.code ?? result.signal}`);
+    },
+  };
+}
+
+function attachJsonlLineReader(stream, onLine) {
+  const decoder = new StringDecoder("utf8");
+  let buffer = "";
+  const emit = (line) => onLine(line.endsWith("\r") ? line.slice(0, -1) : line);
+  const onData = (chunk) => {
+    buffer += typeof chunk === "string" ? chunk : decoder.write(chunk);
+    for (let newline = buffer.indexOf("\n"); newline >= 0; newline = buffer.indexOf("\n")) {
+      emit(buffer.slice(0, newline));
+      buffer = buffer.slice(newline + 1);
+    }
+  };
+  const onEnd = () => {
+    buffer += decoder.end();
+    if (buffer) emit(buffer);
+    buffer = "";
+  };
+  stream.on("data", onData);
+  stream.on("end", onEnd);
+  return () => {
+    stream.off("data", onData);
+    stream.off("end", onEnd);
+  };
+}
+
+function withTimeout(promise, timeoutMs, onTimeout) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      let error;
+      try {
+        error = onTimeout();
+      } catch (cause) {
+        error = cause;
+      }
+      reject(error instanceof Error ? error : new Error(`operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function assertSessionPath(sessionFile, sessionDir) {
+  if (!sessionFile || !isWithin(sessionDir, sessionFile)) throw new Error(`PI session escaped isolated directory: ${sessionFile ?? "missing"}`);
+}
+
+function redactSessionIdentity(identity) {
+  if (!identity) return "UNAVAILABLE";
+  const raw = typeof identity === "string" ? identity : `${identity.id ?? ""}\n${identity.file ?? ""}`;
+  return `session:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12)}`;
+}
+
+function excerpt(output, limit = 1_200) {
+  if (!output || output.length <= limit) return output;
+  return `${output.slice(0, 800)}\n…<truncated>…\n${output.slice(-350)}`;
+}
+
+function diffSnapshots(before, after) {
+  const oldEntries = new Map(before);
+  const newEntries = new Map(after);
+  const paths = [...new Set([...oldEntries.keys(), ...newEntries.keys()])].sort();
+  const changes = [];
+  for (const relative of paths) {
+    const oldValue = oldEntries.get(relative);
+    const newValue = newEntries.get(relative);
+    if (oldValue === newValue) continue;
+    changes.push({
+      path: relative,
+      kind: oldValue === undefined ? "created" : newValue === undefined ? "deleted" : "modified",
+    });
+  }
+  return changes;
+}
+
+function summarizeMutations(mutations) {
+  const summary = { count: mutations.length, created: 0, modified: 0, deleted: 0, paths: [] };
+  for (const mutation of mutations) summary[mutation.kind] += 1;
+  summary.paths = mutations.slice(0, 20).map(({ kind, path: relative }) => `${kind}:${relative}`);
+  return summary;
+}
+
+function findForbiddenStrings(root, forbiddenStrings) {
+  if (forbiddenStrings.length === 0) return [];
+  const found = [];
+  function visit(directory) {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === ".git") continue;
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      if (!entry.isFile()) continue;
+      const content = fs.readFileSync(absolute);
+      for (const value of forbiddenStrings) {
+        if (content.includes(Buffer.from(value))) {
+          const fingerprint = crypto.createHash("sha256").update(value).digest("hex").slice(0, 8);
+          found.push(`workspace contains forbidden string ${fingerprint} in ${path.relative(root, absolute)}`);
+        }
+      }
+    }
+  }
+  visit(root);
+  return found;
+}
+
+function cleanupPath(target, removeTree) {
+  try {
+    removeTree(target);
+    return fs.existsSync(target) ? "FAIL" : "PASS";
+  } catch {
+    return "FAIL";
+  }
+}
+
+function isWithin(root, target) {
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function isolatedOriginPath(root) {
+  const result = spawnSync("git", ["remote", "get-url", "origin"], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || "git remote get-url origin failed");
+  const remote = result.stdout.trim();
+  if (!remote || remote.includes("://") || /^[^/]+@[^:]+:/u.test(remote)) throw new Error("eval Git origin is not a local path");
+  const absolute = path.resolve(root, remote);
+  if (!isWithin(root, absolute)) throw new Error("eval Git origin escaped the isolated workspace");
+  return absolute;
+}
+
+function assertIsolatedOrigin(root) {
+  const origin = isolatedOriginPath(root);
+  if (!fs.statSync(origin).isDirectory()) throw new Error("eval Git origin is not a local bare repository");
+}
+
+function readOriginArtifact(root, ref, relative) {
+  const origin = isolatedOriginPath(root);
+  const result = spawnSync("git", ["--git-dir", origin, "show", `${ref}:${relative}`], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || `cannot read ${ref}:${relative}`);
+  return result.stdout;
+}
+
+function snapshotOriginRefs(root) {
+  const origin = isolatedOriginPath(root);
+  const result = spawnSync("git", ["--git-dir", origin, "for-each-ref", "--format=%(refname) %(objectname)"], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || "cannot read eval origin refs");
+  const refs = result.stdout.trim() ? result.stdout.trim().split("\n").map((line) => {
+    const separator = line.indexOf(" ");
+    return [line.slice(0, separator), line.slice(separator + 1)];
+  }) : [];
+  refs.push(["HEAD", fs.readFileSync(path.join(origin, "HEAD"), "utf8").trim()]);
+  return refs.sort(([left], [right]) => left.localeCompare(right));
 }
 
 function safeRelativePath(relative) {
@@ -377,8 +806,11 @@ function initializeGitWorkspace(root) {
   };
   const steps = [
     ["init", "-q", "-b", "main"],
+    ["config", "user.name", "PI Fixture"],
+    ["config", "user.email", "fixture@example.invalid"],
+    ["config", "commit.gpgSign", "false"],
     ["add", "--", "."],
-    ["-c", "user.name=PI Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "-q", "--no-verify", "-m", "Create accepted fixture base"],
+    ["commit", "-q", "--no-verify", "-m", "Create accepted fixture base"],
   ];
   for (const args of steps) {
     const result = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
@@ -389,6 +821,9 @@ function initializeGitWorkspace(root) {
     ["init", "-q", "--bare", remote],
     ["remote", "add", "origin", remote],
     ["push", "-q", "-u", "origin", "main"],
+    ["--git-dir", remote, "symbolic-ref", "HEAD", "refs/heads/main"],
+    ["remote", "set-head", "origin", "-a"],
+    ["fetch", "-q", "origin"],
   ];
   for (const args of remoteSteps) {
     const result = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
@@ -403,7 +838,6 @@ function snapshotTree(root) {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(root, absolute);
       if (entry.isDirectory()) {
-        entries.push([relative, "dir"]);
         visit(absolute);
       } else if (entry.isFile()) {
         entries.push([relative, crypto.createHash("sha256").update(fs.readFileSync(absolute)).digest("hex")]);
@@ -447,9 +881,14 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
     },
     allowPositionals: false,
   });
-  const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-live-eval-cases.json"), "utf8"));
-  const fixtureErrors = validateLiveEvalFixture(fixture);
+  const singleTurnFixture = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-live-eval-cases.json"), "utf8"));
+  const multiTurnFixture = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
+  const fixtureErrors = [
+    ...validateLiveEvalFixture(singleTurnFixture),
+    ...validateMultiTurnEvalFixture(multiTurnFixture, singleTurnFixture.cases.map(({ id }) => id)),
+  ];
   if (fixtureErrors.length) throw new Error(fixtureErrors.join("\n"));
+  const fixture = combineLiveEvalFixtures(singleTurnFixture, multiTurnFixture);
   const repeat = Number(values.repeat ?? 1);
   const retryFailures = Number(values["retry-failures"] ?? 0);
   const report = await runLivePiEval({

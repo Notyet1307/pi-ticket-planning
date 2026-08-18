@@ -9,16 +9,20 @@ import {
   validateDeliveryGraph,
 } from "../scripts/check-delivery-graph.mjs";
 import {
+  combineLiveEvalFixtures,
   evaluateCaseGate,
   matchChineseAskYetCard,
   matchLiveEvalOutput,
+  runLivePiEval,
   selectLiveEvalCases,
   summarizeLiveEvalAttempts,
   validateLiveEvalFixture,
+  validateMultiTurnEvalFixture,
 } from "../scripts/eval-pi-behavior.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
+const multiFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
@@ -173,4 +177,267 @@ test("ticket-graph live fixture binds its exact Spec and candidate bodies", () =
     "**冻结草稿：PASS**",
     "Delivery Graph includes C01 and C02 with needs-triage; waiting for approval.",
   ].join("\n"), item.expected), []);
+});
+
+test("multiturn fixture schema is globally unique and fail-closed", () => {
+  assert.deepEqual(validateMultiTurnEvalFixture(multiFixture, fixture.cases.map(({ id }) => id)), []);
+  assert.equal(combineLiveEvalFixtures(fixture, multiFixture).releaseGateCases.length, 14);
+
+  const invalid = structuredClone(multiFixture);
+  invalid.cases[0].id = fixture.cases[0].id;
+  invalid.cases[0].turns = [
+    { id: "same", prompt: "one", expected: { mustMatch: [], mustNotMatch: [] }, allowedWrites: [] },
+    { id: "same", prompt: "", allowedWrites: [] },
+  ];
+  const problems = validateMultiTurnEvalFixture(invalid, fixture.cases.map(({ id }) => id)).join("\n");
+  assert.match(problems, /duplicate or missing id/u);
+  assert.match(problems, /duplicate or missing turn id/u);
+  assert.match(problems, /missing prompt/u);
+  assert.match(problems, /missing expected/u);
+
+  const tooShort = structuredClone(multiFixture);
+  tooShort.cases[0].turns = tooShort.cases[0].turns.slice(0, 1);
+  assert.match(validateMultiTurnEvalFixture(tooShort).join("\n"), /at least two turns/u);
+});
+
+test("multiturn runner preserves order and session isolation while separating observer and model writes", async () => {
+  const sessions = [];
+  const evalFixture = {
+    version: 1,
+    releaseGateCases: ["case-a"],
+    cases: [
+      {
+        id: "case-a",
+        skill: "triage",
+        files: {},
+        turns: [
+          { id: "a1", prompt: "first-a", expected: { mustMatch: ["first-a"], mustNotMatch: [] }, allowedWrites: [] },
+          {
+            id: "a2",
+            prompt: "second-a",
+            beforeTurn: { files: { "evidence/raw.json": "observer" } },
+            expected: { mustMatch: ["second-a"], mustNotMatch: [] },
+            allowedWrites: ["allowed.txt"],
+            expectedWrites: ["allowed.txt"],
+          },
+        ],
+      },
+      {
+        id: "case-b",
+        skill: "triage",
+        files: {},
+        turns: [
+          { id: "b1", prompt: "first-b", expected: { mustMatch: ["first-b"], mustNotMatch: [] }, allowedWrites: [] },
+          { id: "b2", prompt: "second-b", expected: { mustMatch: ["second-b"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
+    ],
+  };
+  const report = await runLivePiEval({
+    fixture: evalFixture,
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    runtime: {
+      createSession: async ({ cwd, sessionDir }) => {
+        const record = { id: `session-${sessions.length + 1}`, cwd, sessionDir, prompts: [] };
+        sessions.push(record);
+        return {
+          identity: { id: record.id, file: path.join(sessionDir, "session.jsonl") },
+          async prompt(message) {
+            record.prompts.push(message);
+            if (message === "second-a") {
+              assert.equal(fs.readFileSync(path.join(cwd, "evidence", "raw.json"), "utf8"), "observer");
+              fs.writeFileSync(path.join(cwd, "allowed.txt"), "model");
+            }
+            return message;
+          },
+          async close() {},
+        };
+      },
+    },
+  });
+
+  assert.equal(report.schema, "pi-ticket-planning:live-eval:v2");
+  assert.deepEqual(report.fixtureCaseIds, ["case-a", "case-b"]);
+  assert.deepEqual(report.attempts.map(({ status }) => status), ["PASS", "PASS"]);
+  assert.deepEqual(sessions.map(({ prompts }) => prompts), [
+    ["/skill:triage first-a", "second-a"],
+    ["/skill:triage first-b", "second-b"],
+  ]);
+  assert.notEqual(report.attempts[0].sessionIdentity, report.attempts[1].sessionIdentity);
+  assert.equal(new Set(report.attempts[0].turns.map(({ sessionIdentity }) => sessionIdentity)).size, 1);
+  assert.deepEqual(report.attempts[0].turns.map(({ id }) => id), ["a1", "a2"]);
+  assert.deepEqual(report.attempts[0].turns[1].observerActions.mutations.paths, ["created:evidence/raw.json"]);
+  assert.deepEqual(report.attempts[0].turns[1].workspaceMutations.paths, ["created:allowed.txt"]);
+  assert.equal(report.attempts.every(({ cleanup }) => cleanup.session === "PASS" && cleanup.workspace === "PASS"), true);
+  assert.equal(sessions.every(({ cwd, sessionDir }) => !fs.existsSync(cwd) && !fs.existsSync(sessionDir)), true);
+});
+
+test("multiturn retry restarts at turn one in a new session and stops after the failed turn", async () => {
+  const sessions = [];
+  const evalFixture = {
+    version: 1,
+    releaseGateCases: ["retry-case"],
+    cases: [{
+      id: "retry-case",
+      skill: "triage",
+      files: {},
+      turns: ["one", "two", "three"].map((id) => ({
+        id,
+        prompt: id,
+        expected: { mustMatch: [`ok-${id}`], mustNotMatch: [] },
+        allowedWrites: [],
+      })),
+    }],
+  };
+  const report = await runLivePiEval({
+    fixture: evalFixture,
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    retryFailures: 1,
+    runtime: {
+      createSession: async ({ sessionDir }) => {
+        const index = sessions.length;
+        const record = { id: `retry-${index}`, prompts: [] };
+        sessions.push(record);
+        return {
+          identity: { id: record.id, file: path.join(sessionDir, "session.jsonl") },
+          async prompt(message) {
+            record.prompts.push(message);
+            const literal = message.replace(/^\/skill:triage\s+/u, "");
+            if (index === 0 && literal === "two") return "wrong";
+            return `ok-${literal}`;
+          },
+          async close() {},
+        };
+      },
+    },
+  });
+
+  assert.deepEqual(report.attempts.map(({ status }) => status), ["SEMANTIC_FAIL", "PASS"]);
+  assert.deepEqual(sessions.map(({ prompts }) => prompts), [
+    ["/skill:triage one", "two"],
+    ["/skill:triage one", "two", "three"],
+  ]);
+  assert.notEqual(report.attempts[0].sessionIdentity, report.attempts[1].sessionIdentity);
+  assert.match(report.attempts[1].retryReason, /^SEMANTIC_FAIL:/u);
+  assert.deepEqual(report.gate, { passed: true, failed: [], flaky: ["retry-case"] });
+});
+
+test("multiturn runner rejects forbidden writes and strings and reports cleanup failure", async () => {
+  const badFixture = {
+    version: 1,
+    releaseGateCases: ["bad-path"],
+    cases: [
+      {
+        id: "bad-path",
+        skill: "triage",
+        files: {},
+        turns: [
+          { id: "write", prompt: "bad-path", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+          { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
+      {
+        id: "bad-string",
+        skill: "triage",
+        files: {},
+        forbiddenStrings: ["SECRET-FIXTURE"],
+        turns: [
+          { id: "secret", prompt: "bad-string", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: ["target.txt"] },
+          { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
+      {
+        id: "bad-ref",
+        skill: "triage",
+        git: true,
+        tools: ["bash"],
+        files: { "README.md": "fixture\n" },
+        turns: [
+          {
+            id: "ref",
+            prompt: "bad-ref",
+            expected: { mustMatch: ["ok"], mustNotMatch: [] },
+            allowedWrites: [],
+            allowedGit: true,
+            allowedRemoteRefs: ["refs/heads/approved"],
+          },
+          { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
+    ],
+  };
+  const report = await runLivePiEval({
+    fixture: badFixture,
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    runtime: {
+      createSession: async ({ cwd, sessionDir }) => ({
+        identity: { id: path.basename(cwd), file: path.join(sessionDir, "session.jsonl") },
+        async prompt(message) {
+          if (message.includes("bad-path")) fs.writeFileSync(path.join(cwd, "forbidden.txt"), "x");
+          if (message.includes("bad-string")) fs.writeFileSync(path.join(cwd, "target.txt"), "SECRET-FIXTURE");
+          if (message.includes("bad-ref")) {
+            const ref = fs.readFileSync(path.join(cwd, ".git", "fixture-origin.git", "refs", "heads", "main"));
+            const target = path.join(cwd, ".git", "fixture-origin.git", "refs", "heads", "unapproved");
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, ref);
+          }
+          return "ok";
+        },
+        async close() {},
+      }),
+    },
+  });
+  assert.deepEqual(
+    report.attempts.map(({ status }) => status),
+    ["SEMANTIC_FAIL", "SEMANTIC_FAIL", "SEMANTIC_FAIL"],
+    JSON.stringify(report.attempts[2].errors),
+  );
+  assert.equal(report.attempts.every(({ turns }) => turns.length === 1), true);
+  assert.match(report.attempts[0].errors.join("\n"), /unauthorized workspace mutation/u);
+  assert.match(report.attempts[1].errors.join("\n"), /workspace contains forbidden string/u);
+  assert.match(report.attempts[2].errors.join("\n"), /unauthorized remote ref mutation/u);
+
+  const cleanupFixture = {
+    version: 1,
+    releaseGateCases: ["cleanup"],
+    cases: [{
+      id: "cleanup",
+      skill: "triage",
+      files: {},
+      turns: [
+        { id: "one", prompt: "one", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        { id: "two", prompt: "two", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+      ],
+    }],
+  };
+  const cleanupReport = await runLivePiEval({
+    fixture: cleanupFixture,
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    runtime: {
+      createSession: async ({ sessionDir }) => ({
+        identity: { id: "cleanup", file: path.join(sessionDir, "session.jsonl") },
+        async prompt() { return "ok"; },
+        async close() {},
+      }),
+      removeTree: (target) => {
+        fs.rmSync(target, { recursive: true, force: true });
+        if (target.includes("pi-ticket-planning-session-")) throw new Error("injected cleanup failure");
+      },
+    },
+  });
+  assert.equal(cleanupReport.attempts[0].status, "INFRA_FAIL");
+  assert.equal(cleanupReport.attempts[0].cleanup.session, "FAIL");
+  assert.match(cleanupReport.attempts[0].errors.join("\n"), /cleanup failed/u);
 });

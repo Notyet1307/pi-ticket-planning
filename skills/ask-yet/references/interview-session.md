@@ -4,6 +4,14 @@ Use this reference to run a live customer-evidence session. It may discover a Ca
 
 Load it when interview is the selected method and the human asks to start, confirms a participant is present, or supplies the participant's latest answer.
 
+## Session continuity and authority
+
+Within one PI session, keep the frozen guide or protocol, consent, speaker role, redacted working capture, next missing field, pause point, stop condition, and closeout state in the actual conversation context. Consume only the latest participant or owner input and continue the active interview; do not rerun Candidate-first, Evidence Method Selection, or the full `ask-yet` orientation on each turn. This is session context, not a new persisted Evidence state, service, ledger, or database.
+
+The participant supplies Evidence. The owner may pause, request status, resume, cancel, approve a scoped write, relay clearly attributed participant words, or correct a factual redacted capture. Those controls are not participant answers. If speaker identity is genuinely ambiguous, ask only who is speaking, record nothing from that message, and do not continue the interview question. A fixed speaker prefix is optional outside fixtures.
+
+In the same session, participant statements, clearly attributed relayed statements, owner-confirmed factual corrections, the frozen protocol, and the displayed redacted capture may be used. An assistant summary, product knowledge, owner interpretation, or an automatically compressed summary is only a lead until confirmed. Never use another session, another case, model memory, or invented completion as participant fact.
+
 ## Two independent axes
 
 Identify both axes from current facts; never ask the human to choose them.
@@ -53,6 +61,8 @@ return_format: <Candidate Frame changes and limitations>
 
 Do not invent a pass threshold, fail threshold, generalization sample, Release artifact, six readiness passes, or Commitment detail to make this guide look like validation. Exploration may begin during `FRAME`, including in an empty or non-Git directory with no persisted Candidate Frame. Without an applicable guide on an approved remote draft ref or accepted base, it is informal; missing a Candidate Frame file, Git repository, or `EVIDENCE` state does not prevent listening to a present participant.
 
+`follow_up_dimensions` bounds permissible questions; it is not a checklist that must be exhausted. Once the frozen stop condition is satisfied, close out even when another dimension could be explored. Do not extend the appetite merely to make every capture field known.
+
 For validation, freeze every field below before the participant answers:
 
 ```yaml
@@ -89,7 +99,7 @@ During `EVIDENCE`, either purpose may use the existing `INTERVIEW_AWAITING_CONSE
 
 ## First participant turn
 
-Do exactly three things: explain the purpose and limit in ordinary language, state the redaction and exit boundary, and ask whether they consent. In the same boundary explanation, say whether the current source and participant facts meet the conditions for a formal redacted record or whether the result must remain only in this conversation; live consent is still required. Do not also ask for their role, recent event, workflow, or success metric.
+Do exactly three things: explain the purpose and limit in ordinary language, state the redaction and exit boundary, and ask whether they consent. In the same boundary explanation, say whether the current source and participant facts meet the conditions for a formal redacted record or whether the result must remain only in this conversation; live consent is still required. Do not also ask for their role, recent event, workflow, or success metric, and do not preview later questions or actions.
 
 Default exploratory wording:
 
@@ -110,6 +120,16 @@ Do exactly one action:
 
 Do not use a feature-usefulness question as the opening, imply that the participant should feel pain, lead them toward the current candidate, present a question list, show or operate a product UI, or fill missing answers. Record facilitator or product exposure as contamination.
 
+### Owner controls
+
+- On pause, only confirm the pause and name the first missing field that will be resumed; ask no question and do not close out.
+- On a status request, report only the categories already captured, the missing categories, and the next step; do not ask the participant anything in that turn.
+- On resume, ask only the first missing question from before the pause. Do not ask for consent again, replay the opening question or protocol, or rerun Candidate-first.
+- On a factual correction, update and show only the corrected redacted fact. An owner cannot edit a participant answer merely to pass a threshold.
+- On cancellation, stop. Withdrawal or a privacy or safety stop uses the existing safety-stop semantics; an ordinary pause is not failure.
+
+After sensitive material appears, do only the redaction recovery action: repeat none of the sensitive text and ask for a category description. Do not ask the next business question in the same turn. After the participant supplies safe categories, return to the first missing interview fact.
+
 ## Validation drift
 
 Keep the decision question, participant criteria, sample, questions, evidence fields, and thresholds frozen during validation. Stop the original judgment if the participant is outside the target role, the answers describe another workflow or trigger, the Frame is wrong, a question is materially leading, or the sample or threshold no longer applies.
@@ -123,6 +143,14 @@ For exploration, capture only redacted facts about the recent event: participant
 For validation, capture only the protocol fields needed to compare the frozen hypothesis with its thresholds. Keep raw answers, recordings, names, identifiers, credentials, IPs, and unredacted material outside Git in an approved location.
 
 Never change a threshold after seeing an answer.
+
+Maintain one compact redacted working capture in the session. It may contain participant role category, event recency, trigger, ordered steps, current alternative, role-and-information handoffs, important failure, observable consequence, completion signal, explicit unknowns, and facilitator contamination. Record only participant-stated facts, write missing fields as `UNKNOWN`, and show only the small addition or correction from the latest turn. Do not repeat the full history or automatically write this working capture to Git.
+
+Do not repeat or persist real names, customer names, system names, hostnames, IPs, URLs, accounts, credentials, filenames, or raw dumps. Raw answers and the PI session itself remain outside the target repository; only an approved redacted formal result may cross the Git durability boundary.
+
+## Fresh-context recovery
+
+A new PI session cannot recover raw answers or authoritative facts from model memory, an assistant summary, or a reconstructed transcript. Without an approved redacted checkpoint, recommend restoring the original PI session. The only alternative is an owner-supplied redacted return block whose factual accuracy the owner explicitly confirms. Until one of those exists, do not guess prior questions, rebuild the working capture, or continue Evidence.
 
 ## Closeout
 
@@ -145,3 +173,7 @@ Validation closeout must include the protocol identity and purpose, actual parti
 In `EVIDENCE`, use `INTERVIEW_RECORDED` for a normal closeout when required fields are complete, appetite is exhausted, or the participant is done. Reserve `INTERVIEW_STOPPED` for refused consent, withdrawal, or a safety or privacy stop. During `FRAME`, keep the current legal Frame verdict.
 
 For a formal closeout, request approval for the minimum redacted Release-artifact update and do not write before approval. For an informal closeout, keep the summary in conversation and state that it cannot close the blocking gate; rerun formally if that evidence is required.
+
+For a formal write, show the exact target Release artifact, `from_revision`, `target_revision`, redacted claims, excluded raw content, and permitted Git operation. A completed formal Evidence result updates the named Evidence item and advances artifact `product_stage` to `EVIDENCE` while keeping `status: CANDIDATE`; it does not change readiness or Commitment. Do this in the same formal closeout turn and make exact scoped approval the only owner action; do not defer the write plan to a hypothetical later turn or say no decision is needed. Wait for scoped approval, write only that scope, then reread the exact remote ref and artifact blob before reporting `EVIDENCE_RECORDED`. Never persist raw answers, identifiers, sensitive material, assistant-inferred steps, or unrelated Frame edits. Informal wording such as “记一下” does not upgrade the source to formal.
+
+After any closeout, return the bounded redacted result and limitations to `release-loop.md`. Exploration may retain or correct a Candidate Frame and validation may close only its named Evidence item; neither result creates Commitment, Spec, Tickets, Admission, a ready label, or Harness handoff.

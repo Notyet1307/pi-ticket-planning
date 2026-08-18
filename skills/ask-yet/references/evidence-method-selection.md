@@ -117,6 +117,14 @@ A non-delegable human choice bypasses this envelope and `Current evidence protoc
 
 Activate only one next action per invocation: one decision question, one blocking unknown, one method, and one action. A later conditional path may be named, but research, interview, prototype, and spike must not run in parallel by default.
 
+### Active method owns later session turns
+
+Once the selected method starts, it owns later turns in the same PI session until its stop condition, safety stop, owner cancellation, closeout, or material drift makes the original decision question or method invalid. Consent, an ordinary answer, `继续`, pause and resume, or a new solution preference does not rerun this selection contract.
+
+When an active non-interview method is waiting for an external result, a continue or status turn returns the same compact handoff rather than redesigning it. Retain its exact target environment, frozen input, primary verification, pass and fail or stop thresholds, appetite, safety boundary, cleanup condition, expected result artifact, and return target. Once the raw result arrives, read it, identify its artifact and source class, and judge only against those frozen fields.
+
+Reroute only when the participant no longer matches and the decision question is invalid, an active incident appears, consent is withdrawn, the protocol is leading or unsafe, the Frame's actor, trigger, or target outcome materially changes, the owner cancels the method, or closeout has completed. Keep this ownership in session context; do not add a persisted `active_method` field or workflow state.
+
 ## 5. Route around capability gaps without changing the question
 
 After selecting the valid method, inspect the environment's real read, web, browser, execution, data, and write capabilities plus its authorization. A discoverable helper name does not prove the capability is usable.

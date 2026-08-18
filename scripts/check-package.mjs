@@ -246,6 +246,8 @@ export function validatePackage(root) {
     "During post-Commitment Solution Shaping, remain `DELIVERY / SPEC` with `BLOCKED`",
     "continue through read-only `to-spec` compilation and use `SPEC_IN_PROGRESS`",
     "Do not append the Spec body",
+    "An active Evidence session in the current PI session owns routing",
+    "Pause, status, resume, scoped write approval",
   ]) {
     if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
   }
@@ -342,6 +344,8 @@ export function validatePackage(root) {
     "post-Commitment Solution Shaping decision",
     "keep `DELIVERY / SPEC` with `BLOCKED`",
     "returns to `solution-shaping.md`",
+    "Active method owns later session turns",
+    "persisted `active_method` field",
   ]) {
     if (!evidenceMethodSelection.includes(required)) errors.push(`evidence-method-selection lacks Solution Shaping route: ${required}`);
   }
@@ -356,6 +360,12 @@ export function validatePackage(root) {
     "do not refuse",
     "INFORMAL` session under this contract",
     "human-approved remote draft ref or accepted remote delivery base",
+    "Session continuity and authority",
+    "On pause",
+    "On resume",
+    "Fresh-context recovery",
+    "from_revision",
+    "exact remote ref and artifact blob",
   ]) {
     if (!interviewSession.includes(required)) errors.push(`interview-session lacks required contract: ${required}`);
   }

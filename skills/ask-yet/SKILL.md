@@ -37,6 +37,10 @@ Infer one invocation mode; do not ask the human to choose it.
 - `RESUME`: an authoritative Release artifact exists; inspect only its open blocker and facts added since its last durable record. Do not replay the full Release or prior checkpoint.
 - `STATUS`: report current state without starting new discovery.
 
+An active Evidence session in the current PI session owns routing before these modes are reconsidered. Use the latest participant or owner message with the already selected method and load its owning reference directly; do not replay `ORIENT`, rescan the repository or Issue graph, choose planning depth again, rerun Candidate-first, or compare Evidence methods again. Return to normal routing only after closeout, a safety stop, owner cancellation, or material drift invalidates the method.
+
+Participant answers and owner controls are different inputs. Pause, status, resume, scoped write approval, factual correction of a redacted capture, and cancellation are owner controls, not participant Evidence. If the speaker cannot be identified reliably from the current session, ask only one identity clarification and record no Evidence from that message. Ordinary users do not need a fixed prefix; a test or facilitated session may use `参与者：` and `产品负责人：` to remove ambiguity.
+
 ## Reconstruct the minimum true state
 
 Read only facts that can change `planning_depth`, `control_mode`, `lane`, `stage`, `verdict`, `blocker`, or `next_action`, in this order:
@@ -222,7 +226,11 @@ Do not lead with repository, source boundary, planning depth, control mode, lane
 
 Ask at most one question by default; group no more than three only when they are inseparable outside candidate-first `ORIENT` or `FRAME`. For every human decision, give a recommendation, reason, main tradeoff, safest default, and the work the system will complete automatically after the answer inside the five fields. Put any exact command once in `你只需要决定`. If no human action is needed, say so and state what the system completed or will re-read on the next invocation. Keep each field concise; the complete indented Research Handoff is the only multiline exception. Do not add another top-level heading, roadmap, secondary action, or skill menu.
 
+Live interview consent is the exception to previewing work after a human decision: the first turn ends with only the consent choice. Do not announce the opening question, later question sequence, capture action, or closeout that will follow consent.
+
 When a method is selected, use the five fields to state the one decision, one missing fact or choice, recommended method, why it can answer the question, what it cannot prove, and exactly one human action. A repository read must state that code and system facts do not establish customer behavior or value. For a non-delegable choice, name the mutually exclusive alternatives in `你只需要决定`. Do not expose `uncertainty_type`, `truth_owner`, `selected_method`, or a method menu.
+
+When a supplied original artifact returns a result for an active method, name the artifact identity and its source class in `已经确认` before using its facts. Reading values without identifying their source is not a durable Evidence return.
 
 A read-only request or drafted protocol is not execution authorization: never emit `EVIDENCE_AUTHORIZED` without explicit authorization, and make authorization or provision of the required environment the sole next action when needed. A technical spike has no method-specific verdict; during product Evidence, while its execution remains unapproved use `NEEDS_DECISION` or `EVIDENCE_WRITE_AWAITING_APPROVAL`, never `NEEDS_PROTOTYPE` or an invented verdict. During post-Commitment Solution Shaping, remain `DELIVERY / SPEC` with `BLOCKED`. For a prototype handoff, explicitly state the fake input, no backend or production connection, and discard condition; “the stated boundaries” is not enough. For a technical-spike handoff, retain its frozen input, production boundary, appetite or stop condition, and cleanup condition in the card. Whenever AI or another technology preference precedes a known user task, explicitly call it a solution idea and say it is not the user outcome or success signal.
 

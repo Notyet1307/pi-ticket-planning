@@ -1,12 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateLiveEvalFixture } from "./eval-pi-behavior.mjs";
+import { validateLiveEvalFixture, validateMultiTurnEvalFixture } from "./eval-pi-behavior.mjs";
 
 export function validateBehaviorFixtures(root) {
-  const errors = validateObservedBehaviorCases(path.join(root, "fixtures", "pi-behavior-cases.json"));
+  const observedFile = path.join(root, "fixtures", "pi-behavior-cases.json");
+  const errors = validateObservedBehaviorCases(observedFile);
   const live = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
-  return [...errors, ...validateLiveEvalFixture(live).map((error) => `live: ${error}`)];
+  const multi = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
+  const observed = JSON.parse(fs.readFileSync(observedFile, "utf8"));
+  const singleIds = [...(observed.cases ?? []), ...(live.cases ?? [])].map(({ id }) => id);
+  return [
+    ...errors,
+    ...validateLiveEvalFixture(live).map((error) => `live: ${error}`),
+    ...validateMultiTurnEvalFixture(multi, singleIds).map((error) => `multiturn: ${error}`),
+  ];
 }
 
 function validateObservedBehaviorCases(file) {
