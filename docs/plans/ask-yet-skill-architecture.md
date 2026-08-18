@@ -1,6 +1,6 @@
 # `/ask-yet`：产品到交付统一入口 Skill 架构
 
-> 状态：Phase 1、Gate C、自动 helper 路由、显式流程分级、五字段人类状态卡、真实模型 Release Gate 和 R001 Release→Harness canary 已完成；十四个只读 fresh-process PI 场景已通过，真实产品证据循环仍未闭环
+> 状态：Phase 1、Gate C、自动 helper 路由、显式流程分级、渐进式人类界面、Manifest 驱动的真实模型 Release Gate 和 R001 Release→Harness canary 已完成；真实产品证据循环仍未闭环
 >
 > 日期：2026-08-16
 >
@@ -644,7 +644,7 @@ Package 接线需要：
 - 人决定 `COMMITTED` 后验证 `to-spec → to-tickets → admission → Harness`；
 - 验证 Repository Contract Impact Review、Spec、Ticket graph 和 Admission 能从真实目标仓库正确交接；
 - 候选或任务图变化时重新 Admission，不修改 HerdrHarness 的现有领取协议。
-- 用十四个独立、只读、`--no-session` 的 PI 进程验证四类恢复行为、三档规划深度和 CONTROLLED 覆盖、Incident 优先级、固定人类状态卡，以及从 Evidence 到 Admission 的五个相邻权威阶段快照；不伪造一次会话跨越 Commitment 和激活确认。
+- 用 Manifest 中保留的核心 case 和最小代表性新 case 验证恢复行为、规划深度、CONTROLLED、Incident、渐进式人类界面，以及从 Evidence 到 Admission 的相邻权威快照；真实多轮 case 复用同一隔离 session，但不伪造一次会话跨越 Commitment 和激活确认。
 
 退出条件：已准入 Ticket 可追溯到 Release revision 和 Scenario；空仓库能建立真实 base；没有让下游猜产品决定；HerdrHarness 能按现有契约领取并完成一张真实 Ticket。
 
@@ -665,7 +665,7 @@ Package 接线需要：
 - 行为：用户真实 transcript 加 fresh-process PI case，检查 lane/stage、blocker、next action、越权和阶段交接；
 - 交付：现有 package tests、frontier 和 readiness 不回归。
 
-不新增第二个 LLM grader；expected invariants 继续由确定性正负匹配器裁决。`npm run verify:release` 从干净 checkout 运行固定的十四个真实 PI case，仅重试失败 case 一次；至少一次通过才能过门，重试后恢复记为 `FLAKY`。报告记录 `PASS | SEMANTIC_FAIL | INFRA_FAIL | FLAKY`、每 case 成功率、模型和源码 revision。`npm run eval:pi:nightly` 提供 runner-neutral 的三次 advisory 评分；仓库没有专用 runner 和机器凭据前不创建定时工作流。PR CI 只运行统一 fixture 合同检查；无 Skill 基线和双能力档模型矩阵等有非门禁评分合同后再接入。
+不新增第二个 LLM grader；expected invariants 继续由确定性正负匹配器裁决。`fixtures/pi-eval-suites.json` 将评测分为只读 Release、只读或 Observer Nightly、显式 Isolated Writable 三层。`npm run verify:release` 从干净 checkout 运行当前 Release suite，仅重试失败 case 一次；重试恢复记为 `FLAKY`，报告动态 case 数、model turn 数和 case-set hash。`npm run eval:pi:nightly` 三次观察较长或波动场景；可写 case 只能显式运行。PR CI 只运行无模型费用的统一 fixture 与 suite 合同检查；没有专用 runner 和机器凭据前不创建定时工作流。
 
 ### 15.2 立即失败
 
@@ -717,6 +717,6 @@ Package 接线需要：
 15. Admission 保持 fresh review、strict frontier、人工确认和 ready 状态；graph 与 standalone QUICK 都使用可恢复的 exact Plan fingerprint + apply Saga，逐标签修改、逐资源漂移检查并在父任务或 standalone 激活前最终重读。仍不增加独立权威 Receipt 或 Harness 重算，结果和幂等 comment 保留 Plan 与 reviewed fingerprint。
 16. `ask-yet` 自动推断 `QUICK | STANDARD | DISCOVERY` planning depth，再叠加 `NORMAL | CONTROLLED` control mode；不新增公开 Skill、状态机或 Reviewer，Readiness 继续由 Admission 内的 fresh reviewer 裁决。
 17. 用户主界面固定为五字段人类状态卡；lane、stage 和 verdict 只保留在最后一行机器 `Checkpoint`，不新增第二份权威状态。
-18. 冻结 observed excerpt 只作为确定性 fixture 合同；package Release 另从干净 checkout 运行固定十四个真实 fresh-process PI case，只重试失败 case 一次并显式记录 `FLAKY`、语义失败、基础设施失败和成功率。PR CI 保持无认证、无模型费用；提供三次 advisory 的 `eval:pi:nightly`，但在专用 runner 和机器凭据存在前不借用维护者个人 OAuth 定时执行；无 Skill 基线和双能力档模型矩阵后续再定评分合同。
+18. 冻结 observed excerpt 只作为确定性 fixture 合同；package Release 另从干净 checkout 运行 Manifest 定义的真实 fresh-process Release suite，只重试失败 case 一次并显式记录 `FLAKY`、语义失败、基础设施失败、动态数量和 case-set hash。PR CI 保持无认证、无模型费用；提供三次 advisory 的 `eval:pi:nightly`，可写 canary 保持显式隔离执行。在专用 runner 和机器凭据存在前不借用维护者个人 OAuth 定时执行；无 Skill 基线和双能力档模型矩阵后续再定评分合同。
 
 第 1–15 项于 2026-08-12 获得用户确认；第 16–18 项于 2026-08-16 获得用户确认。

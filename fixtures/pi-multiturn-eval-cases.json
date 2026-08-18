@@ -18,7 +18,7 @@
       "turns": [
         {
           "id": "dialogue",
-          "prompt": "继续刚才的需求梳理。",
+          "prompt": "我是产品负责人，不是访谈参与者；当前没有活动访谈。继续刚才的需求梳理，只追问 R601/r1 的原始缺口，不要启动访谈或推进状态。",
           "expected": {
             "mustMatch": [
               "(?:最近一次|近期)[^\\n?？]{0,180}(?:交付|交接|遗漏|缺少)[^\\n?？]{0,180}(?:后果|影响|结果)[^\\n?？]*[?？]",
@@ -27,7 +27,7 @@
             "mustNotMatch": [
               "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
               "(?:候选方向|候选理解)[^\\n]{0,100}(?:A|B|C)",
-              "(?:[?？][\\s\\S]*){2}"
+              "(?:[?？][\\s\\S]*){3}"
             ]
           },
           "allowedWrites": []
@@ -61,7 +61,7 @@
             "mustNotMatch": [
               "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
               "(?:候选方向|候选理解)[^\\n]{0,100}(?:A|B|C)",
-              "(?:[?？][\\s\\S]*){2}"
+              "(?:[?？][\\s\\S]*){3}"
             ]
           },
           "allowedWrites": []
@@ -316,6 +316,9 @@
       "git": true,
       "timeoutMs": 300000,
       "tools": ["read", "grep", "find", "ls", "bash", "edit", "write"],
+      "forbiddenStrings": [
+        "两周前收到八条记录的交接请求后，我必须逐条录入并逐条提交，其中两条被退回；正是这项重复逐条录入和退回后的逐条更正造成了四十五分钟返工，接收方确认八条记录都正确后我才认为完成。"
+      ],
       "files": {
         "AGENTS.md": "# Evaluation repository policy\n\nOnly the exact approved Release artifact may change. Use the local bare origin only; never contact an external remote. Raw answers and identifiers must not enter Git.\n",
         "docs/product/releases/r301-batch-entry.md": "# R301: bounded batch-entry evidence\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Release frame\n- actor_and_trigger: an operations coordinator receives a multi-record handoff\n- target_outcome: reduce repeated correction during bounded record entry\n- smallest_closed_loop: prepared records -> repeated entry -> visible result -> receiver acknowledgement\n- blocking_unknowns: whether repeated entry caused at least 30 minutes of rework in a recent matching event\n\n## Current evidence protocol\n- purpose: VALIDATION\n- identity: R301/r1-validation-v1\n- decision_question: did repeated one-at-a-time entry cause at least 30 minutes of rework in the participant's most recent matching event?\n- riskiest_assumption: repeated entry causes material rework\n- participant_criteria: operations coordinator who personally completed a multi-record handoff in the last 30 days\n- scope_and_sample: one matching participant for this bounded evidence item\n- opening_story_question: describe the most recent multi-record handoff you personally completed, starting from its trigger\n- follow_up_boundaries: ordered steps, repeated entry, observable consequence, completion signal; do not show a solution\n- evidence_to_capture: redacted event facts and result against the threshold\n- privacy_and_safety: no names, customer identifiers, system names, IPs, accounts, credentials, URLs, paths, or raw dumps\n- appetite: at most four questions or 15 minutes\n- pass_threshold: the matching participant independently reports at least 30 minutes of rework caused by repeated entry and a receiver acknowledgement completion signal\n- fail_or_stop_threshold: less than 30 minutes, participant mismatch, consent withdrawal, or protocol drift\n- return_format: append one `## Evidence result` section with source/session identity, date, participant role category, redacted finding, PASS or FAIL against the frozen threshold, and one-participant limitation\n\n## Evidence result\nNot recorded.\n",
@@ -392,7 +395,7 @@
               "R301/r1-validation-v1",
               "(?:45|四十五)[^\\n]{0,80}(?:分钟|rework|返工|更正)",
               "(?:(?:结果|判定)[^\\n]{0,200}(?:达到|满足|通过)[^\\n]{0,200}(?:标准|门槛|阈值)|(?:结果|判定)[^\\n]{0,80}PASS)",
-              "(?:单一|单个|单参与者|一个参与者|一名参与者|一位参与者|单人)[^\\n]{0,120}(?:参与者|样本|自述|局限|限制|不能|不足|仅)",
+              "(?:(?:单一|单个|单参与者|一个参与者|一名参与者|一位参与者|单人)[^\\n]{0,120}(?:参与者|样本|自述|局限|限制|不能|不足|仅)|(?:一名|一位|一个)[^\\n]{0,30}参与者[\\s\\S]{0,400}(?:不能证明|普遍性|局限|限制|仅一人)|样本(?:仅|只有)[^\\n]{0,20}(?:一人|一名|一个)[^\\n]{0,120}(?:不能证明|普遍性|局限|限制)|(?:参与者\\s*1/1|1/1[^\\n]{0,40}参与者)[\\s\\S]{0,220}(?:仅支持|不能证明|局限|限制))",
               "(?:(?:from_revision|来源修订)[^\\n]{0,80}r1|(?:R301/)?r1[^\\n]{0,240}(?:R301/)?r2)",
               "(?:(?:target_revision|目标修订)[^\\n]{0,80}r2|(?:R301/)?r1[^\\n]{0,240}(?:R301/)?r2)",
               "(?:product_stage|证据状态|判断依据阶段)[^\\n]{0,80}EVIDENCE",
@@ -412,7 +415,7 @@
           "expected": {
             "mustMatch": [
               "(?:(?:commit|提交)[\\s\\S]{0,320}blob|blob[\\s\\S]{0,320}(?:commit|提交))",
-              "(?:(?:不等于|不代表|未进入|尚未|仍未确认|不授权)[^\\n]{0,100}(?:COMMITTED|确认值得进入交付|值得进入交付|进入交付|to-spec|交付)|不能(?:自动产生|自动代表|直接用于)[^\\n]{0,100}(?:交付确认|规格|任务|确认进入交付|交付)|(?:未改变|不改变)[^\\n]{0,100}(?:是否进入交付|进入交付|readiness|Commitment)|(?:readiness|Commitment)[^\\n]{0,100}(?:未改变|不改变)|(?:不会自动|不自动)[^\\n]{0,100}(?:提升|变成|确认)[^\\n]{0,60}(?:交付承诺|进入交付)|不是已接受交付基线)",
+              "(?:(?:不等于|不代表|未进入|尚未|仍未确认|不授权)[^\\n]{0,100}(?:COMMITTED|确认值得进入交付|值得进入交付|进入交付|to-spec|交付)|不能(?:自动产生|自动代表|直接用于)[^\\n]{0,100}(?:交付确认|规格|任务|确认进入交付|交付)|(?:未改变|不改变)[^\\n]{0,100}(?:是否进入交付|进入交付|readiness|Commitment)|(?:readiness|Commitment)[^\\n]{0,100}(?:未改变|不改变|尚未评估|未评估)|(?:是否值得进入交付|是否进入交付|六项就绪检查)[^\\n]{0,100}(?:均未改变|未改变|不改变)|(?:不产生|不会产生)[^\\n]{0,100}(?:Readiness|readiness|Commitment|交付状态|交付确认)|(?:不会自动|不自动)[^\\n]{0,100}(?:提升|变成|确认)[^\\n]{0,60}(?:交付承诺|进入交付)|不是已接受交付基线)",
               "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R301/r2\\s*·\\s*EVIDENCE_RECORDED"
             ],
             "mustNotMatch": [

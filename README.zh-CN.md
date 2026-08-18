@@ -266,7 +266,15 @@ Profile 烟测的预期结果是 `profile isolation: ok (27 skills)`。
 npm run eval:pi -- --case <id>
 ```
 
-单轮 case 验证冻结起点。多轮 case 复用同一个真实 PI session；多轮失败必须从第一轮整案重跑，不能从失败轮续跑。`FORMAL` writeback case 只适合隔离的可写 runner。固定 Release Gate 和 advisory nightly suite 以当前评测脚本和 fixtures 为准；不是每个新增多轮 case 都进入固定 Gate。
+单轮 case 验证冻结起点。多轮 case 复用同一个真实 PI session；多轮失败必须从第一轮整案重跑，不能从失败轮续跑。版本控制中的 [`pi-eval-suites.json`](fixtures/pi-eval-suites.json) 决定当前动态 case 数和三层 suite：
+
+- **Release** 是只读且阻断发布的门禁，只包含成本有界、稳定且承重的代表 case，不允许 Observer 注入或模型写入；
+- **Nightly** 重复运行更长或波动更大的只读 case，可以使用显式 Observer 输入；它报告失败，但不替普通 package 发布作决定；
+- **Isolated Writable** 只包含有明确 allowlist 的 writeback canary，只能显式运行在 runner 的一次性 workspace 和本地 bare origin 中，Release 与 Nightly 都不会间接执行它。
+
+不进入这三层可执行 suite 的 case 会显式列在 `quarantine`，只能用 `--case` 手工诊断，直到覆盖价值和稳定性足以晋级。
+
+三层 suite 都使用真实模型；`npm run verify:ci` 是不产生模型费用的确定性检查。
 
 发布 package 前，可以在干净且已认证的 checkout 中运行：
 
@@ -274,10 +282,16 @@ npm run eval:pi -- --case <id>
 npm run verify:release -- --report /tmp/pi-ticket-plan-release-eval.json
 ```
 
-固定 Gate 报告 `PASS`、`SEMANTIC_FAIL` 和 `INFRA_FAIL`；允许的重试恢复后标记为 `FLAKY`。需要观察方差但不形成发布决定时运行：
+`verify:release` 要求干净 checkout，并运行 Manifest 定义的 Release suite。报告包含 suite 名、动态 case 数、名义 model turn 数和 case-set hash。结果分为 `PASS`、`SEMANTIC_FAIL` 和 `INFRA_FAIL`；允许的重试恢复后标记为 `FLAKY`。需要观察方差但不形成发布决定时运行：
 
 ```sh
 npm run eval:pi:nightly -- --report /tmp/pi-ticket-plan-live-eval.json
+```
+
+只有确实要验证隔离写入时，才显式运行 allowlisted writable canary：
+
+```sh
+npm run eval:pi -- --suite isolated-writable --report /tmp/pi-ticket-plan-writable-eval.json
 ```
 
 升级必须显式选择 Release：

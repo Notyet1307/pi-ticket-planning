@@ -120,3 +120,5 @@ Next gate: reuse accepted interfaces where sufficient; otherwise accept the mini
 ```
 
 The feature is not split into Tickets until the product behavior and any load-bearing technical decisions are accepted.
+
+Maintainers can find the three live evaluation suites in [Development and release verification](../../README.md#development-and-release-verification).

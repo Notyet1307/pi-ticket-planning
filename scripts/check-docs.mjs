@@ -118,6 +118,8 @@ export function validateDocs(root) {
       let cursor = -1;
       if (expected.some((number) => (cursor = actual.indexOf(number, cursor + 1)) < 0)) errors.push(`${file}: missing ordered guide section 1-11`);
     }
+    requireText(errors, enFile, en, "../../README.md#development-and-release-verification", "advanced verification link");
+    requireText(errors, zhFile, zh, "../../README.zh-CN.md#开发和发布验证", "高级验证链接");
   }
 
   for (const [file, links] of [
@@ -148,6 +150,12 @@ export function validateDocs(root) {
   const corpus = [...docs.values()].join("\n");
   if (/every (?:response|turn).{0,40}(?:must|always).{0,40}five[- ]field/is.test(corpus)) errors.push("docs retain an obsolete every-response five-field rule");
   if (/每(?:轮|次|个回复).{0,40}(?:必须|固定).{0,40}五字段/s.test(corpus)) errors.push("文档保留了过时的每轮固定五字段规则");
+  for (const file of ["docs/plans/ask-yet-skill-architecture.md", "docs/plans/product-to-delivery-operating-model.md"]) {
+    const text = read(root, file);
+    if (/(?:固定(?:的)?十四个|十四个(?:只读|全新)[^\n]{0,50}(?:PI|case|场景)|fixed (?:fourteen|14)[^\n]{0,50}(?:PI|case|scenario))/iu.test(text)) {
+      errors.push(`${file}: hard-codes the old Release case count`);
+    }
+  }
   requirePattern(errors, "README.md", english, /what it will not do[\s\S]{0,1200}daemon/i, "explicit non-daemon boundary");
   requirePattern(errors, "README.zh-CN.md", chinese, /它不会做什么[\s\S]{0,1200}daemon/, "明确非 daemon 边界");
   requirePattern(errors, "README.md", english, /merged[\s\S]{0,80}released[\s\S]{0,80}Outcome[\s\S]{0,80}(?:same fact|distinct)/i, "merge/release/outcome separation");

@@ -9,10 +9,17 @@ import { fileURLToPath } from "node:url";
 import { parseCheckpoint, validateCheckpointState } from "./workflow-contract.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v2";
+const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v3";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "subagent"]);
 const MULTITURN_TOOLS = new Set([...READ_ONLY_TOOLS, "bash", "edit", "write"]);
 const CHINESE_STATUS_LABELS = ["当前目标：", "已经确认：", "仍然缺少：", "为什么现在不能继续：", "你只需要决定："];
+const EVAL_SUITE_POLICIES = {
+  release: "read-only",
+  nightly: "read-only-or-observer",
+  "isolated-writable": "isolated-allowlist",
+};
+const REQUIRED_RELEASE_COVERAGE = ["candidate-frame", "evidence-method", "solution-shaping", "human-interface", "multi-turn"];
+const RELEASE_LIMITS = { cases: 22, modelTurns: 30 };
 
 export function validateLiveEvalFixture(fixture) {
   const errors = [];
@@ -54,14 +61,6 @@ export function validateLiveEvalFixture(fixture) {
           errors.push(`${item.id}: invalid ${field} pattern ${pattern}: ${error.message}`);
         }
       }
-    }
-  }
-  if (!Array.isArray(fixture?.releaseGateCases) || fixture.releaseGateCases.length === 0) {
-    errors.push("fixture must contain releaseGateCases");
-  } else {
-    if (new Set(fixture.releaseGateCases).size !== fixture.releaseGateCases.length) errors.push("releaseGateCases must be unique");
-    for (const id of fixture.releaseGateCases) {
-      if (!ids.has(id)) errors.push(`releaseGateCases contains unknown case ${id}`);
     }
   }
   return errors;
@@ -141,9 +140,181 @@ export function validateMultiTurnEvalFixture(fixture, existingIds = []) {
 export function combineLiveEvalFixtures(singleTurn, multiTurn) {
   return {
     version: 1,
-    releaseGateCases: [...singleTurn.releaseGateCases],
     cases: [...singleTurn.cases, ...multiTurn.cases],
   };
+}
+
+function modelTurnCount(item) {
+  return Array.isArray(item.turns) ? item.turns.length : 1;
+}
+
+function evalTurns(item) {
+  return Array.isArray(item.turns) ? item.turns : [];
+}
+
+function hasWriteBoundary(item) {
+  return evalTurns(item).some((turn) => (
+    (turn.allowedWrites?.length ?? 0) > 0
+    || (turn.expectedWrites?.length ?? 0) > 0
+    || turn.allowedGit
+    || (turn.allowedRemoteRefs?.length ?? 0) > 0
+  )) || (item.finalArtifacts?.length ?? 0) > 0;
+}
+
+function hasExplicitWriteAllowlist(item) {
+  return evalTurns(item).some((turn) => (
+    (turn.allowedWrites?.length ?? 0) > 0 || (turn.allowedRemoteRefs?.length ?? 0) > 0
+  ));
+}
+
+export function evalCaseType(item) {
+  if (hasWriteBoundary(item)) return "isolated-writable";
+  return Array.isArray(item.turns) ? "multi-turn" : "single-turn";
+}
+
+function validateSuitePolicy(name, suite, cases) {
+  const errors = [];
+  if (suite?.mutationPolicy !== EVAL_SUITE_POLICIES[name]) {
+    errors.push(`${name}: mutationPolicy must be ${EVAL_SUITE_POLICIES[name]}`);
+  }
+
+  if (name === "release") {
+    if (!Number.isInteger(suite?.maxCases) || suite.maxCases < 1 || suite.maxCases > RELEASE_LIMITS.cases) {
+      errors.push(`release: maxCases must be between 1 and ${RELEASE_LIMITS.cases}`);
+    }
+    if (!Number.isInteger(suite?.maxModelTurns) || suite.maxModelTurns < 1 || suite.maxModelTurns > RELEASE_LIMITS.modelTurns) {
+      errors.push(`release: maxModelTurns must be between 1 and ${RELEASE_LIMITS.modelTurns}`);
+    }
+    const turns = cases.reduce((total, item) => total + modelTurnCount(item), 0);
+    if (cases.length > (suite?.maxCases ?? 0)) errors.push(`release: ${cases.length} cases exceed maxCases ${suite?.maxCases}`);
+    if (turns > (suite?.maxModelTurns ?? 0)) errors.push(`release: ${turns} model turns exceed maxModelTurns ${suite?.maxModelTurns}`);
+
+    for (const item of cases) {
+      for (const turn of evalTurns(item)) {
+        if ((turn.allowedWrites?.length ?? 0) > 0) errors.push(`${item.id}: release case allows workspace writes`);
+        if ((turn.expectedWrites?.length ?? 0) > 0) errors.push(`${item.id}: release case expects workspace writes`);
+        if (turn.allowedGit) errors.push(`${item.id}: release case allows Git mutation`);
+        if ((turn.allowedRemoteRefs?.length ?? 0) > 0) errors.push(`${item.id}: release case allows remote refs`);
+        if (turn.beforeTurn?.files) errors.push(`${item.id}: release case uses Observer file injection`);
+      }
+      if (Object.hasOwn(item, "finalArtifacts")) errors.push(`${item.id}: release case declares finalArtifacts`);
+    }
+  }
+
+  if (name === "nightly") {
+    for (const item of cases) {
+      if (hasWriteBoundary(item)) errors.push(`${item.id}: nightly case has an isolated writable boundary`);
+    }
+  }
+
+  if (name === "isolated-writable") {
+    for (const item of cases) {
+      if (!hasExplicitWriteAllowlist(item)) errors.push(`${item.id}: isolated-writable case lacks an explicit write or remote-ref allowlist`);
+    }
+  }
+  return errors;
+}
+
+export function validateEvalSuiteManifest(manifest, fixture) {
+  const errors = [];
+  if (manifest?.version !== 1) errors.push("suite manifest version must be 1");
+  if (!manifest?.suites || Array.isArray(manifest.suites) || typeof manifest.suites !== "object") {
+    return [...errors, "suite manifest must contain suites"];
+  }
+
+  const byId = new Map();
+  for (const item of fixture?.cases ?? []) {
+    if (byId.has(item.id)) errors.push(`${item.id}: case id is not globally unique`);
+    byId.set(item.id, item);
+  }
+  const memberships = new Map();
+  for (const name of Object.keys(manifest.suites)) {
+    if (!Object.hasOwn(EVAL_SUITE_POLICIES, name)) errors.push(`unknown suite ${name}`);
+  }
+
+  for (const name of Object.keys(EVAL_SUITE_POLICIES)) {
+    const suite = manifest.suites[name];
+    if (!suite || Array.isArray(suite) || typeof suite !== "object") {
+      errors.push(`suite manifest lacks ${name}`);
+      continue;
+    }
+    if (!Array.isArray(suite.caseIds) || suite.caseIds.length === 0) {
+      errors.push(`${name}: caseIds must be a non-empty array`);
+      continue;
+    }
+    if (new Set(suite.caseIds).size !== suite.caseIds.length) errors.push(`${name}: caseIds must be unique`);
+    const cases = [];
+    for (const id of suite.caseIds) {
+      if (typeof id !== "string" || !byId.has(id)) errors.push(`${name}: unknown case ${id}`);
+      else cases.push(byId.get(id));
+      const current = memberships.get(id) ?? [];
+      current.push(name);
+      memberships.set(id, current);
+    }
+    errors.push(...validateSuitePolicy(name, suite, cases));
+  }
+
+  for (const [id, suites] of memberships) {
+    if (suites.length > 1) errors.push(`${id}: belongs to multiple suites (${suites.join(", ")})`);
+  }
+
+  const quarantineIds = manifest.quarantine?.caseIds;
+  const quarantine = new Set();
+  if (!Array.isArray(quarantineIds) || typeof manifest.quarantine?.reason !== "string" || !manifest.quarantine.reason.trim()) {
+    errors.push("suite manifest must declare quarantine caseIds and a reason");
+  } else {
+    if (new Set(quarantineIds).size !== quarantineIds.length) errors.push("quarantine: caseIds must be unique");
+    for (const id of quarantineIds) {
+      if (!byId.has(id)) errors.push(`quarantine: unknown case ${id}`);
+      if (memberships.has(id)) errors.push(`${id}: belongs to an executable suite and quarantine`);
+      quarantine.add(id);
+    }
+  }
+  for (const id of byId.keys()) {
+    if (!memberships.has(id) && !quarantine.has(id)) errors.push(`${id}: live case is unclassified`);
+  }
+
+  const releaseIds = new Set(manifest.suites.release?.caseIds ?? []);
+  if (!Array.isArray(manifest.requiredReleaseCaseIds) || manifest.requiredReleaseCaseIds.length === 0) {
+    errors.push("suite manifest must declare requiredReleaseCaseIds");
+  } else {
+    if (new Set(manifest.requiredReleaseCaseIds).size !== manifest.requiredReleaseCaseIds.length) {
+      errors.push("requiredReleaseCaseIds must be unique");
+    }
+    for (const id of manifest.requiredReleaseCaseIds) {
+      if (!byId.has(id)) errors.push(`required Release case is unknown: ${id}`);
+      if (!releaseIds.has(id)) errors.push(`required Release case is missing: ${id}`);
+    }
+  }
+
+  const coverage = manifest.coverage;
+  if (!coverage || Array.isArray(coverage) || typeof coverage !== "object") {
+    errors.push("suite manifest must declare coverage tags");
+  } else {
+    for (const [id, tags] of Object.entries(coverage)) {
+      if (!byId.has(id)) errors.push(`coverage references unknown case ${id}`);
+      if (!Array.isArray(tags) || tags.length === 0 || tags.some((tag) => typeof tag !== "string" || !tag)) {
+        errors.push(`${id}: coverage tags must be non-empty strings`);
+      } else if (new Set(tags).size !== tags.length) {
+        errors.push(`${id}: coverage tags must be unique`);
+      }
+    }
+    const releaseCoverage = new Set([...releaseIds].flatMap((id) => coverage[id] ?? []));
+    for (const tag of REQUIRED_RELEASE_COVERAGE) {
+      if (!releaseCoverage.has(tag)) errors.push(`release suite lacks ${tag} coverage`);
+    }
+  }
+
+  if (![...releaseIds].some((id) => Array.isArray(byId.get(id)?.turns))) {
+    errors.push("release suite lacks a real multi-turn case");
+  }
+  if (releaseIds.has("multiturn-validation-formal-writeback")) {
+    errors.push("FORMAL writeback must not enter release");
+  }
+  if (!(manifest.suites["isolated-writable"]?.caseIds ?? []).includes("multiturn-validation-formal-writeback")) {
+    errors.push("FORMAL writeback must remain isolated-writable");
+  }
+  return errors;
 }
 
 function validateFiles(errors, id, files) {
@@ -245,16 +416,22 @@ function matchAskYetCheckpoint(lines) {
   return errors;
 }
 
-export function selectLiveEvalCases(fixture, { caseId, suite = "all" } = {}) {
+export function selectLiveEvalCases(fixture, { caseId, suite = "all", suiteManifest } = {}) {
   if (caseId) {
     const selected = fixture.cases.filter((item) => item.id === caseId);
     if (selected.length === 0) throw new Error(`unknown case ${caseId}`);
     return selected;
   }
   if (suite === "all") return fixture.cases;
-  if (suite !== "release") throw new Error(`unknown suite ${suite}`);
+  if (!Object.hasOwn(EVAL_SUITE_POLICIES, suite)) throw new Error(`unknown suite ${suite}`);
+  const suiteCaseIds = suiteManifest?.suites?.[suite]?.caseIds;
+  if (!Array.isArray(suiteCaseIds)) throw new Error(`unknown suite ${suite}`);
   const byId = new Map(fixture.cases.map((item) => [item.id, item]));
-  return fixture.releaseGateCases.map((id) => byId.get(id));
+  return suiteCaseIds.map((id) => {
+    const item = byId.get(id);
+    if (!item) throw new Error(`${suite}: unknown case ${id}`);
+    return item;
+  });
 }
 
 export function evaluateCaseGate(attempts, caseIds) {
@@ -291,6 +468,7 @@ export function summarizeLiveEvalAttempts(attempts) {
 
 export async function runLivePiEval({
   fixture,
+  suiteManifest,
   caseId,
   suite = "all",
   launcher,
@@ -303,7 +481,11 @@ export async function runLivePiEval({
   onProgress = () => {},
   runtime = {},
 }) {
-  const selected = selectLiveEvalCases(fixture, { caseId, suite });
+  const selected = selectLiveEvalCases(fixture, { caseId, suite, suiteManifest });
+  if (!caseId && suite !== "all") {
+    const suiteErrors = validateSuitePolicy(suite, suiteManifest.suites[suite], selected);
+    if (suiteErrors.length) throw new Error(suiteErrors.join("\n"));
+  }
   if (!Number.isInteger(repeat) || repeat < 1) throw new Error("repeat must be a positive integer");
   if (!Number.isInteger(retryFailures) || retryFailures < 0) throw new Error("retryFailures must be a non-negative integer");
   const source = gitState();
@@ -358,6 +540,7 @@ export async function runLivePiEval({
         let observerMutations = [];
         let modelMutations = [];
         let remoteMutations = [];
+        let remoteArtifactPaths = [];
         const turnErrors = [];
         try {
           if (turn.beforeTurn?.files) {
@@ -386,7 +569,22 @@ export async function runLivePiEval({
           }
           const allowedRemoteRefs = new Set(turn.allowedRemoteRefs ?? []);
           for (const mutation of remoteMutations) {
-            if (!allowedRemoteRefs.has(mutation.path)) turnErrors.push(`unauthorized remote ref mutation: ${mutation.path}`);
+            if (!allowedRemoteRefs.has(mutation.path)) {
+              turnErrors.push("unauthorized remote ref mutation: " + mutation.path);
+              continue;
+            }
+            const changes = diffOriginChanges(workspace, mutation.path);
+            const changedPaths = changes.map(({ path: relative }) => relative);
+            remoteArtifactPaths.push(...changedPaths);
+            for (const relative of changedPaths) {
+              if (!allowedWrites.has(relative)) turnErrors.push("unauthorized remote artifact path: " + relative);
+            }
+            turnErrors.push(...findForbiddenStringsInOrigin(
+              workspace,
+              mutation.path,
+              changes.filter(({ status }) => status !== "D").map(({ path: relative }) => relative),
+              item.forbiddenStrings ?? [],
+            ));
           }
           const changedPaths = new Set(modelMutations.map(({ path: relative }) => relative));
           for (const relative of turn.expectedWrites ?? []) {
@@ -410,6 +608,7 @@ export async function runLivePiEval({
           },
           workspaceMutations: summarizeMutations(modelMutations),
           remoteRefMutations: summarizeMutations(remoteMutations),
+          remoteArtifactPaths: [...new Set(remoteArtifactPaths)].sort(),
           sessionIdentity,
         });
         if (infraError) break;
@@ -447,6 +646,7 @@ export async function runLivePiEval({
     const status = infraError ? "INFRA_FAIL" : errors.length ? "SEMANTIC_FAIL" : "PASS";
     const attempt = {
       caseId: item.id,
+      caseType: evalCaseType(item),
       skill: item.skill,
       attempt: round,
       status,
@@ -478,11 +678,16 @@ export async function runLivePiEval({
 
   const gate = evaluateCaseGate(attempts, selected.map(({ id }) => id));
   const evaluatedFixture = { version: fixture.version, cases: selected };
+  const caseIds = selected.map(({ id }) => id);
   return {
     schema: REPORT_SCHEMA,
     source,
     fixtureSha256: crypto.createHash("sha256").update(JSON.stringify(evaluatedFixture)).digest("hex"),
-    fixtureCaseIds: selected.map(({ id }) => id),
+    caseSetSha256: crypto.createHash("sha256").update(JSON.stringify(caseIds)).digest("hex"),
+    fixtureCaseIds: caseIds,
+    caseCount: selected.length,
+    modelTurns: selected.reduce((total, item) => total + modelTurnCount(item), 0),
+    caseTypes: selected.map((item) => ({ id: item.id, type: evalCaseType(item) })),
     model,
     thinking,
     suite: caseId ? "single" : suite,
@@ -753,6 +958,20 @@ function findForbiddenStrings(root, forbiddenStrings) {
   return found;
 }
 
+function findForbiddenStringsInOrigin(root, ref, paths, forbiddenStrings) {
+  if (forbiddenStrings.length === 0) return [];
+  const found = [];
+  for (const relative of paths) {
+    const content = readOriginArtifact(root, ref, relative);
+    for (const value of forbiddenStrings) {
+      if (!content.includes(value)) continue;
+      const fingerprint = crypto.createHash("sha256").update(value).digest("hex").slice(0, 8);
+      found.push(`remote artifact contains forbidden string ${fingerprint} in ${ref}:${relative}`);
+    }
+  }
+  return found;
+}
+
 function cleanupPath(target, removeTree) {
   try {
     removeTree(target);
@@ -799,6 +1018,27 @@ function snapshotOriginRefs(root) {
   }) : [];
   refs.push(["HEAD", fs.readFileSync(path.join(origin, "HEAD"), "utf8").trim()]);
   return refs.sort(([left], [right]) => left.localeCompare(right));
+}
+
+function diffOriginChanges(root, targetRef) {
+  const origin = isolatedOriginPath(root);
+  const result = spawnSync(
+    "git",
+    ["--git-dir", origin, "diff", "--name-status", "--no-renames", "-z", "refs/heads/main", targetRef, "--"],
+    { encoding: null },
+  );
+  if (result.status !== 0) throw new Error(result.stderr?.toString() || "cannot diff " + targetRef);
+  const fields = result.stdout.toString("utf8").split("\0").filter(Boolean);
+  if (fields.length % 2 !== 0) throw new Error("invalid remote diff output for " + targetRef);
+  const changes = [];
+  for (let index = 0; index < fields.length; index += 2) {
+    const [status, relative] = fields.slice(index, index + 2);
+    if (!/^[ACDMTUXB]$/u.test(status) || !safeRelativePath(relative)) {
+      throw new Error("invalid remote diff entry for " + targetRef);
+    }
+    changes.push({ status, path: relative });
+  }
+  return changes;
 }
 
 function safeRelativePath(relative) {
@@ -887,6 +1127,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
   const { values } = parseArgs({
     options: {
       case: { type: "string" },
+      help: { type: "boolean" },
       suite: { type: "string" },
       repeat: { type: "string" },
       "retry-failures": { type: "string" },
@@ -896,20 +1137,35 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
     },
     allowPositionals: false,
   });
+  if (values.help) {
+    console.log(`Usage: npm run eval:pi -- [options]
+
+  --suite <release|nightly|isolated-writable>
+  --case <id>
+  --repeat <count>
+  --retry-failures <count>
+  --report <path>
+  --report-only
+  --require-clean`);
+    process.exit(0);
+  }
   const singleTurnFixture = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-live-eval-cases.json"), "utf8"));
   const multiTurnFixture = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
+  const suiteManifest = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "pi-eval-suites.json"), "utf8"));
+  const fixture = combineLiveEvalFixtures(singleTurnFixture, multiTurnFixture);
   const fixtureErrors = [
     ...validateLiveEvalFixture(singleTurnFixture),
     ...validateMultiTurnEvalFixture(multiTurnFixture, singleTurnFixture.cases.map(({ id }) => id)),
+    ...validateEvalSuiteManifest(suiteManifest, fixture),
   ];
   if (fixtureErrors.length) throw new Error(fixtureErrors.join("\n"));
-  const fixture = combineLiveEvalFixtures(singleTurnFixture, multiTurnFixture);
   const repeat = Number(values.repeat ?? 1);
   const retryFailures = Number(values["retry-failures"] ?? 0);
   const report = await runLivePiEval({
     fixture,
+    suiteManifest,
     caseId: values.case,
-    suite: values.suite ?? "all",
+    suite: values.suite ?? "release",
     launcher: path.resolve(process.env.PI_EVAL_LAUNCHER ?? path.join(os.homedir(), ".local", "bin", "pi-ticket-plan")),
     model: process.env.PI_EVAL_MODEL ?? "openai-codex/gpt-5.6-sol",
     thinking: process.env.PI_EVAL_THINKING ?? "high",
@@ -929,6 +1185,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
     console.error(`${attempt.status} ${attempt.caseId} [${attempt.attempt}/${report.repeat}]: ${attempt.errors.join("; ")}`);
     if (attempt.output) console.error(`--- output ---\n${attempt.output}`);
   }
+  console.log(`suite: ${report.suite} · ${report.caseCount} cases · ${report.modelTurns} model turns · sha256:${report.caseSetSha256}`);
   const percent = (report.summary.successRate * 100).toFixed(1);
   console.log(`live PI behavior: ${report.summary.passed}/${report.summary.total} passed (${percent}%)`);
   if (report.gate.flaky.length > 0) console.warn(`FLAKY ${report.gate.flaky.join(",")}`);

@@ -124,3 +124,5 @@ Next gate: Admission writes ready-for-agent; only then may the Harness claim the
 ```
 
 If the same Issue instead introduces a new user workflow or several undecided behaviors, the next gate is product or technical shaping, not Admission.
+
+Maintainers can find the three live evaluation suites in [Development and release verification](../../README.md#development-and-release-verification).

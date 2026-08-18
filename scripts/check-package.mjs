@@ -61,7 +61,7 @@ export function validatePackage(root) {
   if (pkg.scripts?.["eval:pi"] !== "node scripts/eval-pi-behavior.mjs") {
     errors.push("package does not expose the fresh-process PI behavior eval");
   }
-  if (pkg.scripts?.["eval:pi:nightly"] !== "node scripts/eval-pi-behavior.mjs --suite release --repeat 3 --report-only") {
+  if (pkg.scripts?.["eval:pi:nightly"] !== "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only") {
     errors.push("package does not expose the repeat-three advisory live evaluation");
   }
   if (pkg.scripts?.["check:behavior-fixtures"] !== "node scripts/check-behavior-fixtures.mjs") {
@@ -86,7 +86,7 @@ export function validatePackage(root) {
     for (const required of ["pi-ticket-plan doctor", "PASS", "FAIL", "FIX", "SKIP"]) {
       if (!text.includes(required)) errors.push(`${relative} does not document doctor output: ${required}`);
     }
-    for (const required of ["npm run verify:release", "eval:pi:nightly", "SEMANTIC_FAIL", "INFRA_FAIL", "FLAKY"]) {
+    for (const required of ["pi-eval-suites.json", "npm run verify:release", "eval:pi:nightly", "isolated-writable", "case-set hash", "SEMANTIC_FAIL", "INFRA_FAIL", "FLAKY"]) {
       if (!text.includes(required)) errors.push(`${relative} does not document the live Release Gate: ${required}`);
     }
   }
