@@ -12,6 +12,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v2";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "subagent"]);
 const MULTITURN_TOOLS = new Set([...READ_ONLY_TOOLS, "bash", "edit", "write"]);
+const CHINESE_STATUS_LABELS = ["当前目标：", "已经确认：", "仍然缺少：", "为什么现在不能继续：", "你只需要决定："];
 
 export function validateLiveEvalFixture(fixture) {
   const errors = [];
@@ -185,13 +186,20 @@ export function matchLiveEvalOutput(output, expected) {
   return errors;
 }
 
+export function matchAskYetResponse(output) {
+  const lines = output.split(/\r?\n/u).map((line) => line.trimEnd());
+  if (CHINESE_STATUS_LABELS.some((label) => lines.some((line) => line.startsWith(label)))) {
+    return matchChineseAskYetCard(output);
+  }
+  return matchAskYetCheckpoint(lines);
+}
+
 export function matchChineseAskYetCard(output) {
   const errors = [];
   const lines = output.split(/\r?\n/u).map((line) => line.trimEnd());
-  const labels = ["当前目标：", "已经确认：", "仍然缺少：", "为什么现在不能继续：", "你只需要决定："];
   const fieldIndexes = [];
 
-  for (const label of labels) {
+  for (const label of CHINESE_STATUS_LABELS) {
     const count = lines.filter((line) => line.startsWith(label)).length;
     if (count !== 1) errors.push(`expected exactly one ${label} field, found ${count}`);
     fieldIndexes.push(lines.findIndex((line) => line.startsWith(label)));
@@ -209,14 +217,21 @@ export function matchChineseAskYetCard(output) {
     }
   }
 
-  const checkpoints = lines.filter((line) => line.startsWith("Checkpoint:"));
-  if (checkpoints.length !== 1) errors.push(`expected exactly one Checkpoint, found ${checkpoints.length}`);
   const checkpointIndex = lines.findIndex((line) => line.startsWith("Checkpoint:"));
   for (const line of lines.slice(0, checkpointIndex < 0 ? lines.length : checkpointIndex)) {
-    if (!line.trim() || /^\s/u.test(line) || labels.some((label) => line.startsWith(label))) continue;
+    if (!line.trim() || /^\s/u.test(line) || CHINESE_STATUS_LABELS.some((label) => line.startsWith(label))) continue;
     errors.push(`unexpected top-level card content: ${line.slice(0, 80)}`);
   }
+  errors.push(...matchAskYetCheckpoint(lines));
+
+  return errors;
+}
+
+function matchAskYetCheckpoint(lines) {
+  const errors = [];
   const last = lines.findLast((line) => line.trim() !== "");
+  const checkpoints = lines.filter((line) => line.startsWith("Checkpoint:"));
+  if (checkpoints.length !== 1) errors.push(`expected exactly one Checkpoint, found ${checkpoints.length}`);
   if (!last?.startsWith("Checkpoint:")) errors.push("Checkpoint is not the final non-empty line");
   if (last?.startsWith("Checkpoint:")) {
     try {
@@ -357,7 +372,7 @@ export async function runLivePiEval({
           output = typeof response === "string" ? response : response.text;
           if (typeof output !== "string") throw new Error("PI returned no final assistant text");
           outputs.push(output);
-          if (item.skill === "ask-yet") turnErrors.push(...matchChineseAskYetCard(output));
+          if (item.skill === "ask-yet") turnErrors.push(...matchAskYetResponse(output));
           turnErrors.push(...matchLiveEvalOutput(output, turn.expected));
 
           modelMutations = diffSnapshots(beforeModel, snapshotTree(workspace));

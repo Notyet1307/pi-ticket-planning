@@ -2,6 +2,73 @@
   "version": 1,
   "cases": [
     {
+      "id": "multiturn-human-interface-progressive-status",
+      "skill": "ask-yet",
+      "files": {
+        "docs/product/releases/r601-handoff-check.md": "# R601: handoff completeness candidate\n\n## Metadata\n- release_id: R601\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Candidate Frame\n- selected direction: pre-handoff completeness check\n- target outcome: a delivery owner sees one missing required item before handoff\n- smallest loop: start handoff -> check required items -> reveal one omission or confirm complete\n- excluded directions: team handoff automation and process-wide prediction\n- highest-risk unknown: no recent real event establishes where an important omission happened or its observable consequence\n- next question: in the most recent matching handoff, what omission occurred and what observable consequence followed?\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Checkpoint:\\s*(PRODUCT/(?:FRAME|EVIDENCE)\\s*·\\s*R601/r1\\s*·\\s*(?:FRAME_CANDIDATE|EVIDENCE_AUTHORIZED))[\\s\\S]*Checkpoint:\\s*\\1[\\s\\S]*Checkpoint:\\s*\\1"
+        ],
+        "mustNotMatch": [
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent"
+        ]
+      },
+      "turns": [
+        {
+          "id": "dialogue",
+          "prompt": "继续刚才的需求梳理。",
+          "expected": {
+            "mustMatch": [
+              "(?:最近一次|近期)[^\\n?？]{0,180}(?:交付|交接|遗漏|缺少)[^\\n?？]{0,180}(?:后果|影响|结果)[^\\n?？]*[?？]",
+              "Checkpoint:\\s*PRODUCT/(?:FRAME\\s*·\\s*R601/r1\\s*·\\s*FRAME_CANDIDATE|EVIDENCE\\s*·\\s*R601/r1\\s*·\\s*EVIDENCE_AUTHORIZED)"
+            ],
+            "mustNotMatch": [
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
+              "(?:候选方向|候选理解)[^\\n]{0,100}(?:A|B|C)",
+              "(?:[?？][\\s\\S]*){2}"
+            ]
+          },
+          "allowedWrites": []
+        },
+        {
+          "id": "status",
+          "prompt": "先别继续问，只告诉我现在到哪了、还缺什么。",
+          "expected": {
+            "mustMatch": [
+              "当前目标：[^\\n]+[\\s\\S]*已经确认：[^\\n]+[\\s\\S]*仍然缺少：[^\\n]+[\\s\\S]*为什么现在不能继续：[^\\n]+[\\s\\S]*你只需要决定：[^\\n]+",
+              "仍然缺少：[^\\n]{0,180}(?:近期|最近|真实|遗漏|后果)",
+              "你只需要决定：[^\\n]*(?:无需决定|不用决定|不需要决定)",
+              "Checkpoint:\\s*PRODUCT/(?:FRAME\\s*·\\s*R601/r1\\s*·\\s*FRAME_CANDIDATE|EVIDENCE\\s*·\\s*R601/r1\\s*·\\s*EVIDENCE_AUTHORIZED)"
+            ],
+            "mustNotMatch": [
+              "[?？]",
+              "(?:重新|再次)[^\\n]{0,60}(?:选择|比较)[^\\n]{0,60}(?:方法|候选)",
+              "READY_TO_COMMIT|COMMITTED|/skill:to-spec"
+            ]
+          },
+          "allowedWrites": []
+        },
+        {
+          "id": "resume",
+          "prompt": "继续。",
+          "expected": {
+            "mustMatch": [
+              "(?:最近一次|近期)[^\\n?？]{0,180}(?:交付|交接|遗漏|缺少)[^\\n?？]{0,180}(?:后果|影响|结果)[^\\n?？]*[?？]",
+              "Checkpoint:\\s*PRODUCT/(?:FRAME\\s*·\\s*R601/r1\\s*·\\s*FRAME_CANDIDATE|EVIDENCE\\s*·\\s*R601/r1\\s*·\\s*EVIDENCE_AUTHORIZED)"
+            ],
+            "mustNotMatch": [
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
+              "(?:候选方向|候选理解)[^\\n]{0,100}(?:A|B|C)",
+              "(?:[?？][\\s\\S]*){2}"
+            ]
+          },
+          "allowedWrites": []
+        }
+      ]
+    },
+    {
       "id": "multiturn-exploratory-interview-completes",
       "skill": "ask-yet",
       "files": {},
@@ -10,6 +77,7 @@
           "(?:下一项|下一步)[^\\n]{0,40}(?:判断依据|证据|Evidence)"
         ],
         "mustNotMatch": [
+          "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
           "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent"
         ]
       },
@@ -21,8 +89,8 @@
             "mustMatch": [
               "(?:了解|弄清)[^\\n]{0,100}(?:最近|近期)[^\\n]{0,100}(?:事件|经历|流程|过程|交付|遗漏)",
               "(?:IP|系统名|客户名|账号|凭据)",
-              "(?:随时停止|可以停止|可退出)",
-              "你只需要决定：[^\\n]*(?:是否同意|同意|不同意)",
+              "(?:随时停止|可以停止|可退出|随时暂停或停止)",
+              "(?:是否同意|同意继续)[^\\n?？]*[?？]",
               "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
             ],
             "mustNotMatch": [
@@ -38,7 +106,7 @@
           "prompt": "参与者：同意。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:最近一次|近期)[^\\n]{0,180}(?:交付|遗漏|发生|经历|触发)",
+              "(?:请描述|请讲述|请回忆|请回想|能否描述|请从)[^\\n?？]{0,100}(?:最近一次|近期|交付遗漏)[^\\n?？]{0,180}(?:交付|遗漏|发生|经历|触发|事情)[^\\n?？]*[?？]",
               "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
             ],
             "mustNotMatch": [
@@ -53,8 +121,8 @@
           "prompt": "参与者：上周接到项目负责人发来的交付通知后，我从团队聊天记录复制清单并逐项整理交付包，复核者发现我漏了发布说明；当时还没有说明这个遗漏造成了什么后果。",
           "expected": {
             "mustMatch": [
-              "(?:已记录|脱敏记录|新增记录|已经确认：)[^\\n]{0,220}(?:上周|通知|整理|发布说明|复核)",
-              "(?:(?:造成|带来|导致)[^\\n?？]{0,80}(?:后果|影响|结果)[^\\n?？]*[?？]|仍然缺少：[^\\n]*(?:后果|影响)[\\s\\S]{0,300}你只需要决定：[^\\n?？]*(?:发生了什么|怎样|如何)[^\\n?？]{0,80}[?？])"
+              "(?:已记录|脱敏记录|新增记录)[^\\n]{0,220}(?:上周|通知|整理|发布说明|复核)",
+              "(?:(?:造成|带来|导致)[^\\n?？]{0,80}(?:后果|影响|结果)[^\\n?？]*[?？]|(?:后果|影响)[^\\n?？]{0,160}(?:发生了什么|出现了什么|什么可观察|怎样|如何)[^\\n?？]{0,80}[?？]|(?:发现遗漏后|遗漏被发现后)[^\\n?？]{0,160}(?:发生了什么|出现了什么|什么可观察)[^\\n?？]*[?？])"
             ],
             "mustNotMatch": [
               "是否同意|最近一次交付遗漏是什么|完成信号[^\\n?？]*[?？]",
@@ -69,8 +137,8 @@
           "expected": {
             "mustMatch": [
               "(?:延迟两小时|两小时)[^\\n]{0,100}(?:接收方|确认|完整)",
-              "仍然缺少：[^\\n]{1,}",
-              "(?:(?:候选方向|候选框架|候选闭环|Candidate Frame)[^\\n]{0,100}(?:修正|保留|收窄|细化|聚焦|形成)|(?:修正|保留|收窄|细化|聚焦|形成)[^\\n]{0,100}(?:候选方向|候选框架|候选闭环|Candidate Frame))",
+              "(?:仍缺|还缺|不能证明|无法证明)[^\\n]{1,}",
+              "(?:(?:候选方向|候选框架|候选闭环|Candidate Frame)[^\\n]{0,160}(?:修正|保留|收窄|细化|聚焦|形成|闭环|展开)|(?:修正|保留|收窄|细化|聚焦|形成)[^\\n]{0,100}(?:候选方向|候选框架|候选闭环|Candidate Frame))",
               "(?:不能|不足以|不代表)[^\\n]{0,120}(?:普遍|值得开发|进入交付|承诺)",
               "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
             ],
@@ -93,11 +161,12 @@
           "prompt": "客户在这里，请开始了解最近一次交付遗漏。本轮是非正式探索，只读。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:是否同意|同意|不同意)",
+              "(?:是否同意|同意继续)[^\\n?？]*[?？]",
               "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
             ],
             "mustNotMatch": [
-              "(?:最近一次|近期)[^\\n?？]{0,100}(?:发生|经历|交付)[^\\n?？]*[?？]",
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
+              "(?:最近一次|近期)[^\\n?？]{0,120}(?:什么|怎么|如何|哪一步|请描述|请讲述)[^\\n?？]*[?？]",
               "同意后[^\\n]{0,30}(?:(?:我|系统|我们)[^\\n]{0,10})?(?:会|将)[^\\n]{0,60}(?:询问|提问|问|最近|下一轮)",
               "(?:[?？][\\s\\S]*){2}"
             ]
@@ -109,9 +178,10 @@
           "prompt": "参与者：我同意继续。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:最近一次|近期)[^\\n]{0,180}(?:交付|遗漏|事件|经历|触发)"
+              "(?:请描述|请讲述|请回忆|请回想|能否描述|请从)[^\\n?？]{0,100}(?:最近一次|近期|交付遗漏)[^\\n?？]{0,180}(?:交付|遗漏|事件|经历|触发|事情)[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
               "是否同意|(?:[?？][\\s\\S]*){2}"
             ]
           },
@@ -122,10 +192,11 @@
           "prompt": "参与者：昨天收到交付通知后，我先汇总附件再核对清单，但我还没讲哪个环节出了问题，也没讲后果。",
           "expected": {
             "mustMatch": [
-              "(?:已记录|脱敏记录|新增记录|已经确认：)[^\\n]{0,200}(?:昨天|通知|汇总|核对)",
-              "你只需要决定：(?=[^\\n]*(?:哪个环节|哪一步|什么环节|哪一类|哪类))(?=[^\\n]*(?:问题|失败|遗漏|出错|没有|缺失|偏差|漏))[^\\n?？]*[?？]"
+              "(?:已记录|脱敏记录|新增记录)[^\\n]{0,200}(?:昨天|通知|汇总|核对)",
+              "(?=[^\\n]*(?:哪个环节|哪一步|什么环节|哪一类|哪类))(?=[^\\n]*(?:问题|失败|遗漏|出错|没有|缺失|偏差|漏))[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
               "是否同意|最近一次[^\\n?？]*[?？]|(?:[?？][\\s\\S]*){2}"
             ]
           },
@@ -136,8 +207,9 @@
           "prompt": "产品负责人：先暂停，只告诉我已经记录了什么，不要继续问参与者。",
           "expected": {
             "mustMatch": [
-              "(?:已记录|已经记录)[^\\n]{0,220}(?:昨天|通知|汇总|核对|触发|步骤)",
-              "(?:仍然缺少|仍缺少|还缺少|下一步)[^\\n]{0,160}(?:问题|失败|遗漏|后果|完成)",
+              "(?:当前目标：[^\\n]+[\\s\\S]*已经确认：[^\\n]+[\\s\\S]*仍然缺少：[^\\n]+[\\s\\S]*为什么现在不能继续：[^\\n]+[\\s\\S]*你只需要决定：[^\\n]+|已暂停[^\\n]{0,220}(?:已记录|昨天|通知|汇总|核对))",
+              "(?:已经确认：|已记录：)[^\\n]{0,220}(?:昨天|通知|汇总|核对|触发|步骤)",
+              "(?:仍然缺少：[^\\n]{0,160}(?:问题|失败|遗漏|后果|完成)|恢复[^\\n]{0,100}(?:具体遗漏|遗漏环节|问题|后果))",
               "(?:已暂停|暂停)"
             ],
             "mustNotMatch": [
@@ -151,9 +223,10 @@
           "prompt": "产品负责人：继续。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：(?=[^\\n]*(?:哪个环节|哪一步|什么环节|哪一类|哪类))(?=[^\\n]*(?:问题|失败|遗漏|出错|没有|缺失|偏差|漏))[^\\n?？]*[?？]"
+              "(?=[^\\n]*(?:哪个环节|哪一步|什么环节|哪一类|哪类))(?=[^\\n]*(?:问题|失败|遗漏|出错|没有|缺失|偏差|漏))[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
+              "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
               "是否同意|最近一次[^\\n?？]*(?:事件|经历|交付)[^\\n?？]*[?？]|候选方向[^\\n]{0,80}(?:A|B)|(?:[?？][\\s\\S]*){2}"
             ]
           },
@@ -171,16 +244,22 @@
         "10.23.45.67",
         "TOKEN-DO-NOT-STORE-7788"
       ],
+      "expected": {
+        "mustMatch": [],
+        "mustNotMatch": [
+          "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)"
+        ]
+      },
       "turns": [
         {
           "id": "start",
           "prompt": "客户在这里，请开始了解最近一次交付遗漏。本轮非正式、只读。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:是否同意|同意|不同意)"
+              "(?:是否同意|同意继续)[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
-              "(?:最近一次|近期)[^\\n?？]{0,100}(?:发生|经历|交付)[^\\n?？]*[?？]",
+              "(?:最近一次|近期)[^\\n?？]{0,120}(?:什么|怎么|如何|哪一步|请描述|请讲述)[^\\n?？]*[?？]",
               "同意后[^\\n]{0,30}(?:(?:我|系统|我们)[^\\n]{0,10})?(?:会|将)[^\\n]{0,60}(?:询问|提问|问|最近|下一轮)"
             ]
           },
@@ -191,7 +270,7 @@
           "prompt": "参与者：同意。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:最近一次|近期)[^\\n]{0,180}(?:交付|遗漏|事件|经历|触发)"
+              "(?:请描述|请讲述|请回忆|请回想|能否描述|请从)[^\\n?？]{0,100}(?:最近一次|近期|交付遗漏)[^\\n?？]{0,180}(?:交付|遗漏|事件|经历|触发|事情)[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
               "是否同意|(?:[?？][\\s\\S]*){2}"
@@ -204,7 +283,7 @@
           "prompt": "参与者：昨天收到交付请求后，我为客户名 ACME-SECRET-CUSTOMER 操作系统 PROD-OMEGA，连接 IP 10.23.45.67 并用了凭据 TOKEN-DO-NOT-STORE-7788 上传清单，随后上传失败；我还没说明失败后果。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:类别|类别描述|泛化|脱敏|改述)[^\\n]{0,180}(?:重述|描述|改写|改述|类别)"
+              "(?:请|能否)[^\\n?？]{0,60}(?:类别|类别描述|泛化|脱敏|改述)[^\\n?？]{0,180}(?:重述|描述|改写|改述|类别)[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
               "ACME-SECRET-CUSTOMER|PROD-OMEGA|10\\.23\\.45\\.67|TOKEN-DO-NOT-STORE-7788",
@@ -219,7 +298,7 @@
           "prompt": "参与者：可记录为一家外部客户、生产业务系统、内部网络地址和服务凭据。",
           "expected": {
             "mustMatch": [
-              "(?:已记录|脱敏记录|类别|已经确认：)[^\\n]{0,200}(?:外部客户|生产业务系统|内部网络|服务凭据)",
+              "(?:已记录|脱敏记录|类别)[^\\n]{0,200}(?:外部客户|生产业务系统|内部网络|服务凭据)",
               "(?:失败|上传失败)[^\\n?？]{0,80}(?:后果|影响|造成)[^\\n?？]*[?？]"
             ],
             "mustNotMatch": [
@@ -247,6 +326,7 @@
           "R301/r1-validation-v1"
         ],
         "mustNotMatch": [
+          "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)",
           "Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)|/skill:to-spec|ready-for-agent"
         ]
       },
@@ -279,11 +359,11 @@
             "mustMatch": [
               "(?:(?:固定|冻结|不会根据回答改变)[^\\n]{0,160}(?:假设|问题|判断标准)|(?:假设|问题|判断标准)[^\\n]{0,160}(?:已提前固定|已经固定|已冻结|不会根据回答改变)|(?:已|已经)确定[^\\n]{0,80}假设[^\\n]{0,160}(?:问题|判断标准)[^\\n]{0,80}(?:不会|不随)[^\\n]{0,40}改变)",
               "(?:正式|可正式)[^\\n]{0,80}(?:记录|结果|证据)",
-              "你只需要决定：[^\\n]*(?:是否同意|同意|不同意)",
+              "(?:是否同意|同意继续)[^\\n?？]*[?？]",
               "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R301/r1\\s*·\\s*INTERVIEW_AWAITING_CONSENT"
             ],
             "mustNotMatch": [
-              "(?:最近一次|近期)[^\\n?？]{0,100}(?:发生|经历|交付)[^\\n?？]*[?？]",
+              "(?:最近一次|近期)[^\\n?？]{0,120}(?:什么|怎么|如何|哪一步|请描述|请讲述)[^\\n?？]*[?？]",
               "同意后[^\\n]{0,30}(?:(?:我|系统|我们)[^\\n]{0,10})?(?:会|将)[^\\n]{0,60}(?:询问|提问|问|最近|下一轮)",
               "(?:[?？][\\s\\S]*){2}"
             ]
@@ -295,7 +375,7 @@
           "prompt": "参与者：同意参加并允许按冻结协议记录脱敏结果。",
           "expected": {
             "mustMatch": [
-              "你只需要决定：[^\\n]*(?:最近一次|最近[^\\n]{0,30}一次|most recent)[^\\n]{0,180}(?:多记录|多条记录|交接|handoff)",
+              "(?:请描述|请讲述|请回忆|请回想|能否描述|请[^\\n?？]{0,40}(?:描述|讲述|回忆|回想))[^\\n?？]{0,80}(?:最近一次|最近[^\\n?？]{0,30}一次|most recent)[^\\n?？]{0,180}(?:多记录|多条记录|交接|handoff)[^\\n?？]*[?？]?",
               "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R301/r1\\s*·\\s*INTERVIEW_IN_PROGRESS"
             ],
             "mustNotMatch": [
@@ -321,7 +401,7 @@
               "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R301/r1\\s*·\\s*(?:INTERVIEW_RECORDED|EVIDENCE_WRITE_AWAITING_APPROVAL)"
             ],
             "mustNotMatch": [
-              "(?:已写入|已提交|已推送|已经记录到 Git)|COMMITTED|/skill:to-spec|ready-for-agent"
+              "(?:已写入|已提交|已推送|已经记录到 Git)|(?:已|已经|现已|自动)[^\\n]{0,40}(?:进入|变为|成为|标记为)?[^\\n]{0,20}COMMITTED|Checkpoint:[^\\n]*COMMITTED|/skill:to-spec|ready-for-agent"
             ]
           },
           "allowedWrites": []
@@ -331,8 +411,8 @@
           "prompt": "产品负责人：批准你上一轮展示的 exact 脱敏更新。仅修改 docs/product/releases/r301-batch-entry.md，from_revision R301/r1、target_revision R301/r2；允许本地 commit 并只推送到隔离 origin 的 refs/heads/evidence/r301-interview。不得写入原始回答或改动其他文件。完成后重新读取 exact remote ref 和 blob 再报告。",
           "expected": {
             "mustMatch": [
-              "(?:(?:commit|提交)[^\\n]{0,180}blob|blob[^\\n]{0,180}(?:commit|提交))",
-              "(?:(?:不等于|不代表|未进入|尚未|仍未确认|不授权)[^\\n]{0,100}(?:COMMITTED|确认值得进入交付|值得进入交付|进入交付|to-spec|交付)|不能(?:自动产生|自动代表|直接用于)[^\\n]{0,100}(?:交付确认|规格|任务|确认进入交付|交付)|(?:未改变|不改变)[^\\n]{0,100}(?:是否进入交付|进入交付)|(?:不会自动|不自动)[^\\n]{0,100}(?:提升|变成|确认)[^\\n]{0,60}(?:交付承诺|进入交付))",
+              "(?:(?:commit|提交)[\\s\\S]{0,320}blob|blob[\\s\\S]{0,320}(?:commit|提交))",
+              "(?:(?:不等于|不代表|未进入|尚未|仍未确认|不授权)[^\\n]{0,100}(?:COMMITTED|确认值得进入交付|值得进入交付|进入交付|to-spec|交付)|不能(?:自动产生|自动代表|直接用于)[^\\n]{0,100}(?:交付确认|规格|任务|确认进入交付|交付)|(?:未改变|不改变)[^\\n]{0,100}(?:是否进入交付|进入交付|readiness|Commitment)|(?:readiness|Commitment)[^\\n]{0,100}(?:未改变|不改变)|(?:不会自动|不自动)[^\\n]{0,100}(?:提升|变成|确认)[^\\n]{0,60}(?:交付承诺|进入交付)|不是已接受交付基线)",
               "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R301/r2\\s*·\\s*EVIDENCE_RECORDED"
             ],
             "mustNotMatch": [
@@ -358,6 +438,12 @@
         "docs/product/releases/r401-large-export.md": "# R401: summarize one large local export\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an operator summarizes one approved 100 MB local export\n- target_outcome: return the approved summary within two seconds\n- smallest_closed_loop: local export -> parse and summarize -> local summary or bounded failure\n- primary_signal: three target-hardware runs meet time and memory thresholds\n- guardrail: input remains unchanged and no network or production connection occurs\n- non_goals: service deployment, history, distributed processing, or new product behavior\n",
         "evidence/r401-accepted-state.md": "# Accepted delivery and active method\n\n- The exact COMMITTED R401/r1 Release, policy, and this record are on accepted origin/main.\n- Solution Shaping is active in DELIVERY/SPEC.\n- Active Evidence method: fixed whole-file parser benchmark; do not reroute it until its stop condition or closeout.\n- Decision question: does the current whole-file parser meet the accepted target, so it can remain the recommended minimum boundary?\n- Current parser revision under test: current-parser-v1.\n- Target environment: Mac mini M2, 8 GB RAM, Node.js 22.\n- Frozen fixture: fixtures/export-100mb-v1.json, SHA-256 data-owner-export-v1.\n- Expected summary digest fixed and approved by the data owner before execution: approved-summary-v1.\n- Primary verification: three current-parser runs recording wall time, peak RSS, exit status, and summary digest.\n- Pass threshold: every run at most 2.0 seconds and 1.5 GB peak RSS with the approved digest.\n- Stop: first crash, fixture mismatch, threshold breach, credential request, or production connection.\n- Appetite: two hours. Cleanup: remove temporary code and outputs after returning a redacted result.\n- Result file expected from the target environment: evidence/benchmark-result.json. It is currently absent.\n- A passing result recommends the whole-file boundary but still requires the technical owner to accept the ADR; it cannot establish customer value or Commitment.\n"
       },
+      "expected": {
+        "mustMatch": [],
+        "mustNotMatch": [
+          "(?:^|\\n)(?:当前目标：|已经确认：|仍然缺少：|为什么现在不能继续：|你只需要决定：)"
+        ]
+      },
       "turns": [
         {
           "id": "handoff",
@@ -367,7 +453,7 @@
               "(?:benchmark|基准测试|性能验证)",
               "Mac mini M2[\\s\\S]{0,600}(?:100\\s*MB|2(?:\\.0)?\\s*秒|1\\.5\\s*GB)|(?:100\\s*MB|2(?:\\.0)?\\s*秒|1\\.5\\s*GB)[\\s\\S]{0,600}Mac mini M2",
               "(?:两小时|2\\s*小时|appetite)",
-              "(?:清理|删除)[^\\n]{0,100}(?:临时|输出|代码)",
+              "(?:清理|删除)[^\\n]{0,100}(?:临时|输出|代码)|remove[^\\n]{0,100}(?:temporary|code|outputs)",
               "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R401/r1\\s*·\\s*BLOCKED"
             ],
             "mustNotMatch": [
@@ -390,12 +476,12 @@
               "1\\.62|1\\.59|1\\.61",
               "1\\.20|1\\.2",
               "(?:(?:通过|满足|PASS)[\\s\\S]{0,300}(?:2(?:\\.0)?\\s*秒|1\\.5\\s*GB|阈值|冻结标准)|(?:基准测试|benchmark)[^\\n]{0,100}(?:通过|PASS)|结论为[^\\n]{0,30}PASS|(?:判定为通过|基准通过))",
-              "(?:(?:只能|仅能|只证明)[^\\n]{0,140}(?:固定环境|该环境|技术性能|性能)|(?:结论|结果)[^\\n]{0,60}(?:仅适用于|只适用于|仅支持在)[^\\n]{0,160}(?:硬件|环境|设备|输入|fixture|版本|窗口))",
+              "(?:(?:只能|仅能|只证明)[^\\n]{0,140}(?:固定环境|该环境|指定环境|技术性能|性能)|(?:结论|结果)[^\\n]{0,60}(?:仅适用于|只适用于|仅支持在|仅支持)[^\\n]{0,160}(?:硬件|环境|设备|输入|fixture|版本|窗口)|(?:支持|结论)[^\\n]{0,160}(?:固定环境|该环境|指定环境)[^\\n]{0,160}(?:运行窗口|三次运行|输入|版本))",
               "(?:技术负责人|ADR owner|架构负责人)[^\\n]{0,140}(?:决定|接受|确认|批准)",
               "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R401/r1\\s*·\\s*BLOCKED"
             ],
             "mustNotMatch": [
-              "访谈|原型|重新设计[^\\n]{0,40}(?:Spike|benchmark)|(?<!不能)(?<!不会)(?<!不得)(?<!不应)自动接受[^\\n]{0,30}ADR|/skill:to-spec|Ticket|Admission|ready-for-agent"
+              "访谈|原型|重新设计[^\\n]{0,40}(?:Spike|benchmark)|(?:将|会|已经|现已|直接|可以)自动接受[^\\n]{0,30}ADR|/skill:to-spec|Ticket|Admission|ready-for-agent"
             ]
           },
           "allowedWrites": []

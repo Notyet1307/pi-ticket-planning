@@ -300,7 +300,7 @@ return_to:
   evidence_item: <ledger item>
 ```
 
-When `ask-yet` renders this handoff, keep it inside the human card's `仍然缺少` field (or its translation). Put `Reason: CAPABILITY_GAP` and `Research Handoff:` in that field and indent the remaining lines; do not create another top-level status section.
+When `ask-yet` renders this handoff, put `Reason: CAPABILITY_GAP` and `Research Handoff:` in one compact indented block. In `STATUS`, keep that block inside `仍然缺少` (or its translation); in another response form, do not create a competing status card or second response contract.
 
 Missing research capability is `CAPABILITY_GAP`, not a product answer and not a request for the human to guess a searchable fact.
 

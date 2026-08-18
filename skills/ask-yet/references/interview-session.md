@@ -32,7 +32,7 @@ Infer durability rather than offering it as a choice:
 - `FORMAL`: the exact applicable guide or protocol revision is reachable from the human-approved remote draft ref or accepted remote delivery base, the participant matches it, live consent is obtained, and the session follows the frozen boundaries. Only a redacted result may update the Release artifact, and only after write approval.
 - `INFORMAL`: any other live session. Keep the result in conversation. It cannot close blocking Evidence, change readiness to `PASS`, or support `READY_TO_COMMIT` until formal evidence is obtained under the existing contract.
 
-Use ordinary language in the human status card. Show `EXPLORATORY`, `VALIDATION`, `FORMAL`, `INFORMAL`, protocol identity, thresholds, or machine verdicts only for debugging, protocol review, or an explicit request.
+Use ordinary language in the human response. Show `EXPLORATORY`, `VALIDATION`, `FORMAL`, `INFORMAL`, protocol identity, thresholds, or machine verdicts only for debugging, protocol review, or an explicit request.
 
 ## Freeze only what the purpose needs
 
@@ -93,9 +93,9 @@ If an existing guide or protocol requires an offline facilitator, forbids in-ses
 
 Never answer on the interviewee's behalf. Silence, “I don't know”, or a skipped step is `UNKNOWN`; do not complete it from product knowledge.
 
-During `FRAME`, run only exploration. Keep the legal `PRODUCT/FRAME · <identity or NONE> · FRAME_CANDIDATE`, or use `FRAME_WRITE_AWAITING_APPROVAL` when the next action is the existing Candidate Frame write approval. Put consent and interview progress in the five-field human card; do not use the `INTERVIEW_*` verdicts, which belong to `EVIDENCE`.
+During `FRAME`, run only exploration. Keep the legal `PRODUCT/FRAME · <identity or NONE> · FRAME_CANDIDATE`, or use `FRAME_WRITE_AWAITING_APPROVAL` when the next action is the existing Candidate Frame write approval. Render consent, opening, follow-up, redaction recovery, and resume as `DIALOGUE`; pause and closeout as `RESULT` or short `DIALOGUE`; and an explicit owner status request as `STATUS`. Do not use the `INTERVIEW_*` verdicts, which belong to `EVIDENCE`.
 
-During `EVIDENCE`, either purpose may use the existing `INTERVIEW_AWAITING_CONSENT`, `INTERVIEW_IN_PROGRESS`, `INTERVIEW_RECORDED`, or `INTERVIEW_STOPPED` verdict with a Release identity. Purpose and durability never become a lane, stage, verdict, Checkpoint field, or new persisted state.
+During `EVIDENCE`, either purpose may use the existing `INTERVIEW_AWAITING_CONSENT`, `INTERVIEW_IN_PROGRESS`, `INTERVIEW_RECORDED`, or `INTERVIEW_STOPPED` verdict with the exact Release identity. Never put a protocol, guide, or session identity in the Checkpoint identity field; keep `R301/r1-validation-v1`-style identities in the human review body and use the owning `R301/r1`-style Release identity in the Checkpoint. Purpose and durability never become a lane, stage, verdict, Checkpoint field, or new persisted state.
 
 ## First participant turn
 
@@ -122,9 +122,9 @@ Do not use a feature-usefulness question as the opening, imply that the particip
 
 ### Owner controls
 
-- On pause, only confirm the pause and name the first missing field that will be resumed; ask no question and do not close out.
-- On a status request, report only the categories already captured, the missing categories, and the next step; do not ask the participant anything in that turn.
-- On resume, ask only the first missing question from before the pause. Do not ask for consent again, replay the opening question or protocol, or rerun Candidate-first.
+- On pause, use `RESULT` or short `DIALOGUE`: confirm the pause and name the first missing field that will be resumed; ask no question and do not close out.
+- On a status request, use `STATUS`: report only the categories already captured, the missing categories, and the next step; do not ask the participant anything or advance the session in that turn.
+- On resume, return to `DIALOGUE` and ask only the first missing question from before the pause. Do not ask for consent again, replay the opening question or protocol, rerun Candidate-first, or repeat the STATUS card.
 - On a factual correction, update and show only the corrected redacted fact. An owner cannot edit a participant answer merely to pass a threshold.
 - On cancellation, stop. Withdrawal or a privacy or safety stop uses the existing safety-stop semantics; an ordinary pause is not failure.
 

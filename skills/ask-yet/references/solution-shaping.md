@@ -44,7 +44,7 @@ Skip shaping when accepted code, ADRs, policy, interfaces, and tests already clo
 - a future optimization, platform, integration, or reuse idea; or
 - a feasibility question that needs measurement rather than an architecture choice.
 
-For the last case, load [evidence-method-selection.md](evidence-method-selection.md) and select one bounded Technical Spike, benchmark, or canary. Keep `DELIVERY / SPEC` blocked until the result returns.
+For the last case, load [evidence-method-selection.md](evidence-method-selection.md) and select one bounded Technical Spike, benchmark, or canary. Keep `DELIVERY / SPEC` blocked until the result returns. When the protocol is shaped but not authorized or its target environment is absent, end with `DECISION` and directly ask the human to authorize it or provide that environment as the only question; a third-person handoff is not approval, and the response must not stop at the protocol text.
 
 ## 2. Recover facts and separate unknowns
 
@@ -238,7 +238,7 @@ Remain in the existing `DELIVERY / SPEC` stage:
 - Use `BLOCKED` when a load-bearing human choice, Technical Spike, ADR acceptance, accepted-base publication, policy prerequisite, or conflict with committed behavior remains open.
 - After all ten sufficiency checks pass from accepted sources, continue automatically to `to-spec` in the same run.
 
-Use the existing five-field human card. Say “确定第一版实现边界,” “哪部分负责什么,” “数据由谁保存和负责,” “各部分怎样交接,” “用什么方式证明第一版跑通,” “需要长期遵守的技术决定,” and “已接受的代码基线” by default. Do not expose an architecture questionnaire, an internal field table, `solution_shaping_required`, `required_now_decisions`, or `technical_decision_sufficiency` unless the human asks for diagnostic detail.
+Use `DECISION` for one load-bearing human tradeoff, `REVIEW` for an exact ADR or policy mutation, and `RESULT` when accepted sources already close shaping and allow `to-spec` to continue. Say “确定第一版实现边界,” “哪部分负责什么,” “数据由谁保存和负责,” “各部分怎样交接,” “用什么方式证明第一版跑通,” “需要长期遵守的技术决定,” and “已接受的代码基线” by default. Do not expose an architecture questionnaire, an internal field table, `solution_shaping_required`, `required_now_decisions`, or `technical_decision_sufficiency` unless the human asks for diagnostic detail.
 
 Ask no question when accepted constraints already imply the answer. When one human choice remains, ask only that decision and state what will continue automatically after acceptance.
 

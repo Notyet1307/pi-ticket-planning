@@ -166,6 +166,7 @@ export function validatePackage(root) {
   if (names.includes("to-release")) errors.push("to-release must remain an internal reference, not a public skill");
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
+  const humanInterface = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "human-interface.md"), "utf8");
   const releaseLoop = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "release-loop.md"), "utf8");
   const solutionShaping = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "solution-shaping.md"), "utf8");
   const evidenceMethodSelection = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "evidence-method-selection.md"), "utf8");
@@ -180,6 +181,7 @@ export function validatePackage(root) {
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
   for (const required of [
     "references/release-loop.md",
+    "references/human-interface.md",
     "references/solution-shaping.md",
     "references/interview-session.md",
     "references/execution-closeout.md",
@@ -193,14 +195,13 @@ export function validatePackage(root) {
     "Neither grants mutation authority",
     "Create no Release artifact, Delivery Spec, Delivery Parent, or graph",
     "Evidence-enabling surface",
-    "当前目标：",
-    "已经确认：",
-    "仍然缺少：",
-    "为什么现在不能继续：",
-    "你只需要决定：",
-    "inside `已经确认`",
-    "use exactly `快速路径`, `标准路径`, or `完整发现路径`",
-    "under `仍然缺少`",
+    "`goal`",
+    "`confirmed_facts`",
+    "`missing_fact_or_decision`",
+    "`blocker`",
+    "`human_action`",
+    "explicit state request -> `STATUS`",
+    "Only `STATUS` renders the complete five-field card",
     "final non-empty line",
     "<ticket-or-map-id>@<reviewed-revision>",
     "Do not append anything after the checkpoint",
@@ -243,13 +244,53 @@ export function validatePackage(root) {
     "exact committed blob into the accepted remote delivery base",
     "Never route draft or accepted-base publication through the implementation Harness",
     "Technical Decision Sufficiency",
-    "During post-Commitment Solution Shaping, remain `DELIVERY / SPEC` with `BLOCKED`",
     "continue through read-only `to-spec` compilation and use `SPEC_IN_PROGRESS`",
     "Do not append the Spec body",
     "An active Evidence session in the current PI session owns routing",
     "Pause, status, resume, scoped write approval",
+    "A plain `继续` or ordinary product-shaping reply outside an active interview remains owner input",
+    "not `ORIENT / ROUTED`",
   ]) {
     if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
+  }
+  if (askYet.includes("Render one human status card with exactly five fields")) {
+    errors.push("ask-yet retains the obsolete every-response five-field contract");
+  }
+  if (frontmatterValue(humanInterface, "name") || names.includes("human-interface")) {
+    errors.push("human-interface must remain an internal reference, not a public Skill");
+  }
+  for (const required of [
+    "DIALOGUE",
+    "DECISION",
+    "STATUS",
+    "REVIEW",
+    "RESULT",
+    "per-turn presentation inference",
+    "not a lane, stage, verdict, artifact field, workflow state, persisted session field, or authority source",
+    "Do not require or render the five STATUS fields",
+    "A STATUS request is read-only with respect to workflow progress",
+    "use exactly `快速路径`, `标准路径`, or `完整发现路径`",
+    "indent every continuation line",
+    "what will change",
+    "what will not change",
+    "fingerprint",
+    "exact mutation",
+    "consent question",
+    "asks for the next missing fact",
+    "name exactly one highest-risk assumption",
+    "a third-person statement that an executor should run it is not authorization",
+    "Outside live interview consent",
+    "For `CONTROLLED`",
+    "rollback or recovery",
+    "final non-empty line",
+    "Append nothing after it",
+  ]) {
+    if (!humanInterface.includes(required)) errors.push(`human-interface lacks required contract: ${required}`);
+  }
+  const statusLabels = ["当前目标：", "已经确认：", "仍然缺少：", "为什么现在不能继续：", "你只需要决定："];
+  const statusLabelIndexes = statusLabels.map((label) => humanInterface.indexOf(label));
+  if (!statusLabelIndexes.every((index, position) => index >= 0 && (position === 0 || index > statusLabelIndexes[position - 1]))) {
+    errors.push("human-interface does not preserve the STATUS five-field order");
   }
   for (const obsolete of ["active_release:", "next_command:", "forbidden_transition:"]) {
     if (askYet.includes(obsolete)) errors.push(`ask-yet retains verbose checkpoint field: ${obsolete}`);
@@ -337,6 +378,7 @@ export function validatePackage(root) {
     "explicitly read-only run may still complete shaping",
     "Do not promote a deferred idea into a candidate",
     "name its exact ADR ID or path",
+    "must not stop at the protocol text",
   ]) {
     if (!solutionShaping.includes(required)) errors.push(`solution-shaping lacks required contract: ${required}`);
   }
@@ -346,6 +388,7 @@ export function validatePackage(root) {
     "returns to `solution-shaping.md`",
     "Active method owns later session turns",
     "persisted `active_method` field",
+    "sole human action in the response",
   ]) {
     if (!evidenceMethodSelection.includes(required)) errors.push(`evidence-method-selection lacks Solution Shaping route: ${required}`);
   }
@@ -366,6 +409,7 @@ export function validatePackage(root) {
     "Fresh-context recovery",
     "from_revision",
     "exact remote ref and artifact blob",
+    "Never put a protocol, guide, or session identity in the Checkpoint identity field",
   ]) {
     if (!interviewSession.includes(required)) errors.push(`interview-session lacks required contract: ${required}`);
   }

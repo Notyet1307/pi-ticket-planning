@@ -28,7 +28,7 @@ Prefer higher decision impact and uncertainty when a valid bounded method exists
 
 When product and technical unknowns coexist, do not impose a fixed order. Test technical feasibility first only when a technical constraint could make the whole candidate impossible inside the appetite. Test the real task first when a mature technical path exists but actor, workflow, or value remains unknown. Use Wayfinder only when the dependencies cannot be reduced to one decision-changing action.
 
-A request to “use AI”, automation, or another technology is a `solution_hypothesis`. It does not become the target outcome, primary signal, or highest-risk unknown unless the user behavior is already decided and the only blocker is a fixed technical threshold. In the human card, say plainly that it is only a solution idea, not the user outcome or success signal.
+A request to “use AI”, automation, or another technology is a `solution_hypothesis`. It does not become the target outcome, primary signal, or highest-risk unknown unless the user behavior is already decided and the only blocker is a fixed technical threshold. In the human response, say plainly that it is only a solution idea, not the user outcome or success signal.
 
 ## 2. Separate facts from choices
 
@@ -129,7 +129,7 @@ Reroute only when the participant no longer matches and the decision question is
 
 After selecting the valid method, inspect the environment's real read, web, browser, execution, data, and write capabilities plus its authorization. A discoverable helper name does not prove the capability is usable.
 
-A read-only instruction or completed protocol design is not permission to execute. Without explicit authorization, do not mark an action authorized; request only the required authorization or environment and keep the current gate open.
+A read-only instruction or completed protocol design is not permission to execute. Without explicit authorization, do not mark an action authorized; make the required authorization or target environment the sole human action in the response and keep the current gate open. A handoff that stops after the protocol without naming that one action is incomplete.
 
 If the capability exists, follow its contract and authorization boundary. If it does not, do not substitute a method that cannot answer the question. Return a precise handoff and keep the gate open:
 

@@ -11,6 +11,7 @@ import {
 import {
   combineLiveEvalFixtures,
   evaluateCaseGate,
+  matchAskYetResponse,
   matchChineseAskYetCard,
   matchLiveEvalOutput,
   runLivePiEval,
@@ -49,8 +50,19 @@ test("live PI eval fixture and semantic matcher are valid", () => {
     "Checkpoint: PRODUCT/OUTCOME · R004/r1 · AWAITING_EVIDENCE",
   ].join("\n");
   assert.deepEqual(matchChineseAskYetCard(card), []);
+  assert.deepEqual(matchAskYetResponse(card), []);
   assert.equal(matchChineseAskYetCard(`${card}\nNeed: more evidence`).length, 2);
   assert.match(matchChineseAskYetCard(card.replace("仍然缺少：", "Research Handoff:\n仍然缺少：")).join("\n"), /unexpected top-level card content/u);
+
+  const dialogue = [
+    "这次只了解最近一次真实经历，不据此判断已经值得开发。",
+    "是否同意继续？",
+    "",
+    "Checkpoint: PRODUCT/FRAME · NONE · FRAME_CANDIDATE",
+  ].join("\n");
+  assert.deepEqual(matchAskYetResponse(dialogue), []);
+  assert.match(matchAskYetResponse(`${dialogue}\n继续说明`).join("\n"), /final non-empty line/u);
+  assert.match(matchAskYetResponse(dialogue.replace("这次只了解", "当前目标：只了解")).join("\n"), /expected exactly one 已经确认：/u);
 
   const invalidCheckpoint = card.replace("PRODUCT/OUTCOME", "TRIAGE/MADE_UP");
   assert.match(matchChineseAskYetCard(invalidCheckpoint).join("\n"), /invalid Checkpoint/u);
@@ -125,8 +137,8 @@ test("DELIVERED fixture accepts an equivalent Chinese missing-release fact", () 
   const delivered = fixture.cases.find(({ id }) => id === "delivered-not-released");
   for (const boundary of ["尚无发布、启用或结果证据", "尚未发布或进入成效评估", "不代表已发布或结果达成"]) {
     assert.deepEqual(matchLiveEvalOutput([
-      `已经确认：工程交付完成，但${boundary}。`,
-      "仍然缺少：移除父项的 ready-for-agent 标签。",
+      `工程交付已完成，但${boundary}。`,
+      "Release Record 仍缺少发布或启用记录；还要移除父项的 ready-for-agent 标签。",
       "Checkpoint: DELIVERY/EXECUTION · R003/r1 · DELIVERED",
     ].join("\n"), delivered.expected), []);
   }
@@ -182,6 +194,14 @@ test("ticket-graph live fixture binds its exact Spec and candidate bodies", () =
 test("multiturn fixture schema is globally unique and fail-closed", () => {
   assert.deepEqual(validateMultiTurnEvalFixture(multiFixture, fixture.cases.map(({ id }) => id)), []);
   assert.equal(combineLiveEvalFixtures(fixture, multiFixture).releaseGateCases.length, 14);
+
+  const progressive = multiFixture.cases.find(({ id }) => id === "multiturn-human-interface-progressive-status");
+  assert.deepEqual(progressive.turns.map(({ id }) => id), ["dialogue", "status", "resume"]);
+  assert.equal(progressive.turns[1].expected.mustMatch.join("\n").includes("当前目标："), true);
+  assert.equal(progressive.turns[1].expected.mustNotMatch.includes("[?？]"), true);
+  for (const turn of [progressive.turns[0], progressive.turns[2]]) {
+    assert.equal(turn.expected.mustNotMatch.some((pattern) => pattern.includes("当前目标：") && pattern.includes("你只需要决定：")), true);
+  }
 
   const invalid = structuredClone(multiFixture);
   invalid.cases[0].id = fixture.cases[0].id;
