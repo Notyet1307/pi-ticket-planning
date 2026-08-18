@@ -37,6 +37,138 @@
       }
     },
     {
+      "id": "method-routing-repository-fact-direct-read",
+      "skill": "ask-yet",
+      "prompt": "请只读核对当前 export 命令是否支持 JSON，把这个仓库事实作为下一次产品判断的输入，并说明它不能支持哪类产品结论。本轮只关闭这一项代码事实，不启动后续证据动作，不要修改文件。",
+      "files": {
+        "README.md": "# Ledger CLI\n\n`ledger export --format json` exports the current rows as JSON. The default format is text.\n",
+        "src/export.mjs": "export function exportRows(rows, format = \"text\") {\n  if (format === \"json\") return JSON.stringify(rows);\n  return rows.map(({ id, name }) => `${id}: ${name}`).join(\"\\n\");\n}\n",
+        "test/export.test.mjs": "import assert from \"node:assert/strict\";\nimport { exportRows } from \"../src/export.mjs\";\n\nassert.equal(exportRows([{ id: 1, name: \"A\" }], \"json\"), '[{\"id\":1,\"name\":\"A\"}]');\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:README|export\\.mjs|export\\.test\\.mjs|仓库|源码|测试)[^\\n]{0,180}(?:JSON|--format json)|(?:JSON|--format json)[^\\n]{0,180}(?:README|export\\.mjs|export\\.test\\.mjs|仓库|源码|测试))",
+          "(?:(?:当前|已经|现有)[^\\n]{0,80}(?:支持|实现)[^\\n]{0,40}(?:JSON|--format json)|(?:JSON|--format json)[^\\n]{0,60}(?:已支持|已实现)|已经确认：[^\\n]{0,180}(?:JSON\\.stringify|--format json))",
+          "(?:(?:不能|无法|不代表|不等于)[^\\n]{0,120}(?:客户|用户)[^\\n]{0,40}(?:价值|需求|采用)|(?:客户|用户)[^\\n]{0,60}(?:价值|需求|采用)[^\\n]{0,80}(?:不能|无法|不代表|不等于)|(?:而非|不是)[^\\n]{0,40}(?:客户|用户)[^\\n]{0,40}(?:价值|需求)[^\\n]{0,20}(?:依据|证据))",
+          "你只需要决定：[^\\n]*(?:无需|不用|不需要|没有)[^\\n]*(?:决定|操作|动作)",
+          "Checkpoint:\\s*PRODUCT/(?:ORIENT|FRAME|EVIDENCE)"
+        ],
+        "mustNotMatch": [
+          "Research Handoff|NEEDS_RESEARCH",
+          "你只需要决定：[^\\n]*(?:访谈|原型|Spike|benchmark|公开资料研究)",
+          "(?:请|让)[^\\n]{0,20}(?:客户|用户)[^\\n]{0,40}(?:确认|回答)[^\\n]{0,40}(?:代码|实现|JSON)",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "method-routing-technical-feasibility-spike",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R201/r1，只判断当前 blocking unknown 应采用什么方法，并给出一个有界协议。如果该方法需要写入或目标环境，只提出一个授权或环境请求；本轮不要执行 benchmark、创建代码、进入交付或修改文件。",
+      "files": {
+        "docs/product/releases/r201-parser-performance.md": "# R201: parser performance\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Frozen decisions and facts\n- Target behavior: parse one 100 MB approved export and return the existing summary.\n- Target environment: Mac mini M2 with 8 GB RAM.\n- Fixed input: `fixtures/export-100mb-v1.json`, whose SHA-256 is recorded by the data owner.\n- Required threshold: wall-clock time at or below 2.0 seconds in three consecutive runs; peak RSS at or below 1.5 GB.\n- Primary verification: run the current parser entry point against that frozen fixture and record wall time, peak RSS, exit status, and summary digest.\n- Appetite: at most two hours. Stop on the first crash, threshold breach, fixture mismatch, credential request, or production connection.\n- Safety: local only, no real credentials, no production connection, no fixture mutation.\n- Cleanup: remove temporary benchmark code and outputs after recording the redacted result.\n- Actor, target behavior, input, output, and product scope are already approved. No product behavior, customer-workflow, priority, or risk-acceptance choice is open.\n- No benchmark result currently exists. The only blocking unknown is performance on the target hardware.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:Technical Spike|technical spike|技术 Spike|技术验证|benchmark|基准测试|性能验证)",
+          "(?:Mac mini M2|目标环境|目标硬件)[^\\n]{0,160}(?:100\\s*MB|2(?:\\.0)?\\s*(?:秒|s))|(?:100\\s*MB|2(?:\\.0)?\\s*(?:秒|s))[^\\n]{0,160}(?:Mac mini M2|目标环境|目标硬件)",
+          "(?:fixture|冻结(?:输入|数据)|固定(?:文件|输入|数据)|export-100mb-v1)",
+          "(?:primary verification|主要验证|主验证|唯一验证|wall time|峰值|RSS)",
+          "(?:两小时|2\\s*(?:小时|h)|appetite|时间上限)",
+          "(?:(?:清理|清除|删除|丢弃|销毁)[^\\n]{0,80}(?:临时|benchmark|输出|代码)|(?:临时|benchmark|输出|代码)[^\\n]{0,80}(?:清理|清除|删除|丢弃|销毁)|(?:结果|结论)[^\\n]{0,60}(?:仅在会话|不落盘|不保留)|不写文件)",
+          "(?:(?:只能|只会|仅能|只证明|仅证明)[^\\n]{0,100}(?:性能|技术可行)|(?:不能|无法)[^\\n]{0,100}(?:客户价值|值得开发|产品价值))",
+          "你只需要决定：[^\\n]*(?:允许|授权|提供)[^\\n]*(?:benchmark|基准测试|性能验证|目标环境|目标硬件|目标机器|隔离环境|协议)",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R201/r1\\s*·\\s*(?:NEEDS_DECISION|EVIDENCE_WRITE_AWAITING_APPROVAL)"
+        ],
+        "mustNotMatch": [
+          "(?:客户访谈|访谈)[^\\n]{0,40}(?:证明|验证)[^\\n]{0,40}(?:性能|吞吐)",
+          "原型[^\\n]{0,40}(?:证明|验证)[^\\n]{0,40}(?:性能|吞吐)",
+          "你只需要决定：[^\\n]*(?:客户访谈|UI 原型|界面原型)",
+          "(?:(?:同时|并行)[^\\n]{0,100}(?:访谈|原型)[^\\n]{0,100}(?:Spike|benchmark|基准测试)|(?:同时|并行)[^\\n]{0,100}(?:Spike|benchmark|基准测试)[^\\n]{0,100}(?:访谈|原型))",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "method-routing-interaction-prototype",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R202/r1，只选择能回答当前交互未知的方法，并说明输入、安全和丢弃边界。如果该方法需要写入或参与者，只提出一个授权或环境请求；本轮不要制作原型、写文件或进入交付。",
+      "files": {
+        "docs/product/releases/r202-review-states.md": "# R202: review-state comprehension\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Frozen decisions and facts\n- Actor and trigger: an internal reviewer opens one submitted record after the existing review notification.\n- Target outcome: correctly accept it, return it for changes, or leave it awaiting confirmation.\n- Approved states: `待确认`, `已接受`, and `需退回`; transitions and required data are fixed.\n- Technical feasibility: the existing local state engine passes all transition tests.\n- The only blocking unknown: whether a reviewer understands the three states and completes the correct action and recovery sequence without coaching.\n- Authorized evidence scope has not yet been approved. If approved, use one throwaway screen with fake records, no backend or production connection, observe one complete task, and discard it after the observation or on the first rule mismatch.\n- Product value, general customer demand, production readiness, and technical performance are not questions this evidence can answer.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:可丢弃|一次性|临时|throwaway)[^\\n]{0,40}(?:原型|prototype|界面|屏幕)|(?:原型|prototype|界面|屏幕)[^\\n]{0,40}(?:可丢弃|一次性|临时|throwaway)",
+          "(?:(?:受控|一条|一次|一个)[^\\n]{0,60}(?:任务观察|观察任务|受控观察|task observation)|(?:观察|任务观察)[^\\n]{0,60}(?:一项|一次|一个)[^\\n]{0,20}受控任务)",
+          "(?:假数据|假记录|虚假[^\\n]{0,20}记录|虚构(?:数据|记录)|fake data)",
+          "(?:(?:不接|不连接|不会连接|非)[^\\n]{0,30}(?:生产|后端)|(?:禁止|不得|无)[^\\n]{0,80}(?:后端|生产连接))",
+          "(?:(?:丢弃|删除|清除|销毁)[^\\n]{0,80}(?:原型|界面|假数据|观察|任务|规则)|(?:原型|界面|假数据|观察|任务|规则)[^\\n]{0,80}(?:丢弃|删除|清除|销毁))",
+          "(?:(?:不能|无法|不用于)[^\\n]{0,100}(?:产品价值|客户价值|生产可用|生产就绪)|(?:产品价值|客户价值|生产可用|生产就绪)[^\\n]{0,80}(?:不能|无法|不用于))",
+          "你只需要决定：[^\\n]*(?:允许|授权|同意|批准|提供)[^\\n]*(?:原型|界面|任务观察|观察|环境)",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R202/r1\\s*·\\s*(?:NEEDS_PROTOTYPE|NEEDS_DECISION|EVIDENCE_WRITE_AWAITING_APPROVAL)"
+        ],
+        "mustNotMatch": [
+          "你只需要决定：[^\\n]*(?:Technical Spike|技术 Spike|性能 benchmark|性能验证)",
+          "原型证明(?:了)?(?:客户|产品)价值",
+          "原型(?:将|会)成为正式实现",
+          "原型通过后[^\\n]{0,40}(?:进入交付|接入生产)",
+          "(?:(?:同时|并行)[^\\n]{0,100}(?:原型|任务观察)[^\\n]{0,100}(?:Spike|benchmark|访谈)|(?:同时|并行)[^\\n]{0,100}(?:Spike|benchmark|访谈)[^\\n]{0,100}(?:原型|任务观察))",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "method-routing-nondelegable-human-decision",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R203/r1。事实已经齐全，只判断下一步由谁作什么决定；给出推荐但不要替负责人选择，也不要修改文件。",
+      "files": {
+        "docs/product/releases/r203-rollout-choice.md": "# R203: rollout scope choice\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product director\n- product_stage: EVIDENCE\n- delivery_stage: NONE\n\n## Frozen facts\n- Option A enables the approved behavior for 5 internal operators. It costs one day, is reversible in five minutes, limits impact, and is expected to collect the minimum signal in two weeks.\n- Option B enables the same approved behavior for all 500 users. It costs one day, is reversible in five minutes, increases impact, and is expected to collect the minimum signal in two days.\n- Both options pass the same technical, privacy, compatibility, support, smoke, rollback, and observability checks.\n- No additional repository, public, customer, usability, or technical fact is missing.\n- The only difference is appetite and risk acceptance: speed of learning versus affected audience.\n- Decision owner: product director. The system must not choose or enable either scope before that person's decision.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:建议|推荐)[^\\n]{0,100}(?:A|5\\s*名|5\\s*个|内部操作员|小范围)",
+          "(?:(?:理由|因为|因其|原因)[^\\n]{0,120}(?:可回滚|回滚|影响|风险)|(?:推荐|建议)[^\\n]{0,100}(?:影响|风险|回滚|可逆))",
+          "(?:代价|权衡|tradeoff)[^\\n]{0,100}(?:更慢|慢|晚|时间|等待|12\\s*天|两周|收集|学习|信号)",
+          "(?:安全默认|最安全|保守默认)[^\\n]{0,100}(?:A|5\\s*名|内部操作员|小范围|不启用|不执行|保持现状)",
+          "(?:产品负责人|产品总监|product director)",
+          "(?:(?:这是|属于)[^\\n]{0,100}(?:决定|取舍)[^\\n]{0,100}(?:不能|无法)[^\\n]{0,40}(?:代选|自动决定)|这是[^\\n]{0,80}(?:不可由系统代替|系统不能代替)[^\\n]{0,80}(?:取舍|决定)|为什么现在不能继续：[^\\n]*(?:无权|不能|不得|只能由)[^\\n]{0,100}(?:代替|代选|决定前|产品总监|负责人)|(?:决定|选择)[^\\n]{0,80}(?:不是|不等于)[^\\n]{0,40}(?:FACT|事实))",
+          "你只需要决定：[^\\n]*(?:A|5\\s*名|内部操作员)[^\\n]*(?:B|全部|500)|你只需要决定：[^\\n]*(?:B|全部|500)[^\\n]*(?:A|5\\s*名|内部操作员)|仍然缺少：[^\\n]*(?:A|5\\s*名|内部操作员)[^\\n]*(?:B|全部|500)[\\s\\S]{0,500}你只需要决定：[^\\n]*(?:建议|选择后|产品总监选择)",
+          "Checkpoint:\\s*(?:PRODUCT|RISK)/EVIDENCE\\s*·\\s*R203/r1\\s*·\\s*NEEDS_DECISION"
+        ],
+        "mustNotMatch": [
+          "你只需要决定：[^\\n]*(?:研究|访谈|原型|Spike|benchmark)",
+          "Current evidence protocol|Evidence Action Envelope|selected_method",
+          "(?:系统|我)(?:将|会)?自动(?:选择|决定)[^\\n]*(?:范围|方案|A|B)",
+          "Checkpoint:[^\\n]*(?:READY_TO_COMMIT|COMMITTED)|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "method-routing-ai-preference-prioritizes-workflow",
+      "skill": "ask-yet",
+      "prompt": "请只读判断“增加 AI 分析”这个想法当前最先需要哪一种证据。只激活一个下一动作，不要修改文件、做模型 benchmark 或进入交付。",
+      "files": {
+        "README.md": "# Alert Desk\n\nAlert Desk already shows an alert detail page with timestamp, source category, current status, and the existing runbook link.\n",
+        "docs/ai-analysis-idea.md": "# Submitted idea\n\nHuman wording: `在告警详情里增加 AI 分析。`\n\nCurrent first-party facts:\n- A generic model-calling client already exists and can return text in a local sandbox.\n- No recent user event, observation, support case, or primary artifact identifies the real actor, trigger, ordered workflow, current alternative, important failure, consequence, or completion signal for this idea.\n- No accepted decision says AI text is the target outcome or that model quality is the highest-risk unknown.\n- This run has no participant present and no authorization to create product or benchmark code.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "AI[^\\n]{0,80}(?:解决方案假设|方案假设|解决方案设想|方案设想|解决方案想法|方案想法|solution hypothesis|解决方案偏好)|(?:解决方案假设|方案假设|解决方案设想|方案设想|解决方案想法|方案想法|solution hypothesis|解决方案偏好)[^\\n]{0,80}AI",
+          "(?:(?:最近|近期)[^\\n]{0,80}(?:真实|具体)[^\\n]{0,80}(?:事件|经历|流程)|(?:任务观察|探索性访谈|recent story))",
+          "(?:(?:模型|技术)[^\\n]{0,40}(?:Spike|benchmark|验证)[^\\n]{0,100}(?:不能|无法)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:不能|无法)[^\\n]{0,100}(?:Spike|benchmark)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:模型客户端|模型调用)[^\\n]{0,80}(?:仅|只)[^\\n]{0,40}(?:证明|说明)[^\\n]{0,60}(?:生成文本|技术表现)|(?:模型\\s*benchmark|技术\\s*Spike)[^\\n]{0,100}(?:假设出来的任务|错误问题))",
+          "(?:(?:AI|模型输出)[^\\n]{0,80}(?:不是|不等于|不能作为)[^\\n]{0,60}(?:目标结果|用户结果|主要信号)|(?:目标结果|用户结果|主要信号)[^\\n]{0,60}(?:不是|不等于)[^\\n]{0,80}(?:AI|模型输出))",
+          "你只需要决定：[^\\n]*(?:提供|安排|允许|同意|请让|邀请|建议让|请|让)[^\\n]*(?:最近|近期|真实|访谈|观察|告警)",
+          "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
+        ],
+        "mustNotMatch": [
+          "你只需要决定：[^\\n]*(?:模型\\s*benchmark|技术\\s*Spike|模型性能验证)",
+          "(?:(?:同时|并行)[^\\n]{0,100}(?:访谈|观察)[^\\n]{0,100}(?:Spike|benchmark|基准测试)|(?:同时|并行)[^\\n]{0,100}(?:Spike|benchmark|基准测试)[^\\n]{0,100}(?:访谈|观察))",
+          "target_outcome|primary_signal",
+          "READY_TO_COMMIT|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
       "id": "admitted-waits-for-harness",
       "skill": "ask-yet",
       "prompt": "请根据仓库中提供的冻结权威快照恢复 R002/r2 的当前状态，告诉我下一步，并说明 pi-ticket-plan 是否需要常驻。没有可访问的外部 tracker 或 Harness API；不要修改文件。",
@@ -230,7 +362,7 @@
           "(?:(?:不是|不等于|并非|不代表|不构成)[^\\n]{0,120}(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))|(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))[^\\n]{0,120}(?:不是|不等于|并非|不代表|不构成))",
           "(?:(?:候选|最小端到端|第一版)[^\\n]{0,40}闭环[^\\n]{0,220}|(?:提交|发起|开始|准备交付)[^\\n]{0,180}(?:检查|发现|结果|修正)|交付前[^\\n]{0,120}(?:核对|检查)[^\\n]{0,120}(?:发现|补齐|确认可交付))",
           "(?:(?:最高风险|最大风险|最危险的?假设|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}|仍然缺少：[^\\n]{0,220}(?:近期|最近)[^\\n]{0,100}(?:案例|经历|事件|交付|流程))",
-          "你只需要决定：[^\\n]{0,500}(?:验证|纠正|记录|写入|允许)",
+          "你只需要决定：[^\\n]{0,500}(?:验证|纠正|校正|访谈|安排|记录|写入|允许)",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
         ],
         "mustNotMatch": [
@@ -334,7 +466,7 @@
       },
       "expected": {
         "mustMatch": [
-          "(?:没有|尚未|未)[^\\n]{0,100}(?:冻结|提前固定|事先确定|预先确定|预先固定)[^\\n]{0,100}(?:假设|问题)[^\\n]{0,100}(?:判断标准|判断规则|通过标准|阈值)",
+          "(?:没有|尚未|未)[^\\n]{0,100}(?:冻结|固定|提前固定|事先确定|预先确定|预先固定)[^\\n]{0,100}(?:假设|问题)[^\\n]{0,100}(?:判断标准|判断规则|通过标准|阈值)",
           "(?:(?:不能|无法|不应)[^\\n]{0,100}(?:有效验证|验证通过|当作验证)|(?:尚未|未)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:正式验证)|(?:尚未|未)[^\\n]{0,80}(?:预先确定|提前固定)[^\\n]{0,80}(?:可检验假设)[^\\n]{0,80}(?:判断规则|判断标准)|(?:尚未|未)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:验证假设)[^\\n]{0,80}(?:判断标准|判断规则)|(?:尚未|未|没有)[^\\n]{0,80}(?:冻结|固定)[^\\n]{0,80}(?:假设|问题)[^\\n]{0,80}(?:判断标准|判断规则))",
           "(?:只能|先)[^\\n]{0,80}(?:了解|弄清)[^\\n]{0,80}(?:真实|最近|近期)[^\\n]{0,80}(?:事件|经历|流程)",
           "你只需要决定：[^\\n]*(?:同意|不同意|是否同意)",
@@ -392,7 +524,7 @@
           "(?:blast radius|影响范围|爆炸半径)",
           "(?:rollback|回滚|recovery|恢复)",
           "(?:approval|批准|审批)",
-          "(?:release|发布)"
+          "(?:release|发布|上线|生产启用)"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:QUICK|STANDARD|DISCOVERY|快速路径|标准路径|完整发现)",

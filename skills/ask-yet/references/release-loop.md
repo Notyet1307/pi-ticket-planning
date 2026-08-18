@@ -179,18 +179,11 @@ A human preference for AI, automation, or another solution updates `solution_hyp
 
 ## 4. Pick one evidence action
 
-Scan `VALUE`, `USABILITY`, `FEASIBILITY`, and `VIABILITY`, then data loss, privilege expansion, irreversible external effects, and recovery. Select the one assumption most likely to change `COMMIT`, `REWORK`, `PIVOT`, or `DROP`.
+Read [evidence-method-selection.md](evidence-method-selection.md) before choosing an action. Give it the current decision, `VALUE`, `USABILITY`, `FEASIBILITY`, and `VIABILITY` unknowns, then data loss, privilege expansion, irreversible external effects, and recovery. It distinguishes facts from human choices, selects one highest-impact blocking unknown, identifies its truth owner, chooses the cheapest valid method, checks actual capability, and returns one common Evidence Action Envelope.
 
 Preserve that risk priority until new evidence changes it. A newly stated solution preference is not evidence; if the selected riskiest assumption changes, record the evidence and reason for the change.
 
-Choose the cheapest valid method:
-
-- Public capability, market, standard, rule, or API unknown: primary-source research.
-- Actor, trigger, current workflow, or alternative unknown: recent-story interview.
-- Task completion unknown: controlled task observation or Pilot.
-- UI, state, or business-logic unknown: throwaway prototype.
-- Technical feasibility unknown: bounded spike or canary with a pass/fail signal.
-- Several interdependent decisions that cannot close in one context: Wayfinder.
+For an evidence-discoverable fact, record that envelope in the existing `Current evidence protocol`; do not create another artifact or persist its uncertainty classification as workflow state. Method availability never overrides truth-owner fit. A human choice bypasses the envelope and creates no new Evidence action; record only its named `DECISION` and tradeoff.
 
 For an interview, infer its purpose from the unknown rather than asking the human to choose:
 
@@ -243,10 +236,9 @@ fail_or_stop_threshold: <fixed before running>
 return_format: <result relative to the hypothesis>
 ```
 
-For every non-interview evidence action, retain the existing bounded protocol:
+For every evidence action, wrap its method-specific guide or protocol in the selection reference's common Evidence Action Envelope without duplicating equivalent fields. For every non-interview action, retain these additional bounded fields:
 
 ```yaml
-decision_question: <one decision the evidence will change>
 riskiest_assumption: <one>
 participant_or_source: <role, data, or primary source>
 scope_and_sample: <bounded scope>
