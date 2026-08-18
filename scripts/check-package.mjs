@@ -167,6 +167,8 @@ export function validatePackage(root) {
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
   const releaseLoop = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "release-loop.md"), "utf8");
+  const solutionShaping = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "solution-shaping.md"), "utf8");
+  const evidenceMethodSelection = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "evidence-method-selection.md"), "utf8");
   const interviewSession = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "interview-session.md"), "utf8");
   const executionCloseout = fs.readFileSync(path.join(skillRoot, "ask-yet", "references", "execution-closeout.md"), "utf8");
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
@@ -178,6 +180,7 @@ export function validatePackage(root) {
   const admission = fs.readFileSync(path.join(skillRoot, "admit-ticket", "SKILL.md"), "utf8");
   for (const required of [
     "references/release-loop.md",
+    "references/solution-shaping.md",
     "references/interview-session.md",
     "references/execution-closeout.md",
     "PRODUCT | DELIVERY | TRIAGE | RISK | INCIDENT",
@@ -239,6 +242,10 @@ export function validatePackage(root) {
     "continue to `EVIDENCE`",
     "exact committed blob into the accepted remote delivery base",
     "Never route draft or accepted-base publication through the implementation Harness",
+    "Technical Decision Sufficiency",
+    "During post-Commitment Solution Shaping, remain `DELIVERY / SPEC` with `BLOCKED`",
+    "continue through read-only `to-spec` compilation and use `SPEC_IN_PROGRESS`",
+    "Do not append the Spec body",
   ]) {
     if (!askYet.includes(required)) errors.push(`ask-yet lacks required contract: ${required}`);
   }
@@ -303,6 +310,41 @@ export function validatePackage(root) {
   if (!releaseLoop.includes("interview-session.md")) {
     errors.push("release-loop does not hand live interviews to interview-session.md");
   }
+  for (const required of [
+    "solution-shaping.md",
+    "only after any required technical decision is accepted into the base",
+    "Do not make downstream stages guess a product or architecture decision",
+  ]) {
+    if (!releaseLoop.includes(required)) errors.push(`release-loop lacks Solution Shaping boundary: ${required}`);
+  }
+  for (const required of [
+    "exact `COMMITTED` Release artifact is in an accepted remote delivery base",
+    "required_now",
+    "Technical Decision Sufficiency",
+    "Source preserved",
+    "State and data ownership",
+    "Primary verification seam",
+    "Required-now decisions closed",
+    "Deferred decisions bounded",
+    "docs/adr/<next-id>-<slug>.md",
+    "remote draft ref",
+    "Repository Contract Impact Review",
+    "`SPEC_IN_PROGRESS`",
+    "`BLOCKED`",
+    "continue automatically to `to-spec`",
+    "explicitly read-only run may still complete shaping",
+    "Do not promote a deferred idea into a candidate",
+    "name its exact ADR ID or path",
+  ]) {
+    if (!solutionShaping.includes(required)) errors.push(`solution-shaping lacks required contract: ${required}`);
+  }
+  for (const required of [
+    "post-Commitment Solution Shaping decision",
+    "keep `DELIVERY / SPEC` with `BLOCKED`",
+    "returns to `solution-shaping.md`",
+  ]) {
+    if (!evidenceMethodSelection.includes(required)) errors.push(`evidence-method-selection lacks Solution Shaping route: ${required}`);
+  }
   if (!toSpec.includes("remote draft ref")) errors.push("to-spec does not reject a draft ref as delivery source");
   for (const required of [
     "Never answer on the interviewee's behalf",
@@ -364,6 +406,11 @@ export function validatePackage(root) {
     "## Walking skeleton target",
     "exact base SHA",
     "git show <base>:<release-path>",
+    "working-tree or draft-ref ADR is not authority",
+    "accepted remote delivery ref",
+    "return to `/skill:ask-yet` for Solution Shaping",
+    "Return `SPEC_IN_PROGRESS` to `ask-yet`",
+    "Stop this helper here",
   ]) {
     if (!toSpec.includes(required)) errors.push(`to-spec lacks source/scenario contract: ${required}`);
   }
@@ -436,6 +483,7 @@ export function validatePackage(root) {
     "exact base SHA",
     "accepted remote base contains every required configuration blob",
     "Never route prerequisite setup through the implementation Harness",
+    "checks whether first-Release Solution Shaping is required",
   ]) {
     if (!setup.includes(required)) errors.push(`setup lacks greenfield contract: ${required}`);
   }

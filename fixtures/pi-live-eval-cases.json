@@ -101,7 +101,7 @@
           "(?:可丢弃|一次性|临时|throwaway)[^\\n]{0,40}(?:原型|prototype|界面|屏幕)|(?:原型|prototype|界面|屏幕)[^\\n]{0,40}(?:可丢弃|一次性|临时|throwaway)",
           "(?:(?:受控|一条|一次|一个)[^\\n]{0,60}(?:任务观察|观察任务|受控观察|task observation)|(?:观察|任务观察)[^\\n]{0,60}(?:一项|一次|一个)[^\\n]{0,20}受控任务)",
           "(?:假数据|假记录|虚假[^\\n]{0,20}记录|虚构(?:数据|记录)|fake data)",
-          "(?:(?:不接|不连接|不会连接|非)[^\\n]{0,30}(?:生产|后端)|(?:禁止|不得|无)[^\\n]{0,80}(?:后端|生产连接))",
+          "(?:(?:不接|不连接|不会连接|非)[^\\n]{0,30}(?:生产|后端|后台)|(?:禁止|不得|无)[^\\n]{0,80}(?:后端|后台|生产连接|生产))",
           "(?:(?:丢弃|删除|清除|销毁)[^\\n]{0,80}(?:原型|界面|假数据|观察|任务|规则)|(?:原型|界面|假数据|观察|任务|规则)[^\\n]{0,80}(?:丢弃|删除|清除|销毁))",
           "(?:(?:不能|无法|不用于)[^\\n]{0,100}(?:产品价值|客户价值|生产可用|生产就绪)|(?:产品价值|客户价值|生产可用|生产就绪)[^\\n]{0,80}(?:不能|无法|不用于))",
           "你只需要决定：[^\\n]*(?:允许|授权|同意|批准|提供)[^\\n]*(?:原型|界面|任务观察|观察|环境)",
@@ -129,7 +129,7 @@
           "(?:建议|推荐)[^\\n]{0,100}(?:A|5\\s*名|5\\s*个|内部操作员|小范围)",
           "(?:(?:理由|因为|因其|原因)[^\\n]{0,120}(?:可回滚|回滚|影响|风险)|(?:推荐|建议)[^\\n]{0,100}(?:影响|风险|回滚|可逆))",
           "(?:代价|权衡|tradeoff)[^\\n]{0,100}(?:更慢|慢|晚|时间|等待|12\\s*天|两周|收集|学习|信号)",
-          "(?:安全默认|最安全|保守默认)[^\\n]{0,100}(?:A|5\\s*名|内部操作员|小范围|不启用|不执行|保持现状)",
+          "(?:安全默认|最安全|保守默认)[^\\n]{0,100}(?:A|5\\s*名|内部操作员|小范围|不启用|不执行|保持现状)|(?:A|5\\s*名|内部操作员|小范围)[^\\n]{0,100}(?:安全默认|最安全|保守默认)",
           "(?:产品负责人|产品总监|product director)",
           "(?:(?:这是|属于)[^\\n]{0,100}(?:决定|取舍)[^\\n]{0,100}(?:不能|无法)[^\\n]{0,40}(?:代选|自动决定)|这是[^\\n]{0,80}(?:不可由系统代替|系统不能代替)[^\\n]{0,80}(?:取舍|决定)|为什么现在不能继续：[^\\n]*(?:无权|不能|不得|只能由)[^\\n]{0,100}(?:代替|代选|决定前|产品总监|负责人)|(?:决定|选择)[^\\n]{0,80}(?:不是|不等于)[^\\n]{0,40}(?:FACT|事实))",
           "你只需要决定：[^\\n]*(?:A|5\\s*名|内部操作员)[^\\n]*(?:B|全部|500)|你只需要决定：[^\\n]*(?:B|全部|500)[^\\n]*(?:A|5\\s*名|内部操作员)|仍然缺少：[^\\n]*(?:A|5\\s*名|内部操作员)[^\\n]*(?:B|全部|500)[\\s\\S]{0,500}你只需要决定：[^\\n]*(?:建议|选择后|产品总监选择)",
@@ -165,6 +165,172 @@
           "(?:(?:同时|并行)[^\\n]{0,100}(?:访谈|观察)[^\\n]{0,100}(?:Spike|benchmark|基准测试)|(?:同时|并行)[^\\n]{0,100}(?:Spike|benchmark|基准测试)[^\\n]{0,100}(?:访谈|观察))",
           "target_outcome|primary_signal",
           "READY_TO_COMMIT|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/"
+        ]
+      }
+    },
+    {
+      "id": "solution-shaping-greenfield-committed-minimal-boundary",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R010/r1。exact COMMITTED Release、accepted Git base、policy 和 tracker 的一手响应都在工作区；仓库尚无应用代码。请确定第一版需要的最小实现边界，并停在当前真实人类门禁。本轮不要写 ADR、创建代码、初始化项目、修改文件或进入 to-spec。",
+      "git": true,
+      "files": {
+        "AGENTS.md": "# Accepted repository policy\n\n- Runtime is Node.js 22.\n- The first Release reads and writes approved local files only.\n- No external network, service, production side effect, credential, or persistent store is permitted.\n- Preserve the input file on every failure.\n",
+        "docs/agents/issue-tracker.md": "# Accepted tracker contract\n\n- provider: GitHub Issues\n- repository: acme/offline-normalize\n- accepted ref: origin/main\n",
+        "docs/product/releases/r010-offline-normalize.md": "# R010: normalize one local export\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an operator starts normalization with one approved local export\n- target_outcome: produce one normalized local result that the operator can inspect\n- smallest_closed_loop: approved local input -> validate and normalize -> local result or bounded failure\n- primary_signal: every frozen valid sample produces the approved result; every invalid sample produces the approved bounded failure\n- guardrail: the input is unchanged and no partial output is reported as success\n- non_goals: history, collaboration, remote access, production rollout, or external integration\n\n## Included behavior\n- Accept one UTF-8 JSON file path and one result file path.\n- Normalize approved fields into the frozen result shape.\n- Invalid input returns a bounded error, leaves the input unchanged, and does not report a partial result as success.\n",
+        "evidence/r010-accepted-state.md": "# Accepted delivery facts\n\nCaptured from the accepted remote base for this read-only evaluation.\n- repository: acme/offline-normalize\n- accepted branch: main\n- exact base SHA: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n- git show of docs/product/releases/r010-offline-normalize.md returned the exact supplied COMMITTED R010/r1 blob\n- effective policy: AGENTS.md on the same base\n- tracker and delivery-gate configuration are complete on the same base\n- repository application source, dependency manifest, executable entry point, and ADRs: absent\n- fixed runtime: Node.js 22\n- fixed external boundary: one local input path and one local output path\n- persistence: none; no history is retained\n- external services and network: forbidden\n- primary verification fixture: fixtures/normalize-v1 containing valid and invalid inputs with expected output or bounded error\n- decision owner for the first technical boundary: technical maintainer\n- unresolved: the load-bearing system boundary, internal responsibility split, handoff shape, and failure contract have not entered an accepted ADR\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:单进程|单一进程|单个本地|单个[^\\n]{0,50}(?:本地)?进程|single-process)[^\\n]{0,180}(?:命令行|命令入口|公开命令|本地命令|CLI)|(?:命令行|命令入口|公开命令|本地命令|CLI)[^\\n]{0,180}(?:单进程|单一进程|单个本地|单个[^\\n]{0,50}(?:本地)?进程|single-process)|(?:单一|一个)[^\\n]{0,100}(?:本地命令|命令行|CLI)[^\\n]{0,50}进程)",
+          "(?:(?:解析|读取|文件适配层|输入适配层|入口)[\\s\\S]{0,320}(?:校验|规范化|规则|归一化)[\\s\\S]{0,320}(?:输出|写入|输出适配层|发布)|(?:输出|写入|输出适配层|发布)[\\s\\S]{0,320}(?:解析|读取|文件适配层|输入适配层|入口)|(?:核心|规范化)[^\\n]{0,160}(?:文件读写边界|文件边界|输入输出)[^\\n]{0,100}(?:分离|交接))",
+          "(?:(?:不保存|不持久化|无需持久化|无持久化|无[^\\n]{0,30}持久存储)[^\\n]{0,120}(?:历史|状态|数据|存储)?|(?:状态|数据|核心)[^\\n]{0,160}(?:本地进程|当前运行|内存)[^\\n]{0,120}(?:负责|拥有|传递|完成)|(?:状态|数据)[^\\n]{0,80}(?:仅存|只存|保留在)内存|数据仅在内存传递|纯内存)",
+          "(?:(?:本地输入|输入文件|文件路径|路径参数|输入、输出路径|输入和输出路径)[^\\n]{0,280}(?:本地结果|输出文件|结果文件|交接|完整发布|文件边界)|(?:交接|接口|文件适配层|文件边界)[^\\n]{0,280}(?:输入文件|输出文件|本地文件|路径参数|输入、输出路径|结果)|(?:命令入口|本地命令)[^\\n]{0,120}(?:路径|输入)[^\\n]{0,180}(?:核心|规范化)[^\\n]{0,180}(?:写入|结果)|(?:输入层|读取)[^\\n]{0,180}(?:校验|归一化|规范化)[^\\n]{0,180}(?:输出层|发布|结果)|(?:命令层|参数层|入口)[^\\n]{0,140}(?:路径|输入)[^\\n]{0,220}(?:规范化模块|规范化核心|纯内存模块)[^\\n]{0,220}(?:文件层|发布层|文件适配层)[^\\n]{0,180}(?:发布|写入|读取|结果))",
+          "(?:primary verification|主要验证|主验证|证明第一版跑通|端到端验证|端到端证明)[^\\n]{0,220}(?:fixture|固定样本|冻结样本|固定样例|冻结样例|normalize-v1)|(?:fixture|固定样本|冻结样本|固定样例|冻结样例|normalize-v1)[^\\n]{0,220}(?:端到端|验证|证明|跑通)",
+          "(?:(?:失败|无效输入)[^\\n]{0,360}(?:输入不变|输入未变|不改输入|输入始终不变|保留输入|非零|停止|不报告部分结果|不报告成功|无部分输出)|(?:输入不变|输入未变|不改输入|输入始终不变|保留输入|不报告部分结果|不报告成功)[^\\n]{0,260}(?:失败|无效输入))",
+          "(?:(?:不需要|无需|排除|暂不支持|暂不提供|不引入|不使用|不建)[^\\n]{0,220}(?:数据库|Web 服务|服务化|外部服务|消息队列|未来平台|网络|服务|公共 API)|(?:数据库|Web 服务|服务化|外部服务|消息队列|未来平台|网络|服务|公共 API)[^\\n]{0,220}(?:不需要|无需|排除|暂不支持|暂不提供|不引入|不使用|不建|推迟|均推迟)|(?:无|禁止)网络(?:和|、|或)?(?:服务(?:和|、|或)?)?(?:持久化|持久存储)|无网络[/、和与]*(?:服务[/、和与]*)?数据库)",
+          "(?:ADR|需要长期遵守的技术决定|技术决定)[^\\n]{0,220}(?:候选|草案|批准|接受|确认|写入|门禁)|(?:确认|写入|门禁)[^\\n]{0,160}(?:ADR|技术决定)|(?:该决定|这个决定|边界)[^\\n]{0,140}(?:尚未|未)[^\\n]{0,100}(?:ADR|已接受的技术决定)",
+          "你只需要决定：[^\\n]*(?:批准|接受|同意|确认|回复)[^\\n]*(?:ADR|技术决定|第一版实现边界|边界)",
+          "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R010/r1\\s*·\\s*BLOCKED"
+        ],
+        "mustNotMatch": [
+          "(?:(?:已经|现已)(?:进入|调用|开始编译)|直接(?:调用|开始编译))[^\\n]{0,40}(?:to-spec|Delivery Spec)",
+          "(?:已经|立即|现在|接下来会|将会)(?:创建|生成|初始化)[^\\n]{0,80}(?:应用代码|源码|脚手架|Dockerfile|数据库|CI)",
+          "(?:已经|立即|现在|接下来会|将会)安装[^\\n]{0,40}(?:依赖|npm|pnpm|cargo)",
+          "(?:创建|生成)[^\\n]{0,50}(?:Ticket|任务票)|ready-for-agent|Checkpoint:[^\\n]*ADMITTED",
+          "(?:自动|直接)[^\\n]{0,30}COMMITTED|(?:直接|已经)[^\\n]{0,40}(?:推送|发布)[^\\n]{0,40}(?:生产|production)",
+          "(?:备选|方案)\\s*B[^\\n]{0,120}(?:公共库|公共接口|public API)",
+          "SOLUTION_READY|ADR_ACCEPTED|Checkpoint:\\s*(?:SOLUTION|ARCHITECTURE|TECH_DESIGN)/"
+        ]
+      }
+    },
+    {
+      "id": "solution-shaping-brownfield-existing-contract-skips",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R011/r2。exact COMMITTED Release、accepted base、现有代码边界、accepted ADR、接口、数据所有权和 primary verification 都已冻结在工作区。判断是否还需要确定第一版实现边界，并继续到当前事实允许的下一步；不要修改文件、重新选择技术栈或创建新 ADR。",
+      "git": true,
+      "files": {
+        "AGENTS.md": "# Accepted repository policy\n\nUse accepted ADRs and public behavioral seams from origin/main. Keep report-schema-v1 compatible and create no ready label before Admission.\n",
+        "docs/agents/issue-tracker.md": "# Accepted tracker contract\n\n- provider: GitHub Issues\n- repository: acme/report-export\n- accepted ref: origin/main\n",
+        "docs/product/releases/r011-report-export.md": "# R011: add the approved report field\n\n## Metadata\n- status: COMMITTED\n- revision: r2\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an operator exports an existing report\n- target_outcome: the existing JSON export includes the approved severity field\n- smallest_closed_loop: existing report -> existing export command -> JSON result with severity\n- primary_signal: frozen report fixtures contain the approved severity value\n- guardrail: the public export schema remains version 1 and unknown internal fields are omitted\n- non_goals: a new export service, database, schema version, deployment, or migration\n",
+        "docs/adr/0003-report-export-contract.md": "# ADR-0003: report export ownership\n\n- Status: ACCEPTED\n- Decision owner: technical maintainer\n- Accepted base: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n\n## Decision\nThe existing report module owns export data. The existing export adapter serializes public report-schema-v1 JSON. No database or service owns intermediate state.\n\n## Verification, failure and recovery\nThe public export command is the primary behavioral seam. Frozen report fixtures verify the complete JSON result. Serialization failure returns the established non-zero error and creates no result file.\n",
+        "src/report/export.mjs": "export function exportReport(report) { return { id: report.id, severity: report.severity }; }\n",
+        "schemas/report-schema-v1.json": "{\"type\":\"object\",\"required\":[\"id\",\"severity\"],\"properties\":{\"id\":{\"type\":\"string\"},\"severity\":{\"enum\":[\"low\",\"high\"]}},\"additionalProperties\":false}\n",
+        "test/report-export.test.mjs": "The accepted test invokes the public export command with frozen fixtures and compares the complete report-schema-v1 JSON result.\n",
+        "evidence/r011-accepted-state.md": "# Accepted delivery facts\n\nCaptured from accepted main for this read-only evaluation.\n- exact base SHA: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n- exact R011/r2 Release blob and ADR-0003 are present on that base\n- effective policy and tracker configuration are accepted on the same base\n- report module owns the data, the export adapter owns serialization, and report-schema-v1 is the public handoff\n- the public export command and frozen fixture comparison are the primary behavioral seam\n- existing error handling creates no result file on failure\n- this Release adds one approved field without changing ownership, API shape, compatibility, deployment, security, migration, or operations\n- repository contract impact: none\n- unresolved technical decisions: none\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:不需要|无需|可以跳过)[^\\n]{0,120}(?:新增|新的)?(?:技术方案|技术塑形|实现边界|Solution|ADR)|(?:现有|已接受)[^\\n]{0,180}(?:代码|ADR|接口|契约)[^\\n]{0,120}(?:已经|足以)[^\\n]{0,100}(?:关闭|明确|确定))",
+          "(?:(?:report|报表)[^\\n]{0,180}(?:拥有|负责)[^\\n]{0,100}(?:数据|导出)|(?:report-schema-v1|JSON Schema|公开契约)[^\\n]{0,180}(?:adapter|适配器|导出)|(?:现有模块边界|数据所有权|数据归属|基线)[^\\n]{0,260}(?:v1 接口|接口|失败处理|失败行为))",
+          "(?:(?:public export|公开导出|现有导出命令|公共导出命令|公共命令)[^\\n]{0,220}(?:primary|主要|主验证|端到端|fixture|固定样本|固定样例|冻结 fixture|验证)|(?:端到端验证方式|主验证入口|冻结夹具验证|固定样例验证|主验证)[^\\n]{0,200}(?:明确|已接受|现有|关闭|场景|公共命令|冻结 fixture)|(?:公开导出命令|公共导出命令|公共命令)[^\\n]{0,120}(?:固定样例|固定样本|冻结夹具|冻结 fixture)[^\\n]{0,80}(?:比较|验证))",
+          "(?:直接|自动|继续|编制|编译|整理|已形成)[^\\n]{0,180}(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|S1|规格草案)|(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|规格草案)[^\\n]{0,180}(?:直接|自动|继续|编制|编译|整理|自检|已形成)",
+          "你只需要决定：[^\\n]*(?:无需|不用|不需要)[^\\n]*(?:决定|选择|操作)|你只需要决定：\\s*(?:无|没有)",
+          "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R011/r2\\s*·\\s*SPEC_IN_PROGRESS"
+        ],
+        "mustNotMatch": [
+          "你只需要决定：[^\\n]*(?:语言|框架|数据库|数据模型|部署|新 ADR|批准 ADR)",
+          "(?:方案\\s*[ABC]|候选方案|重新(?:设计|塑形)|FRAME_CANDIDATE)",
+          "(?:已经|立即|现在|接下来会|将会)(?:创建|生成|初始化)[^\\n]{0,80}(?:应用代码|源码|脚手架|Dockerfile|数据库|CI)",
+          "(?:已经|立即|现在|接下来会|将会)安装[^\\n]{0,40}(?:依赖|npm|pnpm|cargo)",
+          "ready-for-agent|Checkpoint:[^\\n]*ADMITTED|(?:自动|直接)[^\\n]{0,30}COMMITTED",
+          "(?:直接|已经)[^\\n]{0,40}(?:推送|发布)[^\\n]{0,40}(?:生产|production)"
+        ]
+      }
+    },
+    {
+      "id": "solution-shaping-feasibility-gap-routes-spike",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R012/r1。产品行为和 accepted delivery base 已经确认，但一次性解析与流式解析的选择依赖尚不存在的目标硬件性能事实。只选择一个有效方法并给出有界协议；不要执行 benchmark、接受 ADR、修改文件或进入 to-spec。",
+      "git": true,
+      "files": {
+        "AGENTS.md": "# Accepted repository policy\n\nUse fixed local fixtures, no credentials or production connections, and accept load-bearing ADRs through origin/main before to-spec.\n",
+        "docs/agents/issue-tracker.md": "# Accepted tracker contract\n\n- provider: GitHub Issues\n- repository: acme/large-export\n- accepted ref: origin/main\n",
+        "docs/product/releases/r012-large-export.md": "# R012: summarize one large local export\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an operator summarizes one approved 100 MB local export\n- target_outcome: return the approved summary within 2 seconds\n- smallest_closed_loop: local export -> parse and summarize -> local summary or bounded failure\n- primary_signal: three consecutive target-hardware runs meet the accepted time and memory thresholds\n- guardrail: input is unchanged and no production or network connection occurs\n- non_goals: history, service deployment, distributed processing, or a new product behavior\n",
+        "evidence/r012-accepted-state.md": "# Accepted delivery and feasibility facts\n\n- repository: acme/large-export\n- exact accepted base SHA: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n- the exact COMMITTED R012/r1 blob, effective policy, and tracker configuration are on that base\n- two viable technical candidates remain: whole-file parsing and streaming parsing\n- the choice depends only on target performance; no architecture owner can infer the result\n- target environment: Mac mini M2, 8 GB RAM, Node.js 22\n- frozen input: fixtures/export-100mb-v1.json with data-owner SHA-256\n- primary verification: current parser entry point; record wall time, peak RSS, exit status, and summary digest\n- pass threshold: at most 2.0 seconds and 1.5 GB peak RSS in three consecutive runs\n- appetite: two hours\n- stop: first crash, fixture mismatch, threshold breach, credential request, or production connection\n- safety: fixed local fixture, no credentials, no network, no production, no complete implementation\n- cleanup: delete temporary benchmark code and outputs after recording the redacted result\n- benchmark result: absent\n- accepted Solution ADR: absent\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:Technical Spike|technical spike|技术 Spike|技术验证|benchmark|基准测试|性能验证|有界性能基准|性能基准)",
+          "(?:Mac mini M2|目标环境|目标硬件)[\\s\\S]{0,500}(?:100\\s*MB|2(?:\\.0)?\\s*(?:秒|s)|1\\.5\\s*GB)|(?:100\\s*MB|2(?:\\.0)?\\s*(?:秒|s)|1\\.5\\s*GB)[\\s\\S]{0,500}(?:Mac mini M2|目标环境|目标硬件)",
+          "(?:fixture|冻结输入|固定输入|export-100mb-v1)",
+          "(?:primary verification|主要验证|主验证|wall time|峰值|RSS|summary digest)",
+          "(?:两小时|2\\s*(?:小时|h)|appetite|时间上限)",
+          "(?:(?:清理|删除|丢弃)[^\\n]{0,100}(?:临时|benchmark|输出|代码)|(?:临时|benchmark|输出|代码)[^\\n]{0,100}(?:清理|删除|丢弃))",
+          "(?:(?:只能|仅能|只会|只证明|仅证明|只返回)[^\\n]{0,140}(?:性能|技术事实|可行性|测量事实)|(?:不能|无法|不代表|不自动)[^\\n]{0,140}(?:客户价值|产品价值|自动选择|接受 ADR|接受技术决定|技术决定)|只能排除[^\\n]{0,100}不能证明)",
+          "你只需要决定：[^\\n]*(?:允许|授权|提供|明确授权)[^\\n]*(?:benchmark|基准测试|性能验证|目标环境|目标硬件|协议)|你只需要决定：[^\\n]*(?:目标机|目标硬件)[^\\n]*(?:允许|授权|执行)",
+          "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R012/r1\\s*·\\s*BLOCKED"
+        ],
+        "mustNotMatch": [
+          "(?:无需测试|没有基准也|凭经验|直接猜测)[^\\n]{0,80}(?:选择|采用)[^\\n]{0,60}(?:一次性|流式)",
+          "(?:已经|现已|因此)[^\\n]{0,30}(?:接受|批准)[^\\n]{0,30}(?:ADR|架构决定)|(?:ADR|架构决定)[^\\n]{0,20}(?:已经|现已)(?:接受|批准)",
+          "(?:已经|现已|直接)(?:进入|调用|开始编译)[^\\n]{0,40}(?:to-spec|Delivery Spec)",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE|Checkpoint:[^\\n]*(?:READY_TO_COMMIT|COMMITTED|ADMITTED)",
+          "(?:已经|立即|现在|接下来会|将会)(?:创建|生成|初始化)[^\\n]{0,80}(?:应用代码|源码|脚手架|Dockerfile|数据库|CI|Ticket)",
+          "(?:已经|立即|现在|接下来会|将会)安装[^\\n]{0,40}(?:依赖|npm|pnpm|cargo)|ready-for-agent",
+          "(?:直接|已经)[^\\n]{0,40}(?:推送|发布)[^\\n]{0,40}(?:生产|production)"
+        ]
+      }
+    },
+    {
+      "id": "solution-shaping-accepted-adr-continues-to-spec",
+      "skill": "ask-yet",
+      "prompt": "请只读恢复 R013/r1。exact COMMITTED Release 与 accepted Solution ADR 已在同一个 accepted remote base，repository policy impact 已关闭，也没有 blocking technical unknown。工作树另有一个未提交的 PROPOSED ADR-9999；请确认它不是权威来源，不要采用它。不要重新做架构访谈或生成 ADR，直接继续当前事实允许的 to-spec 步骤；不要修改文件或发布 Issue。",
+      "git": true,
+      "files": {
+        "AGENTS.md": "# Accepted repository policy\n\nUse Node.js 22 and approved local files only. No credentials, network, external service, retained data, or production side effect.\n",
+        "docs/agents/issue-tracker.md": "# Accepted tracker contract\n\n- provider: GitHub Issues\n- repository: acme/offline-validator\n- accepted ref: origin/main\n",
+        "docs/product/releases/r013-offline-validate.md": "# R013: validate one local manifest\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an operator validates one approved local manifest\n- target_outcome: receive the approved findings file or a bounded invalid-input result\n- smallest_closed_loop: local manifest -> validate -> local findings or bounded failure\n- primary_signal: every frozen fixture returns its approved findings or failure\n- guardrail: no input mutation, credential read, network, or production side effect\n- non_goals: history, service deployment, database, or remote API\n",
+        "docs/adr/0001-r013-offline-validator.md": "# ADR-0001: R013 offline validator boundary\n\n- Status: ACCEPTED\n- Date: 2026-08-18\n- Decision owner: technical maintainer\n- Source Release: R013/r1\n- Accepted base: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n\n## Product behavior preserved\nR013/r1 remains unchanged.\n\n## Decision\nUse one Node.js 22 local process with a command-line entry. The validator owns no persistent state.\n\n## System boundary and responsibilities\nThe input adapter reads one local manifest, the validator produces findings, and the output adapter writes one local findings file.\n\n## State, data and handoffs\nThe manifest stays owned by the operator. The in-memory normalized record is passed from adapter to validator; the findings record is passed to the output adapter. No data is retained.\n\n## Verification, failure and recovery\nThe command-line entry with frozen fixture manifest-v1 is the primary behavioral seam. Invalid input returns non-zero, writes no findings file, and leaves input unchanged; the operator can correct the file and retry.\n\n## Security and operations\nNo credentials, network, external service, production side effect, or retained data.\n\n## Deferred decisions\nRemote use, history, service deployment, and a database remain out of scope until a committed Release needs them.\n\n## Repository contract impact\nNone; accepted policy already states the local-only and no-credential rules.\n",
+        "evidence/r013-accepted-state.md": "# Exact accepted sources\n\n- repository: acme/offline-validator\n- accepted branch: main\n- exact base SHA: accepted remote ref origin/main recorded in .git/refs/remotes/origin/main\n- git show of the Release path returned the exact supplied COMMITTED R013/r1 blob\n- git show of docs/adr/0001-r013-offline-validator.md returned the exact supplied ACCEPTED ADR-0001 blob\n- effective policy and tracker configuration are accepted on the same base\n- repository contract impact review: PASS; no policy change required\n- Technical Decision Sufficiency: all ten applicable checks pass\n- blocking technical unknowns: none\n- working-tree ADR docs/adr/9999-unaccepted-hosted-service.md is absent from origin/main, remains PROPOSED, and is non-authoritative\n- source conflicts: none\n"
+      },
+      "workingTreeFiles": {
+        "docs/adr/9999-unaccepted-hosted-service.md": "# ADR-9999: hosted service alternative\n\n- Status: PROPOSED\n- Source Release: R013/r1\n\n## Decision\nReplace the accepted local CLI with a hosted service and persistent database.\n\nThis working-tree file is not committed, is absent from origin/main, and has no acceptance authority.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:ADR-0001|0001-r013-offline-validator)[^\\n]{0,180}(?:ACCEPTED|已接受|accepted|基线|充分性)|(?:已接受|accepted|同在基线)[^\\n]{0,180}(?:ADR-0001|0001-r013-offline-validator))",
+          "(?:(?:accepted base|已接受基线|已接受的代码基线|基线)[\\s\\S]{0,600}(?:R013/r1|r013-offline)[\\s\\S]{0,600}(?:ADR-0001|0001-r013)|(?:R013/r1|r013-offline)[\\s\\S]{0,600}(?:ADR-0001|0001-r013)[\\s\\S]{0,400}(?:accepted base|已接受基线|已接受的代码基线|基线))",
+          "(?:(?:不需要|无需|不再|跳过|未重新)[^\\n]{0,160}(?:重新塑形|架构访谈|访谈|ADR 生成|生成 ADR|新 ADR|重新选择)|(?:技术决定|实现边界|技术充分性|技术边界)[^\\n]{0,120}(?:已经足够|已经关闭|均已关闭|已关闭|通过)|(?:ADR-0001 已接受|ADR 已接受|ACCEPTED ADR-0001|策略影响已关闭)[^\\n]{0,160}(?:无技术未知|无技术阻塞|没有技术阻塞|无待定技术决策|未决决定[^\\n]{0,20}无)|(?:未解决决定|未决决定)[^\\n]{0,30}(?:为空|无))",
+          "(?:R013/r1|R013[^\\n]{0,30}r1)[\\s\\S]{0,400}(?:ADR-0001|ADR)|(?:ADR-0001|ADR)[\\s\\S]{0,400}(?:R013/r1|R013[^\\n]{0,30}r1)",
+          "(?:直接|自动|继续|编译|编制|完成)[^\\n]{0,160}(?:to-spec|Delivery Spec|交付规格|交付说明|只读规格编译)|(?:to-spec|Delivery Spec|交付规格|交付说明|只读规格编译)[^\\n]{0,160}(?:直接|自动|继续|编译|编制|完成)",
+          "(?:(?:ADR-9999|9999-unaccepted)[^\\n]{0,200}(?:不作为|非权威|忽略|未接受|不采用|未采用|已排除|不在 accepted base)|(?:未提交|工作树|working tree)[^\\n]{0,180}(?:不能|不作为|不是|未进入)[^\\n]{0,100}(?:来源|权威|accepted base|origin/main))",
+          "你只需要决定：[^\\n]*(?:无需|不用|不需要)[^\\n]*(?:决定|批准|操作)",
+          "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R013/r1\\s*·\\s*SPEC_IN_PROGRESS"
+        ],
+        "mustNotMatch": [
+          "你只需要决定：[^\\n]*(?:批准|接受|选择)[^\\n]*(?:ADR|架构|语言|框架|数据库|部署)",
+          "(?:候选 ADR|ADR 草案|重新生成 ADR|新建 ADR|方案\\s*[ABC])",
+          "(?:Decision source|决定来源|Authority)[^\\n]{0,120}(?:ADR-9999|9999-unaccepted)",
+          "(?:第一版|Delivery Spec|交付规格|Decisions)[^\\n]{0,180}(?:(?<!不)(?<!未)采用|将使用|决定使用|改为)[^\\n]{0,100}(?:hosted service|托管服务|persistent database|持久化数据库)",
+          "Checkpoint:\\s*PRODUCT/(?:FRAME|EVIDENCE)|Checkpoint:[^\\n]*(?:READY_TO_COMMIT|ADMITTED)",
+          "(?:已经|立即|现在|接下来会|将会)(?:创建|生成|初始化)[^\\n]{0,80}(?:应用代码|源码|脚手架|Dockerfile|数据库|CI|Ticket)",
+          "(?:已经|立即|现在|接下来会|将会)安装[^\\n]{0,40}(?:依赖|npm|pnpm|cargo)|ready-for-agent",
+          "(?:直接|已经)[^\\n]{0,40}(?:推送|发布)[^\\n]{0,40}(?:生产|production)"
+        ]
+      }
+    },
+    {
+      "id": "solution-shaping-greenfield-uncommitted-stays-product",
+      "skill": "ask-yet",
+      "prompt": "请只读续接 R014/r1。这个 Greenfield 目录只有 Candidate Frame，没有 Git、应用代码或 COMMITTED Release。用户问：既然以后要做，那现在先选 Node.js、数据库和部署方式行不行？请继续到当前产品事实允许的下一道门，不要修改文件或创建任何技术产物。",
+      "files": {
+        "docs/product/releases/r014-handoff-check.md": "# R014: handoff completeness candidate\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product maintainer\n- product_stage: FRAME\n- delivery_stage: NONE\n\n## Evidence ledger\n- DECISION: investigate delivery handoff completeness first.\n- ASSUMPTION: a delivery owner starts a pre-handoff check and benefits from seeing one missing required item.\n- UNKNOWN: no recent event, participant report, or observation establishes the real actor, trigger, current workflow, omission, consequence, or completion signal.\n\n## Release frame\n- target_outcome: a candidate delivery owner can identify one missing handoff item before submission\n- solution_hypothesis: a pre-handoff check may reduce omissions\n- smallest_closed_loop: candidate submission -> check -> one visible missing item or complete result\n- non_goals: implementation stack, database, deployment, automation, or production rollout\n- highest_risk: the assumed workflow may not match a real recent handoff\n- next decision question: what happened in one recent real handoff where an omission mattered?\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:(?:还没有|尚未|当前没有|目录无|没有)[^\\n]{0,180}(?:COMMITTED|确认值得进入交付|产品行为确认|已确认进入交付的版本)|(?:Candidate Frame|候选框架|候选方向)[^\\n]{0,160}(?:不代表|不是|不等于)[^\\n]{0,100}(?:COMMITTED|进入交付|产品确认|交付确认))",
+          "(?:(?:不能|不应|不会|暂不)[^\\n]{0,100}(?:选择|决定)[^\\n]{0,100}(?:Node\\.js|技术栈|数据库|部署)|(?:Node\\.js|技术栈|数据库|部署)[^\\n]{0,160}(?:偏好|线索|不是决定|解决方案想法|暂缓|推迟|现在选择))",
+          "(?:(?:最近|近期)[^\\n]{0,100}(?:真实|具体)[^\\n]{0,100}(?:交接|经历|事件)|(?:真实|具体)[^\\n]{0,40}(?:最近|近期)[^\\n]{0,100}(?:交接|经历|事件)|(?:探索性访谈|真实任务观察|recent story))",
+          "你只需要决定：[^\\n]*(?:提供|安排|允许|确认|讲述|回答|请让)[^\\n]*(?:最近|近期|真实|交接|访谈|观察|参与者)|你只需要决定：[^\\n]*(?:最近|近期|真实|交接|参与者)[^\\n]*(?:回答|描述|讲述|在场|访谈)",
+          "Checkpoint:\\s*PRODUCT/(?:FRAME|EVIDENCE)\\s*·\\s*R014/r1"
+        ],
+        "mustNotMatch": [
+          "(?:建议|决定|第一版)(?:采用|选择|使用)[^\\n]{0,80}(?:Node\\.js|Python|React|Vue|PostgreSQL|MySQL|数据库|云部署|容器)",
+          "(?:创建|生成|写入)[^\\n]{0,50}(?:ADR|技术方案|Solution Frame)",
+          "(?:已经|立即|现在|接下来会|将会)(?:创建|生成|初始化)[^\\n]{0,80}(?:应用代码|源码|脚手架|Dockerfile|数据库|CI|Git|仓库|Ticket)",
+          "(?:已经|立即|现在|接下来会|将会)安装[^\\n]{0,40}(?:依赖|npm|pnpm|cargo)",
+          "Checkpoint:\\s*DELIVERY/|/skill:to-spec|ready-for-agent|Checkpoint:[^\\n]*(?:COMMITTED|ADMITTED)",
+          "(?:自动|直接)[^\\n]{0,30}COMMITTED|(?:直接|已经)[^\\n]{0,40}(?:推送|发布)[^\\n]{0,40}(?:生产|production)"
         ]
       }
     },
@@ -362,7 +528,7 @@
           "(?:(?:不是|不等于|并非|不代表|不构成)[^\\n]{0,120}(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))|(?:承诺|投入|进入交付|客户(?:事实|需求|验证|依据|证据))[^\\n]{0,120}(?:不是|不等于|并非|不代表|不构成))",
           "(?:(?:候选|最小端到端|第一版)[^\\n]{0,40}闭环[^\\n]{0,220}|(?:提交|发起|开始|准备交付)[^\\n]{0,180}(?:检查|发现|结果|修正)|交付前[^\\n]{0,120}(?:核对|检查)[^\\n]{0,120}(?:发现|补齐|确认可交付))",
           "(?:(?:最高风险|最大风险|最危险的?假设|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键的?待验证)[^\\n]{0,220}|仍然缺少：[^\\n]{0,220}(?:近期|最近)[^\\n]{0,100}(?:案例|经历|事件|交付|流程))",
-          "你只需要决定：[^\\n]{0,500}(?:验证|纠正|校正|访谈|安排|记录|写入|允许)",
+          "你只需要决定：[^\\n]{0,500}(?:验证|纠正|校正|访谈|安排|记录|写入|允许|加入|参与者|开始)",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
         ],
         "mustNotMatch": [
@@ -389,13 +555,13 @@
         "mustMatch": [
           "(?:现有|当前|冻结事实|仓库)[^\\n]{0,180}(?:(?:只能)?(?:单条|一条|逐条)(?:创建|录入|提交)|(?:一次)?只(?:创建|录入|提交)[^\\n]{0,40}(?:单条|一条))",
           "(?:(?:id|name)[^\\n]{0,120}(?:必填|校验)|(?:必填|校验)[^\\n]{0,120}(?:id|name))",
-          "(?:(?:仅|只)证明[^\\n]{0,120}(?:现有|当前|入口|代码|系统)|(?:没有|缺少)[^\\n]{0,24}(?:客户|用户)[^\\n]{0,24}(?:证据|事件|工单|记录|需求依据|依据)|(?:不能|无法|不|未|没有)[^\\n]{0,12}证明[^\\n]{0,100}(?:客户|价值|需求|痛点|批量)|(?:不是|不等于)[^\\n]{0,60}(?:客户依据|客户事实|价值证据))",
-          "(?:(?:待验证假设|假设|待验证推测)[^\\n]{0,180}(?:管理员|批量|多条)|(?:管理员|批量|多条)[^\\n]{0,180}(?:待验证假设|假设|待验证推测))",
+          "(?:(?:仅|只)证明[^\\n]{0,120}(?:现有|当前|入口|代码|系统)|(?:没有|缺少)[^\\n]{0,24}(?:客户|用户)[^\\n]{0,24}(?:证据|事件|工单|记录|需求依据|依据)|(?:不能|无法|不|未|没有)[^\\n]{0,12}证明[^\\n]{0,100}(?:客户|价值|需求|痛点|批量)|(?:不是|不等于)[^\\n]{0,80}(?:客户依据|客户判断依据|客户事实|价值证据)|(?:真实需求|真实流程)[^\\n]{0,60}(?:尚无依据|没有依据|无依据))",
+          "(?:(?:待验证假设|假设|待验证推测|暂按)[^\\n]{0,220}(?:管理员|批量|多条|候选闭环)|(?:管理员|批量|多条|候选闭环)[^\\n]{0,220}(?:待验证假设|假设|待验证推测|暂按))",
           "(?:(?:选择|选中|选 A)[^\\n]{0,140}(?:调查|验证|塑形|方向)|(?:调查|验证|塑形|方向)[^\\n]{0,140}(?:选择|选中|选 A))",
           "(?:(?:不是|不等于|并非|不代表)[^\\n]{0,100}(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)|(?:承诺|投入|确认值得进入交付|确认进入交付|进入交付的确认|客户依据)[^\\n]{0,100}(?:不是|不等于|并非|不代表))",
           "(?:最小端到端闭环|(?:提交|粘贴|上传)[^\\n]{0,180}(?:校验|成功|失败|修正|结果))",
           "(?:(?:暂不|排除|不包含|不含)[^\\n]{0,180}(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)|(?:迁移[^\\n]{0,80}同步|同步[^\\n]{0,80}迁移)[^\\n]{0,80}(?:不在范围|不在本轮|不包含|不含|排除))",
-          "(?:最高风险|最大风险|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键(?:的)?(?:待验证|未知))[^\\n]{0,220}",
+          "(?:最高风险|最大风险|最大未知|最可能(?:推翻|改变)|会改变方向|决策性未知|最关键(?:的)?(?:待验证|未知))[^\\n]{0,220}",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*(?:NONE|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)\\s*·\\s*FRAME_(?:CANDIDATE|WRITE_AWAITING_APPROVAL)"
         ],
         "mustNotMatch": [
@@ -577,9 +743,13 @@
       "id": "lifecycle-committed-release-compiles-spec",
       "skill": "to-spec",
       "prompt": "只读编译检查：依据已提供的 exact COMMITTED Release 和 accepted-state 冻结响应，在回复中给出完整 Delivery Spec 候选与发布前门禁；不要创建 Issue、标签或文件。accepted-state 是本次运行可访问的 Git 与 tracker 一手响应。",
+      "git": true,
       "files": {
+        "AGENTS.md": "# Accepted repository policy\n\nUse frozen sanitized fixtures and preserve the no-raw-log and no-credential boundary. Ready labels require Admission.\n",
+        "docs/agents/issue-tracker.md": "# Accepted tracker contract\n\n- provider: GitHub Issues\n- repository: acme/build-explain\n- accepted ref: origin/main\n",
         "docs/product/releases/r006-build-explanation.md": "# R006: build explanation\n\n## Metadata\n- status: COMMITTED\n- revision: r1\n- owner: product maintainer\n\n## Release frame\n- actor_and_trigger: an existing operator opens a failed build\n- observed_problem: the operator manually classifies a known failure before opening an existing remediation guide\n- target_outcome: return the approved class and remediation link for one frozen log\n- smallest_closed_loop: frozen failed-build log -> approved class -> existing remediation link\n- primary_signal: all approved frozen logs return the expected class and link\n- guardrail: raw logs and credentials are absent from output\n- non_goals: new classes, automatic remediation, UI, rollout changes\n\n## Included behavior\n- S1 source behavior: given a sanitized frozen failed-build log, classify it as dependency, test, or infrastructure failure; unknown input returns a bounded unsupported result and no link; produce a classification result consumed by the explanation renderer.\n- S2 source behavior: given a supported classification result, show its approved explanation and existing remediation link; an unsupported result shows no link; produce the terminal operator response.\n\n## Decisions\n- classification-result is JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported; it contains no raw log, credential, explanation, or link.\n- dependency renders `Dependency installation failed.` with `https://docs.example.test/build/dependencies`.\n- test renders `Test execution failed.` with `https://docs.example.test/build/tests`.\n- infrastructure renders `Build infrastructure failed.` with `https://docs.example.test/build/infrastructure`.\n- unsupported renders `Unsupported build failure.` with no link.\nAll product, architecture, data, compatibility, rollout, schema, API, and interaction decisions required for this slice are closed.\n",
-        "evidence/r006-accepted-state.md": "# Exact accepted source and repository response\n\nCaptured from the accepted remote base for this read-only evaluation.\n- repository: acme/build-explain\n- accepted default branch: main\n- exact base SHA: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n- git show aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:docs/product/releases/r006-build-explanation.md returned byte-for-byte the Release file supplied in this workspace\n- effective root policy: AGENTS.md@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n- effective root policy digest: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n- tracker: GitHub Issues for acme/build-explain\n- required delivery policy and triage-label mapping are present on the same base\n- source conflicts: none\n- unresolved decisions: none\n"
+        "fixtures/build-failure-v1/manifest.json": "{\"version\":1,\"cases\":[{\"id\":\"dependency-1\",\"sanitizedExcerpt\":\"package installation exited non-zero\",\"classification\":\"dependency\"},{\"id\":\"test-1\",\"sanitizedExcerpt\":\"approved test suite reported a failed assertion\",\"classification\":\"test\"},{\"id\":\"infrastructure-1\",\"sanitizedExcerpt\":\"approved runner became unavailable\",\"classification\":\"infrastructure\"},{\"id\":\"unknown-1\",\"sanitizedExcerpt\":\"unrecognized sanitized failure\",\"classification\":\"unsupported\"}]}\n",
+        "evidence/r006-accepted-state.md": "# Exact accepted source and repository response\n\nCaptured from the accepted remote base for this read-only evaluation.\n- repository: acme/build-explain\n- accepted default branch: main\n- exact accepted remote base: origin/main recorded in .git/refs/remotes/origin/main\n- git show origin/main:docs/product/releases/r006-build-explanation.md returned byte-for-byte the Release file supplied in this workspace\n- git show origin/main:fixtures/build-failure-v1/manifest.json returned the supplied frozen case mapping\n- effective root policy: AGENTS.md@origin/main\n- effective root policy digest: 7308f01142892ffd4db0458f8aaf86f2a64ea3a4985d3e9a0b03920ca282725d\n- tracker: GitHub Issues for acme/build-explain\n- required delivery policy and triage-label mapping are present on the same base\n- source conflicts: none\n- unresolved decisions: none\n"
       },
       "expected": {
         "mustMatch": [

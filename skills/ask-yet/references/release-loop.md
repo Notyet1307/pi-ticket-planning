@@ -337,7 +337,7 @@ Carry applicable controls into the standalone Ticket or Delivery Spec constraint
 
 At the decision gate, the human chooses. `COMMITTED` is available only after all six readiness checks pass; the other decisions may close or redirect a not-ready candidate without fabricating readiness:
 
-- `COMMITTED`: bind the decision to the exact draft revision, record `status: COMMITTED` without changing its approved content, then put the resulting exact committed blob into the accepted remote delivery base before repository-contract review and Delivery Spec.
+- `COMMITTED`: bind the decision to the exact draft revision, record `status: COMMITTED` without changing its approved content, then put the resulting exact committed blob into the accepted remote delivery base before technical-boundary review, repository-contract review, and Delivery Spec.
 - `HOLD`: pause all evidence and delivery work for that Release. Record `next_evidence_action: NONE` and one externally observable `reopen_condition`; resume only after that condition occurs and the human reopens the Release.
 - `REWORK`: keep exactly one named evidence or scope action active, with its owner, appetite, and stop condition.
 - `DROP`: stop and record the disproved assumption plus the fact required to reopen.
@@ -346,9 +346,11 @@ The agent may recommend but cannot choose.
 
 ## 7. Repository Contract Impact Review
 
-Run this after `COMMITTED` and after the exact committed blob is in the accepted remote delivery base, before `to-spec`.
+After `COMMITTED` and after the exact committed blob is in the accepted remote delivery base, let `ask-yet` check [solution-shaping.md](solution-shaping.md). Skip it when accepted code, ADRs, policy, interfaces, and verification seams already close every first-Release technical decision. When shaping is required, keep it inside `DELIVERY / SPEC`, accept its load-bearing decisions through the repository's ADR path, and re-resolve the accepted base. If a technical direction changes committed product behavior or exceeds its appetite, return to a new Release revision or Commitment decision instead of hiding the change in an ADR.
 
-If the target is non-Git or has an unborn `HEAD`, first route to the repository setup Skill with the exact COMMITTED Release artifact and revision. Apply a delivery-bootstrap plan when the standing automation approval clearly covers it; otherwise present one consolidated approval request. The bootstrap may establish Git, the committed Release artifact, minimal Agent/tracker policy, and a remote; it may not choose an application stack or create implementation scaffolding. Return here after a real base SHA exists.
+Run Repository Contract Impact Review only after any required technical decision is accepted into the base. The accepted technical decision may reveal stable ownership, dependency, compatibility, security, side-effect, verification, rollback, or stop rules that were not visible from the Product Release alone.
+
+If the target is non-Git or has an unborn `HEAD`, first route to the repository setup Skill with the exact COMMITTED Release artifact and revision. Apply a delivery-bootstrap plan when the standing automation approval clearly covers it; otherwise present one consolidated approval request. The bootstrap may establish Git, the committed Release artifact, minimal Agent/tracker policy, and a remote; it may not choose an application stack or create implementation scaffolding. After a real base SHA exists, check Solution Shaping before returning here.
 
 At the target delivery base SHA, the effective root repository policy is the first regular Git blob in this precedence:
 
@@ -384,7 +386,7 @@ A candidate-branch policy cannot govern the Worker that creates it. If the Relea
 
 ## 8. Delivery, release, and outcome
 
-The committed artifact revision is the product source for `to-spec`; the accepted Spec assigns stable Scenario IDs and explicit state/artifact handoffs; `to-tickets` persists the Scenario coverage matrix, walking skeleton, and candidate graph; the unchanged snapshot goes through independent Admission. Do not make downstream stages guess a product decision.
+The committed artifact revision is the product source for `to-spec`; accepted ADRs and policy supply load-bearing technical decisions; the accepted Spec assigns stable Scenario IDs and explicit state/artifact handoffs; `to-tickets` persists the Scenario coverage matrix, walking skeleton, and candidate graph; the unchanged snapshot goes through independent Admission. Do not make downstream stages guess a product or architecture decision.
 
 Execution fact ownership, no-daemon resume, parent closeout, and delivery failure behavior are defined in [execution-closeout.md](execution-closeout.md). The `ask-yet` entry point must load it directly when those facts exist.
 

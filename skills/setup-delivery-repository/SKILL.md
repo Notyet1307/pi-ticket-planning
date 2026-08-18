@@ -109,4 +109,4 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 
 For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
 
-Return the verified setup facts to `ask-yet`, which continues to `to-spec` in the same run when no human gate remains.
+Return the verified base, effective policy, tracker, and exact Release facts to `ask-yet`. It checks whether first-Release Solution Shaping is required, accepts any load-bearing technical decision through the repository's ADR path, and continues to `to-spec` only when no technical or human gate remains. Setup still chooses no implementation behavior.
