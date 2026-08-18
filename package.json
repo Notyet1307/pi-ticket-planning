@@ -31,7 +31,7 @@
     "check:workflow": "node scripts/workflow-contract.mjs",
     "doctor": "node scripts/doctor.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
-    "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite release --repeat 3 --report-only",
+    "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "install:profile": "node scripts/install-profile.mjs",
     "test": "node --test test/*.test.mjs",
     "verify:ci": "npm run check && npm run check:behavior-fixtures && npm run check:docs && npm test",

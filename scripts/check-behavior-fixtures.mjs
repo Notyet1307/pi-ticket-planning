@@ -1,13 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateLiveEvalFixture, validateMultiTurnEvalFixture } from "./eval-pi-behavior.mjs";
+import {
+  combineLiveEvalFixtures,
+  validateEvalSuiteManifest,
+  validateLiveEvalFixture,
+  validateMultiTurnEvalFixture,
+} from "./eval-pi-behavior.mjs";
 
 export function validateBehaviorFixtures(root) {
   const observedFile = path.join(root, "fixtures", "pi-behavior-cases.json");
   const errors = validateObservedBehaviorCases(observedFile);
   const live = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
   const multi = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
+  const suites = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-eval-suites.json"), "utf8"));
   const observed = JSON.parse(fs.readFileSync(observedFile, "utf8"));
   const singleIds = [...(observed.cases ?? []), ...(live.cases ?? [])].map(({ id }) => id);
   const liveById = new Map(live.cases.map((item) => [item.id, item]));
@@ -46,6 +52,7 @@ export function validateBehaviorFixtures(root) {
     ...errors,
     ...validateLiveEvalFixture(live).map((error) => `live: ${error}`),
     ...validateMultiTurnEvalFixture(multi, singleIds).map((error) => `multiturn: ${error}`),
+    ...validateEvalSuiteManifest(suites, combineLiveEvalFixtures(live, multi)).map((error) => `suites: ${error}`),
   ];
 }
 

@@ -1,6 +1,6 @@
 # 从产品意图到可验证结果：全阶段运行方案
 
-> 状态：Phase 1–3、Gate C 内部 Release→Harness canary、显式流程分级、人类状态卡、统一 doctor 和真实模型 Release Gate 已实现；十四个只读 fresh-process PI 场景已通过，真实客户证据到 Outcome 的循环仍未完成
+> 状态：Phase 1–3、Gate C 内部 Release→Harness canary、显式流程分级、渐进式人类界面、统一 doctor 和 Manifest 驱动的真实模型 Release Gate 已实现；真实客户证据到 Outcome 的循环仍未完成
 >
 > 日期：2026-08-16
 >
@@ -553,7 +553,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 
 ### Phase 3：v0.3，补已确认的交付接缝
 
-**状态：已随 `v0.3.0` 发布。** 三档规划深度加风险覆盖、五字段人类状态卡、分层只读 `pi-ticket-plan doctor`、幂等 Admission plan/apply 和真实模型 Release Gate 已实现，并通过 package/Profile 检查、确定性回归和十四个全新 PI 进程行为评测。内部 canary 不替代客户价值证据。
+**状态：已随 `v0.3.0` 发布。** 三档规划深度加风险覆盖、当时的人类状态卡、分层只读 `pi-ticket-plan doctor`、幂等 Admission plan/apply 和核心真实模型 Release Gate 已实现；当前 Release case 清单已迁移到版本控制的 suite Manifest。内部 canary 不替代客户价值证据。
 
 用户审核后已确认实现以下最小门禁，而不是整包预建：
 
@@ -629,7 +629,7 @@ Anthropic 的 harness 经验强调：长任务应有结构化进度产物、独�
 11. **显式流程分级**：`ask-yet` 自动推断 `QUICK | STANDARD | DISCOVERY` 规划深度，再叠加 `NORMAL | CONTROLLED` 风险控制；用户只看到一句决定性理由。不增加公开 Quick Skill、状态机或 Reviewer，Readiness 继续复用 Admission 的 fresh reviewer。
 12. **人类状态卡**：每轮用户界面固定为“当前目标、已经确认、仍然缺少、为什么现在不能继续、你只需要决定”；内部 lane、stage 和 verdict 只进入最后一行机器 `Checkpoint`。
 13. **统一 doctor**：`pi-ticket-plan doctor` 只读检查安装/Profile、GitHub、版本和当前目标仓库的 Harness 就绪条件，并分别汇总 Planning、Admission、Release readiness；默认只有 Planning 阻塞影响退出码，发布或自动化可用 `--require admission|release|all` 收紧。依赖事实不足时使用 `SKIP`，可操作失败同时给出 `FIX`，不自动改仓库或授权状态。
-14. **真实模型 Release Gate**：确定性 CI 只验证冻结 fixture 合同；package Release 必须从干净 checkout 运行固定十四个 fresh-process PI case，覆盖 `Frame → Evidence → Commit → Spec → Tickets → Readiness → Admission` 的相邻权威快照。只重试失败 case 一次，恢复记为 `FLAKY`，并记录语义失败、基础设施失败和成功率。提供三次 advisory 的 `eval:pi:nightly`；PR CI 不使用维护者个人 OAuth，仓库有专用 runner、机器凭据和非门禁评分合同后才接定时任务、无 Skill 基线和双能力档模型矩阵。
+14. **真实模型 Release Gate**：确定性 CI 只验证冻结 fixture 与 suite 合同；package Release 必须从干净 checkout 运行 Manifest 定义的 fresh-process Release suite，覆盖核心生命周期和最小代表性新能力。Release 只读且有 case/turn 上限；Nightly 三次观察较长、Observer 或波动场景；Isolated Writable 仅显式执行 allowlisted canary。Release 只重试失败 case 一次，恢复记为 `FLAKY`，并记录语义失败、基础设施失败、动态数量和 case-set hash。PR CI 不使用维护者个人 OAuth，仓库有专用 runner、机器凭据和非门禁评分合同后才接定时任务、无 Skill 基线和双能力档模型矩阵。
 
 ## 13. 一手资料索引
 

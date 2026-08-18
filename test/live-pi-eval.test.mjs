@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -17,6 +18,7 @@ import {
   runLivePiEval,
   selectLiveEvalCases,
   summarizeLiveEvalAttempts,
+  validateEvalSuiteManifest,
   validateLiveEvalFixture,
   validateMultiTurnEvalFixture,
 } from "../scripts/eval-pi-behavior.mjs";
@@ -24,6 +26,8 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
 const multiFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
+const suiteManifest = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-eval-suites.json"), "utf8"));
+const combinedFixture = combineLiveEvalFixtures(fixture, multiFixture);
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
@@ -85,9 +89,18 @@ test("live PI reports distinguish semantic, infrastructure, and per-case success
   ]);
 });
 
-test("release suite is pinned and accepts a recovered flaky case", () => {
-  const selected = selectLiveEvalCases(fixture, { suite: "release" });
-  assert.deepEqual(selected.map(({ id }) => id), fixture.releaseGateCases);
+test("release suite is manifest-pinned and accepts a recovered flaky case", () => {
+  assert.deepEqual(validateEvalSuiteManifest(suiteManifest, combinedFixture), []);
+  const selected = selectLiveEvalCases(combinedFixture, { suite: "release", suiteManifest });
+  assert.deepEqual(selected.map(({ id }) => id), suiteManifest.suites.release.caseIds);
+  assert.equal(selected.length <= suiteManifest.suites.release.maxCases, true);
+  assert.equal(selected.reduce((total, item) => total + (item.turns?.length ?? 1), 0) <= suiteManifest.suites.release.maxModelTurns, true);
+  assert.equal(selected.some(({ id }) => id === "multiturn-human-interface-progressive-status"), true);
+  assert.equal(selectLiveEvalCases(combinedFixture, {
+    caseId: "method-routing-repository-fact-direct-read",
+    suite: "release",
+    suiteManifest,
+  })[0].id, "method-routing-repository-fact-direct-read");
   assert.throws(() => selectLiveEvalCases(fixture, { suite: "missing" }), /unknown suite/);
 
   const gate = evaluateCaseGate([
@@ -101,6 +114,115 @@ test("release suite is pinned and accepts a recovered flaky case", () => {
     failed: ["frame"],
     flaky: [],
   });
+});
+
+test("suite manifest rejects unsafe membership, drift, and missing coverage", () => {
+  const duplicate = structuredClone(suiteManifest);
+  duplicate.suites.release.caseIds.push(duplicate.suites.release.caseIds[0]);
+  assert.match(validateEvalSuiteManifest(duplicate, combinedFixture).join("\n"), /release: caseIds must be unique/u);
+
+  const unknown = structuredClone(suiteManifest);
+  unknown.suites.nightly.caseIds[0] = "missing-case";
+  assert.match(validateEvalSuiteManifest(unknown, combinedFixture).join("\n"), /nightly: unknown case missing-case/u);
+
+  const overLimit = structuredClone(suiteManifest);
+  overLimit.suites.release.maxCases = 1;
+  overLimit.suites.release.maxModelTurns = 1;
+  assert.match(validateEvalSuiteManifest(overLimit, combinedFixture).join("\n"), /cases exceed maxCases/u);
+  assert.match(validateEvalSuiteManifest(overLimit, combinedFixture).join("\n"), /model turns exceed maxModelTurns/u);
+
+  const observer = structuredClone(suiteManifest);
+  observer.suites.nightly.caseIds = observer.suites.nightly.caseIds.filter((id) => id !== "multiturn-technical-spike-result-return");
+  observer.suites.release.caseIds.push("multiturn-technical-spike-result-return");
+  assert.match(validateEvalSuiteManifest(observer, combinedFixture).join("\n"), /Observer file injection/u);
+
+  const writable = structuredClone(suiteManifest);
+  writable.suites["isolated-writable"].caseIds = ["multiturn-human-interface-progressive-status"];
+  writable.suites.release.caseIds = writable.suites.release.caseIds.filter((id) => id !== "multiturn-human-interface-progressive-status");
+  assert.match(validateEvalSuiteManifest(writable, combinedFixture).join("\n"), /lacks an explicit write or remote-ref allowlist/u);
+
+  const writebackInRelease = structuredClone(suiteManifest);
+  writebackInRelease.suites["isolated-writable"].caseIds = ["multiturn-human-interface-progressive-status"];
+  writebackInRelease.suites.release.caseIds.push("multiturn-validation-formal-writeback");
+  assert.match(validateEvalSuiteManifest(writebackInRelease, combinedFixture).join("\n"), /release case allows Git mutation/u);
+  assert.match(validateEvalSuiteManifest(writebackInRelease, combinedFixture).join("\n"), /FORMAL writeback must not enter release/u);
+
+  const missingCore = structuredClone(suiteManifest);
+  missingCore.suites.release.caseIds.shift();
+  assert.match(validateEvalSuiteManifest(missingCore, combinedFixture).join("\n"), /required Release case is missing/u);
+
+  const missingCoverage = structuredClone(suiteManifest);
+  missingCoverage.coverage = {};
+  assert.match(validateEvalSuiteManifest(missingCoverage, combinedFixture).join("\n"), /release suite lacks candidate-frame coverage/u);
+
+  const unclassified = structuredClone(suiteManifest);
+  const removed = unclassified.quarantine.caseIds.pop();
+  assert.match(validateEvalSuiteManifest(unclassified, combinedFixture).join("\n"), new RegExp(`${removed}: live case is unclassified`, "u"));
+
+  const quarantinedRelease = structuredClone(suiteManifest);
+  quarantinedRelease.quarantine.caseIds.push(quarantinedRelease.suites.release.caseIds[0]);
+  assert.match(validateEvalSuiteManifest(quarantinedRelease, combinedFixture).join("\n"), /belongs to an executable suite and quarantine/u);
+});
+
+test("release runner mixes single and multi-turn cases and reports suite identity", async () => {
+  const evalFixture = {
+    version: 1,
+    cases: [
+      {
+        id: "single",
+        skill: "triage",
+        prompt: "single",
+        files: {},
+        expected: { mustMatch: ["ok"], mustNotMatch: [] },
+      },
+      {
+        id: "multi",
+        skill: "triage",
+        files: {},
+        turns: ["one", "two"].map((id) => ({
+          id,
+          prompt: id,
+          expected: { mustMatch: ["ok"], mustNotMatch: [] },
+          allowedWrites: [],
+        })),
+      },
+    ],
+  };
+  const evalSuites = {
+    suites: {
+      release: {
+        caseIds: ["single", "multi"],
+        maxCases: 22,
+        maxModelTurns: 30,
+        mutationPolicy: "read-only",
+      },
+    },
+  };
+  const report = await runLivePiEval({
+    fixture: evalFixture,
+    suiteManifest: evalSuites,
+    suite: "release",
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    runtime: {
+      createSession: async () => ({
+        identity: "fake",
+        async prompt() { return "ok"; },
+        async close() {},
+      }),
+    },
+  });
+
+  assert.equal(report.suite, "release");
+  assert.equal(report.caseCount, 2);
+  assert.equal(report.modelTurns, 3);
+  assert.deepEqual(report.caseTypes, [
+    { id: "single", type: "single-turn" },
+    { id: "multi", type: "multi-turn" },
+  ]);
+  assert.equal(report.gate.passed, true);
 });
 
 test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () => {
@@ -193,7 +315,7 @@ test("ticket-graph live fixture binds its exact Spec and candidate bodies", () =
 
 test("multiturn fixture schema is globally unique and fail-closed", () => {
   assert.deepEqual(validateMultiTurnEvalFixture(multiFixture, fixture.cases.map(({ id }) => id)), []);
-  assert.equal(combineLiveEvalFixtures(fixture, multiFixture).releaseGateCases.length, 14);
+  assert.equal(combinedFixture.cases.length, fixture.cases.length + multiFixture.cases.length);
 
   const progressive = multiFixture.cases.find(({ id }) => id === "multiturn-human-interface-progressive-status");
   assert.deepEqual(progressive.turns.map(({ id }) => id), ["dialogue", "status", "resume"]);
@@ -224,7 +346,6 @@ test("multiturn runner preserves order and session isolation while separating ob
   const sessions = [];
   const evalFixture = {
     version: 1,
-    releaseGateCases: ["case-a"],
     cases: [
       {
         id: "case-a",
@@ -279,8 +400,15 @@ test("multiturn runner preserves order and session isolation while separating ob
     },
   });
 
-  assert.equal(report.schema, "pi-ticket-planning:live-eval:v2");
+  assert.equal(report.schema, "pi-ticket-planning:live-eval:v3");
   assert.deepEqual(report.fixtureCaseIds, ["case-a", "case-b"]);
+  assert.equal(report.caseCount, 2);
+  assert.equal(report.modelTurns, 4);
+  assert.match(report.caseSetSha256, /^[a-f0-9]{64}$/u);
+  assert.deepEqual(report.caseTypes, [
+    { id: "case-a", type: "isolated-writable" },
+    { id: "case-b", type: "multi-turn" },
+  ]);
   assert.deepEqual(report.attempts.map(({ status }) => status), ["PASS", "PASS"]);
   assert.deepEqual(sessions.map(({ prompts }) => prompts), [
     ["/skill:triage first-a", "second-a"],
@@ -299,7 +427,6 @@ test("multiturn retry restarts at turn one in a new session and stops after the 
   const sessions = [];
   const evalFixture = {
     version: 1,
-    releaseGateCases: ["retry-case"],
     cases: [{
       id: "retry-case",
       skill: "triage",
@@ -351,7 +478,6 @@ test("multiturn retry restarts at turn one in a new session and stops after the 
 test("multiturn runner rejects forbidden writes and strings and reports cleanup failure", async () => {
   const badFixture = {
     version: 1,
-    releaseGateCases: ["bad-path"],
     cases: [
       {
         id: "bad-path",
@@ -390,6 +516,43 @@ test("multiturn runner rejects forbidden writes and strings and reports cleanup 
           { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
         ],
       },
+      {
+        id: "bad-tree",
+        skill: "triage",
+        git: true,
+        tools: ["bash"],
+        files: { "README.md": "fixture\n" },
+        turns: [
+          {
+            id: "tree",
+            prompt: "bad-tree",
+            expected: { mustMatch: ["ok"], mustNotMatch: [] },
+            allowedWrites: ["approved.txt"],
+            allowedGit: true,
+            allowedRemoteRefs: ["refs/heads/approved"],
+          },
+          { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
+      {
+        id: "bad-secret-tree",
+        skill: "triage",
+        git: true,
+        tools: ["bash"],
+        files: { "README.md": "fixture\n" },
+        forbiddenStrings: ["SECRET-FIXTURE"],
+        turns: [
+          {
+            id: "secret-tree",
+            prompt: "bad-secret-tree",
+            expected: { mustMatch: ["ok"], mustNotMatch: [] },
+            allowedWrites: ["allowed.txt"],
+            allowedGit: true,
+            allowedRemoteRefs: ["refs/heads/approved"],
+          },
+          { id: "never", prompt: "never", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+        ],
+      },
     ],
   };
   const report = await runLivePiEval({
@@ -410,6 +573,30 @@ test("multiturn runner rejects forbidden writes and strings and reports cleanup 
             fs.mkdirSync(path.dirname(target), { recursive: true });
             fs.writeFileSync(target, ref);
           }
+          if (message.includes("bad-tree")) {
+            fs.writeFileSync(path.join(cwd, "extra.txt"), "not allowed\n");
+            for (const args of [
+              ["add", "extra.txt"],
+              ["commit", "-q", "--no-verify", "-m", "Add unauthorized file"],
+              ["push", "-q", "origin", "HEAD:refs/heads/approved"],
+              ["reset", "-q", "--hard", "HEAD^"],
+            ]) {
+              const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+              assert.equal(result.status, 0, result.stderr);
+            }
+          }
+          if (message.includes("bad-secret-tree")) {
+            fs.writeFileSync(path.join(cwd, "allowed.txt"), "SECRET-FIXTURE\n");
+            for (const args of [
+              ["add", "allowed.txt"],
+              ["commit", "-q", "--no-verify", "-m", "Add forbidden content"],
+              ["push", "-q", "origin", "HEAD:refs/heads/approved"],
+              ["reset", "-q", "--hard", "HEAD^"],
+            ]) {
+              const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+              assert.equal(result.status, 0, result.stderr);
+            }
+          }
           return "ok";
         },
         async close() {},
@@ -418,17 +605,18 @@ test("multiturn runner rejects forbidden writes and strings and reports cleanup 
   });
   assert.deepEqual(
     report.attempts.map(({ status }) => status),
-    ["SEMANTIC_FAIL", "SEMANTIC_FAIL", "SEMANTIC_FAIL"],
-    JSON.stringify(report.attempts[2].errors),
+    ["SEMANTIC_FAIL", "SEMANTIC_FAIL", "SEMANTIC_FAIL", "SEMANTIC_FAIL", "SEMANTIC_FAIL"],
+    JSON.stringify(report.attempts[4].errors),
   );
   assert.equal(report.attempts.every(({ turns }) => turns.length === 1), true);
   assert.match(report.attempts[0].errors.join("\n"), /unauthorized workspace mutation/u);
   assert.match(report.attempts[1].errors.join("\n"), /workspace contains forbidden string/u);
   assert.match(report.attempts[2].errors.join("\n"), /unauthorized remote ref mutation/u);
+  assert.match(report.attempts[3].errors.join("\n"), /unauthorized remote artifact path: extra.txt/u);
+  assert.match(report.attempts[4].errors.join("\n"), /remote artifact contains forbidden string/u);
 
   const cleanupFixture = {
     version: 1,
-    releaseGateCases: ["cleanup"],
     cases: [{
       id: "cleanup",
       skill: "triage",
@@ -460,4 +648,60 @@ test("multiturn runner rejects forbidden writes and strings and reports cleanup 
   assert.equal(cleanupReport.attempts[0].status, "INFRA_FAIL");
   assert.equal(cleanupReport.attempts[0].cleanup.session, "FAIL");
   assert.match(cleanupReport.attempts[0].errors.join("\n"), /cleanup failed/u);
+});
+
+test("remote artifact scanning skips only declared deletions", async () => {
+  const evalFixture = {
+    version: 1,
+    cases: [{
+      id: "delete-allowed",
+      skill: "triage",
+      git: true,
+      tools: ["bash"],
+      files: { "allowed.txt": "remove me\n" },
+      forbiddenStrings: ["SECRET-FIXTURE"],
+      turns: [
+        {
+          id: "delete",
+          prompt: "delete-allowed",
+          expected: { mustMatch: ["ok"], mustNotMatch: [] },
+          allowedWrites: ["allowed.txt"],
+          allowedGit: true,
+          allowedRemoteRefs: ["refs/heads/approved"],
+        },
+        { id: "done", prompt: "done", expected: { mustMatch: ["ok"], mustNotMatch: [] }, allowedWrites: [] },
+      ],
+    }],
+  };
+  const report = await runLivePiEval({
+    fixture: evalFixture,
+    launcher: "fake",
+    model: "fake",
+    thinking: "off",
+    timeoutMs: 1_000,
+    runtime: {
+      createSession: async ({ cwd, sessionDir }) => ({
+        identity: { id: "delete", file: path.join(sessionDir, "session.jsonl") },
+        async prompt(message) {
+          if (message.includes("delete-allowed")) {
+            fs.rmSync(path.join(cwd, "allowed.txt"));
+            for (const args of [
+              ["add", "-u", "allowed.txt"],
+              ["commit", "-q", "--no-verify", "-m", "Delete allowed file"],
+              ["push", "-q", "origin", "HEAD:refs/heads/approved"],
+              ["reset", "-q", "--hard", "HEAD^"],
+            ]) {
+              const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+              assert.equal(result.status, 0, result.stderr);
+            }
+          }
+          return "ok";
+        },
+        async close() {},
+      }),
+    },
+  });
+
+  assert.equal(report.attempts[0].status, "PASS");
+  assert.deepEqual(report.attempts[0].turns[0].remoteArtifactPaths, ["allowed.txt"]);
 });

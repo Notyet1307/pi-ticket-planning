@@ -124,3 +124,5 @@ Fresh review：检查 starting state、exact outcome、verification、invariants
 ```
 
 如果同一个 Issue 实际引入新用户工作流或多个未决行为，下一道 Gate 是产品或技术塑形，而不是 Admission。
+
+维护者可在[开发和发布验证](../../README.zh-CN.md#开发和发布验证)查看三层真实模型评测套件。

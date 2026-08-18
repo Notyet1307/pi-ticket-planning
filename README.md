@@ -266,7 +266,15 @@ Run one fresh-process live case with:
 npm run eval:pi -- --case <id>
 ```
 
-Single-turn cases validate a frozen starting point. Multi-turn cases reuse one real PI session; a failed multi-turn case is rerun from its first turn, not resumed midway. `FORMAL` writeback cases belong only in an isolated writable runner. The fixed Release Gate and the advisory nightly suite are defined by the current evaluation script and fixtures; not every new multi-turn case belongs to the fixed Gate.
+Single-turn cases validate a frozen starting point. Multi-turn cases reuse one real PI session; a failed multi-turn case is rerun from its first turn, not resumed midway. The version-controlled [`pi-eval-suites.json`](fixtures/pi-eval-suites.json) defines the current case counts and three suites:
+
+- **Release** is the read-only, release-blocking suite. It uses bounded, stable representative cases and never permits Observer injection or model writes.
+- **Nightly** repeats longer or more variable read-only cases, including explicitly declared Observer input. It reports failures but does not make the ordinary package release decision.
+- **Isolated Writable** contains allowlisted writeback canaries. Run it only explicitly in the runner's disposable workspace and local bare origin; it is never reached by Release or Nightly.
+
+Cases outside those executable suites are explicitly listed under `quarantine` and remain manual `--case` diagnostics until their coverage and stability justify promotion.
+
+All three suites use a real model. `npm run verify:ci` is deterministic and incurs no model cost.
 
 Before a package release, a clean authenticated checkout may run:
 
@@ -274,10 +282,16 @@ Before a package release, a clean authenticated checkout may run:
 npm run verify:release -- --report /tmp/pi-ticket-plan-release-eval.json
 ```
 
-The fixed Gate reports `PASS`, `SEMANTIC_FAIL`, and `INFRA_FAIL`; a failure recovered by its allowed retry is reported as `FLAKY`. To measure variance without making a release decision:
+`verify:release` requires a clean checkout and runs the manifest's Release suite. Its report includes the suite name, dynamic case count, nominal model-turn count, and case-set hash. It reports `PASS`, `SEMANTIC_FAIL`, and `INFRA_FAIL`; a failure recovered by its allowed retry is reported as `FLAKY`. To measure variance without making a release decision:
 
 ```sh
 npm run eval:pi:nightly -- --report /tmp/pi-ticket-plan-live-eval.json
+```
+
+Run an allowlisted writable canary only when an isolated write is intended:
+
+```sh
+npm run eval:pi -- --suite isolated-writable --report /tmp/pi-ticket-plan-writable-eval.json
 ```
 
 Updates are explicit and release-based:

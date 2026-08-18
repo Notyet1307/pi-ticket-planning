@@ -121,3 +121,5 @@ Next gate: after Commitment, create the authorized delivery base and close the m
 ```
 
 Nothing in this example implies that a candidate was already valuable, that a repository or application was created during framing, or that work reached the Harness.
+
+Maintainers can find the three live evaluation suites in [Development and release verification](../../README.md#development-and-release-verification).

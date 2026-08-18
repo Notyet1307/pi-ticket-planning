@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "requiredReleaseCaseIds": [
+    "research-capability-gap",
+    "admitted-waits-for-harness",
+    "delivered-not-released",
+    "released-awaiting-evidence",
+    "workflow-tier-quick-local-copy",
+    "workflow-tier-standard-known-feature",
+    "workflow-tier-discovery-vague-product",
+    "workflow-tier-controlled-small-production-change",
+    "active-incident-preempts-workflow-tier",
+    "lifecycle-evidence-ready-for-commitment",
+    "lifecycle-committed-release-compiles-spec",
+    "lifecycle-accepted-spec-compiles-ticket-graph",
+    "lifecycle-candidate-passes-readiness",
+    "lifecycle-admission-stops-for-confirmation"
+  ],
+  "coverage": {
+    "human-interface-candidate-choice-natural": [
+      "candidate-frame",
+      "human-interface"
+    ],
+    "hypothesis-frame-greenfield-selected-candidate": [
+      "candidate-frame"
+    ],
+    "interview-unfrozen-validation-becomes-exploratory": [
+      "interview-boundary"
+    ],
+    "method-routing-ai-preference-prioritizes-workflow": [
+      "evidence-method"
+    ],
+    "method-routing-technical-feasibility-spike": [
+      "evidence-method"
+    ],
+    "solution-shaping-greenfield-committed-minimal-boundary": [
+      "solution-shaping"
+    ],
+    "solution-shaping-greenfield-committed-adr-gate": [
+      "solution-shaping"
+    ],
+    "human-interface-exact-write-review": [
+      "human-interface",
+      "write-review"
+    ],
+    "multiturn-human-interface-progressive-status": [
+      "human-interface",
+      "multi-turn"
+    ]
+  },
+  "quarantine": {
+    "caseIds": [
+      "method-routing-repository-fact-direct-read",
+      "method-routing-nondelegable-human-decision",
+      "solution-shaping-brownfield-existing-contract-skips",
+      "solution-shaping-feasibility-gap-routes-spike",
+      "solution-shaping-greenfield-uncommitted-stays-product",
+      "ux-candidate-first-existing-bulk-import",
+      "ux-candidate-first-greenfield-delivery-omissions",
+      "hypothesis-frame-brownfield-selected-candidate",
+      "interview-exploratory-frame-start",
+      "interview-validation-formal-start",
+      "interview-exploratory-closeout-limited-evidence",
+      "human-interface-interview-consent-natural",
+      "human-interface-explicit-status-uses-card",
+      "human-interface-nondelegable-decision-compact"
+    ],
+    "reason": "Manual --case only: overlapping coverage, unmeasured stability, or failure to meet the Release threshold."
+  },
+  "suites": {
+    "release": {
+      "caseIds": [
+        "research-capability-gap",
+        "admitted-waits-for-harness",
+        "delivered-not-released",
+        "released-awaiting-evidence",
+        "workflow-tier-quick-local-copy",
+        "workflow-tier-standard-known-feature",
+        "workflow-tier-discovery-vague-product",
+        "workflow-tier-controlled-small-production-change",
+        "active-incident-preempts-workflow-tier",
+        "lifecycle-evidence-ready-for-commitment",
+        "lifecycle-committed-release-compiles-spec",
+        "lifecycle-accepted-spec-compiles-ticket-graph",
+        "lifecycle-candidate-passes-readiness",
+        "lifecycle-admission-stops-for-confirmation",
+        "human-interface-candidate-choice-natural",
+        "method-routing-technical-feasibility-spike",
+        "solution-shaping-greenfield-committed-adr-gate",
+        "human-interface-exact-write-review",
+        "multiturn-human-interface-progressive-status"
+      ],
+      "maxCases": 22,
+      "maxModelTurns": 30,
+      "mutationPolicy": "read-only"
+    },
+    "nightly": {
+      "caseIds": [
+        "multiturn-exploratory-interview-completes",
+        "multiturn-interview-pause-status-resume",
+        "multiturn-interview-sensitive-data-redaction",
+        "multiturn-technical-spike-result-return",
+        "solution-shaping-accepted-adr-continues-to-spec",
+        "method-routing-interaction-prototype",
+        "hypothesis-frame-greenfield-selected-candidate",
+        "interview-unfrozen-validation-becomes-exploratory",
+        "method-routing-ai-preference-prioritizes-workflow",
+        "solution-shaping-greenfield-committed-minimal-boundary"
+      ],
+      "mutationPolicy": "read-only-or-observer"
+    },
+    "isolated-writable": {
+      "caseIds": [
+        "multiturn-validation-formal-writeback"
+      ],
+      "mutationPolicy": "isolated-allowlist"
+    }
+  }
+}
