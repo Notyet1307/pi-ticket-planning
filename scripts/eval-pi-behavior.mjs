@@ -26,15 +26,22 @@ export function validateLiveEvalFixture(fixture) {
     if (!item.files || Array.isArray(item.files) || typeof item.files !== "object") {
       errors.push(`${item.id}: files must be an object`);
     }
+    if (item.workingTreeFiles && (Array.isArray(item.workingTreeFiles) || typeof item.workingTreeFiles !== "object")) {
+      errors.push(`${item.id}: workingTreeFiles must be an object`);
+    }
     if (item.tools && (!Array.isArray(item.tools) || item.tools.some((tool) => !READ_ONLY_TOOLS.has(tool)))) {
       errors.push(`${item.id}: tools must contain only read-only eval tools`);
     }
     if (item.timeoutMs !== undefined && (!Number.isInteger(item.timeoutMs) || item.timeoutMs < 1)) {
       errors.push(`${item.id}: timeoutMs must be a positive integer`);
     }
-    for (const [relative, content] of Object.entries(item.files ?? {})) {
-      if (!safeRelativePath(relative)) errors.push(`${item.id}: unsafe workspace path ${relative}`);
-      if (typeof content !== "string") errors.push(`${item.id}: ${relative} content must be a string`);
+    if (item.git !== undefined && item.git !== true) errors.push(`${item.id}: git must be true when present`);
+    if (item.workingTreeFiles && !item.git) errors.push(`${item.id}: workingTreeFiles requires git: true`);
+    for (const files of [item.files ?? {}, item.workingTreeFiles ?? {}]) {
+      for (const [relative, content] of Object.entries(files)) {
+        if (!safeRelativePath(relative)) errors.push(`${item.id}: unsafe workspace path ${relative}`);
+        if (typeof content !== "string") errors.push(`${item.id}: ${relative} content must be a string`);
+      }
     }
     for (const field of ["mustMatch", "mustNotMatch"]) {
       if (!Array.isArray(item.expected?.[field])) errors.push(`${item.id}: expected.${field} must be an array`);
@@ -177,6 +184,8 @@ export async function runLivePiEval({ fixture, caseId, suite = "all", launcher, 
     const errors = [];
     try {
       writeWorkspace(workspace, item.files);
+      if (item.git) initializeGitWorkspace(workspace);
+      if (item.workingTreeFiles) writeWorkspace(workspace, item.workingTreeFiles);
       before = snapshotTree(workspace);
       try {
         output = await runPiCase({
@@ -357,6 +366,33 @@ function writeWorkspace(root, files) {
     const target = path.join(root, relative);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, content);
+  }
+}
+
+function initializeGitWorkspace(root) {
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_DATE: "2026-08-18T00:00:00Z",
+    GIT_COMMITTER_DATE: "2026-08-18T00:00:00Z",
+  };
+  const steps = [
+    ["init", "-q", "-b", "main"],
+    ["add", "--", "."],
+    ["-c", "user.name=PI Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgSign=false", "commit", "-q", "--no-verify", "-m", "Create accepted fixture base"],
+  ];
+  for (const args of steps) {
+    const result = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(result.stderr || `git ${args[0]} failed`);
+  }
+  const remote = path.join(root, ".git", "fixture-origin.git");
+  const remoteSteps = [
+    ["init", "-q", "--bare", remote],
+    ["remote", "add", "origin", remote],
+    ["push", "-q", "-u", "origin", "main"],
+  ];
+  for (const args of remoteSteps) {
+    const result = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(result.stderr || `git ${args[0]} failed`);
   }
 }
 

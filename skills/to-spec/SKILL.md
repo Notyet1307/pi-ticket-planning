@@ -22,9 +22,9 @@ Completed Wayfinder decisions, research, prototypes, and questionnaires may supp
 
 ### 2. Pin the delivery base
 
-Require a Git repository with a valid `HEAD`. Record the repository identity, exact base SHA, effective root policy path and digest, and tracker identity. For `PRODUCT_RELEASE`, require `git show <base>:<release-path>` to yield the approved revision exactly. Reconcile that base blob against current code, domain vocabulary, ADRs, and compatibility constraints.
+Require a Git repository with a valid `HEAD` and an accepted remote delivery ref that resolves to the exact base SHA; local `HEAD` alone is insufficient. Record the repository identity, remote ref, exact base SHA, effective root policy path and digest, and tracker identity. For `PRODUCT_RELEASE`, require `git show <base>:<release-path>` to yield the approved revision exactly. Re-read every cited policy and ADR decision from that same base, including its accepted status and source identity; a working-tree or draft-ref ADR is not authority. Reconcile the Release blob against accepted code, domain vocabulary, ADRs, and compatibility constraints.
 
-If the target is non-Git, has an unborn `HEAD`, lacks tracker configuration, omits the Release blob from the accepted base, or depends on an unmerged policy change, stop before publishing and return to `/skill:ask-yet`. Never invent a base or let a candidate-branch policy govern its own Worker.
+If the target is non-Git, has an unborn `HEAD`, lacks tracker configuration, omits the Release blob or a required ADR from the accepted base, depends on an unmerged policy change, or still requires a load-bearing architecture, data, interface, compatibility, recovery, security, or verification decision, stop before publishing and return to `/skill:ask-yet` for Solution Shaping. Never choose the missing technical direction, invent a base, or let a candidate-branch policy or ADR govern its own Worker.
 
 ### 3. Define stable behavioral scenarios
 
@@ -65,7 +65,7 @@ Use this structure:
 
     ## Decisions
     Product, architecture, data, compatibility, rollout, schema, API, and interaction decisions already made.
-    Link each non-obvious decision to its Release revision, ADR, Wayfinder decision, research, questionnaire, or prototype source.
+    Link each non-obvious decision to its exact accepted Release revision, ADR, policy, Wayfinder decision, research, questionnaire, or prototype source.
 
     ## Verification strategy
     Scenario ID to behavioral seam, representative check, and relevant prior art.
@@ -83,9 +83,11 @@ Avoid implementation task lists, transient file paths, and working code. Include
 
 ### 5. Verify and publish the draft
 
-Show the complete body, source identity, base SHA, Scenario IDs, and tracker mutation in the work log. If standing automation approval covers reversible draft planning issues, self-check and publish without a separate interruption. Otherwise obtain one approval for this publication.
+Show the complete body, source identity, base SHA, Scenario IDs, and tracker mutation in the work log.
 
-Publish the approved parent with `needs-triage`; keep both ready labels absent. If unresolved decisions block stable ticketing, use `needs-info` and stop before the `to-tickets` helper.
+For an explicitly read-only invocation, compile and self-check the draft without persisting or publishing it. Return `SPEC_IN_PROGRESS` to `ask-yet`; the read-only boundary is not an unresolved product or technical decision and does not become `BLOCKED`. Stop this helper here; do not run the publication or completion steps below.
+
+For a mutation-enabled invocation, self-check and publish without a separate interruption when standing automation approval covers reversible draft planning issues. Otherwise obtain one approval for this publication. Publish the approved parent with `needs-triage`; keep both ready labels absent. If unresolved decisions block stable ticketing, use `needs-info` and stop before the `to-tickets` helper.
 
 ### 6. Complete
 

@@ -1,6 +1,6 @@
 # Evidence method selection contract
 
-Use this reference only when one blocking unknown must be closed before a Candidate Frame or Release decision can advance. It selects one valid method; it does not define the Release artifact, run an interview, implement a prototype or spike, split Tickets, perform Admission, or control the Harness.
+Use this reference only when one blocking unknown must be closed before a Candidate Frame, Release decision, or post-Commitment Solution Shaping decision can advance. It selects one valid method; it does not define the Release artifact, choose architecture, run an interview, implement a prototype or spike, accept an ADR, split Tickets, perform Admission, or control the Harness.
 
 The classifications below are transient reasoning, not workflow state. Do not add a lane, stage, verdict, artifact, or persisted `uncertainty_type`.
 
@@ -15,7 +15,7 @@ decision_question: <one decision to make now>
 blocking_unknown: <one unknown whose answer can change that decision or the Candidate Frame>
 ```
 
-Discard an unknown that cannot change `COMMIT | REWORK | HOLD | DROP`, the target outcome, or the Candidate Frame. When several remain, choose in this order:
+Discard an unknown that cannot change `COMMIT | REWORK | HOLD | DROP`, the target outcome, the Candidate Frame, or a required-now technical decision before `to-spec`. When several remain, choose in this order:
 
 1. active harm, incident, or safety stop condition;
 2. authority, privacy, compliance, or permission that could make the candidate impermissible;
@@ -35,7 +35,7 @@ A request to “use AI”, automation, or another technology is a `solution_hypo
 First decide whether the missing answer is discoverable evidence or a non-delegable human choice.
 
 - A fact can be observed or tested: current code behavior, a current official capability, a recent real workflow, task completion, interaction comprehension, technical performance, or whether a signal can be observed.
-- A choice has no uniquely discoverable answer: target segment, priority, appetite, compatibility tradeoff, risk acceptance, scope expansion, Commitment, production enablement, or rollback.
+- A choice has no uniquely discoverable answer: target segment, priority, appetite, architecture or compatibility tradeoff, data ownership, risk acceptance, scope expansion, Commitment, production enablement, or rollback.
 
 For a human choice, create no further Evidence action. Name the decision owner and give one recommendation, its reason, main cost, safest default, and what the system will do after the answer. Record the answer as `DECISION`, never `FACT`, and use `NEEDS_DECISION` or the legal verdict for the current gate. Risk acceptance does not mean the risk disappeared.
 
@@ -65,7 +65,7 @@ Additional selection rules:
 - For workflow facts, prefer direct task observation. Use a recent-story interview when the event cannot be observed. Use a controlled Pilot when actual task completion is the question. Do not ask whether an abstract feature sounds useful.
 - For interaction questions, do not build a prototype when the current product already exposes the task. A prototype uses fake data, stays out of production, has a discard condition, and never becomes Delivery source automatically.
 - For technical questions, use fixed or explicitly authorized data, no real credentials, no default production connection, no complete implementation, and no threshold changes after seeing results. An insufficient result is `INCONCLUSIVE` or remains `UNKNOWN`.
-- A technical spike has no workflow verdict of its own. While authorization or its environment is missing, use the current legal `NEEDS_DECISION` or `EVIDENCE_WRITE_AWAITING_APPROVAL`; never reuse `NEEDS_PROTOTYPE` or invent `NEEDS_SPIKE`.
+- A technical spike has no workflow verdict of its own. During product Evidence, while authorization or its environment is missing, use the current legal `NEEDS_DECISION` or `EVIDENCE_WRITE_AWAITING_APPROVAL`; never reuse `NEEDS_PROTOTYPE` or invent `NEEDS_SPIKE`. During post-Commitment Solution Shaping, keep `DELIVERY / SPEC` with `BLOCKED` until the technical fact returns.
 - Use an Evidence-enabling surface only after checking existing logs, tracker facts, tests, and runtime evidence. Follow the Release loop rule for whether it becomes a distinct `QUICK` or `STANDARD` candidate or remains one local prototype under `REWORK`.
 - Wayfinder is not a response to many fields or general complexity. Use it only when no single valid action can isolate the highest-impact dependency.
 
@@ -147,6 +147,7 @@ When the human can provide official documentation, original logs, a frozen fixtu
 - Task observation, prototype, spike, benchmark, and canary return only the result allowed by `can_establish`, plus limitations and cleanup status.
 - An Evidence-enabling surface returns to the Release loop and cannot count as success of the original Release.
 - A human choice returns as a named `DECISION` with its tradeoff.
+- A post-Commitment technical result returns to `solution-shaping.md`; it does not select the architecture, accept an ADR, or revise committed product behavior automatically.
 - Wayfinder returns decisions or one later research, prototype, or human-input action, never implementation readiness.
 
 After the return, `release-loop.md` alone updates the Release, readiness, Commitment, or outcome gate. No single method result automatically produces `READY_TO_COMMIT`, `COMMITTED`, Spec, Tickets, Admission, a ready label, or Harness handoff.

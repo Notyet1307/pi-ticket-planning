@@ -23,6 +23,7 @@ The human invokes:
 - Treat mutation approval as scoped. A human request to advance an exact target and Release automatically is standing approval for reversible planning mutations within the stated boundaries; do not re-ask per file, commit, or tracker write. Require new approval on target, source, scope, policy, or risk drift, and for remote publication unless the standing approval includes it.
 - In an existing Git repository, treat a Release revision as authoritative only when its exact artifact blob is reachable from the accepted remote delivery base. A human-approved remote draft ref may preserve an exact candidate commit and blob for `FRAME` and `EVIDENCE`, but it cannot feed `to-spec`.
 - Never enter `SPEC` before a human commits an exact Release revision.
+- Never let `to-spec`, a Ticket, or a Worker choose a load-bearing architecture, data owner, shared interface, or verification boundary missing from the accepted base.
 - Never route the formal product path to `/skill:implement`. Admitted implementation tickets go to the configured Harness.
 - Run only when invoked. `ask-yet` reconstructs current facts on demand; it is not a daemon and does not poll Harness.
 - Continue through discoverable, reversible mechanical steps. Stop only for a non-delegable product decision, policy change, graph approval, Admission activation, an interview question awaiting a participant answer, forbidden operation, or material drift/failure.
@@ -82,7 +83,7 @@ Planning depth controls planning work; control mode controls risk gates. Neither
 Use the shortest matching path:
 
 - `QUICK`: trusted source -> one candidate through `triage` -> fresh readiness inside `admit-ticket` -> human activation confirmation. Create no Release artifact, Delivery Spec, Delivery Parent, or graph.
-- `STANDARD`: one Release-lite revision -> human `COMMITTED` -> `to-spec` -> `to-tickets` -> `admit-ticket`. Release-lite reuses the one Release artifact and omits inapplicable evidence work; it is not a second artifact type.
+- `STANDARD`: one Release-lite revision -> human `COMMITTED` -> repository setup and technical-boundary check -> `to-spec` -> `to-tickets` -> `admit-ticket`. Release-lite reuses the one Release artifact and omits inapplicable evidence work; it is not a second artifact type.
 - `DISCOVERY`: `FRAME -> EVIDENCE -> COMMIT -> SPEC -> TICKETS -> ADMISSION`.
 
 A Release decision is scoped to one stable Release ID, not the repository. When the human supplies a distinct outcome while another Release is `HOLD`, `REWORK`, or `DROP`, classify it independently; if the new outcome is the minimum surface needed to make missing evidence observable, follow the reference's **Evidence-enabling surface** rule before choosing `QUICK`, `STANDARD`, or `DISCOVERY`.
@@ -109,6 +110,8 @@ Read [references/release-loop.md](references/release-loop.md) in full before sha
 
 When `ORIENT`, `FRAME`, or `EVIDENCE` has one blocking unknown to close, read [references/evidence-method-selection.md](references/evidence-method-selection.md) in full before selecting a method or asking the human. A direct repository or runtime read counts as a method even when it closes the fact immediately. The reference distinguishes evidence-discoverable facts from non-delegable choices, identifies the truth owner, selects one valid bounded action, states what it cannot establish, and returns the result to the Release loop. Do not ask the human to choose a method name.
 
+After an exact `COMMITTED` Release blob reaches an accepted remote delivery base, read [references/solution-shaping.md](references/solution-shaping.md) in full before `to-spec` when accepted code, ADRs, policy, and interfaces do not already close the first Release's load-bearing technical decisions. Keep this internal to `DELIVERY / SPEC`: route a decision-changing technical unknown through Evidence Method Selection, request only one non-delegable architecture choice, require any Solution ADR from the accepted base, and continue automatically to `to-spec` after Technical Decision Sufficiency passes.
+
 For `STANDARD`, use the reference's Release-lite rule and consume existing evidence instead of manufacturing a new discovery action. For `DISCOVERY`, follow the full Release loop. A missing fact needed by the six readiness tests changes `STANDARD` to `DISCOVERY` rather than being filled from inference.
 
 Progress only one stage:
@@ -117,7 +120,7 @@ Progress only one stage:
 2. `EVIDENCE`: label claims, preserve the highest-risk unknown, and choose the cheapest bounded action that can change the Release decision. Design the applicable guide or protocol in conversation first. For interview, infer exploration when discovering real workflow facts and validation only when testing one hypothesis whose participant scope, questions, capture, appetite, and pass/fail or stop thresholds were fixed before answers; never ask the human to select the purpose. When the human starts or a participant is present, read [references/interview-session.md](references/interview-session.md) in full and conduct the session one question per turn. If validation was requested without its frozen contract, explain why it cannot count as validation and default to exploratory, informal consent unless the human insists on protocol design first. Keep redacted capture and stop after each question. Never invent an interviewee answer.
 3. `COMMIT`: apply all six readiness tests. Only six `PASS` results permit `COMMITTED` and yield `READY_TO_COMMIT`. The human may instead choose `HOLD`, `REWORK`, or `DROP` even when readiness fails: `HOLD` pauses all evidence and delivery work for that Release until one recorded reopen condition occurs; `REWORK` keeps exactly one named evidence or scope action active; `DROP` stops the Release. Persist the exact human decision before emitting its verdict, and never choose for them. For `COMMITTED`, recommend standing automatic advancement for reversible planning work or stepwise mode so this choice is asked once.
    When resuming `HOLD` into `FRAME` or `EVIDENCE`, submit `release.reopenConditionMet` and `human.releaseReopened` to the machine workflow contract. When resuming `REWORK`, submit `release.reworkActionRecorded`. The sources must match `contracts/authority.json`; absent facts keep the transition blocked.
-4. After `COMMITTED`, put the exact committed blob into the accepted remote delivery base before `SPEC` or `to-spec`. If the target is non-Git, unborn, or missing delivery setup, load and follow the `setup-delivery-repository` helper. Once the accepted base resolves, run the Repository Contract Impact Review from the reference. A required stable policy change remains a human decision; show its minimum diff once and stop. Never let setup choose implementation behavior.
+4. After `COMMITTED`, put the exact committed blob into the accepted remote delivery base before `SPEC` or `to-spec`. If the target is non-Git, unborn, or missing delivery setup, load and follow the `setup-delivery-repository` helper. Once the accepted base resolves, read its effective policy and accepted architecture sources, apply Solution Shaping only when a load-bearing decision is still open, and require any resulting ADR to enter that base. Re-resolve the accepted base, then run the Repository Contract Impact Review from the reference. A required stable policy change remains a human decision; show its minimum diff once and stop. Never let setup choose implementation behavior.
 5. `OUTCOME`: evaluate only after release evidence and the stated evidence window. Return an outcome verdict and a candidate next decision, never a ready implementation ticket.
 
 During `FRAME` and `EVIDENCE`:
@@ -145,11 +148,15 @@ If admitted tickets, ready labels, a Harness claim or terminal record, accepted 
 Advance through these gates by loading and following the named model-invoked helper. Continue in the same run until that helper reaches a human gate:
 
 1. If Git `HEAD` does not resolve or repository tracker support is missing, follow `setup-delivery-repository` with the target repository. For greenfield, also pin the exact COMMITTED Release artifact and revision; without them, return to `PRODUCT` instead of bootstrapping.
-2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted delivery base, and the repository contract ready, follow `to-spec` with the artifact path, revision, and base.
+2. With an exact `COMMITTED` Release revision whose artifact blob is present in the accepted remote delivery base, inspect accepted policy, ADRs, code, interfaces, and verification seams. If `to-spec` would need to choose a load-bearing technical direction, follow [references/solution-shaping.md](references/solution-shaping.md); otherwise skip it. After any required ADR is accepted into the base and Repository Contract Impact Review closes, follow `to-spec` with the Release path, revision, base, and accepted decision sources.
 3. With an accepted Delivery Spec, follow `to-tickets` with its exact identity. Stop for the required split and graph approval before candidate publication.
 4. After approved candidates are persisted, follow `admit-ticket` with the parent identity. Stop for the required activation confirmation after fresh review.
 5. After Admission, report `ADMITTED` with the exact ticket, graph, base, source, policy, and execution lane. Any candidate or graph edit requires Admission again.
 6. After activation, use the execution-closeout reference to resolve `HANDOFF_READY | IN_PROGRESS | BLOCKED | DELIVERED`; do not infer Harness state from tracker or PR state.
+
+An explicitly read-only invocation forbids mutations, not analysis. When accepted sources close Solution Shaping, continue through read-only `to-spec` compilation and use `SPEC_IN_PROGRESS`; do not report `BLOCKED` merely because the Spec cannot be persisted or published in that invocation.
+
+In the final `ask-yet` response, summarize a read-only `to-spec` draft inside the five fields: name its exact Release and accepted ADR sources, Scenario IDs, and unresolved-decision status under `已经确认`. Do not append the Spec body, headings, or unindented bullets outside the card.
 
 ### TRIAGE
 
@@ -169,7 +176,7 @@ Stop ordinary planning. Preserve evidence and follow the repository's incident a
 
 ## Invocation rule
 
-The human needs to remember only `/skill:ask-yet`. `setup-delivery-repository`, `triage`, `to-spec`, `to-tickets`, and `admit-ticket` are model-invoked helpers: read their `SKILL.md` when their gate matches and follow them in the current run. A human may still invoke one directly for recovery.
+The human needs to remember only `/skill:ask-yet`. `solution-shaping.md` is an internal reference, not a public Skill or menu item. `setup-delivery-repository`, `triage`, `to-spec`, `to-tickets`, and `admit-ticket` are model-invoked helpers: read their `SKILL.md` when their gate matches and follow them in the current run. A human may still invoke one directly for recovery.
 
 `wayfinder` and `to-questionnaire` remain separate human interactions. When either is genuinely required, print one exact command and stop.
 
@@ -197,6 +204,12 @@ Use ordinary language in the human body by default:
 | Evidence | 判断依据或验证结果 |
 | Walking skeleton | 最小端到端闭环 |
 | Delivery Graph | 任务及其依赖关系 |
+| Solution Shaping | 确定第一版实现边界 |
+| system boundary | 哪部分负责什么 |
+| data ownership | 数据由谁保存和负责 |
+| interface contract | 各部分怎样交接 |
+| verification seam | 用什么方式证明第一版跑通 |
+| ADR | 需要长期遵守的技术决定 |
 | accepted base | 已接受的代码基线 |
 | draft ref | 用于保存候选内容的草稿分支 |
 | blast radius | 影响范围 |
@@ -211,7 +224,7 @@ Ask at most one question by default; group no more than three only when they are
 
 When a method is selected, use the five fields to state the one decision, one missing fact or choice, recommended method, why it can answer the question, what it cannot prove, and exactly one human action. A repository read must state that code and system facts do not establish customer behavior or value. For a non-delegable choice, name the mutually exclusive alternatives in `你只需要决定`. Do not expose `uncertainty_type`, `truth_owner`, `selected_method`, or a method menu.
 
-A read-only request or drafted protocol is not execution authorization: never emit `EVIDENCE_AUTHORIZED` without explicit authorization, and make authorization or provision of the required environment the sole next action when needed. A technical spike has no method-specific verdict; while its execution remains unapproved use `NEEDS_DECISION` or `EVIDENCE_WRITE_AWAITING_APPROVAL`, never `NEEDS_PROTOTYPE` or an invented verdict. For a prototype handoff, explicitly state the fake input, no backend or production connection, and discard condition; “the stated boundaries” is not enough. For a technical-spike handoff, retain its frozen input, production boundary, appetite or stop condition, and cleanup condition in the card. Whenever AI or another technology preference precedes a known user task, explicitly call it a solution idea and say it is not the user outcome or success signal.
+A read-only request or drafted protocol is not execution authorization: never emit `EVIDENCE_AUTHORIZED` without explicit authorization, and make authorization or provision of the required environment the sole next action when needed. A technical spike has no method-specific verdict; during product Evidence, while its execution remains unapproved use `NEEDS_DECISION` or `EVIDENCE_WRITE_AWAITING_APPROVAL`, never `NEEDS_PROTOTYPE` or an invented verdict. During post-Commitment Solution Shaping, remain `DELIVERY / SPEC` with `BLOCKED`. For a prototype handoff, explicitly state the fake input, no backend or production connection, and discard condition; “the stated boundaries” is not enough. For a technical-spike handoff, retain its frozen input, production boundary, appetite or stop condition, and cleanup condition in the card. Whenever AI or another technology preference precedes a known user task, explicitly call it a solution idea and say it is not the user outcome or success signal.
 
 When a candidate has been selected, render enough of its Candidate Frame inside those five fields to state both that the selection only chooses what to investigate and that it is neither customer evidence nor confirmation to enter delivery, show the candidate outcome and closed loop, identify the one highest-risk assumption or decision-changing unknown, and present only one next evidence question or artifact-write decision.
 
