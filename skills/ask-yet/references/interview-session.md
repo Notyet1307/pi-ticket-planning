@@ -125,7 +125,7 @@ Do not use a feature-usefulness question as the opening, imply that the particip
 - On pause, use `RESULT` or short `DIALOGUE`: confirm the pause and name the first missing field that will be resumed; ask no question and do not close out.
 - On a status request, use `STATUS`: report only the categories already captured, the missing categories, and the next step; do not ask the participant anything or advance the session in that turn.
 - On resume, return to `DIALOGUE` and ask only the first missing question from before the pause. Do not ask for consent again, replay the opening question or protocol, rerun Candidate-first, or repeat the STATUS card.
-- On a factual correction, update and show only the corrected redacted fact. An owner cannot edit a participant answer merely to pass a threshold.
+- When a proposed factual correction still needs confirmation, ask only for that confirmation. Once confirmed, show the corrected redacted fact and ask the first missing interview question allowed by the guide. An owner cannot edit a participant answer merely to pass a threshold.
 - On cancellation, stop. Withdrawal or a privacy or safety stop uses the existing safety-stop semantics; an ordinary pause is not failure.
 
 After sensitive material appears, do only the redaction recovery action: repeat none of the sensitive text and ask for a category description. Do not ask the next business question in the same turn. After the participant supplies safe categories, return to the first missing interview fact.
