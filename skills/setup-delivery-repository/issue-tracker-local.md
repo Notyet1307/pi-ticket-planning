@@ -34,7 +34,7 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Draft parent**: store the accepted Delivery Spec at `.scratch/<feature>/spec.md` with `Status: needs-triage`.
 - **Candidate child**: create one numbered file per candidate containing stable source Scenario IDs, coverage role, and the parent path.
 - **Coverage**: keep one `## Ticket coverage` section in `spec.md` containing exactly one `<!-- pi-ticket-planning:delivery-graph:v2 -->` marker and its JSON fence. It is the normalized Scenario handoff, source/base/Spec hash, child path/body hash, role, starting state, verification, lane, walking-skeleton, and blocker snapshot; create no duplicate prose matrix or receipt.
-- **Graph check**: `node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input .scratch/<feature>/spec.md`. PASS is mandatory before Admission or an execution-ready state.
+- **Graph check**: `node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input .scratch/<feature>/spec.md`. PASS is mandatory before planning-level review.
 - **Blocking and order**: use `Blocked by: NN` and require every blocker file number to sort before its dependent.
-- **Admission**: validate coverage, state/artifact handoffs, walking skeleton, file order, and blockers before fresh review and again before changing `Status` to an execution-ready state.
-- **Harness boundary**: local Markdown supports planning and review only; HerdrHarness Lite activation remains unavailable.
+- **Readiness review**: validate coverage, state/artifact handoffs, walking skeleton, file order, and blockers. This package provides no transactional ready-state mutation for local files.
+- **Harness boundary**: Local Markdown supports planning and review only; HerdrHarness Lite activation remains unavailable.

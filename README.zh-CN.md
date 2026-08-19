@@ -31,7 +31,18 @@ PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求�
 - PI 已具有可用的登录和模型配置；
 - 操作真实 GitHub Issues 前已完成 GitHub 登录。
 
-克隆当前 Release tag，然后运行安装器：
+本 README 描述 `main` 上的当前开发行为。请只选择一个安装通道；`v0.3.1` 是上一稳定版本，不包含本文所述的当前开发变化。
+
+#### 当前开发版（`main`）
+
+```sh
+git clone --branch main --depth 1 \
+  https://github.com/Notyet1307/pi-ticket-planning.git
+cd pi-ticket-planning
+./install.sh
+```
+
+#### 最新稳定版（`v0.3.1`）
 
 ```sh
 git clone --branch v0.3.1 --depth 1 \
@@ -147,7 +158,7 @@ pi-ticket-plan --name "my-product-planning"
 7. Admission 激活前会展示 exact 文件或 Issue、revision、ref、fingerprint 和不变项；一般的“继续”不等于批准这次 exact mutation。
 8. 只有确认后的 Admission 才写入 `ready-for-agent` 或 `ready-for-human`。
 
-[`skills/`](skills/)、[`contracts/`](contracts/)、[`scripts/`](scripts/) 和 [`fixtures/`](fixtures/) 中的机器合同仍是权威来源。README 和指南只负责解释，不创建第二套运行合同。
+当前行为由 [`contracts/`](contracts/)、[`scripts/`](scripts/) 以及对应的 [`skills/`](skills/) 或 reference 负责；[`fixtures/`](fixtures/) 和 `test/` 只是回归证据，不是合同。README 和指南只负责解释。
 
 ## 如何暂停、恢复和查看状态
 
@@ -211,6 +222,14 @@ Delivery Spec 用稳定 Scenario ID 和明确交接描述行为。拆票会覆�
 
 ### Strict frontier 与 Admission
 
+不同 Tracker 的能力边界并不相同：
+
+| Tracker | 支持边界 |
+| --- | --- |
+| GitHub | 规划、图与就绪复核、事务化 Admission `plan`/`apply`、ready label 激活，以及已配置的 HerdrHarness 交接。 |
+| GitLab | 仅规划和规划级/就绪复核；没有 package-backed 事务化 `admit apply`，也不能激活 HerdrHarness。 |
+| Local Markdown | 仅规划和复核；没有事务化 ready 激活，也不能激活 HerdrHarness。 |
+
 Delivery Parent 在 `## Ticket coverage` 下保存一份规范化 Delivery Graph v2 snapshot，用 SHA-256 绑定 accepted Spec 和 exact child body。检查 snapshot：
 
 ```sh
@@ -240,8 +259,6 @@ pi-ticket-plan admit apply \
 独立 Ticket 使用 `--issue 42` 替换 `--parent 90`。`plan` 完全只读；`apply` 只接受已确认快照，保留无关标签，记录幂等 Admission comment，并在激活 Parent 前重读全部子票。`COMPLETE` 表示成功，`PARTIAL` 用同一 Plan 恢复，`CONFLICT` 必须重新 review。ready label 加 Admission record 才是 Harness handoff；Admission 不会独立探测已部署 Harness。
 
 Harness claim、执行、review、merge、真实启用、健康和 Outcome 是不同事实。`ask-yet` 只在被调用时运行，并从权威来源恢复下一道 Gate；只有 Harness 可以常驻。
-
-内部设计历史见 [`ask-yet` 架构](docs/plans/ask-yet-skill-architecture.md)和[产品到交付运行模型](docs/plans/product-to-delivery-operating-model.md)。它们面向维护者，不是首次使用入口。
 
 ## 开发和发布验证
 
@@ -294,7 +311,17 @@ npm run eval:pi:nightly -- --report /tmp/pi-ticket-plan-live-eval.json
 npm run eval:pi -- --suite isolated-writable --report /tmp/pi-ticket-plan-writable-eval.json
 ```
 
-升级必须显式选择 Release：
+更新时保持原安装通道。
+
+当前开发版：
+
+```sh
+git checkout main
+git pull --ff-only
+./install.sh
+```
+
+最新稳定版：
 
 ```sh
 git fetch --tags
