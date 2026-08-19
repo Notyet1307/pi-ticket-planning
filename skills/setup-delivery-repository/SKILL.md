@@ -30,7 +30,13 @@ Take one section at a time. Lead with a recommendation and obtain only undiscove
 
 ### A. Repository and tracker
 
-Prefer GitHub when the target will use HerdrHarness Lite. For a new GitHub repository, collect owner, repository name, visibility, and default branch before proposing creation. Reuse an existing remote only after verifying its identity. A local Markdown or GitLab tracker remains valid for planning, but record that HerdrHarness activation is unavailable.
+Prefer GitHub when the target will use HerdrHarness Lite. For a new GitHub repository, collect owner, repository name, visibility, and default branch before proposing creation. Reuse an existing remote only after verifying its identity.
+
+| Tracker | Supported boundary |
+| --- | --- |
+| GitHub | Planning, graph and readiness review, transactional Admission `plan`/`apply`, ready-label activation, and configured HerdrHarness handoff. |
+| GitLab | Planning and planning-level/readiness review only; no package-backed transactional `admit apply` or HerdrHarness activation. |
+| Local Markdown | Planning and review only; no transactional ready activation or HerdrHarness activation. |
 
 Store the selected tracker contract in `docs/agents/issue-tracker.md` using the matching template in this Skill directory.
 
@@ -54,7 +60,7 @@ Default to one root `CONTEXT.md` convention and `docs/adr`; create neither until
 
 ### D. Delivery gate
 
-Write `docs/agents/delivery-gate.md` from the template. It must establish candidate state, Scenario coverage, walking-skeleton, strict-frontier, fresh review, human confirmation, execution lanes, and parent-last activation.
+Write `docs/agents/delivery-gate.md` from the template. It must establish candidate state, Scenario coverage, walking-skeleton, strict-frontier, fresh review, human confirmation, and execution lanes. Include transactional ready activation and parent-last writes only for GitHub.
 
 ## 3. Present one exact mutation plan
 

@@ -23,6 +23,12 @@ The file should be written in a relaxed, readable style — more like a short de
 ```markdown
 # Dark Mode
 
+- status: ACTIVE
+- decision_date: YYYY-MM-DD
+- decision_owner: <person or role>
+- reopen_when: <observable condition>
+- supersedes: <record path or NONE>
+
 This project does not support dark mode or user-facing theming.
 
 ## Why this is out of scope
@@ -69,16 +75,19 @@ The reason should be durable. Avoid referencing temporary circumstances ("we're 
 
 ## When to check `.out-of-scope/`
 
-During triage (Step 1: Gather context), read all files in `.out-of-scope/`. When evaluating a new issue:
+During triage (Step 1: Gather context), retrieve prior decisions narrowly:
 
-- Check if the request matches an existing out-of-scope concept
-- Matching is by concept similarity, not keyword — "night theme" matches `dark-mode.md`
-- If there's a match, surface it to the maintainer: "This is similar to `.out-of-scope/dark-mode.md` — we rejected this before because [reason]. Do you still feel the same way?"
+1. List or index record names first.
+2. Search names and record text by concept; matching is semantic, so "night theme" may match `dark-mode.md`.
+3. Open only the one to three likely matches.
+4. Stop when no conceptual match exists.
+
+Only `status: ACTIVE` records may govern triage. A `RECONSIDERED` record or one superseded by a newer decision is historical evidence only. When an active match exists, surface it to the maintainer: "This is similar to `.out-of-scope/dark-mode.md` — we rejected this before because [reason]. Do you still feel the same way?"
 
 The maintainer may:
 
 - **Confirm** — the new issue gets added to the existing file's "Prior requests" list, then closed
-- **Reconsider** — the out-of-scope file gets deleted or updated, and the issue proceeds through normal triage
+- **Reconsider** — set the record to `status: RECONSIDERED` and continue normal triage; if a new record replaces it, the new record names the old path in `supersedes`
 - **Disagree** — the issues are related but distinct, proceed with normal triage
 
 ## When to write to `.out-of-scope/`
@@ -100,6 +109,7 @@ The flow:
 
 If the maintainer changes their mind about a previously rejected concept:
 
-- Delete the `.out-of-scope/` file
+- Set `status: RECONSIDERED` and record the decision date and owner; when a replacement exists, put the old path in the replacement's `supersedes`
+- Treat the old record as historical evidence that cannot govern current triage
 - The skill does not need to reopen old issues — they're historical records
 - The new issue that triggered the reconsideration proceeds through normal triage

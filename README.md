@@ -31,7 +31,18 @@ Requirements:
 - a working PI login/model configuration;
 - GitHub authentication before operating on real Issues.
 
-Clone the current released tag and run the installer:
+This README describes current development behavior on `main`. Choose one install channel; `v0.3.1` is the previous stable behavior and does not contain the current-development changes documented here.
+
+#### Current development (`main`)
+
+```sh
+git clone --branch main --depth 1 \
+  https://github.com/Notyet1307/pi-ticket-planning.git
+cd pi-ticket-planning
+./install.sh
+```
+
+#### Latest stable (`v0.3.1`)
 
 ```sh
 git clone --branch v0.3.1 --depth 1 \
@@ -147,7 +158,7 @@ Conversation, durable artifacts, and activation are separate:
 7. Admission shows the exact files or Issues, revision, ref, fingerprint, and invariants before activation. A general “continue” is not approval for that exact mutation.
 8. Only confirmed Admission writes `ready-for-agent` or `ready-for-human` labels.
 
-The machine contracts in [`skills/`](skills/), [`contracts/`](contracts/), [`scripts/`](scripts/), and [`fixtures/`](fixtures/) remain authoritative. This README and the guides explain them; they do not create a second runtime contract.
+Current behavior is owned by [`contracts/`](contracts/), [`scripts/`](scripts/), and the owning [`skills/`](skills/) or reference. [`fixtures/`](fixtures/) and `test/` are regression evidence, not contracts. This README and the guides are explanatory.
 
 ## Pause, resume, and inspect status
 
@@ -211,6 +222,14 @@ The Delivery Spec binds behavior to stable Scenario IDs and explicit handoffs. T
 
 ### Strict frontier and Admission
 
+Tracker capability is intentionally asymmetric:
+
+| Tracker | Supported boundary |
+| --- | --- |
+| GitHub | Planning, graph and readiness review, transactional Admission `plan`/`apply`, ready-label activation, and configured HerdrHarness handoff. |
+| GitLab | Planning and planning-level/readiness review only; no package-backed transactional `admit apply` or HerdrHarness activation. |
+| Local Markdown | Planning and review only; no transactional ready activation or HerdrHarness activation. |
+
 The delivery parent stores one normalized Delivery Graph v2 snapshot under `## Ticket coverage`. It binds accepted Spec content and exact child bodies by SHA-256. Check a snapshot with:
 
 ```sh
@@ -240,8 +259,6 @@ pi-ticket-plan admit apply \
 A standalone Ticket uses `--issue 42` instead of `--parent 90`. `plan` is read-only. `apply` accepts only the confirmed snapshot, preserves unrelated labels, records an idempotent Admission comment, and rereads all children before activating a parent. `COMPLETE` is success, `PARTIAL` resumes with the same Plan, and `CONFLICT` requires a new review. A ready label plus the Admission record is the Harness handoff; Admission does not independently inspect the deployed Harness.
 
 Harness claim, execution, review, merge, real enablement, health, and Outcome remain distinct. `ask-yet` runs only when invoked and reconstructs the next gate from authoritative sources; only the Harness may remain resident.
-
-Internal design history is available in [`ask-yet` architecture](docs/plans/ask-yet-skill-architecture.md) and the [product-to-delivery operating model](docs/plans/product-to-delivery-operating-model.md). These are maintainer references, not first-use guides.
 
 ## Development and release verification
 
@@ -294,7 +311,17 @@ Run an allowlisted writable canary only when an isolated write is intended:
 npm run eval:pi -- --suite isolated-writable --report /tmp/pi-ticket-plan-writable-eval.json
 ```
 
-Updates are explicit and release-based:
+Update the same channel you installed.
+
+Current development:
+
+```sh
+git checkout main
+git pull --ff-only
+./install.sh
+```
+
+Latest stable:
 
 ```sh
 git fetch --tags
