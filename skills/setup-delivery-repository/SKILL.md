@@ -18,7 +18,7 @@ Inspect safely:
 
 - Git status, `HEAD`, remotes, and `.git/config` when present;
 - effective root `AGENTS.md` or `CLAUDE.md` and any shadowing policy file;
-- root README, product/release artifacts, `CONTEXT.md`, `CONTEXT-MAP.md`, and `docs/adr`;
+- root README and product/release artifacts, plus only the glossary, context index, and accepted ADRs that can change the current setup decision;
 - `docs/agents`, `.scratch`, installed Skills, tracker conventions, and monorepo signals;
 - for an existing GitHub remote, current labels and native sub-issue/dependency capabilities.
 
@@ -54,9 +54,21 @@ Record the mapping in `docs/agents/triage-labels.md` when the tracker uses label
 
 ### C. Agent and domain policy
 
-For a greenfield Harness repository, recommend root `AGENTS.md`. For an existing repository, preserve the effective policy file and surrounding user content. Add only stable cross-ticket routing and delivery-gate pointers; keep Release behavior, Ticket acceptance criteria, tentative architecture, and implementation advice out of root policy.
+For a greenfield Harness repository, recommend root `AGENTS.md`. For an existing repository, preserve the effective policy file and surrounding user content. Before proposing text, check whether equivalent concern-owned authority rules already exist. Add only missing stable cross-ticket routing and delivery-gate rules; keep Release behavior, Ticket acceptance criteria, tentative architecture, current symbols, line numbers, state call sequences, and implementation advice out of root policy.
 
-Default to one root `CONTEXT.md` convention and `docs/adr`; create neither until real domain terms or decisions exist. Store only the consumption convention in `docs/agents/domain.md`.
+The effective root policy should establish this compact authority boundary, adapted to the repository's existing vocabulary:
+
+- task behavior comes from the accepted Release, Spec, or Ticket;
+- current implementation facts come from code, configuration, types, and tests at the task base;
+- load-bearing technical decisions come from accepted ADRs;
+- global non-discoverable invariants come from the effective root policy;
+- live tracker and execution facts come from their owning systems;
+- README, CONTEXT files, examples, fixtures, and Git history are supporting material, not substitutes for those owners;
+- read only the smallest source set required for the current decision and fail closed when authorities for the same concern conflict.
+
+The Harness governance boundary remains the effective root policy. Do not create nested `src/**/AGENTS.md` or `packages/**/AGENTS.md` or claim scoped precedence unless the configured Harness explicitly supports it. Any policy write remains part of the exact mutation plan in section 3; absence alone never authorizes a write.
+
+Create `CONTEXT.md` only for real terminology ambiguity and `CONTEXT-MAP.md` only when at least two real bounded contexts need navigation. They remain glossary/navigation aids, never product, architecture, data-ownership, or policy authorities. Store only their consumption convention in `docs/agents/domain.md`; create accepted ADR storage only when a real load-bearing decision exists.
 
 ### D. Delivery gate
 
@@ -113,6 +125,6 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 - required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
 - unrelated pre-existing files and changes remain untouched.
 
-For any repository, verify every policy pointer, configured label, Scenario-coverage rule, and tracker operation. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
+For any repository, verify every policy pointer, the equivalent concern-owned Context authority boundary in the effective root policy, configured label, Scenario-coverage rule, and tracker operation. Confirm that no duplicate block, nested-policy assumption, current implementation detail, or accepted code/ADR conflict was introduced. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
 
 Return the verified base, effective policy, tracker, and exact Release facts to `ask-yet`. It checks whether first-Release Solution Shaping is required, accepts any load-bearing technical decision through the repository's ADR path, and continues to `to-spec` only when no technical or human gate remains. Setup still chooses no implementation behavior.

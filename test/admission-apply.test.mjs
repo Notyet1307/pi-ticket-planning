@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   applyAdmissionPlan,
   buildAdmissionPlan,
@@ -9,6 +11,13 @@ import {
   DELIVERY_GRAPH_MARKER,
   hashText,
 } from "../scripts/check-delivery-graph.mjs";
+import {
+  buildTicketContextResult,
+  checkTicketContext,
+} from "../scripts/check-ticket-context.mjs";
+
+const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
+const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
 
 function input() {
   const specBody = "# Spec\n\n## Behavioral scenarios\n### S1: First\nFirst.\n\n### S2: Second\nSecond.";
@@ -19,7 +28,7 @@ function input() {
   const source = {
     identity: "R001",
     revision: "r2",
-    baseSha: "1111111111111111111111111111111111111111",
+    baseSha,
     specContentHash: hashText(specBody),
   };
   const graph = {
@@ -38,9 +47,14 @@ function input() {
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
   return {
     repo: "acme/product",
+    repositoryPath,
     parent: { id: "10", title: "Delivery parent", body: parentBody, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] },
     source,
     children,
+    contextChecks: children.map((child) => ({
+      candidateId: child.id,
+      result: checkTicketContext({ repo: repositoryPath, base: source.baseSha, body: child.body }),
+    })),
     policy: { identity: "AGENTS.md@abc", digest: `sha256:${"b".repeat(64)}`, accepted: true },
     harness: { identity: "HerdrHarness@abc", digest: `sha256:${"c".repeat(64)}`, parentReadyFence: true },
     review: {
@@ -60,10 +74,12 @@ function input() {
 class MemoryAdapter {
   constructor(admissionInput, failure) {
     this.state = structuredClone({
+      repositoryPath: admissionInput.repositoryPath,
       source: admissionInput.source,
       policy: admissionInput.policy,
       harness: admissionInput.harness,
       currentCheckpoint: admissionInput.currentCheckpoint,
+      contextChecks: admissionInput.contextChecks,
       parent: admissionInput.parent,
       children: admissionInput.children,
     });
@@ -172,6 +188,34 @@ test("Admission apply rejects foreign drift before any write", () => {
   assert.deepEqual(adapter.mutations, []);
 });
 
+test("Admission apply rejects a changed Context check before any write", () => {
+  const admissionInput = input();
+  const plan = buildAdmissionPlan(admissionInput);
+  const adapter = new MemoryAdapter(admissionInput);
+  adapter.state.contextChecks[0].result = buildTicketContextResult({
+    baseSha: admissionInput.source.baseSha,
+    body: admissionInput.children[0].body,
+    problems: [{ code: "CONTEXT_ANCHOR_NOT_FOUND" }],
+  });
+
+  const result = apply(plan, adapter);
+  assert.equal(result.status, "CONFLICT");
+  assert.equal(result.problems.some(({ code }) => code === "CONTEXT_CHECK_DRIFT"), true);
+  assert.deepEqual(adapter.mutations, []);
+});
+
+test("Admission apply re-runs Context checks against the accepted-base checkout", () => {
+  const admissionInput = input();
+  const plan = buildAdmissionPlan(admissionInput);
+  const adapter = new MemoryAdapter(admissionInput);
+  adapter.state.repositoryPath = "/definitely/not/a/repository";
+
+  const result = apply(plan, adapter);
+  assert.equal(result.status, "CONFLICT");
+  assert.equal(result.problems.some(({ code }) => code === "CONTEXT_CHECK_RECHECK_FAILED"), true);
+  assert.deepEqual(adapter.mutations, []);
+});
+
 test("Admission apply binds the operator-provided Harness compatibility assertion", () => {
   const plan = buildAdmissionPlan(input());
   const drifted = new MemoryAdapter(input());
@@ -240,8 +284,9 @@ test("standalone QUICK uses the same idempotent apply path", () => {
   };
   const standalone = {
     repo: "acme/product",
+    repositoryPath,
     candidate,
-    source: { identity: "accepted-status-behavior", revision: "r1", baseSha: "1".repeat(40) },
+    source: { identity: "accepted-status-behavior", revision: "r1", baseSha },
     policy: { identity: "AGENTS.md@abc", digest: `sha256:${"b".repeat(64)}`, accepted: true },
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
@@ -252,12 +297,18 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     },
     currentCheckpoint: { lane: "TRIAGE", stage: "ADMISSION", identity: "42@r1", verdict: "ACTIVATION_AWAITING_CONFIRMATION" },
   };
+  standalone.contextChecks = [{
+    candidateId: candidate.id,
+    result: checkTicketContext({ repo: repositoryPath, base: standalone.source.baseSha, body: candidate.body }),
+  }];
   const plan = buildStandaloneAdmissionPlan(standalone);
   const adapter = {
     state: structuredClone({
+      repositoryPath,
       source: standalone.source,
       policy: standalone.policy,
       currentCheckpoint: standalone.currentCheckpoint,
+      contextChecks: standalone.contextChecks,
       candidate,
     }),
     mutations: [],

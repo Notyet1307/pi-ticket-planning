@@ -32,6 +32,23 @@ Return READY only when every condition holds:
 
 Prefer a vertical slice through only the layers needed for the observable result. Preserve wide mechanical refactors as expand–migrate–contract sequences when no independently green vertical slice exists.
 
+## Context quality
+
+READY additionally requires all of these findings:
+
+1. Product behavior, current implementation, load-bearing technical decisions, global policy, and live state each come from their owning authority.
+2. Every Git source is read from the reviewed base; tracker and Harness facts are fresh reads from their owning systems.
+3. No same-concern conflict can change the outcome, primary verification, acceptance criteria, guardrails, or first correct action.
+4. Historical, example, fixture, draft, working-tree, and conversation-summary material is not used as authority.
+5. The Ticket body itself contains the required behavior, decisions, invariants, guardrails, blockers, and out-of-scope boundary.
+6. Optional Context anchors are exact reviewed-base regular files, relevant to the first action, purpose-labelled, unique, and limited to five; zero is valid.
+7. The Ticket never asks the executor to scan a repository or decide which source is true.
+8. The effective root policy contains only stable global rules and does not conflict with accepted code or ADRs through stale implementation detail.
+9. The deterministic `pi-ticket-planning:ticket-context-check:v1` result is PASS and matches the candidate identity, exact body hash, and exact base SHA.
+10. A fresh executor can choose the first correct action directly from the Ticket, repository policy, and bounded anchors.
+
+An older accepted ADR remains authoritative until a valid supersession, same-concern conflict, missing reviewed-base path, or explicit historical/deprecated status proves otherwise. A current implementation that differs from a COMMITTED target normally describes `current state -> target state`; it is not itself a conflict. Missing or conflicting Context Quality is NEEDS_INFO. Use SPLIT only when the same evidence also proves multiple independent outcomes.
+
 ## Verdicts
 
 - **READY** — the candidate satisfies the full contract.
@@ -65,6 +82,11 @@ For one candidate, return exactly:
     Single-assertion AC count:
     Unresolved decisions or ADR conflicts:
     Real blockers:
+    Context authority:
+    Context freshness:
+    Context conflicts:
+    Context anchors:
+    Context economy:
     Downstream consumers and exit condition: <required for ENABLER>
     Proposed split: <only for SPLIT>
 
@@ -84,7 +106,7 @@ After the human-readable fields, return one machine block. Echo the review times
 
 The JSON is a machine projection of the prose verdict, not a second judgment. Any disagreement between them makes the review malformed.
 
-For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the deterministic checker result, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
+For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the Delivery Graph checker result, one raw Ticket Context checker result per candidate, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, Context-check mismatch/failure, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
 
 The batch output must include:
 
@@ -103,9 +125,9 @@ Activation follows this order:
 
 1. Publish the parent and all children as needs-triage.
 2. Create native parent-child and blocking relationships.
-3. Run the Delivery Graph checker, compare its snapshot with current children and native blockers, then review the complete graph in a fresh context.
+3. Run the Ticket Context checker for every candidate and the Delivery Graph checker, compare their snapshots with current children and native blockers, then review the complete graph in a fresh context.
 4. Obtain explicit human confirmation.
-5. Re-fetch and confirm the reviewed snapshot is unchanged.
+5. Re-fetch, re-run every Ticket Context check, and confirm the reviewed snapshot is unchanged.
 6. Add ready-for-agent to READY/AGENT children and ready-for-human to READY/HUMAN children.
 7. Add ready-for-agent to the delivery parent last.
 

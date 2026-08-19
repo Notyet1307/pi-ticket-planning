@@ -7,6 +7,7 @@ import {
   parseDeliveryGraph,
   validateDeliveryGraph,
 } from "./check-delivery-graph.mjs";
+import { verifyCandidateContextChecks } from "./check-ticket-context.mjs";
 
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
@@ -75,6 +76,12 @@ export function validateAdmissionState(bundle) {
 
   const liveChildren = Array.isArray(bundle.children) ? bundle.children : [];
   if (!Array.isArray(bundle.children)) problems.push(issue("MISSING_LIVE_CHILDREN"));
+  problems.push(...verifyCandidateContextChecks({
+    repositoryPath: bundle.repositoryPath,
+    candidates: liveChildren,
+    baseSha: snapshot.source?.baseSha,
+    contextChecks: bundle.contextChecks,
+  }));
   const liveIds = liveChildren.map(({ id }) => canonicalId(id));
   const snapshotIds = (snapshot.children ?? []).map(({ id }) => canonicalId(id));
   if (liveIds.some((id) => !id) || new Set(liveIds).size !== liveIds.length) {

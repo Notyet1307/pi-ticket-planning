@@ -2,7 +2,7 @@
 
 The candidate brief is the authoritative implementation contract attached before /admit-ticket runs. A fresh executor must be able to choose the first correct action from this brief and repository policy. Original discussion and linked sources provide provenance or detail; they are never the only copy of required behavior or guardrails.
 
-Write behavior and durable interfaces, not file paths, line numbers, or a procedural edit list. Satisfy the /ticket-readiness contract.
+Write behavior and durable interfaces, not line numbers or a procedural edit list. File paths belong only in the optional bounded Context anchors described below. Satisfy the /ticket-readiness contract.
 
 Use this structure:
 
@@ -38,11 +38,15 @@ Use this structure:
     Real prerequisites, or None.
 
     ## Decision sources
-    Parent issue, ADRs, domain terms, research, prototype decisions, and verified evidence.
+    Exact accepted identities, each stating the concern it decides.
 
     ## Out of scope
     Adjacent behavior intentionally excluded.
 
 Use 3–6 acceptance criteria and no more than eight. Name stable types, interfaces, or contracts only when they help a fresh executor find the behavior without constraining implementation unnecessarily.
+
+When needed, insert `## Context anchors` immediately before `## Decision sources`, using zero to five bullets such as `- \`src/module/current-entry.ts\` — Locate the current behavior entry point.` Every anchor must be one exact repo-relative regular file at the reviewed base with a non-empty purpose. Do not use directories, globs, absolute paths, `..`, working-tree/draft/historical/example/fixture sources, or broad instructions such as `read docs/`, `inspect the codebase`, or `read all ADRs`. Anchors only locate a first action; they cannot replace body behavior, acceptance criteria, decisions, or guardrails. Omit the section when no non-obvious entry exists. More than five cannot be READY.
+
+Decision sources own decisions, not navigation. Do not list discussions, summaries, README, CONTEXT, examples, or fixtures as authority; use them only to locate or explain the exact accepted owner.
 
 For a PR, Starting state describes the submitted diff and What to build describes the bounded work needed to make that diff acceptable.

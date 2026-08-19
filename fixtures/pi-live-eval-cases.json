@@ -33,9 +33,9 @@
       "expected": {
         "mustMatch": [
           "(?:(?:README|export\\.mjs|export\\.test\\.mjs|仓库|源码|测试)[^\\n]{0,180}(?:JSON|--format json)|(?:JSON|--format json)[^\\n]{0,180}(?:README|export\\.mjs|export\\.test\\.mjs|仓库|源码|测试))",
-          "(?:(?:当前|已经|现有)[^\\n]{0,80}(?:支持|实现)[^\\n]{0,40}(?:JSON|--format json)|(?:JSON|--format json)[^\\n]{0,60}(?:已支持|已实现)|已经确认：[^\\n]{0,180}(?:JSON\\.stringify|--format json))",
+          "(?:(?:当前|已经|现有)[^\\n]{0,80}(?:支持|实现)[^\\n]{0,40}(?:JSON|--format json)|(?:JSON|--format json)[^\\n]{0,60}(?:已支持|已实现)|已经确认：[^\\n]{0,180}(?:JSON\\.stringify|--format json)|(?:导出(?:核心)?逻辑|exportRows)[^\\n]{0,50}(?:支持|实现)[^\\n]{0,30}JSON|(?:代码|仓库|导出)[^\\n]{0,100}(?:支持|能力|实现|存在)[^\\n]{0,60}JSON|(?:代码|仓库|导出)[^\\n]{0,100}JSON[^\\n]{0,60}(?:支持|能力|实现|存在))",
           "(?:(?:不能|无法|不代表|不等于)[^\\n]{0,120}(?:客户|用户)[^\\n]{0,40}(?:价值|需求|采用)|(?:客户|用户)[^\\n]{0,60}(?:价值|需求|采用)[^\\n]{0,80}(?:不能|无法|不代表|不等于)|(?:而非|不是)[^\\n]{0,40}(?:客户|用户)[^\\n]{0,40}(?:价值|需求)[^\\n]{0,20}(?:依据|证据))",
-          "(?:无需|不用|不需要|没有)[^\\n]{0,40}(?:决定|操作|动作)",
+          "(?:(?:无需|不用|不需要|没有)[^\\n]{0,40}(?:决定|操作|动作)|(?:未|不)(?:启动|执行)[^\\n]{0,60}(?:动作|操作))",
           "Checkpoint:\\s*PRODUCT/(?:ORIENT|FRAME|EVIDENCE)"
         ],
         "mustNotMatch": [
@@ -144,7 +144,7 @@
         "mustMatch": [
           "AI[^\\n]{0,80}(?:解决方案假设|方案假设|解决方案设想|方案设想|解决方案想法|方案想法|solution hypothesis|解决方案偏好)|(?:解决方案假设|方案假设|解决方案设想|方案设想|解决方案想法|方案想法|solution hypothesis|解决方案偏好)[^\\n]{0,80}AI",
           "(?:(?:最近|近期)[^\\n]{0,120}(?:真实|具体|事件|经历|流程|访谈)|真实用户[^\\n]{0,100}(?:告警|流程|处理)|(?:任务观察|探索性访谈|探索访谈|recent story))",
-          "(?:(?:模型|技术)[^\\n]{0,40}(?:Spike|benchmark|验证)[^\\n]{0,100}(?:不能|无法)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:不能|无法)[^\\n]{0,100}(?:Spike|benchmark)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:模型客户端|模型调用)[^\\n]{0,80}(?:仅|只)[^\\n]{0,40}(?:证明|说明)[^\\n]{0,60}(?:生成文本|技术表现)|(?:模型\\s*benchmark|技术\\s*Spike)[^\\n]{0,100}(?:假设出来的任务|错误问题)|最先缺的不是模型质量|不是模型质量证据|不做\\s*benchmark|现有材料只证明[^\\n]{0,120}(?:沙箱|模型调用)[^\\n]{0,120}(?:无法|不能)证明|(?:而不是|不是)[^\\n]{0,40}(?:AI\\s*)?模型\\s*(?:质量|benchmark)[^\\n]{0,40}(?:证据)?[\\s\\S]{0,500}(?:不能|无法)[^\\n]{0,80}(?:AI\\s*有价值|AI\\s*效果|需求普遍|真实任务|客户价值))",
+          "(?:(?:模型|技术)[^\\n]{0,40}(?:Spike|benchmark|验证)[^\\n]{0,100}(?:不能|无法)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:不能|无法)[^\\n]{0,100}(?:Spike|benchmark)[^\\n]{0,80}(?:用户结果|真实任务|真实流程|客户价值|价值|对谁有用|用户是否需要|谁需要帮助|哪一步|是否有用|值得开发|应解决什么问题|解决什么问题)|(?:模型客户端|模型调用)[^\\n]{0,100}(?:仅|只|只能)[^\\n]{0,40}(?:证明|说明)[^\\n]{0,80}(?:生成文本|技术表现|基础可行性|技术可行性)(?:[^\\n]{0,140}(?:不能|无法)[^\\n]{0,100}(?:谁|情境|流程|完成|价值|需求))?|(?:模型\\s*benchmark|技术\\s*Spike)[^\\n]{0,100}(?:假设出来的任务|错误问题)|最先缺的不是模型质量|不是模型质量证据|不做\\s*benchmark|现有材料只证明[^\\n]{0,120}(?:沙箱|模型调用)[^\\n]{0,120}(?:无法|不能)证明|(?:而不是|不是)[^\\n]{0,40}(?:AI\\s*)?模型\\s*(?:质量|benchmark)[^\\n]{0,40}(?:证据)?[\\s\\S]{0,500}(?:不能|无法)[^\\n]{0,80}(?:AI\\s*有价值|AI\\s*效果|需求普遍|真实任务|客户价值))",
           "(?:(?:请(?:提供|安排|允许|同意|邀请|讲述|描述)|建议(?:安排|邀请))[^\\n]{0,180}(?:最近|近期|真实|访谈|观察|告警)|(?:唯一)?下一动作[^\\n]{0,180}(?:安排|邀请|找一位|访谈)[^\\n]{0,180}(?:近期|真实|访谈|观察|告警)|(?:只激活一个动作|唯一下一动作)[\\s\\S]{0,300}(?:近期事件探索访谈|探索访谈))",
           "Checkpoint:\\s*PRODUCT/FRAME\\s*·\\s*NONE\\s*·\\s*FRAME_CANDIDATE"
         ],
@@ -213,7 +213,7 @@
           "(?:(?:不需要|无需|可以跳过)[^\\n]{0,120}(?:新增|新的)?(?:技术方案|技术塑形|实现边界|Solution|ADR)|(?:现有|已接受)[^\\n]{0,180}(?:代码|ADR|接口|契约)[^\\n]{0,120}(?:已经|足以)[^\\n]{0,100}(?:关闭|明确|确定))",
           "(?:(?:report|报表)[^\\n]{0,180}(?:拥有|负责)[^\\n]{0,100}(?:数据|导出)|(?:report-schema-v1|JSON Schema|公开契约)[^\\n]{0,180}(?:adapter|适配器|导出)|(?:现有模块边界|数据所有权|数据归属|基线)[^\\n]{0,260}(?:v1 接口|接口|失败处理|失败行为))",
           "(?:(?:public export|公开导出|现有导出命令|公共导出命令|公共命令)[^\\n]{0,220}(?:primary|主要|主验证|端到端|fixture|固定样本|固定样例|冻结 fixture|验证)|(?:端到端验证方式|主验证入口|冻结夹具验证|固定样例验证|主验证)[^\\n]{0,200}(?:明确|已接受|现有|关闭|场景|公共命令|冻结 fixture)|(?:公开导出命令|公共导出命令|公共命令)[^\\n]{0,120}(?:固定样例|固定样本|冻结夹具|冻结 fixture)[^\\n]{0,80}(?:比较|验证))",
-          "(?:直接|自动|继续|编制|编译|整理|已形成)[^\\n]{0,180}(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|S1|规格草案)|(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|规格草案)[^\\n]{0,180}(?:直接|自动|继续|编制|编译|整理|自检|已形成)",
+          "(?:直接|自动|继续|编制|编译|整理|已形成|只读)[^\\n]{0,180}(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|S1|规格草案)|(?:to-spec|Delivery Spec|交付规格|正式交付说明|交付说明|规格草案)[^\\n]{0,180}(?:直接|自动|继续|编制|编译|整理|自检|已形成|只读)",
           "(?:无需|不用|不需要)[^\\n]{0,60}(?:决定|选择|操作|确定第一版实现边界)|(?:当前|本轮)[^\\n]{0,40}(?:无|没有)[^\\n]{0,20}(?:决定|操作)|(?:未解决|未决)[^\\n]{0,60}(?:(?:产品或技术)?决策|决定)[^\\n]{0,20}(?:无|没有|为空)",
           "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R011/r2\\s*·\\s*SPEC_IN_PROGRESS"
         ],
@@ -247,8 +247,8 @@
           "(?:primary verification|主要验证|主验证|wall time|峰值|RSS|summary digest)",
           "(?:两小时|2\\s*(?:小时|h)|appetite|时间上限)",
           "(?:(?:清理|删除|丢弃)[^\\n]{0,100}(?:临时|benchmark|输出|代码)|(?:临时|benchmark|输出|代码)[^\\n]{0,100}(?:清理|删除|丢弃))",
-          "(?:(?:只能|仅能|只会|只证明|仅证明|只返回)[^\\n]{0,140}(?:性能|技术事实|可行性|测量事实)|(?:不能|无法|不代表|不自动)[^\\n]{0,140}(?:客户价值|产品价值|自动选择|接受 ADR|接受技术决定|技术决定)|只能排除[^\\n]{0,100}不能证明)",
-          "(?:请(?:允许|授权|提供|明确授权|确认)|需要你(?:允许|授权|提供|确认))[^\\n]{0,180}(?:benchmark|基准测试|性能验证|目标环境|目标硬件|协议)|(?:目标机|目标硬件)[^\\n]{0,120}(?:请允许|请授权|需要授权)",
+          "(?:(?:只能|仅能|只会|只证明|仅证明|只返回)[^\\n]{0,140}(?:性能|技术事实|可行性|测量事实)|(?:不能|无法|不代表|不自动)[^\\n]{0,140}(?:客户价值|产品价值|自动选择|接受 ADR|接受技术决定|技术决定)|只能排除[^\\n]{0,100}不能证明|cannot_establish:[^\\n]{0,180}(?:客户价值|产品价值|架构选择|ADR 接受))",
+          "(?:(?:授权|唯一(?:动作|下一步|输入)|目标环境负责人|目标机执行者)[^\\n]{0,400}(?:目标机|目标硬件|目标环境|benchmark|基准测试|协议|fixture)[^\\n]{0,400}(?:执行|运行|报告|回传|SHA-256|访问)|(?:请|需要|另行)[^\\n]{0,200}(?:提供|提交|允许)[^\\n]{0,300}(?:目标机|目标硬件|目标环境|benchmark|基准测试|协议|fixture|SHA-256)|(?:是否|可以吗)[^\\n]{0,300}(?:目标机|目标硬件|目标环境|benchmark|基准测试|协议|fixture))",
           "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R012/r1\\s*·\\s*BLOCKED"
         ],
         "mustNotMatch": [
@@ -266,6 +266,7 @@
     {
       "id": "solution-shaping-accepted-adr-continues-to-spec",
       "skill": "ask-yet",
+      "timeoutMs": 300000,
       "prompt": "请只读恢复 R013/r1。exact COMMITTED Release 与 accepted Solution ADR 已在同一个 accepted remote base，repository policy impact 已关闭，也没有 blocking technical unknown。工作树另有一个未提交的 PROPOSED ADR-9999；请确认它不是权威来源，不要采用它。不要重新做架构访谈或生成 ADR，直接继续当前事实允许的 to-spec 步骤；不要修改文件或发布 Issue。",
       "git": true,
       "files": {
@@ -280,13 +281,13 @@
       },
       "expected": {
         "mustMatch": [
-          "(?:(?:ADR-0001|0001-r013-offline-validator)[^\\n]{0,180}(?:ACCEPTED|已接受|accepted|基线|充分性)|(?:已接受|accepted|同在基线)[^\\n]{0,180}(?:ADR-0001|0001-r013-offline-validator))",
+          "(?:(?:ADR-0001|0001-r013-offline-validator)[\\s\\S]{0,240}(?:ACCEPTED|已接受|accepted|基线|充分性)|(?:已接受|accepted|同在基线)[\\s\\S]{0,240}(?:ADR-0001|0001-r013-offline-validator))",
           "(?:(?:accepted base|已接受基线|已接受的代码基线|基线)[\\s\\S]{0,600}(?:R013/r1|r013-offline)[\\s\\S]{0,600}(?:ADR-0001|0001-r013)|(?:R013/r1|r013-offline)[\\s\\S]{0,600}(?:ADR-0001|0001-r013)[\\s\\S]{0,400}(?:accepted base|已接受基线|已接受的代码基线|基线))",
-          "(?:(?:不需要|无需|不再|跳过|未重新)[^\\n]{0,160}(?:重新塑形|架构访谈|访谈|ADR 生成|生成 ADR|新 ADR|重新选择)|(?:技术决定|实现边界|技术充分性|技术边界)[^\\n]{0,120}(?:已经足够|已经关闭|均已关闭|已关闭|通过)|(?:ADR-0001 已接受|ADR 已接受|ACCEPTED ADR-0001|策略影响已关闭)[^\\n]{0,160}(?:无技术未知|无技术阻塞|没有技术阻塞|无待定技术决策|未决决定[^\\n]{0,20}无)|(?:未解决决定|未决决定)[^\\n]{0,30}(?:为空|无))",
+          "(?:(?:不需要|无需|不再|跳过|未重新)[^\\n]{0,160}(?:重新塑形|架构访谈|访谈|ADR 生成|生成 ADR|新 ADR|重新选择)|(?:技术决定|实现边界|技术充分性|技术边界)[^\\n]{0,120}(?:已经足够|已经关闭|均已关闭|已关闭|通过)|(?:ADR-0001 已接受|ADR 已接受|ACCEPTED ADR-0001|策略影响已关闭)[^\\n]{0,160}(?:无技术未知|无技术阻塞|没有技术阻塞|无待定技术决策|未决决定[^\\n]{0,20}无)|(?:未解决决定|未决决定)[^\\n]{0,30}(?:为空|无)|## Unresolved decisions[\\s\\S]{0,50}(?:None|无))",
           "(?:R013/r1|R013[^\\n]{0,30}r1)[\\s\\S]{0,400}(?:ADR-0001|ADR)|(?:ADR-0001|ADR)[\\s\\S]{0,400}(?:R013/r1|R013[^\\n]{0,30}r1)",
           "(?:直接|自动|继续|编译|编制|完成)[^\\n]{0,160}(?:to-spec|Delivery Spec|交付规格|交付说明|只读规格编译)|(?:to-spec|Delivery Spec|交付规格|交付说明|只读规格编译)[^\\n]{0,160}(?:直接|自动|继续|编译|编制|完成)",
-          "(?:(?:ADR-9999|9999-unaccepted)[^\\n]{0,200}(?:不作为|非权威|忽略|未接受|不采用|未采用|已排除|不在 accepted base)|(?:未提交|工作树|working tree)[^\\n]{0,180}(?:不能|不作为|不是|未进入)[^\\n]{0,100}(?:来源|权威|accepted base|origin/main))",
-          "(?:无需|不用|不需要)[^\\n]{0,40}(?:决定|批准|操作)|(?:未解决|未决)[^\\n]{0,30}(?:决定|决策)[^\\n]{0,20}(?:为空|无|没有)",
+          "(?:(?:ADR-9999|9999-unaccepted)[^\\n]{0,220}(?:不作为|非权威|忽略|未接受|不采用|未采用|已排除|明确排除|不在[^\\n]{0,40}accepted base|不构成[^\\n]{0,30}权威)|(?:未提交|工作树|working tree)[^\\n]{0,180}(?:不能|不作为|不是|未进入)[^\\n]{0,100}(?:来源|权威|accepted base|origin/main))",
+          "(?:无需|不用|不需要)[^\\n]{0,40}(?:决定|批准|操作)|(?:未解决|未决)[^\\n]{0,30}(?:决定|决策)[^\\n]{0,20}(?:为空|无|没有)|## Unresolved decisions[\\s\\S]{0,50}(?:None|无)",
           "Checkpoint:\\s*DELIVERY/SPEC\\s*·\\s*R013/r1\\s*·\\s*SPEC_IN_PROGRESS"
         ],
         "mustNotMatch": [
@@ -928,8 +929,10 @@
     {
       "id": "lifecycle-accepted-spec-compiles-ticket-graph",
       "skill": "to-tickets",
-      "prompt": "只读票图检查：读取 accepted Spec、当前 tracker 快照和已冻结的候选草稿，重新判断 Scenario coverage、walking skeleton、Delivery Graph 与下一道人类门禁。不要创建或修改 Issue、关系、标签或文件。",
+      "prompt": "只读票图检查：读取 accepted Spec、当前 tracker 快照、Ticket Context checker 结果和已冻结的候选草稿，重新判断 Context check、Scenario coverage、walking skeleton、Delivery Graph 与下一道人类门禁。不要创建或修改 Issue、关系、标签或文件。",
       "files": {
+        "tracker/repository-context-recheck.md": "# Private deterministic recheck\n\nThe accepted-base checkout path was resolved privately. `check-admission-state.mjs` re-ran `check-ticket-context.mjs` against Git for C01 and C02; both canonical raw results match their exact proposed bodies and base. The local path is not a reviewer source or Tracker artifact.\n",
+        "tracker/ticket-context-checks.md": "# Frozen Ticket Context checks\n\nBase: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\nC01: pi-ticket-planning:ticket-context-check:v1 PASS; exact proposed body hash matches; zero anchors; digest sha256:1111111111111111111111111111111111111111111111111111111111111111.\nC02: pi-ticket-planning:ticket-context-check:v1 PASS; exact proposed body hash matches; zero anchors; digest sha256:2222222222222222222222222222222222222222222222222222222222222222.\n",
         "tracker/delivery-spec-70.md": "# #70 Build explanation delivery spec\n\nLabels: needs-triage\nUpdated: 2026-08-16T14:00:00Z\n\n## Source\nPRODUCT_RELEASE R006/r1; repository acme/build-explain; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; policy AGENTS.md@aaaaaaaa; tracker GitHub Issues.\n\n## Problem statement\nOperators manually classify a known failed build before finding the existing remediation guide.\n\n## Delivery outcome\nA sanitized frozen log produces the approved class, explanation, and existing remediation link.\n\n## Behavioral scenarios\n### S1: Classify a frozen failed-build log\nActor: operator\nEntry state or external input: external sanitized frozen log\nTrigger: request classification\nObservable result: dependency, test, infrastructure, or unsupported\nImportant failure behavior: unsupported input emits no raw log and no link\nExit state or produced artifact: classification-result\nSource reference: R006/r1\n\n### S2: Render the approved explanation\nActor: operator\nEntry state or external input: classification-result from S1\nTrigger: supported classification is returned\nObservable result: approved explanation and existing remediation link\nImportant failure behavior: unsupported result emits no link\nExit state or produced artifact: terminal operator response\nSource reference: R006/r1\n\n## Release signal mapping\nS1 and S2 map to the approved frozen-log result; both preserve the no-raw-log guardrail.\n\n## Walking skeleton target\nS1 external sanitized log -> classification-result; S2 classification-result -> terminal operator response.\n\n## Decisions\nclassification-result is JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported; it contains no raw log, credential, explanation, or link. Approved terminal mappings are dependency -> `Dependency installation failed.` + `https://docs.example.test/build/dependencies`; test -> `Test execution failed.` + `https://docs.example.test/build/tests`; infrastructure -> `Build infrastructure failed.` + `https://docs.example.test/build/infrastructure`; unsupported -> `Unsupported build failure.` with no link. All required decisions are closed in R006/r1.\n\n## Verification strategy\nS1: frozen classification suite. S2: end-to-end explanation scenario consuming the actual classification-result produced by S1.\n\n## Constraints and dependencies\nS2 consumes the explicit classification-result produced by S1; the end-to-end verification cannot pass before S1 exists.\n\n## Out of scope\nNew classes, automatic remediation, UI, rollout changes.\n\n## Unresolved decisions\nNone.\n\n## Comments\nNone.\n",
         "tracker/proposed-ticket-snapshot.md": "# Exact proposed graph for read-only review\n\n## C01 Classify one frozen failed-build log\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS1: external sanitized frozen log -> classification-result.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nOne sanitized frozen failed-build log from the accepted fixture set.\n\n## What to build\nThe existing classifier entry point produces JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported.\n\n## Invariants and guardrails\nThe result contains no raw log, credential, explanation, or link; unsupported input remains bounded.\n\n## Primary verification\nRun the frozen classification suite through the existing classifier entry point.\n\n## Execution lane\nAGENT.\n\n## Acceptance criteria\n- [ ] The dependency fixture returns exactly `{\"classification\":\"dependency\"}`.\n- [ ] The test fixture returns exactly `{\"classification\":\"test\"}`.\n- [ ] The infrastructure fixture returns exactly `{\"classification\":\"infrastructure\"}`.\n- [ ] An unknown fixture returns exactly `{\"classification\":\"unsupported\"}` without raw-log, credential, explanation, or link fields.\n\n## Blocked by\nNone.\n\n## Decision sources\nParent #70 S1, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1.\n\n## Out of scope\nExplanation rendering, remediation execution, new classes, UI, and rollout.\n\n## C02 Render the approved explanation and link\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS2: classification-result -> terminal operator response.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nThe exact classification-result JSON produced by C01.\n\n## What to build\nThe explanation renderer produces the approved message and existing remediation link for a supported classification, or the bounded unsupported message without a link.\n\n## Invariants and guardrails\nNo terminal response exposes raw logs or credentials; unsupported emits no link.\n\n## Primary verification\nRun the end-to-end explanation scenario with an actual classification-result produced by C01.\n\n## Execution lane\nAGENT.\n\n## Acceptance criteria\n- [ ] Dependency renders exactly `Dependency installation failed.` with `https://docs.example.test/build/dependencies`.\n- [ ] Test renders exactly `Test execution failed.` with `https://docs.example.test/build/tests`.\n- [ ] Infrastructure renders exactly `Build infrastructure failed.` with `https://docs.example.test/build/infrastructure`.\n- [ ] Unsupported renders exactly `Unsupported build failure.` without a link, raw log, or credential.\n\n## Blocked by\nC01, because the primary verification consumes the actual C01 classifier output.\n\n## Decision sources\nParent #70 S2, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1.\n\n## Out of scope\nAutomatic remediation, new links, new classes, UI, and rollout.\n\n<!-- pi-ticket-planning:delivery-graph:v2 -->\n```json\n{\"version\":2,\"source\":{\"identity\":\"#70\",\"revision\":\"2026-08-16T14:00:00Z\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"specContentHash\":\"sha256:806223f2546b8c7a164ea55d746aa5838727e3bafef127521afdd65505c98553\"},\"scenarios\":[{\"id\":\"S1\",\"behavior\":\"classify a sanitized frozen log\",\"entry\":\"external:sanitized-log\",\"exit\":\"classification-result\",\"releaseSignal\":\"approved frozen-log classification result with no raw log\",\"smallestLoop\":true},{\"id\":\"S2\",\"behavior\":\"render approved explanation and link\",\"entry\":\"classification-result\",\"exit\":\"terminal operator response\",\"releaseSignal\":\"approved explanation and existing link, or unsupported no-link response, with no raw log\",\"smallestLoop\":true}],\"children\":[{\"id\":\"C01\",\"title\":\"Classify one frozen failed-build log\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S1\"],\"blockedBy\":[],\"externalBlockers\":[],\"bodyHash\":\"sha256:fc2f7882d13b7bbed89e377e93c9cb539bbc4de450e1d68d2900d6854d622d0a\",\"startingState\":\"One sanitized frozen failed-build log from the accepted fixture set.\",\"primaryVerification\":\"frozen classification suite\",\"executionLane\":\"AGENT\"},{\"id\":\"C02\",\"title\":\"Render the approved explanation and link\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S2\"],\"blockedBy\":[\"C01\"],\"externalBlockers\":[],\"bodyHash\":\"sha256:9867258e0ffeaf373cba8cd056effad6dc17ea5a31830a095572577cc760a707\",\"startingState\":\"The exact classification-result JSON produced by C01.\",\"primaryVerification\":\"end-to-end explanation scenario\",\"executionLane\":\"AGENT\"}],\"walkingSkeleton\":[\"C01\",\"C02\"]}\n```\n\nFrozen deterministic checker result for this exact JSON and the exact Spec/C01/C02 text above: contract PASS; scenarioCoverage PASS; walkingSkeleton PASS; strictFrontier PASS.\nTracker snapshot: parent #70 is needs-triage; no child exists and no ready label is present.\n\n## Exact proposed write set\n1. Create C01 and C02 with needs-triage and the exact bodies above.\n2. Attach both as native children of #70 in C01, C02 order.\n3. Create the native C01 blocks C02 edge.\n4. Add the exact normalized Delivery Graph JSON above as #70's only Ticket coverage section.\nNo ready label is part of this write set.\n"
       },
@@ -952,8 +955,9 @@
     {
       "id": "lifecycle-candidate-passes-readiness",
       "skill": "ticket-readiness",
-      "prompt": "只读评审 candidate C01。只依据提供的 fresh Admission bundle（候选正文、父 Spec 决策摘要、repository verification facts 和 exact review timestamp），严格按固定 Review output 返回 verdict、execution lane 和 machine review JSON；不要修改任何内容。",
+      "prompt": "只读评审 candidate C01。只依据提供的 fresh Admission bundle（候选正文、父 Spec 决策摘要、repository verification facts、Ticket Context checker raw result 和 exact review timestamp），严格按固定 Review output 返回 verdict、execution lane 和 machine review JSON；不要修改任何内容。",
       "files": {
+        "tracker/context-check-c01.json": "{\"candidateId\":\"C01\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}\nBinding fact: bodyHash is the exact hash of tracker/candidate-c01.md; digest was validated by check-admission-state.\n",
         "tracker/candidate-c01.md": "# C01 Classify one frozen failed-build log\n\nLabels: needs-triage\nUpdated: 2026-08-16T14:10:00Z\n\n## Parent\n#70 Build explanation delivery spec; PRODUCT_RELEASE R006/r1; base aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\n\n## Source scenarios\nS1: external sanitized frozen log -> classification-result.\n\n## Coverage role\nDIRECT.\n\n## Starting state\nA sanitized frozen failed-build log from the approved twelve-case fixture set.\n\n## What to build\nProduce exactly one approved dependency, test, infrastructure, or unsupported classification-result.\n\n## Invariants and guardrails\nNever expose raw logs or credentials; unsupported input produces no remediation link.\n\n## Primary verification\nRun the frozen classification suite through the existing classifier entry point.\n\n## Execution lane\nAGENT; repository and configured tools contain every required input.\n\n## Acceptance criteria\n- [ ] AC1: A dependency fixture returns dependency.\n- [ ] AC2: A test fixture returns test.\n- [ ] AC3: An infrastructure fixture returns infrastructure.\n- [ ] AC4: An unknown fixture returns unsupported.\n- [ ] AC5: Every serialized result contains exactly one field named classification.\n\n## Blocked by\nNone.\n\n## Decision sources\nParent #70 S1 and R006/r1 decisions.\n\n## Out of scope\nExplanation rendering, remediation execution, new classes, UI, rollout.\n",
         "tracker/review-bundle.md": "# Fresh Admission review bundle\n\nReview timestamp: 2026-08-16T14:12:00Z\nReviewer identity: ticket-readiness-reviewer\nCandidate identity: C01\nRepository: acme/build-explain\nBase: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nPolicy: AGENTS.md@aaaaaaaa\n\n## Trusted parent Spec decision summary\nSource: accepted Delivery Spec #70 compiled from PRODUCT_RELEASE R006/r1.\nScenario S1 starts with one sanitized fixture from frozen suite `build-failure-v1`, uses the existing classifier entry point, and produces `classification-result`.\nThe approved enum is exactly dependency, test, infrastructure, or unsupported. The result JSON contains exactly one field named `classification`; it contains no raw log, credential, explanation, or link.\nThe frozen twelve-case suite includes approved dependency, test, infrastructure, and unknown samples with their expected enum. Unsupported is the required result for every unknown sample. No classification, compatibility, data, architecture, rollout, or product decision remains open.\n\n## Repository verification facts\nExisting classifier entry point: `src/classify.mjs`.\nFrozen input suite: `fixtures/build-failure-v1/manifest.json` at the accepted base.\nPrimary command: `npm test -- build-failure-v1`.\nThe repository policy permits an AGENT to edit the classifier and tests; no credential, production access, manual approval, or external system is required.\nCurrent blockers: none.\n"
       },
@@ -977,8 +981,10 @@
       "skill": "admit-ticket",
       "timeoutMs": 300000,
       "tools": ["read", "grep", "find", "ls", "subagent"],
-      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在人工激活确认；不要修改 Issue、标签、关系或文件。",
+      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle 和每个候选的 raw Ticket Context checker result，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在人工激活确认；不要修改 Issue、标签、关系或文件。",
       "files": {
+        "tracker/repository-context-recheck-r006.md": "# Private deterministic Admission recheck\n\nThe accepted-base checkout path was resolved privately. `check-admission-state.mjs` re-ran `check-ticket-context.mjs` against Git for C01 and C02; both canonical raw results, body hashes, blob projections, and base SHA match. The path is omitted from reviewer content and Tracker comments.\n",
+        "tracker/context-checks-r006.json": "{\"contextChecks\":[{\"candidateId\":\"C01\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}},{\"candidateId\":\"C02\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}]}\nBinding fact: check-admission-state validated both digests, exact body hashes, exact base SHA, and candidate identities.\n",
         "tracker/admission-bundle-r006.md": "# Exact frozen Admission bundle\n\nCaptured: 2026-08-16T14:20:00Z\nRepository: acme/build-explain\nTracker: GitHub Issues\nTrusted source: PRODUCT_RELEASE R006/r1\nRepository base: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nEffective policy: AGENTS.md@aaaaaaaa\nTriage mapping: needs-triage, needs-info, ready-for-agent, ready-for-human\n\n## Parent #70 exact body\nUpdated: 2026-08-16T14:00:00Z. Label: needs-triage.\nStable scenarios: S1 external sanitized-log -> classification-result; S2 classification-result -> terminal operator response.\nRelease signals: approved frozen-log classification result and approved terminal mapping, including unsupported no-link; guardrail no raw logs or credentials.\nWalking skeleton: C01 then C02 with classification-result as the explicit handoff.\nDecision contract: classification-result contains exactly one dependency, test, infrastructure, or unsupported enum and no raw log, credential, explanation, or link. Dependency renders `Dependency installation failed.` + `https://docs.example.test/build/dependencies`; test renders `Test execution failed.` + `https://docs.example.test/build/tests`; infrastructure renders `Build infrastructure failed.` + `https://docs.example.test/build/infrastructure`; unsupported renders `Unsupported build failure.` with no link. No unresolved decisions or comments.\n\n## Candidate C01 exact body\nTitle: Classify one frozen failed-build log\nLabels: needs-triage\nUpdated: 2026-08-16T14:10:00Z\nSource scenarios: S1\nCoverage role: DIRECT\nStarting state: one sanitized frozen failed-build log from the accepted fixture set\nPrimary outcome: the existing classifier entry point produces JSON with exactly one classification enum: dependency, test, infrastructure, or unsupported\nPrimary verification: frozen classification suite through the existing classifier entry point\nInvariants and guardrails: the result contains no raw log, credential, explanation, or link; unsupported remains bounded\nExecution lane: AGENT\nAcceptance criteria:\n- dependency fixture returns exactly `{\"classification\":\"dependency\"}`\n- test fixture returns exactly `{\"classification\":\"test\"}`\n- infrastructure fixture returns exactly `{\"classification\":\"infrastructure\"}`\n- unknown fixture returns exactly `{\"classification\":\"unsupported\"}`\n- every serialized result contains exactly one field named `classification`\nBlocked by: None\nDecision sources: #70 S1, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1\nOut of scope: rendering, remediation execution, new classes, UI, rollout\n\n## Candidate C02 exact body\nTitle: Render the approved explanation and link\nLabels: needs-triage\nUpdated: 2026-08-16T14:11:00Z\nSource scenarios: S2\nCoverage role: DIRECT\nStarting state: the exact classification-result JSON produced by C01\nPrimary outcome: the explanation renderer produces the approved message and existing remediation link, or the bounded unsupported message without a link\nPrimary verification: end-to-end explanation scenario consuming an actual classification-result produced by C01\nBehavior-defining decisions: dependency -> `Dependency installation failed.` + `https://docs.example.test/build/dependencies`; test -> `Test execution failed.` + `https://docs.example.test/build/tests`; infrastructure -> `Build infrastructure failed.` + `https://docs.example.test/build/infrastructure`; unsupported -> `Unsupported build failure.` with no link\nInvariants and guardrails: no terminal response exposes raw logs or credentials; unsupported emits no link\nExecution lane: AGENT\nAcceptance criteria:\n- the table-driven supported-classification assertion deep-equals every terminal response to its accepted message-and-link row\n- the unsupported assertion deep-equals its terminal response to the accepted message with no link field\n- the sanitized-output assertion rejects every terminal response containing source raw-log or credential data\nBlocked by: C01, because primary verification consumes the actual C01 classifier output\nDecision sources: #70 S2, Decisions, Verification strategy, and PRODUCT_RELEASE R006/r1\nOut of scope: automatic remediation, new links, new classes, UI, rollout\n\n## Exact normalized Delivery Graph JSON\n{\"version\":2,\"source\":{\"identity\":\"#70\",\"revision\":\"2026-08-16T14:00:00Z\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"specContentHash\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\"},\"scenarios\":[{\"id\":\"S1\",\"behavior\":\"classify a sanitized frozen log\",\"entry\":\"external:sanitized-log\",\"exit\":\"classification-result\",\"releaseSignal\":\"approved frozen-log classification result with no raw log\",\"smallestLoop\":true},{\"id\":\"S2\",\"behavior\":\"render approved explanation and link\",\"entry\":\"classification-result\",\"exit\":\"terminal operator response\",\"releaseSignal\":\"approved explanation and existing link, or unsupported no-link response, with no raw log\",\"smallestLoop\":true}],\"children\":[{\"id\":\"C01\",\"title\":\"Classify one frozen failed-build log\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S1\"],\"blockedBy\":[],\"externalBlockers\":[],\"bodyHash\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"startingState\":\"One sanitized frozen failed-build log from the accepted fixture set.\",\"primaryVerification\":\"frozen classification suite\",\"executionLane\":\"AGENT\"},{\"id\":\"C02\",\"title\":\"Render the approved explanation and link\",\"coverageRole\":\"DIRECT\",\"sourceScenarios\":[\"S2\"],\"blockedBy\":[\"C01\"],\"externalBlockers\":[],\"bodyHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"startingState\":\"The exact classification-result JSON produced by C01.\",\"primaryVerification\":\"end-to-end explanation scenario\",\"executionLane\":\"AGENT\"}],\"walkingSkeleton\":[\"C01\",\"C02\"]}\n\n## Fresh structural facts\nDelivery graph contract: PASS.\nScenario coverage: PASS; S1 -> C01 and S2 -> C02, both DIRECT.\nWalking skeleton: PASS; C01 produces classification-result consumed by C02.\nStrict-frontier order: PASS; C01 precedes and blocks C02.\nNative child set: C01, C02. Native blocker edge: C01 -> C02. No drift from the normalized snapshot.\nNo source, body, timestamp, policy, label, child, or edge drift is present.\n"
       },
       "expected": {
@@ -994,6 +1000,188 @@
         "mustNotMatch": [
           "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",
           "(?:已激活|activation complete|ADMITTED)"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-historical-plan-not-authority",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ01。只依据候选正文和 fresh Admission bundle，按 ticket-readiness 固定字段输出；重点判断同 concern authority、历史噪声与 Context anchors。不要扫描其他文件、修改内容或把 historical plan 当成决定来源。",
+      "files": {
+        "tracker/cq01-ticket.md": "# CQ01 Retry the current runner once\n\n## Source scenarios or standalone source\nSTANDALONE; accepted retry behavior R-CQ01/r1.\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nAt base 1111111111111111111111111111111111111111, `src/retry-runner.mjs` directly owns one runner attempt and returns `retryable` after the accepted transient failure. No Manager role exists in the current public interface.\n\n## What to build\nRetry the same runner exactly once after `retryable`, then return its terminal result.\n\n## Primary verification\nRun `test/retry-runner.test.mjs` and observe one retry followed by the terminal result.\n\n## Invariants and guardrails\nPreserve direct runner ownership from accepted ADR-0004; do not add Manager, background polling, or more than one retry.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] A retryable first attempt invokes the same runner exactly one additional time.\n- [ ] The second terminal result is returned unchanged.\n- [ ] A terminal first attempt is never retried.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/retry-runner.mjs` — Locate the current behavior entry point.\n- `test/retry-runner.test.mjs` — Run the primary behavioral verification.\n- `docs/adr/0004-direct-runner-ownership.md` — Preserve the accepted ownership decision.\n\n## Decision sources\n- R-CQ01/r1 — owns target retry behavior.\n- ADR-0004 ACCEPTED at the reviewed base — owns runner ownership.\n\n## Out of scope\nManager orchestration, queues, background retries, and policy cleanup.\n",
+        "tracker/cq01-admission-bundle.md": "# Fresh Admission bundle for CQ01\n\nReview timestamp: 2026-08-19T09:00:00Z\nCandidate identity: CQ01\nExact base: 1111111111111111111111111111111111111111\nEffective root policy: AGENTS.md@1111111; no conflicting implementation detail.\nFresh tracker state: open, needs-triage, no blockers.\nTicket Context checker raw result: schema pi-ticket-planning:ticket-context-check:v1; verdict PASS; candidate CQ01; exact body hash matches tracker/cq01-ticket.md; baseSha 1111111111111111111111111111111111111111; anchorCount 3; every path is a blob at the base; digest sha256:1111111111111111111111111111111111111111111111111111111111111111.\nCurrent implementation facts from the reviewed base: `src/retry-runner.mjs` directly owns runner calls; `test/retry-runner.test.mjs` is the primary seam.\nAccepted technical authority: ADR-0004 status ACCEPTED, direct runner ownership, explicitly no Manager.\nTarget behavior authority: accepted standalone source R-CQ01/r1, retry exactly once.\nHistorical noise: `docs/historical/2025-manager-plan.md` is explicitly HISTORICAL, predates ADR-0004, and describes a removed Manager. It is not a Decision source and has no current concern authority.\nNo authority conflict, missing behavior, blocker, or semantic staleness exists.\n",
+        "src/retry-runner.mjs": "export async function runWithRetry(run) { const first = await run(); return first === 'retryable' ? run() : first; }\n",
+        "test/retry-runner.test.mjs": "// accepted primary retry scenario\n",
+        "docs/adr/0004-direct-runner-ownership.md": "# ADR-0004\nStatus: ACCEPTED\nDecision: the runner entry owns attempts directly; there is no Manager role.\n",
+        "docs/historical/2025-manager-plan.md": "# HISTORICAL plan\nDeprecated proposal: add a Manager above the runner. Superseded by ADR-0004.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*READY",
+          "Context authority:[^\\n]*(?:PASS|ADR-0004|R-CQ01)",
+          "Context conflicts:[^\\n]*(?:None|无|不存在)",
+          "Context anchors:[^\\n]*(?:3|PASS|精确)",
+          "Context economy:[^\\n]*(?:PASS|有界|无需扫描|bounded)",
+          "(?:(?:historical|历史)[^\\n]{0,200}(?:no|not|neither|不|未|非)[^\\n]{0,60}(?:authority|权威|决定来源|Decision source)|(?:ADR-0004)[^\\n]{0,120}(?:accepted|权威))"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*(?:SPLIT|NEEDS_INFO)",
+          "Decision sources?[^\\n]*(?:2025-manager-plan|historical)",
+          "(?:应|将|建议|需要|will|should|plan to)[^\\n]{0,30}(?:新增|引入|恢复|add|reintroduce)[^\\n]{0,40}Manager"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-stale-root-policy-blocks",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ02。候选会受 effective root policy 中的 stale Manager 规则影响；根据 bundle 判断 Context Quality，输出固定 Review fields、最小 repair 与 decision owner。不要自动修改 policy、Ticket 或标签。",
+      "files": {
+        "tracker/cq02-ticket.md": "# CQ02 Add bounded runner timeout\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nThe reviewed-base runner is called directly and has no Manager role.\n\n## What to build\nReturn `timed-out` when one direct runner call exceeds the accepted duration.\n\n## Primary verification\nRun the direct-runner timeout scenario.\n\n## Invariants and guardrails\nPreserve direct ownership and never create a Manager.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] A call over the duration returns timed-out.\n- [ ] A call within the duration returns its result unchanged.\n- [ ] No Manager is introduced.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/runner.mjs` — Locate the current direct runner entry.\n- `test/runner-timeout.test.mjs` — Run the primary timeout scenario.\n- `docs/adr/0004-direct-runner-ownership.md` — Preserve the accepted ownership decision.\n\n## Decision sources\n- R-CQ02/r1 — owns timeout behavior.\n- ADR-0004 ACCEPTED — owns direct runner ownership.\n\n## Out of scope\nManager orchestration and policy migration.\n",
+        "tracker/cq02-admission-bundle.md": "# Fresh Admission bundle for CQ02\n\nReview timestamp: 2026-08-19T09:10:00Z\nCandidate identity: CQ02\nExact base: 2222222222222222222222222222222222222222\nTicket Context checker: PASS, exact candidate/body/base, 3 blob anchors, digest sha256:2222222222222222222222222222222222222222222222222222222222222222.\nCurrent code and tests at the reviewed base call `src/runner.mjs` directly; public symbol `Manager` does not exist.\nADR-0004 is ACCEPTED and owns the same runner-ownership concern: no Manager.\nEffective root AGENTS.md at the same accepted base says every runner change must be implemented through `Manager.run()`. This rule names a deleted role and changes CQ02's first action.\nThe two same-concern authorities conflict. Policy owner: repository maintainer. Smallest repair: remove only the stale Manager implementation detail from the effective root policy, accept that exact policy change into the delivery base, then rebuild Context check and fresh review. No mutation is authorized now.\nFresh tracker state: open, needs-triage; labels unchanged.\n",
+        "AGENTS.md": "# Root policy\nEvery runner change must be implemented through `Manager.run()`.\n",
+        "src/runner.mjs": "export async function run(task) { return task(); }\n",
+        "test/runner-timeout.test.mjs": "// direct runner timeout scenario\n",
+        "docs/adr/0004-direct-runner-ownership.md": "# ADR-0004\nStatus: ACCEPTED\nDecision: runner calls are direct; Manager was removed.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*NEEDS_INFO",
+          "Context conflicts:[^\\n]*(?:FAIL|stale root policy|ADR-0004|AGENTS|Manager|冲突)",
+          "Context authority:[^\\n]*(?:ADR-0004|root policy|AGENTS)",
+          "(?:(?:最小|smallest)[^\\n]{0,100}(?:repair|修复|移除)|(?:移除|remove)[^\\n]{0,100}(?:Manager|过期|stale))",
+          "(?:repository maintainer|仓库维护者|policy owner)"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*READY",
+          "(?:已修改|已修复|updated|edited)[^\\n]*(?:AGENTS|policy)",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-context-map-bounded",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ03。先读取 `tracker/cq03-ticket.md`、`tracker/cq03-admission-bundle.md`、`CONTEXT-MAP.md` 和 billing glossary。CONTEXT-MAP 列出三个 bounded context，但 Ticket 只影响 billing；在 Context authority/economy 中明确说明 CONTEXT-MAP 仅作导航且只选 billing，不要加载或复述无关 context。",
+      "files": {
+        "tracker/cq03-ticket.md": "# CQ03 Reject a duplicate billing capture\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nThe billing capture entry receives an accepted capture id and current ledger state.\n\n## What to build\nReturn duplicate without writing a second ledger entry when the capture id already exists.\n\n## Primary verification\nRun the duplicate-capture behavior in `test/billing/capture.test.mjs`.\n\n## Invariants and guardrails\nPreserve billing ownership of capture ids and never call shipping or catalog.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] An existing capture id returns duplicate.\n- [ ] No second ledger entry is written.\n- [ ] A new capture id retains current behavior.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/billing/capture.mjs` — Locate the current billing behavior entry.\n- `test/billing/capture.test.mjs` — Run the primary duplicate-capture verification.\n- `docs/adr/0007-billing-ledger-owner.md` — Preserve the accepted ledger-ownership decision.\n\n## Decision sources\n- R-CQ03/r1 — owns duplicate-capture behavior.\n- ADR-0007 ACCEPTED — owns ledger data ownership.\n\n## Out of scope\nShipping, catalog, refunds, and new payment providers.\n",
+        "tracker/cq03-admission-bundle.md": "# Fresh Admission bundle for CQ03\n\nReview timestamp: 2026-08-19T09:20:00Z\nExact base: 3333333333333333333333333333333333333333\nTicket Context checker: PASS for CQ03 exact body/base; 3 bounded blob anchors; digest sha256:3333333333333333333333333333333333333333333333333333333333333333.\nCONTEXT-MAP is only a navigation index and selects billing for this Ticket. `src/billing/CONTEXT.md` defines the term capture id; it does not own behavior.\nTarget behavior owner: R-CQ03/r1. Current facts: billing code/test at base. Data ownership: accepted ADR-0007. Root policy has no conflict. Fresh tracker state has no blocker.\nShipping and catalog contexts cannot change CQ03's terminology, boundary, outcome, verification, or first action and are not included in the review source set.\n",
+        "CONTEXT-MAP.md": "# Context map\n- billing -> src/billing/CONTEXT.md\n- shipping -> src/shipping/CONTEXT.md\n- catalog -> src/catalog/CONTEXT.md\nThis file is navigation only.\n",
+        "src/billing/CONTEXT.md": "# Billing glossary\nCapture id: accepted payment capture identity.\n",
+        "src/billing/capture.mjs": "export function capture(id, ledger) { return ledger.has(id) ? 'duplicate' : 'captured'; }\n",
+        "test/billing/capture.test.mjs": "// duplicate capture scenario\n",
+        "docs/adr/0007-billing-ledger-owner.md": "# ADR-0007\nStatus: ACCEPTED\nBilling owns capture ids and ledger writes.\n",
+        "src/shipping/CONTEXT.md": "UNRELATED_SHIPPING_CONTEXT_MARKER\n",
+        "src/catalog/CONTEXT.md": "UNRELATED_CATALOG_CONTEXT_MARKER\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*READY",
+          "Context authority:[^\\n]*(?:R-CQ03|ADR-0007|billing)",
+          "Context anchors:[^\\n]*(?:3|PASS|精确|src/billing)",
+          "Context economy:[^\\n]*(?:billing|有界|bounded|无需扫描)",
+          "(?:(?:CONTEXT[- ]MAP)[^\\n]{0,120}(?:navigation|导航|不是|非)(?:[^\\n]{0,60}(?:authority|权威))?|(?:只|only)[^\\n]{0,50}billing)"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*NEEDS_INFO",
+          "UNRELATED_SHIPPING_CONTEXT_MARKER",
+          "UNRELATED_CATALOG_CONTEXT_MARKER"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-ticket-anchor-economy",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ04。先读取 `tracker/cq04-ticket.md` 与 `tracker/cq04-admission-bundle.md`；候选 Context anchors 含 12 个链接、目录与 broad scan 指令，而 first action 只需 bundle 点名的两个 exact files。按固定字段返回 verdict，并在最小修复中明确写出应保留的两个 path；不要修改 Ticket。",
+      "files": {
+        "tracker/cq04-ticket.md": "# CQ04 Preserve retry error code\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nThe retry adapter returns a typed transient error.\n\n## What to build\nPreserve code RETRYABLE when the adapter serializes that error.\n\n## Primary verification\nRun the retry adapter serialization scenario.\n\n## Invariants and guardrails\nDo not change other error codes or retry count.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] RETRYABLE remains RETRYABLE after serialization.\n- [ ] Other error codes remain unchanged.\n- [ ] Retry count is unchanged.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/retry/adapter.mjs` — Locate the current serialization entry.\n- `test/retry/adapter.test.mjs` — Run the primary behavior.\n- `docs/` — read docs/.\n- `src/` — inspect the codebase.\n- `docs/adr/` — read all ADRs.\n- `README.md` — read the repository.\n- `fixtures/example.json` — inspect examples.\n- `docs/historical/plan.md` — recover old design.\n- `package.json` — inspect scripts.\n- `src/retry/types.mjs` — inspect types.\n- `test/` — read all tests.\n- `CONTEXT-MAP.md` — read every context.\n\n## Decision sources\nR-CQ04/r1 owns target behavior.\n\n## Out of scope\nNew error codes and retry policy changes.\n",
+        "tracker/cq04-admission-bundle.md": "# Fresh Admission bundle for CQ04\n\nReview timestamp: 2026-08-19T09:30:00Z\nExact base: 4444444444444444444444444444444444444444\nTicket Context checker raw result for CQ04: verdict FAIL; anchorCount 12; problems TOO_MANY_CONTEXT_ANCHORS, CONTEXT_ANCHOR_NOT_BLOB for docs/src/test, BROAD_CONTEXT_ANCHOR_PURPOSE for read docs/read repository/read all ADRs, and DISALLOWED_CONTEXT_ANCHOR_SOURCE for fixture/historical/example material; exact body/base are bound; digest sha256:4444444444444444444444444444444444444444444444444444444444444444.\nSemantic review: only `src/retry/adapter.mjs` and `test/retry/adapter.test.mjs` can change the first action. The accepted source already states behavior and guardrails; no ADR or context document is needed.\nLabels remain needs-triage and no mutation is authorized.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*NEEDS_INFO",
+          "Context anchors:[^\\n]*(?:FAIL|12|过多|too many)",
+          "Context economy:[^\\n]*(?:FAIL|扫描|scan|过载)",
+          "src/retry/adapter\\.mjs",
+          "test/retry/adapter\\.test\\.mjs",
+          "(?:(?:收窄|reduce|减少)[^\\n]{0,80}(?:2|two|两个)|(?:只保留|仅保留|keep only|retain only)[^\\n]{0,120}(?:adapter\\.mjs))"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*READY",
+          "(?:链接|anchors?)[^\\n]{0,40}(?:越多越|sufficient because|证明充分)",
+          "ready-for-agent"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-old-accepted-adr-valid",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ05。ADR-0001 较早但仍是 ACCEPTED，路径存在且没有 supersede、同 concern 冲突或 deprecated 标记。按固定字段判断，不要仅因日期较早要求重写 ADR。",
+      "files": {
+        "tracker/cq05-ticket.md": "# CQ05 Keep order id ownership in ordering\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nOrdering owns order ids at the reviewed base.\n\n## What to build\nReject a billing payload that attempts to replace an existing order id.\n\n## Primary verification\nRun the cross-boundary order-id ownership scenario.\n\n## Invariants and guardrails\nOrdering remains the sole order-id owner.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] A replacement order id is rejected.\n- [ ] The original order id remains unchanged.\n- [ ] A payload without replacement retains current behavior.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/billing/import.mjs` — Locate the current import boundary.\n- `test/billing/order-owner.test.mjs` — Run the primary ownership verification.\n- `docs/adr/0001-order-id-owner.md` — Preserve the accepted ownership decision.\n\n## Decision sources\n- R-CQ05/r1 — owns rejection behavior.\n- ADR-0001 ACCEPTED — owns order-id data ownership.\n\n## Out of scope\nChanging order-id ownership or migration.\n",
+        "tracker/cq05-admission-bundle.md": "# Fresh Admission bundle for CQ05\n\nReview timestamp: 2026-08-19T09:40:00Z\nExact base: 5555555555555555555555555555555555555555\nTicket Context checker: PASS, exact candidate/body/base, 3 blobs, digest sha256:5555555555555555555555555555555555555555555555555555555555555555.\nADR-0001 date 2021-01-03; status ACCEPTED; exact path exists at reviewed base; no superseded, historical, example, deprecated, deleted symbol, or same-concern conflict. It remains the load-bearing order-id authority.\nCurrent code/test facts and R-CQ05/r1 target behavior agree with ADR-0001. Fresh tracker state has no blocker.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*READY",
+          "Context authority:[^\\n]*(?:ADR-0001|ACCEPTED)",
+          "Context freshness:[^\\n]*(?:reviewed base|基线|PASS|有效)",
+          "Context conflicts:[^\\n]*(?:None|无|不存在)",
+          "(?:(?:较早|older|2021)[^\\n]{0,120}(?:仍|remain|不影响|does not)[^\\n]{0,100}(?:权威|authority|authoritative|有效|replacement)|ADR-0001[^\\n]{0,140}(?:remains|仍是|继续)[^\\n]{0,100}(?:authority|authoritative|权威|ACCEPTED))"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*NEEDS_INFO",
+          "(?:因为|仅因|because)[^\\n]{0,50}(?:旧|older|date|日期)[^\\n]{0,80}(?:重写|rewrite|失效|stale)",
+          "(?:需要|must)[^\\n]{0,50}(?:重写|rewrite)[^\\n]{0,50}ADR-0001"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-current-target-not-conflict",
+      "skill": "ticket-readiness",
+      "timeoutMs": 300000,
+      "prompt": "只读评审 CQ06。reviewed-base code 当前一次创建一条记录，COMMITTED R-CQ06/r2 的目标是一次创建有界批量；这是 current→target。按固定字段判断 Context Quality，不要把未实现目标误判为 authority conflict。",
+      "files": {
+        "tracker/cq06-ticket.md": "# CQ06 Create a bounded record batch\n\n## Coverage role\nSTANDALONE\n\n## Starting state\nAt base 6666666666666666666666666666666666666666, the public create entry accepts one valid record and returns its id.\n\n## What to build\nAccept one request containing 1 to 20 valid records and return ids in input order.\n\n## Primary verification\nRun the public create-entry batch scenario with two records.\n\n## Invariants and guardrails\nKeep single-record requests compatible; reject an invalid batch without partial writes; maximum batch size is 20.\n\n## Execution lane\nAGENT\n\n## Acceptance criteria\n- [ ] Two valid records produce two ids in input order.\n- [ ] A single record retains current behavior.\n- [ ] An invalid record causes zero writes.\n- [ ] More than 20 records is rejected.\n\n## Blocked by\nNone.\n\n## Context anchors\n- `src/create-records.mjs` — Locate the current single-record entry.\n- `test/create-records.test.mjs` — Run the primary batch verification.\n\n## Decision sources\n- COMMITTED R-CQ06/r2 — owns target batch behavior and limits.\n\n## Out of scope\nAsync imports, files, and batches over 20.\n",
+        "tracker/cq06-admission-bundle.md": "# Fresh Admission bundle for CQ06\n\nReview timestamp: 2026-08-19T09:50:00Z\nExact base: 6666666666666666666666666666666666666666\nTicket Context checker: PASS for exact CQ06 body/base and 2 blob anchors; digest sha256:6666666666666666666666666666666666666666666666666666666666666666.\nCurrent implementation authority: reviewed-base code/test, one record per call.\nTarget behavior authority: exact COMMITTED R-CQ06/r2 at the accepted base, batch 1..20 with ordered ids and atomic failure.\nThese sources own different temporal states: current implementation versus target behavior. Neither claims the other's state; this is not a same-concern conflict. Policy and accepted ADRs add no conflict. Fresh tracker state has no blockers.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "Verdict:\\s*READY",
+          "Context authority:[^\\n]*(?:R-CQ06|reviewed-base|代码|code)",
+          "Context conflicts:[^\\n]*(?:None|无|not a conflict|不是冲突)",
+          "(?:(?:current|当前)[^\\n]{0,80}(?:target|目标)|(?:current state|当前状态)[^\\n]{0,40}(?:->|→)[^\\n]{0,40}(?:target state|目标状态))"
+        ],
+        "mustNotMatch": [
+          "Verdict:\\s*NEEDS_INFO",
+          "(?:Release|R-CQ06)[^\\n]{0,80}(?:stale|过期|失效)",
+          "(?:代码|code)[^\\n]{0,50}(?:覆盖|override)[^\\n]{0,50}(?:Release|R-CQ06)"
+        ]
+      }
+    },
+    {
+      "id": "context-quality-admission-anchor-drift",
+      "skill": "admit-ticket",
+      "timeoutMs": 300000,
+      "prompt": "只读判断 CQ07 的 apply 前状态。Plan 在 body/base/anchor A 上完成 review 并获精确 fingerprint 确认；fresh read 后 body、base 与 anchor digest 已发生 material drift。严格按 Admission 合同给出结果和下一步，不要写 ready label、评论或文件。",
+      "files": {
+        "tracker/cq07-admission-drift.md": "# CQ07 Admission drift snapshot\n\nCandidate identity: CQ07\nReviewed Plan fingerprint: sha256:7777777777777777777777777777777777777777777777777777777777777777\nReviewed source/base: R-CQ07/r1 @ 7777777777777777777777777777777777777777\nReviewed candidate body hash: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nReviewed Context check: PASS; anchor `src/old-entry.mjs`; digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.\nReviewer verdict: READY/AGENT. Human confirmed the exact Plan fingerprint.\n\nFresh apply preflight:\n- candidate identity remains CQ07 and label remains needs-triage; no Harness claim exists;\n- tracker body now names `src/current-entry.mjs` and has body hash sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc;\n- accepted base is now 8888888888888888888888888888888888888888;\n- rerun Ticket Context checker is PASS for the new body/base/anchor but digest is sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd;\n- fresh contextChecks therefore do not match the reviewed Plan.\nNo mutation is authorized for this drifted snapshot.\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "CONFLICT",
+          "(?:(?:Gate-critical|material)[^\\n]{0,40}drift|Body hash[^\\n]{0,80}(?:→|->|drift|漂移)|Base SHA[^\\n]{0,80}(?:→|->|drift|漂移)|Context digest[^\\n]{0,80}(?:→|->|drift|漂移|不一致))",
+          "(?:(?:重新|new|rebuild)[^\\n]{0,100}(?:bundle|review|审查|Plan)|(?:re-review|重新审查))",
+          "(?:needs-triage|标签保持|保持[^\\n]{0,30}标签[^\\n]{0,30}不变|labels? unchanged)"
+        ],
+        "mustNotMatch": [
+          "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",
+          "(?:(?:已|已经|现已|status:\\s*|结果为\\s*)(?:COMPLETE|ADMITTED|激活完成)|Checkpoint:[^\\n]*ADMITTED)",
+          "(?:已发布|posted)[^\\n]*(?:comment|评论)"
         ]
       }
     }

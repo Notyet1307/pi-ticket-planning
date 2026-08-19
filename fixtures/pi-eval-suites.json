@@ -63,7 +63,14 @@
       "interview-exploratory-closeout-limited-evidence",
       "human-interface-interview-consent-natural",
       "human-interface-explicit-status-uses-card",
-      "human-interface-nondelegable-decision-compact"
+      "human-interface-nondelegable-decision-compact",
+      "context-quality-historical-plan-not-authority",
+      "context-quality-stale-root-policy-blocks",
+      "context-quality-context-map-bounded",
+      "context-quality-ticket-anchor-economy",
+      "context-quality-old-accepted-adr-valid",
+      "context-quality-current-target-not-conflict",
+      "context-quality-admission-anchor-drift"
     ],
     "reason": "Manual --case only: overlapping coverage, unmeasured stability, or failure to meet the Release threshold."
   },

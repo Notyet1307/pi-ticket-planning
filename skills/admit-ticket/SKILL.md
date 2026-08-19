@@ -18,6 +18,7 @@ Require:
 - the ticket-readiness-reviewer agent;
 - candidate issues in needs-triage or needs-info.
 - for a delivery parent, an accepted Spec with stable Scenario IDs and a current `## Ticket coverage` section.
+- an accepted-base checkout from which `check-ticket-context.mjs` can resolve exact Git blobs.
 
 If the reviewer cannot run in a fresh context, stop with the candidates unchanged. The authoring context is not a review fallback.
 
@@ -33,6 +34,7 @@ Re-fetch and include:
 
 - repository and tracker identity;
 - exact title, body, state, labels, native blockers, comments containing the current agent brief, and updated timestamp for every candidate;
+- for every candidate, the raw `pi-ticket-planning:ticket-context-check:v1` result from its exact body and base, wrapped only with the exact candidate identity;
 - parent delivery spec body and updated timestamp;
 - trusted source identity, exact Release revision when applicable, exact repository base, and effective policy identity;
 - the operator-provided Harness compatibility assertion (`parentReadyFence: true`), identity, and content digest for a GitHub delivery map; Admission binds and rechecks this assertion but does not independently inspect the deployed Harness; without it, leave every child unactivated;
@@ -44,6 +46,14 @@ Re-fetch and include:
 
 Use exact source text where practical. Summaries may orient the reviewer but never replace the candidate body or authoritative decision.
 
+Before any fresh review, write each refreshed candidate body to a private temporary file and run:
+
+```text
+node "$PI_TICKET_PLANNING_ROOT/scripts/check-ticket-context.mjs" --repo <absolute-repository-path> --base <exact-base-sha> --input <candidate-body-file>
+```
+
+Use the same rule for every delivery-map child and a standalone QUICK candidate. Bind the raw JSON as `contextChecks: [{ "candidateId": "<exact id>", "result": <raw result> }]`, and retain the accepted-base checkout's absolute path as private transient `repositoryPath`. `check-admission-state`, `admit plan`, and `admit apply` re-run the checker from that checkout and require the canonical raw results to match; a caller-supplied digest is not trusted as proof. Keep `repositoryPath` in the private deterministic/CLI context, not the reviewer payload, Plan, or Tracker. A missing result, FAIL verdict, invalid digest, body-hash mismatch, base-SHA mismatch, blob mismatch, duplicate identity, or unexpected identity makes the Graph verdict NEEDS_INFO. Keep every label unchanged and do not dispatch a reviewer. The checker decides only structure and exact Git-blob facts; the fresh reviewer still owns semantic authority, staleness, relevance, conflict, and first-action economy.
+
 For a delivery map, extract the one `<!-- pi-ticket-planning:delivery-graph:v2 -->` snapshot from the refreshed parent and run the configured tracker command through `check-delivery-graph.mjs`. A v1 snapshot requires migration; a missing, duplicate, malformed, or failed snapshot is Graph NEEDS_INFO. Then compare the passing snapshot against the fresh Spec and native graph before dispatch:
 
 1. Matrix Scenario IDs equal the parent Scenario IDs.
@@ -53,7 +63,7 @@ For a delivery map, extract the one `<!-- pi-ticket-planning:delivery-graph:v2 -
 5. The declared walking-skeleton chain references current children in dependency-valid order and closes the stated smallest loop.
 6. Every named downstream state or artifact has the persisted producer or external source required by the Spec; no admission check invents a missing handoff.
 
-Serialize the refreshed source identity/revision/base, complete parent body, and native-order children with exact bodies and open `blockedBy` identities as one Admission bundle. Run it through `check-admission-state.mjs`; this one check re-runs the Delivery Graph contract and compares the Spec hash and Scenario set, child set/order/body hashes, source identity, and native dependency graph. Return `Delivery graph contract: PASS | FAIL`, `Scenario coverage: PASS | FAIL`, and `Walking skeleton: PASS | FAIL`. Then run the configured strict-frontier order check against the fresh native graph. Any failed or unavailable structural check is Graph NEEDS_INFO: keep every label unchanged, report the exact gap or read failure, and do not accept a reviewer READY result. After a confirmed edit, rebuild the bundle from scratch.
+Serialize the refreshed source identity/revision/base, private `repositoryPath`, complete parent body, native-order children with exact bodies and open `blockedBy` identities, and bound `contextChecks` as one private deterministic bundle. Run it through `check-admission-state.mjs`; this one check re-runs the Delivery Graph contract and every Ticket Context checker against Git, then compares the Spec hash and Scenario set, child set/order/body hashes, source identity, native dependency graph, and every Context check binding. Strip `repositoryPath` before sending the otherwise exact bundle to the reviewer. Return `Delivery graph contract: PASS | FAIL`, `Scenario coverage: PASS | FAIL`, and `Walking skeleton: PASS | FAIL`. Then run the configured strict-frontier order check against the fresh native graph. Any failed or unavailable structural check is Graph NEEDS_INFO: keep every label unchanged, report the exact gap or read failure, and do not accept a reviewer READY result. After a confirmed edit, rebuild the bundle from scratch.
 
 ### 3. Dispatch the independent review
 
@@ -63,23 +73,23 @@ The reviewer must return the /ticket-readiness output for every candidate plus a
 
 ### 4. Present the result
 
-For a GitHub delivery map, place the exact machine review JSON and a freshly resolved context JSON in a private temporary directory, then run `pi-ticket-plan admit plan --repo <owner/repo> --parent <number> --review <review.json> --context <context.json> --out <plan.json>`. For one standalone candidate, use the same command with `--issue <number>` instead of `--parent`. The context contains the trusted source identity/revision/base, accepted policy identity/digest, and current Checkpoint; a delivery map also contains the operator-provided Harness identity/digest and `parentReadyFence: true` compatibility assertion. This command is read-only and must return a passing plan.
+For a GitHub delivery map, place the exact machine review JSON and a freshly resolved context JSON in a private temporary directory, then run `pi-ticket-plan admit plan --repo <owner/repo> --parent <number> --review <review.json> --context <context.json> --out <plan.json>`. For one standalone candidate, use the same command with `--issue <number>` instead of `--parent`. The context contains the trusted source identity/revision/base, private accepted-base `repositoryPath`, accepted policy identity/digest, bound raw `contextChecks`, and current Checkpoint; a delivery map also contains the operator-provided Harness identity/digest and `parentReadyFence: true` compatibility assertion. This command is read-only and must return a passing plan.
 
-Show the verdicts, execution lanes, proposed splits, unresolved decisions, blockers, coverage findings, walking-skeleton finding, frontier finding, exact label additions/removals, Graph fingerprint, and Admission Plan fingerprint. Ask the user to confirm that exact Plan fingerprint. A reviewer result or a general “continue” alone grants no mutation authority.
+Show the verdicts, execution lanes, proposed splits, unresolved decisions, blockers, Context-check PASS/FAIL and digest per candidate, coverage findings, walking-skeleton finding, frontier finding, exact label additions/removals, Graph fingerprint, and Admission Plan fingerprint. The raw checker output remains in the private bundle/Plan and is not copied into Tracker comments. Ask the user to confirm that exact Plan fingerprint. A reviewer result or a general “continue” alone grants no mutation authority.
 
 When a candidate is edited, a blocker edge changes, a source decision changes, or the user requests a different split, return to step 2 and review the new snapshot.
 
 ### 5. Apply the confirmed outcome
 
-Re-fetch the admission set first. Treat updated timestamps as reread signals, then compare the gate-critical projection: exact title, open state, body hash, native blockers, source revision/base, policy, controlled labels, and, for a delivery map, normalized snapshot, walking skeleton, graph, and asserted Harness compatibility projection. Re-run `check-admission-state.mjs` and the strict-frontier order check for a delivery map before the first label mutation. Unrelated comments and labels do not invalidate an otherwise unchanged Plan.
+Re-fetch the admission set first. Treat updated timestamps as reread signals, then compare the gate-critical projection: exact title, open state, body hash, native blockers, source revision/base, policy, controlled labels, and, for a delivery map, normalized snapshot, walking skeleton, graph, and asserted Harness compatibility projection. Re-run `check-ticket-context.mjs` from every refreshed exact body and base, rebuild `contextChecks`, and re-run `check-admission-state.mjs` plus the strict-frontier order check for a delivery map before the first label mutation. Unrelated comments and labels do not invalidate an otherwise unchanged Plan.
 
-For a READY GitHub delivery map or standalone candidate, rebuild the context JSON from those fresh facts and run only:
+For a READY GitHub delivery map or standalone candidate, rebuild the context JSON from those fresh facts and fresh Context-check results, then run only:
 
 ```text
 pi-ticket-plan admit apply --plan <plan.json> --expected-fingerprint <confirmed sha256> --context <fresh-context.json>
 ```
 
-`admit apply` is the sole owner of READY Admission comments and ready-label writes. It compares the approved fingerprint, accepts only the planned before/after or safe in-progress controlled-label states, preserves unrelated labels through per-label changes, deduplicates comments by marker, and rereads ambiguous writes. A delivery map activates blockers-first children and the parent last; a standalone Plan contains one resource. `COMPLETE` is success; `PARTIAL` is safely resumable with the same plan and fingerprint; `CONFLICT` requires a new bundle and review. Never compensate by removing a ready label after a Harness claim.
+`admit apply` is the sole owner of READY Admission comments and ready-label writes. It compares the approved fingerprint, accepts only the planned before/after or safe in-progress controlled-label states, preserves unrelated labels through per-label changes, validates the fresh Context-check digests against the reviewed Plan, deduplicates comments by marker, and rereads ambiguous writes. A delivery map activates blockers-first children and the parent last; a standalone Plan contains one resource. Body, base, policy, or Context-check drift returns `CONFLICT` and requires a new bundle and review. `COMPLETE` is success; `PARTIAL` is safely resumable with the same unchanged plan and fingerprint. Never compensate by removing a ready label after a Harness claim.
 
 The following direct outcome rules apply only to confirmed non-READY review outcomes. They never bypass `admit apply` for any READY activation:
 

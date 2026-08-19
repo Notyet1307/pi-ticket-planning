@@ -269,6 +269,7 @@ test("DELIVERED fixture accepts an equivalent Chinese missing-release fact", () 
 test("readiness live fixture supplies the exact fresh-review facts", () => {
   const readiness = fixture.cases.find(({ id }) => id === "lifecycle-candidate-passes-readiness");
   const bundle = readiness.files["tracker/review-bundle.md"];
+  assert.match(readiness.files["tracker/context-check-c01.json"], /ticket-context-check:v1[\s\S]*"verdict":"PASS"/u);
   assert.match(bundle, /Review timestamp: 2026-08-16T14:12:00Z/u);
   assert.match(bundle, /The approved enum is exactly dependency, test, infrastructure, or unsupported/u);
   assert.match(bundle, /Primary command: `npm test -- build-failure-v1`/u);
@@ -279,6 +280,8 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
 test("admission live fixture keeps candidate criteria bounded", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
+  assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
+  assert.match(admission.files["tracker/repository-context-recheck-r006.md"], /re-ran[\s\S]*against Git/u);
   const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
     .map(([, criteria]) => criteria.trim().split("\n").length);
   assert.deepEqual(counts, [5, 3]);
@@ -289,6 +292,8 @@ test("admission live fixture keeps candidate criteria bounded", () => {
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
   const item = fixture.cases.find(({ id }) => id === "lifecycle-accepted-spec-compiles-ticket-graph");
+  assert.match(item.files["tracker/ticket-context-checks.md"], /C01:[^\n]*PASS[\s\S]*C02:[^\n]*PASS/u);
+  assert.match(item.files["tracker/repository-context-recheck.md"], /re-ran[\s\S]*against Git/u);
   const spec = item.files["tracker/delivery-spec-70.md"].trimEnd();
   const snapshotText = item.files["tracker/proposed-ticket-snapshot.md"];
   const c01 = snapshotText.match(/(## C01[\s\S]*?)(?=\n## C02)/u)[1].trimEnd();

@@ -1,10 +1,19 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   DELIVERY_GRAPH_MARKER,
   hashText,
 } from "../scripts/check-delivery-graph.mjs";
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
+import {
+  buildTicketContextResult,
+  checkTicketContext,
+} from "../scripts/check-ticket-context.mjs";
+
+const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
+const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
 
 function readyBundle() {
   const specBody = [
@@ -26,7 +35,7 @@ function readyBundle() {
     source: {
       identity: "PRODUCT_RELEASE R1",
       revision: "r2",
-      baseSha: "1111111111111111111111111111111111111111",
+      baseSha,
       specContentHash: hashText(specBody),
     },
     scenarios: [
@@ -76,14 +85,20 @@ function readyBundle() {
     walkingSkeleton: ["101", "102"],
   };
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
+  const source = {
+    identity: "PRODUCT_RELEASE R1",
+    revision: "r2",
+    baseSha,
+  };
   return {
-    source: {
-      identity: "PRODUCT_RELEASE R1",
-      revision: "r2",
-      baseSha: "1111111111111111111111111111111111111111",
-    },
+    repositoryPath,
+    source,
     parentBody,
     children,
+    contextChecks: children.map((child) => ({
+      candidateId: child.id,
+      result: checkTicketContext({ repo: repositoryPath, base: source.baseSha, body: child.body }),
+    })),
   };
 }
 
@@ -123,4 +138,25 @@ test("admission state rejects source, Spec Scenario, and external dependency dri
   const externalDrift = readyBundle();
   externalDrift.children[1].blockedBy.push("999");
   assert.equal(validateAdmissionState(externalDrift).problems.some(({ code }) => code === "OPEN_EXTERNAL_BLOCKER"), true);
+});
+
+test("admission state requires matching PASS Context checks", () => {
+  const missing = readyBundle();
+  missing.contextChecks.shift();
+  assert.equal(validateAdmissionState(missing).problems.some(({ code }) => code === "MISSING_CONTEXT_CHECK"), true);
+
+  const failed = readyBundle();
+  failed.contextChecks[0].result = buildTicketContextResult({
+    baseSha: failed.source.baseSha,
+    body: failed.children[0].body,
+    problems: [{ code: "CONTEXT_ANCHOR_NOT_FOUND" }],
+  });
+  assert.equal(validateAdmissionState(failed).problems.some(({ code }) => code === "CONTEXT_CHECK_FAILED"), true);
+
+  const baseDrift = readyBundle();
+  baseDrift.contextChecks[0].result = buildTicketContextResult({
+    baseSha: "2222222222222222222222222222222222222222",
+    body: baseDrift.children[0].body,
+  });
+  assert.equal(validateAdmissionState(baseDrift).problems.some(({ code }) => code === "CONTEXT_CHECK_BASE_SHA_MISMATCH"), true);
 });

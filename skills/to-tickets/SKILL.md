@@ -38,6 +38,14 @@ Each candidate must satisfy `/ticket-readiness`:
 - an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
 
+Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
+
+    - `src/module/current-entry.ts` — Locate the current behavior entry point.
+
+Each anchor is one exact repo-relative regular file at the reviewed base plus one non-empty purpose. Do not use directories, globs, absolute paths, `..`, working-tree/draft/historical/example/fixture sources, or instructions such as `read docs/`, `inspect the codebase`, or `read all ADRs`. Anchors navigate; they never replace behavior, acceptance criteria, decisions, or guardrails in the body. Omit the section when the entry is obvious. More than five means the Ticket is too broad, the necessary decision belongs in the body, or the list has not been reduced to first-action sources; it cannot proceed as READY.
+
+Every `## Decision sources` item must name the concern it owns and an exact accepted identity. Discussions, summaries, examples, and navigation documents are not decision authorities.
+
 Do not qualify a `READY` verdict. If an open decision can change the candidate's outcome, primary verification, acceptance criteria, or output contract, that candidate is `NEEDS_INFO` until the decision closes.
 
 Use coverage role `DIRECT` for a user-observable scenario slice. Use `ENABLER` only when an independently green vertical slice is impossible; name its downstream candidate consumers, exit condition, source scenarios, and real blocking edges. An ENABLER with no current consumer is an orphan and cannot proceed.
@@ -85,6 +93,14 @@ node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -
 ```
 
 Require `contract`, `scenarioCoverage`, `walkingSkeleton`, and `strictFrontier` to pass. This checker proves structural consistency only; semantic overlap and individual Ticket readiness still require review.
+
+Also run each exact proposed candidate body through:
+
+```sh
+node "$PI_TICKET_PLANNING_ROOT/scripts/check-ticket-context.mjs" --repo <absolute-repository-path> --base <exact-base-sha> --input <candidate-body-file>
+```
+
+No anchors is a valid PASS. Any failed Context check is `NEEDS_INFO`, not a graph repair or a reason to infer a path.
 
 ### 4. Build and approve the graph
 
@@ -138,7 +154,7 @@ Use this child body:
     Real prerequisites, or None.
 
     ## Decision sources
-    Parent sections and linked authoritative decisions.
+    Exact accepted identities, each stating the concern it decides.
 
     ## Out of scope
     Adjacent behavior excluded from this ticket.
@@ -152,7 +168,7 @@ Update or replace one `## Ticket coverage` section in the parent. Store exactly 
 
 The JSON is the durable Scenario matrix, handoff chain, child order, roles, verifications, lanes, and blocker graph. Do not persist a duplicate prose matrix, table, or receipt. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, lane, order, or edge requires renewed approval.
 
-Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, complete parent body, and native-order children with exact bodies and open blocker identities. Run `check-admission-state.mjs` against that bundle, then run the configured strict-frontier check. Both checks must pass before handoff.
+Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, private absolute accepted-base `repositoryPath`, complete parent body, and native-order children with exact bodies and open blocker identities. Re-run `check-ticket-context.mjs` for every persisted child and include each raw result bound to its candidate identity as `contextChecks`. Run `check-admission-state.mjs` against that bundle so it independently rechecks the raw results against Git, then run the configured strict-frontier check. All checks must pass before handoff.
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -11,15 +12,22 @@ import {
   buildAdmissionPlan,
   buildStandaloneAdmissionPlan,
   createGitHubAdapter,
+  fingerprint,
   validateAdmissionPlan,
 } from "../scripts/admit.mjs";
+import {
+  buildTicketContextResult,
+  checkTicketContext,
+} from "../scripts/check-ticket-context.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
 const graphFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "admission-cases.json"), "utf8"))
   .graphCases.find(({ expectedGraphVerdict }) => expectedGraphVerdict === "READY");
 
 function readyInput() {
   const snapshot = structuredClone(graphFixture);
+  snapshot.source.baseSha = baseSha;
   snapshot.children[0].id = "101";
   snapshot.children[1].id = "102";
   snapshot.children[1].blockedBy = ["101"];
@@ -61,6 +69,7 @@ function readyInput() {
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
   return {
     repo: "acme/product",
+    repositoryPath: root,
     parent: {
       id: "100",
       title: "Deliver comparison behavior",
@@ -71,6 +80,10 @@ function readyInput() {
     },
     source: structuredClone(snapshot.source),
     children,
+    contextChecks: children.map((child) => ({
+      candidateId: child.id,
+      result: checkTicketContext({ repo: root, base: snapshot.source.baseSha, body: child.body }),
+    })),
     policy: {
       identity: "AGENTS.md@1111111",
       digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -101,21 +114,28 @@ function readyInput() {
 }
 
 function standaloneInput() {
+  const candidate = {
+    id: "42",
+    title: "Correct status output",
+    body: "# Correct status output\n\n## Agent Brief\n\nReturn `Ready`.",
+    blockedBy: [],
+    labels: ["needs-triage", "copy"],
+    state: "open",
+  };
+  const source = {
+    identity: "accepted-status-behavior",
+    revision: "r1",
+    baseSha,
+  };
   return {
     repo: "acme/product",
-    candidate: {
-      id: "42",
-      title: "Correct status output",
-      body: "# Correct status output\n\n## Agent Brief\n\nReturn `Ready`.",
-      blockedBy: [],
-      labels: ["needs-triage", "copy"],
-      state: "open",
-    },
-    source: {
-      identity: "accepted-status-behavior",
-      revision: "r1",
-      baseSha: "1111111111111111111111111111111111111111",
-    },
+    repositoryPath: root,
+    candidate,
+    source,
+    contextChecks: [{
+      candidateId: candidate.id,
+      result: checkTicketContext({ repo: root, base: source.baseSha, body: candidate.body }),
+    }],
     policy: {
       identity: "AGENTS.md@1111111",
       digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -143,6 +163,10 @@ test("Admission Plan is deterministic and activates children before the parent",
   assert.equal(first.planFingerprint, second.planFingerprint);
   assert.equal(first.reviewedFingerprint, second.reviewedFingerprint);
   assert.equal(first.graphFingerprint, second.graphFingerprint);
+  assert.equal(first.reviewedFingerprint, fingerprint(first.reviewed));
+  const withoutContextChecks = structuredClone(first.reviewed);
+  delete withoutContextChecks.contextChecks;
+  assert.notEqual(first.reviewedFingerprint, fingerprint(withoutContextChecks));
   assert.deepEqual(validateAdmissionPlan(first), { ok: true, problems: [] });
 
   const labelOperations = first.operations.filter(({ kind }) => kind === "labels");
@@ -205,6 +229,33 @@ test("standalone QUICK produces one exact Admission Plan", () => {
   assert.deepEqual(plan.operations[1].after, ["ready-for-agent"]);
   assert.deepEqual(validateAdmissionPlan(plan), { ok: true, problems: [] });
   assert.match(plan.operations[0].body, new RegExp(`Plan fingerprint: ${plan.planFingerprint}`));
+});
+
+test("standalone QUICK rejects a missing or failed Context check", () => {
+  const missing = standaloneInput();
+  delete missing.contextChecks;
+  assert.throws(() => buildStandaloneAdmissionPlan(missing), /MISSING_CONTEXT_CHECKS/);
+
+  const failed = standaloneInput();
+  failed.contextChecks[0].result = buildTicketContextResult({
+    baseSha: failed.source.baseSha,
+    body: failed.candidate.body,
+    problems: [{ code: "CONTEXT_ANCHOR_NOT_FOUND" }],
+  });
+  assert.throws(() => buildStandaloneAdmissionPlan(failed), /CONTEXT_CHECK_FAILED/);
+
+  const forged = standaloneInput();
+  forged.candidate.body += "\n\n## Context anchors\n\n- `src/missing-at-base.mjs` — Locate the behavior entry point.\n";
+  forged.contextChecks[0].result = buildTicketContextResult({
+    baseSha: forged.source.baseSha,
+    body: forged.candidate.body,
+    anchors: [{
+      path: "src/missing-at-base.mjs",
+      blobSha: "b".repeat(40),
+      purpose: "Locate the behavior entry point.",
+    }],
+  });
+  assert.throws(() => buildStandaloneAdmissionPlan(forged), /CONTEXT_CHECK_RECHECK_FAILED/);
 });
 
 test("Admission Plan validation detects any changed approved operation", () => {

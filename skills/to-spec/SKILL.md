@@ -20,9 +20,13 @@ Classify the source:
 
 Completed Wayfinder decisions, research, prototypes, and questionnaires may support either source. Fetch the exact linked artifacts needed to recover a decision. An open decision or conflicting authority that changes behavior is `NEEDS_INFO`.
 
+Restore only the authority set needed to compile this Spec: the exact task authority, accepted base, effective root policy, applicable accepted ADRs, minimum relevant implementation facts, and fresh tracker identity. README, CONTEXT files, examples, and fixtures may locate a source or explain terminology; they cannot supply missing product behavior or a load-bearing technical decision. Do not read every ADR: select only those the task source or current behavior depends on.
+
 ### 2. Pin the delivery base
 
-Require a Git repository with a valid `HEAD` and an accepted remote delivery ref that resolves to the exact base SHA; local `HEAD` alone is insufficient. Record the repository identity, remote ref, exact base SHA, effective root policy path and digest, and tracker identity. For `PRODUCT_RELEASE`, require `git show <base>:<release-path>` to yield the approved revision exactly. Re-read every cited policy and ADR decision from that same base, including its accepted status and source identity; a working-tree or draft-ref ADR is not authority. Reconcile the Release blob against accepted code, domain vocabulary, ADRs, and compatibility constraints.
+Require a Git repository with a valid `HEAD` and an accepted remote delivery ref that resolves to the exact base SHA; local `HEAD` alone is insufficient. Record the repository identity, remote ref, exact base SHA, effective root policy path and digest, and fresh tracker identity. For `PRODUCT_RELEASE`, require `git show <base>:<release-path>` to yield the approved revision exactly. Re-read every cited policy and ADR decision from that same base, including its accepted status and source identity; a working-tree or draft-ref ADR is not authority. Reconcile each concern against its owner: target behavior from the accepted task source, current behavior from code/configuration/types/tests at the base, load-bearing technical decisions from applicable accepted ADRs, and global invariants from the effective root policy.
+
+Two accepted authorities for the same concern that change the outcome, verification, guardrail, or first correct action are a fail-closed conflict. Do not select one or splice historical design into the Spec; return `DELIVERY / SPEC · <identity> · BLOCKED` with the sources, concern, decision owner, and smallest repair. Age alone does not invalidate an accepted ADR. A current implementation that differs from a COMMITTED target is `current state -> target state`, not a conflict, unless both claim the same current or target concern.
 
 If the target is non-Git, has an unborn `HEAD`, lacks tracker configuration, omits the Release blob or a required ADR from the accepted base, depends on an unmerged policy change, or still requires a load-bearing architecture, data, interface, compatibility, recovery, security, or verification decision, stop before publishing and return to `/skill:ask-yet` for Solution Shaping. Never choose the missing technical direction, invent a base, or let a candidate-branch policy or ADR govern its own Worker.
 
@@ -37,8 +41,9 @@ Identify the highest stable behavioral seams that can verify the scenarios. Pref
 Use this structure:
 
     ## Source
-    Source kind, authoritative identity, Release ID and exact revision when applicable,
-    repository identity, exact base SHA, effective policy identity, and tracker identity.
+    Source kind and exact accepted identity; Release ID and exact revision when applicable;
+    repository identity and exact base SHA; effective policy identity/digest; applicable accepted
+    ADR identities and concerns; and fresh tracker identity.
 
     ## Problem statement
     The user-visible problem and present consequence.

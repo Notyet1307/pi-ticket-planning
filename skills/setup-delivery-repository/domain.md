@@ -1,16 +1,16 @@
-# Domain Docs
+# Domain Navigation
 
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
+Read only the glossary or context index that can change the current terminology or boundary decision.
 
-## Before exploring, read these
+- `CONTEXT.md` is a glossary and navigation aid. Read it only when its vocabulary can change the current work.
+- `CONTEXT-MAP.md` selects the relevant bounded context. When one context is in scope, follow only that context; do not load every mapped context.
+- Accepted ADRs own load-bearing technical decisions. Read only ADRs the accepted task source or current behavior depends on.
 
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** at the repo root if it exists — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
-- **`docs/adr/`** — read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
+CONTEXT files do not own product behavior, architecture, data ownership, repository policy, or current implementation facts. They cannot override an accepted Release, Spec, Ticket, ADR, effective root policy, or code and tests at the reviewed base. They must not copy Release behavior, Ticket acceptance criteria, complete architecture decisions, or directory tours.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
+If these files do not exist, proceed silently. Create `CONTEXT.md` only after real terminology ambiguity exists and `CONTEXT-MAP.md` only after at least two real bounded contexts exist.
 
-## File structure
+## Optional file structure
 
 Single-context repo (most repos):
 
@@ -38,14 +38,12 @@ Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
         └── docs/adr/
 ```
 
-## Use the glossary's vocabulary
+## Use a relevant glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
 
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
+If the concept is absent, do not invent a glossary entry during unrelated work. Treat a decision-changing ambiguity as a separate domain-modeling need.
 
 ## Flag ADR conflicts
 
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
-
-> _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+If the selected CONTEXT source or current output contradicts an applicable accepted ADR, fail closed, name both sources and their concern, and return the decision to its owner.

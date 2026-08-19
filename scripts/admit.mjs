@@ -7,6 +7,7 @@ import {
   hashText,
   parseDeliveryGraph,
 } from "./check-delivery-graph.mjs";
+import { verifyCandidateContextChecks } from "./check-ticket-context.mjs";
 import {
   evaluateMutation,
   evaluateTransition,
@@ -162,9 +163,11 @@ export function buildAdmissionPlan(input) {
   if (input.parent.state !== "open") throw planError("parent must be open", [issue("ISSUE_NOT_OPEN", input.parent.id)]);
 
   const admissionState = validateAdmissionState({
+    repositoryPath: input.repositoryPath,
     source: input.source,
     parentBody: input.parent.body,
     children: input.children,
+    contextChecks: input.contextChecks,
   });
   if (!admissionState.ok) throw planError("Admission state is not READY", admissionState.problems);
 
@@ -231,6 +234,7 @@ export function buildAdmissionPlan(input) {
       blockedBy: child.blockedBy.map(String),
       state: childById.get(String(child.id))?.state,
     })),
+    contextChecks: input.contextChecks,
     policy: input.policy,
     harness: input.harness,
     review: input.review,
@@ -290,6 +294,13 @@ export function buildStandaloneAdmissionPlan(input) {
   if (!nonEmpty(input.source?.identity) || !nonEmpty(input.source?.revision) || !nonEmpty(input.source?.baseSha)) {
     throw planError("trusted standalone source identity, revision, and base are required");
   }
+  const contextCheckProblems = verifyCandidateContextChecks({
+    repositoryPath: input.repositoryPath,
+    candidates: [candidate],
+    baseSha: input.source.baseSha,
+    contextChecks: input.contextChecks,
+  });
+  if (contextCheckProblems.length > 0) throw planError("Ticket context check is not PASS", contextCheckProblems);
   if (!validatePolicy(input.policy)) throw planError("accepted policy identity and sha256 digest are required");
   if (!validateReview(input.review)) throw planError("review is not READY or does not use the fresh reviewer contract");
   const candidates = input.review.candidates ?? [];
@@ -326,6 +337,7 @@ export function buildStandaloneAdmissionPlan(input) {
       blockedBy: [],
       state: candidate.state,
     },
+    contextChecks: input.contextChecks,
     policy: input.policy,
     review: input.review,
     currentCheckpoint: input.currentCheckpoint,
@@ -503,12 +515,17 @@ function immutableStateProblems(plan, state) {
   if (fingerprint(state.source) !== fingerprint(plan.reviewed.source)) problems.push(issue("SOURCE_DRIFT"));
   if (fingerprint(state.policy) !== fingerprint(plan.reviewed.policy)) problems.push(issue("POLICY_DRIFT"));
   if (fingerprint(state.currentCheckpoint) !== fingerprint(plan.reviewed.currentCheckpoint)) problems.push(issue("CHECKPOINT_DRIFT"));
+  if (fingerprint(state.contextChecks) !== fingerprint(plan.reviewed.contextChecks)) {
+    problems.push(issue("CONTEXT_CHECK_DRIFT"));
+  }
 
   if (plan.kind === "DELIVERY_GRAPH") {
     const checked = validateAdmissionState({
+      repositoryPath: state.repositoryPath,
       source: state.source,
       parentBody: state.parent?.body,
       children: state.children,
+      contextChecks: state.contextChecks,
     });
     problems.push(...checked.problems);
     if (String(state.parent?.id) !== plan.parent) problems.push(issue("PARENT_IDENTITY_DRIFT"));
@@ -523,8 +540,14 @@ function immutableStateProblems(plan, state) {
     } catch (error) {
       problems.push(issue("INVALID_DELIVERY_GRAPH", error instanceof Error ? error.message : String(error)));
     }
-  } else if (String(state.candidate?.id) !== plan.target) {
-    problems.push(issue("CANDIDATE_IDENTITY_DRIFT"));
+  } else {
+    if (String(state.candidate?.id) !== plan.target) problems.push(issue("CANDIDATE_IDENTITY_DRIFT"));
+    problems.push(...verifyCandidateContextChecks({
+      repositoryPath: state.repositoryPath,
+      candidates: state.candidate ? [state.candidate] : [],
+      baseSha: state.source?.baseSha,
+      contextChecks: state.contextChecks,
+    }));
   }
 
   for (const resource of plan.resources ?? []) {
@@ -837,19 +860,23 @@ function planFromOptions(options) {
   if (kind === "STANDALONE") {
     return buildStandaloneAdmissionPlan({
       repo,
+      repositoryPath: state.repositoryPath,
       candidate: state.candidate,
       source: state.source,
       policy: state.policy,
+      contextChecks: state.contextChecks,
       review,
       currentCheckpoint: state.currentCheckpoint,
     });
   }
   return buildAdmissionPlan({
     repo,
+    repositoryPath: state.repositoryPath,
     parent: state.parent,
     source: state.source,
     children: state.children,
     policy: state.policy,
+    contextChecks: state.contextChecks,
     harness: state.harness,
     review,
     currentCheckpoint: state.currentCheckpoint,

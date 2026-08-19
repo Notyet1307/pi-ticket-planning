@@ -54,6 +54,7 @@ const REQUIRED_FILES = [
   "scripts/check-delivery-graph.mjs",
   "scripts/check-docs.mjs",
   "scripts/check-profile.mjs",
+  "scripts/check-ticket-context.mjs",
   "scripts/install-profile.mjs",
   "scripts/workflow-contract.mjs",
   "skills/admit-ticket/SKILL.md",
@@ -118,6 +119,7 @@ export function validatePackage(root) {
     "check:delivery-graph": "node scripts/check-delivery-graph.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
+    "check:ticket-context": "node scripts/check-ticket-context.mjs",
     "check:workflow": "node scripts/workflow-contract.mjs",
     doctor: "node scripts/doctor.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
@@ -274,12 +276,18 @@ export function validatePackage(root) {
     "Scenario coverage: PASS | FAIL",
     "Walking skeleton: PASS | FAIL",
     "Strict-frontier order: PASS | FAIL",
+    "Context authority:",
+    "Context freshness:",
+    "Context conflicts:",
+    "Context anchors:",
+    "Context economy:",
   ]);
   requireTokens(errors, "skills/triage/AGENT-BRIEF.md", triageBrief, [
     "## Starting state",
     "## Invariants and guardrails",
     "## Coverage role",
     "STANDALONE",
+    "## Context anchors",
   ]);
   requireTokens(errors, "skills/to-spec/SKILL.md", toSpec, [
     "PRODUCT_RELEASE",
@@ -297,17 +305,20 @@ export function validatePackage(root) {
     "pi-ticket-planning:delivery-graph:v2",
     "check-delivery-graph.mjs",
     "check-admission-state.mjs",
+    "## Context anchors",
   ]);
   requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
     "pi-ticket-planning:admission-review:v1",
     "pi-ticket-planning:delivery-graph:v2",
     "check-delivery-graph.mjs",
     "check-admission-state.mjs",
+    "check-ticket-context.mjs",
     "pi-ticket-plan admit plan",
     "pi-ticket-plan admit apply",
     "Plan fingerprint",
     "PARTIAL",
     "CONFLICT",
+    "contextChecks",
   ]);
 
   const reviewer = fs.readFileSync(path.join(root, "agents", "ticket-readiness-reviewer.md"), "utf8");
@@ -345,6 +356,15 @@ export function validatePackage(root) {
   requireTokens(errors, "scripts/check-delivery-graph.mjs", graphCheck, [
     "<!-- pi-ticket-planning:delivery-graph:v1 -->",
     "<!-- pi-ticket-planning:delivery-graph:v2 -->",
+  ]);
+
+  const contextCheck = fs.readFileSync(path.join(root, "scripts", "check-ticket-context.mjs"), "utf8");
+  requireTokens(errors, "scripts/check-ticket-context.mjs", contextCheck, [
+    "pi-ticket-planning:ticket-context-check:v1",
+    "TOO_MANY_CONTEXT_ANCHORS",
+    "CONTEXT_ANCHOR_NOT_BLOB",
+    "CONTEXT_CHECK_DIGEST_MISMATCH",
+    "verifyCandidateContextChecks",
   ]);
 
   const installer = fs.readFileSync(path.join(root, "scripts", "install-profile.mjs"), "utf8");

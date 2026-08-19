@@ -16,4 +16,6 @@ Verdict and execution lane are independent: a complete human-only ticket is READ
 
 Wayfinder maps and wayfinder:* decision tickets are planning artifacts. They never receive the executable ready-for-agent label and are never reused as delivery parents. Any source revision, coverage matrix, candidate body, child order, or blocker change requires another admission run.
 
+Harness policy is the effective root repository policy. This gate does not assume nested `AGENTS.md` discovery or scoped precedence.
+
 The label strings used by this repository are defined in docs/agents/triage-labels.md. Tracker-specific relationship operations are defined in docs/agents/issue-tracker.md.

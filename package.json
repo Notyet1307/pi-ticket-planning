@@ -26,6 +26,7 @@
     "check:delivery-graph": "node scripts/check-delivery-graph.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
+    "check:ticket-context": "node scripts/check-ticket-context.mjs",
     "check:behavior-fixtures": "node scripts/check-behavior-fixtures.mjs",
     "check:profile": "node scripts/check-profile.mjs",
     "check:workflow": "node scripts/workflow-contract.mjs",

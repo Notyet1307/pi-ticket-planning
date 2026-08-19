@@ -28,6 +28,18 @@ export function validateBehaviorFixtures(root) {
     if (!liveById.has(id)) errors.push(`missing human-interface live case ${id}`);
   }
   for (const id of [
+    "context-quality-historical-plan-not-authority",
+    "context-quality-stale-root-policy-blocks",
+    "context-quality-context-map-bounded",
+    "context-quality-ticket-anchor-economy",
+    "context-quality-old-accepted-adr-valid",
+    "context-quality-current-target-not-conflict",
+    "context-quality-admission-anchor-drift",
+  ]) {
+    if (!liveById.has(id)) errors.push(`missing Context Quality live case ${id}`);
+    if (!(suites.quarantine?.caseIds ?? []).includes(id)) errors.push(`${id}: Context Quality case must remain quarantined`);
+  }
+  for (const id of [
     "human-interface-candidate-choice-natural",
     "human-interface-interview-consent-natural",
     "human-interface-nondelegable-decision-compact",
