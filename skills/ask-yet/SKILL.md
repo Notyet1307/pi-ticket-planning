@@ -57,6 +57,8 @@ Infer planning depth:
 - `STANDARD`: trusted facts close product behavior, but the work needs a committed Release, Spec, or multiple Tickets.
 - `DISCOVERY`: actor, workflow, value, or behavior remains decision-changing and needs Evidence. Use this when a shorter path is not established.
 
+When reporting the inferred tier, name its durable next unit explicitly: `QUICK` means one standalone Ticket; `STANDARD` means one Release-lite revision and its human Commitment owner. Do not substitute a generic item or an unspecified human.
+
 Set `control_mode` to `CONTROLLED` for security, privacy, credentials, privilege, compliance, destructive migration, high-risk production cutover, irreversible effects, or broad blast radius; otherwise use `NORMAL`. Control mode adds applicable risk gates without changing planning depth or granting authority.
 
 Choose one lane:

@@ -31,7 +31,7 @@ const combinedFixture = combineLiveEvalFixtures(fixture, multiFixture);
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
-  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 300_000);
+  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 420_000);
   const invalidTimeout = structuredClone(fixture);
   invalidTimeout.cases[0].timeoutMs = 0;
   assert.match(validateLiveEvalFixture(invalidTimeout).join("\n"), /timeoutMs must be a positive integer/u);
@@ -70,6 +70,14 @@ test("live PI eval fixture and semantic matcher are valid", () => {
 
   const invalidCheckpoint = card.replace("PRODUCT/OUTCOME", "TRIAGE/MADE_UP");
   assert.match(matchChineseAskYetCard(invalidCheckpoint).join("\n"), /invalid Checkpoint/u);
+});
+
+test("ask-yet names tier artifacts and a bounded model safe default", () => {
+  const skill = fs.readFileSync(path.join(root, "skills/ask-yet/SKILL.md"), "utf8");
+  const releaseLoop = fs.readFileSync(path.join(root, "skills/ask-yet/references/release-loop.md"), "utf8");
+  assert.match(skill, /QUICK[^\n]*standalone Ticket[^\n]*STANDARD[^\n]*Release-lite[^\n]*Commitment owner/u);
+  assert.match(releaseLoop, /model or external AI service[^\n]*safe default[^\n]*(?:non-customer|sanitized)[^\n]*(?:retention|training|invocation)/u);
+  assert.match(releaseLoop, /shadow review[^\n]*AI[^\n]*suggestion drafts[^\n]*human review[^\n]*(?:authoritative facts|write back)/u);
 });
 
 test("live PI reports distinguish semantic, infrastructure, and per-case success rates", () => {
@@ -227,7 +235,7 @@ test("release runner mixes single and multi-turn cases and reports suite identit
 
 test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () => {
   const quick = fixture.cases.find(({ id }) => id === "workflow-tier-quick-local-copy");
-  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票"]) {
+  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票", "形成一个独立 Ticket", "形成一张独立任务单"]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：边界明确，将使用快速路径。",
       `仍然缺少：${ticketPhrase}。`,
@@ -238,12 +246,77 @@ test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () 
 
 test("STANDARD fixture accepts the Chinese Release-lite label", () => {
   const standard = fixture.cases.find(({ id }) => id === "workflow-tier-standard-known-feature");
-  for (const decision of ["负责人的提交决定", "你对该修订的明确提交决定"]) {
+  for (const [release, decision] of [
+    ["一个精确的精简发布修订", "负责人的提交决定"],
+    ["一个精简但可追溯的本轮最小可验证目标修订", "你对该修订的明确提交决定"],
+    ["一个可追溯的“本轮最小可验证目标”精简确切修订", "产品维护者确认值得进入交付"],
+    ["一个精确的“本轮最小可验证目标”简版修订", "产品维护者确认值得进入交付"],
+  ]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：行为已批准，因此走标准路径。",
-      `仍然缺少：一个精确的精简发布修订，以及${decision}。`,
+      `仍然缺少：${release}，以及${decision}。`,
     ].join("\n"), standard.expected), []);
   }
+});
+
+test("published-draft fixture accepts a named owner determining the model boundary", () => {
+  const draft = fixture.cases.find(({ id }) => id === "published-draft-routes-one-evidence-authorization");
+  const base = [
+    "远程草稿未合并，不是交付基线。",
+    "建议默认：仅使用脱敏固定 fixture、非生产环境、零保留、不用于训练。",
+    "请由产品负责人确定模型部署、供应商、数据保留和训练边界。",
+  ];
+  for (const shadowBoundary of ["", "代价是影子观察仍被阻塞。"]) {
+    assert.deepEqual(matchLiveEvalOutput([
+      ...base,
+      shadowBoundary,
+      "Checkpoint: PRODUCT/EVIDENCE · R204/r1 · NEEDS_DECISION",
+    ].filter(Boolean).join("\n"), draft.expected), []);
+  }
+});
+
+test("progressive-status fixture accepts anaphoric and direct recent-event requests", () => {
+  const progressive = multiFixture.cases.find(({ id }) => id === "multiturn-human-interface-progressive-status");
+  const dialogue = progressive.turns.find(({ id }) => id === "dialogue");
+  const resume = progressive.turns.find(({ id }) => id === "resume");
+  assert.deepEqual(matchLiveEvalOutput([
+    "请提供该次交接具体遗漏了什么必需项，以及随后发生了什么可观察后果？",
+    "Checkpoint: PRODUCT/FRAME · R601/r1 · FRAME_CANDIDATE",
+  ].join("\n"), dialogue.expected), []);
+  assert.deepEqual(matchLiveEvalOutput([
+    "请提供最近一次匹配交接的可定位原始记录，能看出遗漏了哪个必填项以及随后的可观察后果；若不存在，请直接说明。",
+    "Checkpoint: PRODUCT/FRAME · R601/r1 · FRAME_CANDIDATE",
+  ].join("\n"), resume.expected), []);
+});
+
+test("exact-write fixture accepts a natural explicit approval request", () => {
+  const review = fixture.cases.find(({ id }) => id === "human-interface-exact-write-review");
+  assert.deepEqual(matchLiveEvalOutput([
+    "R503/r1 将更新为 R503/r2。",
+    "path: docs/product/releases/r503-batch-entry.md",
+    "remote_ref: refs/heads/evidence/r503-interview",
+    "operation: UPDATE",
+    "material_changes: 只记录脱敏 closeout。",
+    "不会改变范围、readiness、Commitment、accepted base、Spec、Tickets 或 Admission。",
+    "不会写入原始回答、客户标识、系统名、IP、账号或凭据。",
+    "请确认：批准按上述精确计划写入 R503/r2。",
+    "Checkpoint: PRODUCT/EVIDENCE · R503/r1 · EVIDENCE_WRITE_AWAITING_APPROVAL",
+  ].join("\n"), review.expected), []);
+});
+
+test("exact-write fixture accepts unchanged invariants and exact-plan execution", () => {
+  const review = fixture.cases.find(({ id }) => id === "human-interface-exact-write-review");
+  assert.deepEqual(matchLiveEvalOutput([
+    "R503/r1 将更新为 R503/r2。",
+    "path: docs/product/releases/r503-batch-entry.md",
+    "remote_ref: refs/heads/evidence/r503-interview",
+    "operation: UPDATE",
+    "material_changes: 无。",
+    "目标、范围、readiness、Commitment、accepted base、Spec、Tickets 和 Admission 均不变。",
+    "不会写入原始回答、客户标识、系统名、IP、账号或凭据。",
+    "请确认：批准按上述完整内容和精确 Git 计划执行 R503/r1 → R503/r2。",
+    "Checkpoint: PRODUCT/EVIDENCE · R503/r1 · EVIDENCE_WRITE_AWAITING_APPROVAL",
+  ].join("\n"), review.expected), []);
 });
 
 test("DISCOVERY fixture accepts a recent concrete experience request", () => {
@@ -266,6 +339,13 @@ test("DELIVERED fixture accepts an equivalent Chinese missing-release fact", () 
   }
 });
 
+test("ADMITTED handoff fixture has no stale triage label", () => {
+  const handoff = fixture.cases.find(({ id }) => id === "admitted-waits-for-harness");
+  const state = handoff.files["evidence/current-delivery-state.md"];
+  assert.match(state, /#21 has ready-for-agent; Admission removed needs-triage/u);
+  assert.doesNotMatch(state, /#21 has ready-for-agent and needs-triage/u);
+});
+
 test("readiness live fixture supplies the exact fresh-review facts", () => {
   const readiness = fixture.cases.find(({ id }) => id === "lifecycle-candidate-passes-readiness");
   const bundle = readiness.files["tracker/review-bundle.md"];
@@ -280,6 +360,12 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
 test("admission live fixture keeps candidate criteria bounded", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
+  const harness = admission.files["tracker/harness-compatibility-r006.md"];
+  const parentCoverage = admission.files["tracker/parent-70-ticket-coverage.md"];
+  assert.match(admission.prompt, /tracker\/parent-70-ticket-coverage\.md/u);
+  assert.match(parentCoverage, /## Ticket coverage[\s\S]*pi-ticket-planning:delivery-graph:v2/u);
+  assert.deepEqual(validateDeliveryGraph(parseDeliveryGraph(parentCoverage)).problems, []);
+  assert.match(harness, /Harness compatibility assertion[\s\S]*identity:[^\n]+[\s\S]*digest:\s*sha256:[a-f0-9]{64}[\s\S]*parentReadyFence:\s*true/u);
   assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
   assert.match(admission.files["tracker/repository-context-recheck-r006.md"], /re-ran[\s\S]*against Git/u);
   const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
@@ -288,6 +374,25 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   const c02 = bundle.match(/## Candidate C02 exact body\n([\s\S]*?)\n## Exact normalized Delivery Graph JSON/u)[1];
   assert.match(c02, /dependency -> `Dependency installation failed\.`[\s\S]*unsupported -> `Unsupported build failure\.` with no link/u);
   assert.doesNotMatch(bundle, /public (?:classify|explain)|public explain-command/u);
+});
+
+test("admission fixture accepts stopping before a missing Plan fingerprint", () => {
+  const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
+  assert.match(admission.prompt, /without an Admission Plan fingerprint|没有 Admission Plan fingerprint 时不得请求确认/u);
+  const prefix = [
+    "Delivery graph contract: PASS",
+    "Scenario coverage: PASS",
+    "Walking skeleton: PASS",
+    "Strict-frontier order: PASS",
+    "C01 | READY | AGENT",
+    "C02 | READY | AGENT",
+  ];
+  for (const stop of [
+    "未生成 Admission Plan fingerprint，不能用 reviewer READY 代替精确确认。尚未请求或执行激活。",
+    "没有 Admission Plan fingerprint，也没有可确认的精确标签变更集；按合同不请求确认。",
+  ]) {
+    assert.deepEqual(matchLiveEvalOutput([...prefix, stop].join("\n"), admission.expected), []);
+  }
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {

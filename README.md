@@ -31,7 +31,7 @@ Requirements:
 - a working PI login/model configuration;
 - GitHub authentication before operating on real Issues.
 
-This README describes current development behavior on `main`. Choose one install channel; `v0.3.1` is the previous stable behavior and does not contain the current-development changes documented here.
+This README tracks current development on `main`. Choose one install channel; use `v0.4.0` for the latest reproducible stable release.
 
 #### Current development (`main`)
 
@@ -42,10 +42,10 @@ cd pi-ticket-planning
 ./install.sh
 ```
 
-#### Latest stable (`v0.3.1`)
+#### Latest stable (`v0.4.0`)
 
 ```sh
-git clone --branch v0.3.1 --depth 1 \
+git clone --branch v0.4.0 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -325,7 +325,7 @@ Latest stable:
 
 ```sh
 git fetch --tags
-git checkout v0.3.1
+git checkout v0.4.0
 ./install.sh
 ```
 

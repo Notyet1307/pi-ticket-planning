@@ -31,7 +31,7 @@ PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求�
 - PI 已具有可用的登录和模型配置；
 - 操作真实 GitHub Issues 前已完成 GitHub 登录。
 
-本 README 描述 `main` 上的当前开发行为。请只选择一个安装通道；`v0.3.1` 是上一稳定版本，不包含本文所述的当前开发变化。
+本 README 跟踪 `main` 上的当前开发行为。请只选择一个安装通道；需要可重现的最新稳定版时使用 `v0.4.0`。
 
 #### 当前开发版（`main`）
 
@@ -42,10 +42,10 @@ cd pi-ticket-planning
 ./install.sh
 ```
 
-#### 最新稳定版（`v0.3.1`）
+#### 最新稳定版（`v0.4.0`）
 
 ```sh
-git clone --branch v0.3.1 --depth 1 \
+git clone --branch v0.4.0 --depth 1 \
   https://github.com/Notyet1307/pi-ticket-planning.git
 cd pi-ticket-planning
 ./install.sh
@@ -325,7 +325,7 @@ git pull --ff-only
 
 ```sh
 git fetch --tags
-git checkout v0.3.1
+git checkout v0.4.0
 ./install.sh
 ```
 

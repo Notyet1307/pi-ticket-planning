@@ -1,6 +1,6 @@
 {
   "name": "pi-ticket-planning",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Profile-only PI package for routing product evidence into committed releases, delivery tickets, and independent ticket admission.",
