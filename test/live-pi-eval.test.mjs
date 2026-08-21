@@ -264,6 +264,21 @@ test("exact-write fixture accepts a natural explicit approval request", () => {
   ].join("\n"), review.expected), []);
 });
 
+test("exact-write fixture accepts unchanged invariants and exact-plan execution", () => {
+  const review = fixture.cases.find(({ id }) => id === "human-interface-exact-write-review");
+  assert.deepEqual(matchLiveEvalOutput([
+    "R503/r1 将更新为 R503/r2。",
+    "path: docs/product/releases/r503-batch-entry.md",
+    "remote_ref: refs/heads/evidence/r503-interview",
+    "operation: UPDATE",
+    "material_changes: 无。",
+    "目标、范围、readiness、Commitment、accepted base、Spec、Tickets 和 Admission 均不变。",
+    "不会写入原始回答、客户标识、系统名、IP、账号或凭据。",
+    "请确认：批准按上述完整内容和精确 Git 计划执行 R503/r1 → R503/r2。",
+    "Checkpoint: PRODUCT/EVIDENCE · R503/r1 · EVIDENCE_WRITE_AWAITING_APPROVAL",
+  ].join("\n"), review.expected), []);
+});
+
 test("DISCOVERY fixture accepts a recent concrete experience request", () => {
   const discovery = fixture.cases.find(({ id }) => id === "workflow-tier-discovery-vague-product");
   assert.deepEqual(matchLiveEvalOutput([
