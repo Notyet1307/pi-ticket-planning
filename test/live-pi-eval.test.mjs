@@ -227,7 +227,7 @@ test("release runner mixes single and multi-turn cases and reports suite identit
 
 test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () => {
   const quick = fixture.cases.find(({ id }) => id === "workflow-tier-quick-local-copy");
-  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票"]) {
+  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票", "形成一个独立 Ticket"]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：边界明确，将使用快速路径。",
       `仍然缺少：${ticketPhrase}。`,
@@ -238,12 +238,30 @@ test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () 
 
 test("STANDARD fixture accepts the Chinese Release-lite label", () => {
   const standard = fixture.cases.find(({ id }) => id === "workflow-tier-standard-known-feature");
-  for (const decision of ["负责人的提交决定", "你对该修订的明确提交决定"]) {
+  for (const [release, decision] of [
+    ["一个精确的精简发布修订", "负责人的提交决定"],
+    ["一个精简但可追溯的本轮最小可验证目标修订", "你对该修订的明确提交决定"],
+  ]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：行为已批准，因此走标准路径。",
-      `仍然缺少：一个精确的精简发布修订，以及${decision}。`,
+      `仍然缺少：${release}，以及${decision}。`,
     ].join("\n"), standard.expected), []);
   }
+});
+
+test("exact-write fixture accepts a natural explicit approval request", () => {
+  const review = fixture.cases.find(({ id }) => id === "human-interface-exact-write-review");
+  assert.deepEqual(matchLiveEvalOutput([
+    "R503/r1 将更新为 R503/r2。",
+    "path: docs/product/releases/r503-batch-entry.md",
+    "remote_ref: refs/heads/evidence/r503-interview",
+    "operation: UPDATE",
+    "material_changes: 只记录脱敏 closeout。",
+    "不会改变范围、readiness、Commitment、accepted base、Spec、Tickets 或 Admission。",
+    "不会写入原始回答、客户标识、系统名、IP、账号或凭据。",
+    "请确认：批准按上述精确计划写入 R503/r2。",
+    "Checkpoint: PRODUCT/EVIDENCE · R503/r1 · EVIDENCE_WRITE_AWAITING_APPROVAL",
+  ].join("\n"), review.expected), []);
 });
 
 test("DISCOVERY fixture accepts a recent concrete experience request", () => {
