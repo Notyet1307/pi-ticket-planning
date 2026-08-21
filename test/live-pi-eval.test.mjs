@@ -284,6 +284,13 @@ test("DELIVERED fixture accepts an equivalent Chinese missing-release fact", () 
   }
 });
 
+test("ADMITTED handoff fixture has no stale triage label", () => {
+  const handoff = fixture.cases.find(({ id }) => id === "admitted-waits-for-harness");
+  const state = handoff.files["evidence/current-delivery-state.md"];
+  assert.match(state, /#21 has ready-for-agent; Admission removed needs-triage/u);
+  assert.doesNotMatch(state, /#21 has ready-for-agent and needs-triage/u);
+});
+
 test("readiness live fixture supplies the exact fresh-review facts", () => {
   const readiness = fixture.cases.find(({ id }) => id === "lifecycle-candidate-passes-readiness");
   const bundle = readiness.files["tracker/review-bundle.md"];
@@ -298,6 +305,8 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
 test("admission live fixture keeps candidate criteria bounded", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
+  const harness = admission.files["tracker/harness-compatibility-r006.md"];
+  assert.match(harness, /Harness compatibility assertion[\s\S]*identity:[^\n]+[\s\S]*digest:\s*sha256:[a-f0-9]{64}[\s\S]*parentReadyFence:\s*true/u);
   assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
   assert.match(admission.files["tracker/repository-context-recheck-r006.md"], /re-ran[\s\S]*against Git/u);
   const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]
