@@ -249,6 +249,7 @@ test("STANDARD fixture accepts the Chinese Release-lite label", () => {
   for (const [release, decision] of [
     ["一个精确的精简发布修订", "负责人的提交决定"],
     ["一个精简但可追溯的本轮最小可验证目标修订", "你对该修订的明确提交决定"],
+    ["一个可追溯的“本轮最小可验证目标”精简确切修订", "产品维护者确认值得进入交付"],
   ]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：行为已批准，因此走标准路径。",
@@ -259,12 +260,32 @@ test("STANDARD fixture accepts the Chinese Release-lite label", () => {
 
 test("published-draft fixture accepts a named owner determining the model boundary", () => {
   const draft = fixture.cases.find(({ id }) => id === "published-draft-routes-one-evidence-authorization");
-  assert.deepEqual(matchLiveEvalOutput([
+  const base = [
     "远程草稿未合并，不是交付基线。",
     "建议默认：仅使用脱敏固定 fixture、非生产环境、零保留、不用于训练。",
     "请由产品负责人确定模型部署、供应商、数据保留和训练边界。",
-    "Checkpoint: PRODUCT/EVIDENCE · R204/r1 · NEEDS_DECISION",
-  ].join("\n"), draft.expected), []);
+  ];
+  for (const shadowBoundary of ["", "代价是影子观察仍被阻塞。"]) {
+    assert.deepEqual(matchLiveEvalOutput([
+      ...base,
+      shadowBoundary,
+      "Checkpoint: PRODUCT/EVIDENCE · R204/r1 · NEEDS_DECISION",
+    ].filter(Boolean).join("\n"), draft.expected), []);
+  }
+});
+
+test("progressive-status fixture accepts anaphoric and direct recent-event requests", () => {
+  const progressive = multiFixture.cases.find(({ id }) => id === "multiturn-human-interface-progressive-status");
+  const dialogue = progressive.turns.find(({ id }) => id === "dialogue");
+  const resume = progressive.turns.find(({ id }) => id === "resume");
+  assert.deepEqual(matchLiveEvalOutput([
+    "请提供该次交接具体遗漏了什么必需项，以及随后发生了什么可观察后果？",
+    "Checkpoint: PRODUCT/FRAME · R601/r1 · FRAME_CANDIDATE",
+  ].join("\n"), dialogue.expected), []);
+  assert.deepEqual(matchLiveEvalOutput([
+    "请提供最近一次匹配交接的可定位原始记录，能看出遗漏了哪个必填项以及随后的可观察后果；若不存在，请直接说明。",
+    "Checkpoint: PRODUCT/FRAME · R601/r1 · FRAME_CANDIDATE",
+  ].join("\n"), resume.expected), []);
 });
 
 test("exact-write fixture accepts a natural explicit approval request", () => {
