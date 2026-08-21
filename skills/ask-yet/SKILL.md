@@ -90,7 +90,7 @@ The human needs to remember only `/skill:ask-yet`. The named package helpers are
 
 ## Render and validate
 
-Before every user-visible response, read [the human interface contract](references/human-interface.md) in full and apply its form-selection order. Use `STATUS` only when the human explicitly asks for state or recovery orientation; a completed read or closeout judgment uses `RESULT`. Preserve every identity, approval subject, limitation, safety control, and recovery boundary owned by the active gate.
+Before every user-visible response, read [the human interface contract](references/human-interface.md) in full and apply its form-selection, direct-action, and first-use explanation rules. Use `STATUS` only when the human explicitly asks for state or recovery orientation; a completed read or closeout judgment uses `RESULT`. Preserve every identity, approval subject, limitation, safety control, and recovery boundary owned by the active gate.
 
 The machine source for lanes, stages, verdicts, legal transitions, required facts, and provenance is `contracts/workflow.json` plus `contracts/authority.json`. Before a state-bearing write or final Checkpoint, read both from `$PI_TICKET_PLANNING_ROOT` and validate the current state, proposed state, and provenance-bearing facts with:
 
