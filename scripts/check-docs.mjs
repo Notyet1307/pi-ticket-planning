@@ -12,7 +12,7 @@ const GUIDE_PAIRS = [
 const GUIDE_FILES = GUIDE_PAIRS.flat();
 const ONBOARDING_FILES = [...README_FILES, ...GUIDE_FILES];
 const REQUIRED_FILES = [...ONBOARDING_FILES, "AGENTS.md", "CHANGELOG.md", "docs/README.md", "fixtures/README.md"];
-const STABLE_TAG = "v0.3.1";
+const STABLE_TAG = "v0.4.0";
 
 function read(root, relative) {
   return fs.readFileSync(path.join(root, relative), "utf8");
@@ -146,11 +146,11 @@ export function validateDocs(root) {
   if (/fixtures?[^。\n]{0,120}(?:是|属于)(?:权威|规范|机器合同)/i.test(corpus)) {
     errors.push("文档声称 fixtures 是规范合同");
   }
-  if (/(?:main[\s\S]{0,120}(?:same|identical)[\s\S]{0,120}v0\.3\.1|v0\.3\.1[\s\S]{0,120}(?:same|identical)[\s\S]{0,120}main)/i.test(corpus)) {
-    errors.push("docs claim main and v0.3.1 have identical behavior");
+  if (/(?:main[\s\S]{0,120}(?:same|identical)[\s\S]{0,120}v0\.4\.0|v0\.4\.0[\s\S]{0,120}(?:same|identical)[\s\S]{0,120}main)/i.test(corpus)) {
+    errors.push("docs claim main and v0.4.0 have identical behavior");
   }
-  if (/(?:main[\s\S]{0,120}(?:相同|一致)[\s\S]{0,120}v0\.3\.1|v0\.3\.1[\s\S]{0,120}(?:相同|一致)[\s\S]{0,120}main)/i.test(corpus)) {
-    errors.push("文档声称 main 与 v0.3.1 行为相同");
+  if (/(?:main[\s\S]{0,120}(?:相同|一致)[\s\S]{0,120}v0\.4\.0|v0\.4\.0[\s\S]{0,120}(?:相同|一致)[\s\S]{0,120}main)/i.test(corpus)) {
+    errors.push("文档声称 main 与 v0.4.0 行为相同");
   }
 
   const pkg = JSON.parse(read(root, "package.json"));
