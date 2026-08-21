@@ -16,6 +16,10 @@ human_action
 
 Preserve them for routing, gates, recovery, and the final Checkpoint, but show only what the current human task needs. A response form is a per-turn presentation inference, not a lane, stage, verdict, artifact field, workflow state, persisted session field, or authority source. Never add `response_mode`, `ui_mode`, or `display_state`, and never ask the human to choose a form.
 
+In Simplified Chinese, when `human_action` requires a reply, begin its action sentence with a direct request such as `请确认`, `请选择`, `请提供`, or `请指定`; address the human instead of beginning with `由 <role>`. A third-person assignment describes responsibility but does not ask the human to act.
+
+Before choosing response density, identify whether that action depends on one product or workflow term not yet explained in the conversation. If so, name and define it in one short ordinary-language sentence and state whether current facts show an existing capability, a candidate protocol, or work not yet implemented. This explanation is part of the current human task, not optional expansion.
+
 The machine state remains governed by `contracts/workflow.json`, `contracts/authority.json`, and `scripts/workflow-contract.mjs`. Presentation cannot legalize a transition, hide an approval target, or weaken a safety boundary.
 
 ## Select one form
@@ -115,7 +119,10 @@ Prefer the human's business terms. In Simplified Chinese use these ordinary phra
 | ADR | 需要长期遵守的技术决定 |
 | accepted base | 已接受的代码基线 |
 | draft ref | 用于保存候选内容的草稿分支 |
+| 影子评审 / 影子观察 / shadow review | AI 在真实流程旁生成建议草稿，由人工评估；权威结果和系统状态保持不变 |
 | blast radius | 影响范围 |
+
+For `影子评审` or `影子观察`, either omit the label or define it in the same sentence with the table wording; a later statement that the shadow activity is paused is not a definition.
 
 Keep internal names in contracts, machine structures, debugging views, exact gates, and the final Checkpoint. Do not repeat the path, blocker, delivery boundary, or one required action in several sections. Describe only the immediately following step, not the whole future workflow. Omit generic filler.
 
@@ -123,7 +130,7 @@ Ask at most one main question. Group no more than three facts only when they are
 
 ## Evidence and high-risk boundaries
 
-Outside live interview consent, when a method is selected, state why the one method can answer the question, what it cannot prove, its appetite and safety boundary, and one authorization or input action. Live consent follows the `DIALOGUE` boundary above and `interview-session.md`: purpose, privacy, withdrawal, applicable durability, and one consent question only. If another method's run is read-only or its required environment is absent, directly ask the human to authorize execution or provide that environment as the sole action; a third-person statement that an executor should run it is not authorization, and a protocol without the direct request is incomplete. Identify a returned original artifact and source class before using its facts. A repository read cannot establish customer behavior or value.
+Outside live interview consent, when a method is selected, state why the one method can answer the question, what it cannot prove, its appetite and safety boundary, and one authorization or input action. Live consent follows the `DIALOGUE` boundary above and `interview-session.md`: purpose, privacy, withdrawal, applicable durability, and one consent question only. If another method's run is read-only or its required environment is absent, ask the human to authorize execution or provide that environment as the sole action; a protocol without this request is incomplete. Identify a returned original artifact and source class before using its facts. A repository read cannot establish customer behavior or value.
 
 For `CONTROLLED`, preserve every applicable authority, protected asset, impact scope, pre-release verification, rollback or recovery, approval owner, staged release, smoke signal, audit evidence, and stop condition. Prefer `REVIEW` when an exact control or production action needs approval. Natural language may compress labels, never controls.
 

@@ -102,6 +102,8 @@ material_changes: []
 
 Show the candidate content or minimum diff in conversation and wait for explicit write approval covering the displayed file and Git operations. Words such as “design”, “review”, “continue”, or content acceptance alone authorize conversation, not mutation. Apply only the approved scopes. For an existing Git target, re-fetch the approved remote draft ref and reread the exact blob before advancing from `FRAME` to `EVIDENCE`; after `COMMITTED`, record the decision and re-fetch the accepted ref to reread the resulting committed blob before `SPEC`. For greenfield, reread the approved local artifact and keep delivery blocked until bootstrap. Never silently rewrite a stable revision.
 
+After successfully publishing or updating a remote draft, do not stop at the Git receipt. Re-read the exact remote ref and blob, then continue in the same invocation to the one open `FRAME` or `EVIDENCE` gate; when a selected Evidence method still lacks authorization or its required environment, make that exact authorization or environment choice the sole next human action and stop without executing it.
+
 A human may grant standing automation approval for one exact target and Release. Reuse it for reversible planning writes and remote draft updates it clearly covers; do not request permission for each file, commit, tracker mutation, or approved draft-ref update. It expires on source, scope, target, policy, or risk drift. It never silently includes credentials, destructive actions, production effects, implementation, merge, or a repository-forbidden operation. Ticket-graph publication and Admission activation retain their own human confirmations.
 
 ### Release-lite for `STANDARD`

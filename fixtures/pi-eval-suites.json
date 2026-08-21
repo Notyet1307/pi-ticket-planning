@@ -14,7 +14,8 @@
     "lifecycle-committed-release-compiles-spec",
     "lifecycle-accepted-spec-compiles-ticket-graph",
     "lifecycle-candidate-passes-readiness",
-    "lifecycle-admission-stops-for-confirmation"
+    "lifecycle-admission-stops-for-confirmation",
+    "published-draft-routes-one-evidence-authorization"
   ],
   "coverage": {
     "human-interface-candidate-choice-natural": [
@@ -32,6 +33,10 @@
     ],
     "method-routing-technical-feasibility-spike": [
       "evidence-method"
+    ],
+    "published-draft-routes-one-evidence-authorization": [
+      "evidence-method",
+      "human-interface"
     ],
     "solution-shaping-greenfield-committed-minimal-boundary": [
       "solution-shaping"
@@ -93,6 +98,7 @@
         "lifecycle-admission-stops-for-confirmation",
         "human-interface-candidate-choice-natural",
         "method-routing-technical-feasibility-spike",
+        "published-draft-routes-one-evidence-authorization",
         "solution-shaping-greenfield-committed-adr-gate",
         "human-interface-exact-write-review",
         "multiturn-human-interface-progressive-status"
@@ -118,7 +124,8 @@
     },
     "isolated-writable": {
       "caseIds": [
-        "multiturn-validation-formal-writeback"
+        "multiturn-validation-formal-writeback",
+        "multiturn-draft-publication-continues-to-evidence"
       ],
       "mutationPolicy": "isolated-allowlist"
     }

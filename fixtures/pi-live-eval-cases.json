@@ -77,6 +77,31 @@
       }
     },
     {
+      "id": "published-draft-routes-one-evidence-authorization",
+      "skill": "ask-yet",
+      "prompt": "R204/r1 候选草稿已经发布。请只读核对候选文件与远端草稿回读记录，然后告诉我唯一下一步；不要合并、实现、创建 Issue、调用模型或修改文件。",
+      "files": {
+        "docs/product/releases/r204-ai-shadow-review.md": "# R204: Operator-reviewed AI shadow draft\n\n## Metadata\n- status: CANDIDATE\n- revision: r1\n- owner: product owner\n- product_stage: FRAME\n- delivery_stage: NOT_STARTED\n\n## Release frame\n- actor_and_trigger: one qualified Operator explicitly requests a draft while reviewing a published deterministic report\n- target_outcome: decide whether bounded AI suggestions reduce review effort without changing authoritative facts\n- smallest_closed_loop: fixed report -> AI draft -> Operator accept, wording edit, substantive correction, or reject -> retain, narrow, or drop the candidate\n- blocking_unknowns: incremental Operator value; approved model deployment, supplier, retention, and training boundary\n\n## Current evidence protocol\n- decision_question: retain, narrow, or drop the bounded AI draft direction\n- selected_method: controlled shadow task observation\n- participant_or_source: one qualified Operator and `fixtures/deterministic-report-v1.json` at SHA-256 `11eae052ade6c6bb576eb1cd134415ac36f39ab63f410db0ea86233b11ff2e81`\n- scope_and_appetite: one report, at most eight UNOBSERVED_ASSET Findings, no production action\n- evidence_to_capture: accept, wording edit, substantive correction, or reject; traceability; review time and explanation\n- pass_threshold: at least 75% accepted or wording-only edited; 100% traceability; zero fabricated statistics, Finding mutation, or external side effect\n- stop_condition: any data-boundary breach, unsupported factual statement, Finding mutation, or external action\n- cannot_establish: general customer value, production safety, long-term adoption, or complete model quality\n- required_environment: UNKNOWN until the product owner chooses one exact model deployment, supplier, retention, and training boundary\n- authorization: NOT_AUTHORIZED\n",
+        "evidence/r204-remote-draft-state.md": "# Fresh remote draft readback\n\nCaptured: 2026-08-20.\n- The human-approved remote draft ref `refs/heads/planning/r204-ai-shadow-review` resolves to commit `2042042042042042042042042042042042042042`.\n- That commit contains the exact regular-file blob for R204/r1 at `docs/product/releases/r204-ai-shadow-review.md`.\n- The draft PR is open against `main`; it is not merged and is not an accepted delivery base.\n- No model invocation, shadow review, implementation, Issue creation, or merge is authorized.\n",
+        "fixtures/deterministic-report-v1.json": "{\"findings\":[{\"evidence\":[\"E-1\"],\"id\":\"F-1\",\"type\":\"UNOBSERVED_ASSET\"}],\"report\":\"deterministic-report-v1\"}\n"
+      },
+      "expected": {
+        "mustMatch": [
+          "(?:未合并|不是交付基线|不代表[^\\n]{0,40}(?:接受|交付))",
+          "^(?:(?!(?:影子评审|影子观察|旁路评审))[\\s\\S])*$|(?=[\\s\\S]{0,900}(?:影子评审|影子观察|旁路评审))(?=[\\s\\S]{0,900}(?:AI|模型))(?=[\\s\\S]{0,900}(?:建议|草稿))(?=[\\s\\S]{0,900}(?:人工|Operator))(?=[\\s\\S]{0,900}(?:权威事实|权威结果|真实流程|系统状态|不接管|不写回|不修改|不改变))",
+          "(?:建议|安全默认|最安全)[^\\n]{0,180}(?:非客户|非生产|脱敏|不保留|零保留|不训练|禁止训练|隔离|本地|不调用|不启动|NOT_AUTHORIZED|保持未授权)",
+          "(?:(?:请|需要你)[^\\n]{0,100}(?:确认|选择|批准|提供|指定|明确)[^\\n]{0,180}(?:模型|部署|供应商|数据保留|训练边界)|你只需要决定：[^\\n]{0,220}(?:模型|部署|供应商|数据保留|训练边界))",
+          "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R204/r1\\s*·\\s*NEEDS_DECISION"
+        ],
+        "mustNotMatch": [
+          "(?:[?？][\\s\\S]*){2}",
+          "(?:发布|推送)[^\\n]{0,120}(?:或|或者)[^\\n]{0,120}(?:影子|模型)",
+          "(?:已开始|已经开始|现已开始)[^\\n]{0,60}(?:模型|影子)",
+          "READY_TO_COMMIT|COMMITTED|/skill:to-spec|ready-for-agent|Checkpoint:\\s*DELIVERY/|Checkpoint:\\s*PRODUCT/FRAME"
+        ]
+      }
+    },
+    {
       "id": "method-routing-interaction-prototype",
       "skill": "ask-yet",
       "prompt": "请只读恢复 R202/r1，只选择能回答当前交互未知的方法，并说明输入、安全和丢弃边界。如果该方法需要写入或参与者，只提出一个授权或环境请求；本轮不要制作原型、写文件或进入交付。",
