@@ -90,7 +90,7 @@
           "(?:未合并|不是交付基线|不代表[^\\n]{0,40}(?:接受|交付))",
           "^(?:(?!(?:影子评审|影子观察|旁路评审))[\\s\\S])*$|(?=[\\s\\S]{0,900}(?:影子评审|影子观察|旁路评审))(?=[\\s\\S]{0,900}(?:AI|模型))(?=[\\s\\S]{0,900}(?:建议|草稿))(?=[\\s\\S]{0,900}(?:人工|Operator))(?=[\\s\\S]{0,900}(?:权威事实|权威结果|真实流程|系统状态|不接管|不写回|不修改|不改变))",
           "(?:建议|安全默认|最安全)[^\\n]{0,180}(?:非客户|非生产|脱敏|不保留|零保留|不训练|禁止训练|隔离|本地|不调用|不启动|NOT_AUTHORIZED|保持未授权)",
-          "(?:(?:请|需要你)[^\\n]{0,100}(?:确认|选择|批准|提供|指定|明确)[^\\n]{0,180}(?:模型|部署|供应商|数据保留|训练边界)|你只需要决定：[^\\n]{0,220}(?:模型|部署|供应商|数据保留|训练边界))",
+          "(?:(?:请|需要你)[^\\n]{0,100}(?:确认|选择|批准|提供|指定|明确|确定)[^\\n]{0,180}(?:模型|部署|供应商|数据保留|训练边界)|你只需要决定：[^\\n]{0,220}(?:模型|部署|供应商|数据保留|训练边界))",
           "Checkpoint:\\s*PRODUCT/EVIDENCE\\s*·\\s*R204/r1\\s*·\\s*NEEDS_DECISION"
         ],
         "mustNotMatch": [
@@ -452,7 +452,7 @@
         "mustMatch": [
           "已经确认：[^\\n]*快速路径",
           "Checkpoint:\\s*TRIAGE/",
-          "(?:STANDALONE|standalone|单票|单(?:张|个).*Ticket|(?:一个|单个|单张)[^\\n]*独立[^\\n]{0,12}(?:票|候选|Ticket)|one.*(?:ticket|candidate))"
+          "(?:STANDALONE|standalone|单票|单(?:张|个).*Ticket|(?:一个|单个|单张|一张)[^\\n]*独立[^\\n]{0,12}(?:票|候选|Ticket|任务单)|one.*(?:ticket|candidate))"
         ],
         "mustNotMatch": [
           "已经确认：[^\\n]*(?:STANDARD|DISCOVERY|CONTROLLED|标准路径|完整发现|受控路径)",
@@ -1006,7 +1006,7 @@
       "skill": "admit-ticket",
       "timeoutMs": 420000,
       "tools": ["read", "grep", "find", "ls", "subagent"],
-      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle、operator-provided Harness compatibility assertion 和每个候选的 raw Ticket Context checker result，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在人工激活确认；不要修改 Issue、标签、关系或文件。",
+      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle、operator-provided Harness compatibility assertion 和每个候选的 raw Ticket Context checker result，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在当前真实激活门禁；没有 Admission Plan fingerprint 时不得请求确认；不要修改 Issue、标签、关系或文件。",
       "files": {
         "tracker/repository-context-recheck-r006.md": "# Private deterministic Admission recheck\n\nThe accepted-base checkout path was resolved privately. `check-admission-state.mjs` re-ran `check-ticket-context.mjs` against Git for C01 and C02; both canonical raw results, body hashes, blob projections, and base SHA match. The path is omitted from reviewer content and Tracker comments.\n",
         "tracker/context-checks-r006.json": "{\"contextChecks\":[{\"candidateId\":\"C01\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}},{\"candidateId\":\"C02\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}]}\nBinding fact: check-admission-state validated both digests, exact body hashes, exact base SHA, and candidate identities.\n",
@@ -1021,7 +1021,7 @@
           "Strict-frontier order[^\\n]*PASS",
           "(?:C01[^\\n]*READY[^\\n]*AGENT|C01(?:(?!C02)[\\s\\S]){0,1200}?Verdict:[^\\n]*READY(?:(?!C02)[\\s\\S]){0,500}?Execution lane:[^\\n]*AGENT)",
           "(?:C02[^\\n]*READY[^\\n]*AGENT|C02[\\s\\S]{0,1200}?Verdict:[^\\n]*READY[\\s\\S]{0,500}?Execution lane:[^\\n]*AGENT)",
-          "(?:(?:确认|confirm)[^\\n]*(?:激活|activation|ready-for-agent)|(?:激活|activation|ready-for-agent)[^\\n]*(?:确认|confirm))"
+          "(?:(?:确认|confirm)[^\\n]*(?:激活|activation|ready-for-agent)|(?:激活|activation|ready-for-agent)[^\\n]*(?:确认|confirm)|(?:未生成|没有|缺少)[^\\n]{0,100}(?:Admission Plan fingerprint|fingerprint)[\\s\\S]{0,260}(?:不能|不得|尚未|不可)[^\\n]{0,100}(?:确认|激活))"
         ],
         "mustNotMatch": [
           "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",

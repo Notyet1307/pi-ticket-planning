@@ -235,7 +235,7 @@ test("release runner mixes single and multi-turn cases and reports suite identit
 
 test("QUICK fixture accepts an equivalent Chinese standalone-ticket phrase", () => {
   const quick = fixture.cases.find(({ id }) => id === "workflow-tier-quick-local-copy");
-  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票", "形成一个独立 Ticket"]) {
+  for (const ticketPhrase of ["形成一个独立候选后准入", "增加一个独立修正票", "形成一个独立 Ticket", "形成一张独立任务单"]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：边界明确，将使用快速路径。",
       `仍然缺少：${ticketPhrase}。`,
@@ -255,6 +255,16 @@ test("STANDARD fixture accepts the Chinese Release-lite label", () => {
       `仍然缺少：${release}，以及${decision}。`,
     ].join("\n"), standard.expected), []);
   }
+});
+
+test("published-draft fixture accepts a named owner determining the model boundary", () => {
+  const draft = fixture.cases.find(({ id }) => id === "published-draft-routes-one-evidence-authorization");
+  assert.deepEqual(matchLiveEvalOutput([
+    "远程草稿未合并，不是交付基线。",
+    "建议默认：仅使用脱敏固定 fixture、非生产环境、零保留、不用于训练。",
+    "请由产品负责人确定模型部署、供应商、数据保留和训练边界。",
+    "Checkpoint: PRODUCT/EVIDENCE · R204/r1 · NEEDS_DECISION",
+  ].join("\n"), draft.expected), []);
 });
 
 test("exact-write fixture accepts a natural explicit approval request", () => {
@@ -338,6 +348,21 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   const c02 = bundle.match(/## Candidate C02 exact body\n([\s\S]*?)\n## Exact normalized Delivery Graph JSON/u)[1];
   assert.match(c02, /dependency -> `Dependency installation failed\.`[\s\S]*unsupported -> `Unsupported build failure\.` with no link/u);
   assert.doesNotMatch(bundle, /public (?:classify|explain)|public explain-command/u);
+});
+
+test("admission fixture accepts stopping before a missing Plan fingerprint", () => {
+  const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
+  assert.match(admission.prompt, /without an Admission Plan fingerprint|没有 Admission Plan fingerprint 时不得请求确认/u);
+  assert.deepEqual(matchLiveEvalOutput([
+    "Delivery graph contract: PASS",
+    "Scenario coverage: PASS",
+    "Walking skeleton: PASS",
+    "Strict-frontier order: PASS",
+    "C01 | READY | AGENT",
+    "C02 | READY | AGENT",
+    "未生成 Admission Plan fingerprint，不能用 reviewer READY 代替精确确认。",
+    "尚未请求或执行激活。",
+  ].join("\n"), admission.expected), []);
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
