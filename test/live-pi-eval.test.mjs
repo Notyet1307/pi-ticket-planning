@@ -31,7 +31,7 @@ const combinedFixture = combineLiveEvalFixtures(fixture, multiFixture);
 
 test("live PI eval fixture and semantic matcher are valid", () => {
   assert.deepEqual(validateLiveEvalFixture(fixture), []);
-  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 300_000);
+  assert.equal(fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation").timeoutMs, 420_000);
   const invalidTimeout = structuredClone(fixture);
   invalidTimeout.cases[0].timeoutMs = 0;
   assert.match(validateLiveEvalFixture(invalidTimeout).join("\n"), /timeoutMs must be a positive integer/u);
@@ -70,6 +70,14 @@ test("live PI eval fixture and semantic matcher are valid", () => {
 
   const invalidCheckpoint = card.replace("PRODUCT/OUTCOME", "TRIAGE/MADE_UP");
   assert.match(matchChineseAskYetCard(invalidCheckpoint).join("\n"), /invalid Checkpoint/u);
+});
+
+test("ask-yet names tier artifacts and a bounded model safe default", () => {
+  const skill = fs.readFileSync(path.join(root, "skills/ask-yet/SKILL.md"), "utf8");
+  const releaseLoop = fs.readFileSync(path.join(root, "skills/ask-yet/references/release-loop.md"), "utf8");
+  assert.match(skill, /QUICK[^\n]*standalone Ticket[^\n]*STANDARD[^\n]*Release-lite[^\n]*Commitment owner/u);
+  assert.match(releaseLoop, /model or external AI service[^\n]*safe default[^\n]*(?:non-customer|sanitized)[^\n]*(?:retention|training|invocation)/u);
+  assert.match(releaseLoop, /shadow review[^\n]*AI[^\n]*suggestion drafts[^\n]*human review[^\n]*(?:authoritative facts|write back)/u);
 });
 
 test("live PI reports distinguish semantic, infrastructure, and per-case success rates", () => {

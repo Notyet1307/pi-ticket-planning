@@ -104,6 +104,10 @@ Show the candidate content or minimum diff in conversation and wait for explicit
 
 After successfully publishing or updating a remote draft, do not stop at the Git receipt. Re-read the exact remote ref and blob, then continue in the same invocation to the one open `FRAME` or `EVIDENCE` gate; when a selected Evidence method still lacks authorization or its required environment, make that exact authorization or environment choice the sole next human action and stop without executing it.
 
+When that choice controls a model or external AI service, recommend one bounded safe default—non-customer or sanitized input, non-production, no retention or training, or no invocation—then ask for the sole deployment, supplier, retention, and training decision without starting the method.
+
+If the selected method is a shadow review, state that AI produces suggestion drafts for human review only and cannot change authoritative facts, workflow state, or write back.
+
 A human may grant standing automation approval for one exact target and Release. Reuse it for reversible planning writes and remote draft updates it clearly covers; do not request permission for each file, commit, tracker mutation, or approved draft-ref update. It expires on source, scope, target, policy, or risk drift. It never silently includes credentials, destructive actions, production effects, implementation, merge, or a repository-forbidden operation. Ticket-graph publication and Admission activation retain their own human confirmations.
 
 ### Release-lite for `STANDARD`

@@ -1004,7 +1004,7 @@
     {
       "id": "lifecycle-admission-stops-for-confirmation",
       "skill": "admit-ticket",
-      "timeoutMs": 300000,
+      "timeoutMs": 420000,
       "tools": ["read", "grep", "find", "ls", "subagent"],
       "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle、operator-provided Harness compatibility assertion 和每个候选的 raw Ticket Context checker result，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在人工激活确认；不要修改 Issue、标签、关系或文件。",
       "files": {
