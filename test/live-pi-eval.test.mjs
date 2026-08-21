@@ -250,6 +250,7 @@ test("STANDARD fixture accepts the Chinese Release-lite label", () => {
     ["一个精确的精简发布修订", "负责人的提交决定"],
     ["一个精简但可追溯的本轮最小可验证目标修订", "你对该修订的明确提交决定"],
     ["一个可追溯的“本轮最小可验证目标”精简确切修订", "产品维护者确认值得进入交付"],
+    ["一个精确的“本轮最小可验证目标”简版修订", "产品维护者确认值得进入交付"],
   ]) {
     assert.deepEqual(matchLiveEvalOutput([
       "已经确认：行为已批准，因此走标准路径。",
@@ -360,6 +361,10 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
   const harness = admission.files["tracker/harness-compatibility-r006.md"];
+  const parentCoverage = admission.files["tracker/parent-70-ticket-coverage.md"];
+  assert.match(admission.prompt, /tracker\/parent-70-ticket-coverage\.md/u);
+  assert.match(parentCoverage, /## Ticket coverage[\s\S]*pi-ticket-planning:delivery-graph:v2/u);
+  assert.deepEqual(validateDeliveryGraph(parseDeliveryGraph(parentCoverage)).problems, []);
   assert.match(harness, /Harness compatibility assertion[\s\S]*identity:[^\n]+[\s\S]*digest:\s*sha256:[a-f0-9]{64}[\s\S]*parentReadyFence:\s*true/u);
   assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
   assert.match(admission.files["tracker/repository-context-recheck-r006.md"], /re-ran[\s\S]*against Git/u);
@@ -374,16 +379,20 @@ test("admission live fixture keeps candidate criteria bounded", () => {
 test("admission fixture accepts stopping before a missing Plan fingerprint", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   assert.match(admission.prompt, /without an Admission Plan fingerprint|没有 Admission Plan fingerprint 时不得请求确认/u);
-  assert.deepEqual(matchLiveEvalOutput([
+  const prefix = [
     "Delivery graph contract: PASS",
     "Scenario coverage: PASS",
     "Walking skeleton: PASS",
     "Strict-frontier order: PASS",
     "C01 | READY | AGENT",
     "C02 | READY | AGENT",
-    "未生成 Admission Plan fingerprint，不能用 reviewer READY 代替精确确认。",
-    "尚未请求或执行激活。",
-  ].join("\n"), admission.expected), []);
+  ];
+  for (const stop of [
+    "未生成 Admission Plan fingerprint，不能用 reviewer READY 代替精确确认。尚未请求或执行激活。",
+    "没有 Admission Plan fingerprint，也没有可确认的精确标签变更集；按合同不请求确认。",
+  ]) {
+    assert.deepEqual(matchLiveEvalOutput([...prefix, stop].join("\n"), admission.expected), []);
+  }
 });
 
 test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
