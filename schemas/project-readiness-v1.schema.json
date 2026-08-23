@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://herdr-harness.invalid/project-readiness-v1.schema.json",
+  "title": "Herdr Harness project readiness receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "generatedAt",
+    "repo",
+    "baseRef",
+    "baseSha",
+    "configDigest",
+    "ok",
+    "providers",
+    "docker",
+    "validation",
+    "delivery",
+    "digest"
+  ],
+  "properties": {
+    "schema": { "const": "herdr-harness:project-readiness:v1" },
+    "generatedAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "repo": { "$ref": "#/$defs/safeText" },
+    "baseRef": { "$ref": "#/$defs/safeText" },
+    "baseSha": { "$ref": "#/$defs/sha" },
+    "configDigest": { "$ref": "#/$defs/digest" },
+    "ok": { "type": "boolean" },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "lanes", "failure"],
+      "properties": {
+        "status": { "enum": ["passed", "failed"] },
+        "lanes": {
+          "type": "array",
+          "prefixItems": [{ "const": "worker" }, { "const": "reviewer" }],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "failure": { "$ref": "#/$defs/nullableFailure" }
+      }
+    },
+    "docker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "failure"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "status": { "enum": ["passed", "failed", "not-required"] },
+        "failure": { "$ref": "#/$defs/nullableFailure" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "validationArgvDigest",
+        "durationMs",
+        "exitCode",
+        "signal",
+        "timeout",
+        "relevantEnvironmentDigest",
+        "sourceSnapshotDigest",
+        "stdout",
+        "stderr",
+        "failure"
+      ],
+      "properties": {
+        "status": { "enum": ["passed", "failed-checks", "infrastructure-error", "not-run"] },
+        "validationArgvDigest": { "$ref": "#/$defs/digest" },
+        "durationMs": { "type": ["integer", "null"], "minimum": 0 },
+        "exitCode": { "type": ["integer", "null"], "minimum": 0 },
+        "signal": { "type": ["string", "null"], "maxLength": 64, "pattern": "^[^\\u0000\\r\\n]*$" },
+        "timeout": { "type": "boolean" },
+        "relevantEnvironmentDigest": { "$ref": "#/$defs/nullableDigest" },
+        "sourceSnapshotDigest": { "$ref": "#/$defs/nullableDigest" },
+        "stdout": { "$ref": "#/$defs/nullableOutput" },
+        "stderr": { "$ref": "#/$defs/nullableOutput" },
+        "failure": { "$ref": "#/$defs/nullableFailure" }
+      }
+    },
+    "delivery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "autoMergeRequested", "inspection", "failure"],
+          "properties": {
+            "status": { "const": "not-required" },
+            "autoMergeRequested": { "const": false },
+            "inspection": { "type": "null" },
+            "failure": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "autoMergeRequested", "inspection", "failure"],
+          "properties": {
+            "status": { "enum": ["passed", "failed"] },
+            "autoMergeRequested": { "const": true },
+            "inspection": { "$ref": "#/$defs/nullableInspection" },
+            "failure": { "$ref": "#/$defs/nullableFailure" }
+          }
+        }
+      ]
+    },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "safeText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000\\r\\n]+$"
+    },
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nullableDigest": {
+      "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "retryable"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "nullableFailure": {
+      "oneOf": [{ "$ref": "#/$defs/failure" }, { "type": "null" }]
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["byteCount", "sha256"],
+      "properties": {
+        "byteCount": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "nullableOutput": {
+      "oneOf": [{ "$ref": "#/$defs/output" }, { "type": "null" }]
+    },
+    "inspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseRefIsDefault",
+        "repositoryAutoMerge",
+        "pullRequestRequired",
+        "strictRequiredStatusChecks",
+        "requiredStatusChecks",
+        "statusCheckSourcesPinned",
+        "bypassActorsPresent",
+        "humanApprovalRequired",
+        "mergeCommitAllowed",
+        "mergeMethodAllowed"
+      ],
+      "properties": {
+        "baseRefIsDefault": { "type": "boolean" },
+        "repositoryAutoMerge": { "type": "boolean" },
+        "pullRequestRequired": { "type": "boolean" },
+        "strictRequiredStatusChecks": { "type": "boolean" },
+        "requiredStatusChecks": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000\\r\\n]+$"
+          }
+        },
+        "statusCheckSourcesPinned": { "type": "boolean" },
+        "bypassActorsPresent": { "type": "boolean" },
+        "humanApprovalRequired": { "type": "boolean" },
+        "mergeCommitAllowed": { "type": "boolean" },
+        "mergeMethodAllowed": { "type": "boolean" }
+      }
+    },
+    "nullableInspection": {
+      "oneOf": [{ "$ref": "#/$defs/inspection" }, { "type": "null" }]
+    }
+  }
+}

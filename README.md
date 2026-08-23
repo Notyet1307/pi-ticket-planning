@@ -272,18 +272,28 @@ npm run check:admission-state -- --input /path/to/admission-bundle.json
 For a GitHub map, prepare and apply an exact Admission transaction through the launcher:
 
 ```sh
+pi-ticket-plan admit readiness \
+  --repo owner/repo --base <exact-accepted-base-sha> \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json \
+  --out /tmp/harness-readiness.json
+
 pi-ticket-plan admit plan \
   --repo owner/repo --parent 90 \
   --review /tmp/review.json --context /tmp/context.json \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json \
   --out /tmp/admission-plan.json
 
 pi-ticket-plan admit apply \
   --plan /tmp/admission-plan.json \
   --expected-fingerprint sha256:<confirmed-plan-hash> \
-  --context /tmp/fresh-context.json
+  --context /tmp/fresh-context.json \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json
 ```
 
-A standalone Ticket uses `--issue 42` instead of `--parent 90`. `plan` is read-only. `apply` accepts only the confirmed snapshot, preserves unrelated labels, records an idempotent Admission comment, and rereads all children before activating a parent. `COMPLETE` is success, `PARTIAL` resumes with the same Plan, and `CONFLICT` requires a new review. A ready label plus the Admission record is the Harness handoff; Admission does not independently inspect the deployed Harness.
+A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMAN` lane omits the Harness flags. `readiness` and `plan` may run disposable project validation but do not mutate Tracker or Harness workflow state. The private Harness config must be mode `0600`. `apply` reruns readiness, accepts only the confirmed stable repo/base/config/validation/gate projection, preserves unrelated labels, records an idempotent Admission comment, and rereads all children before activating a parent. Receipt timestamps, durations, and output digests are transient and never enter the Ticket. `COMPLETE` is success, `PARTIAL` resumes with the same Plan, and `CONFLICT` requires a new review.
 
 Harness claim, execution, review, merge, real enablement, health, and Outcome remain distinct. `ask-yet` runs only when invoked and reconstructs the next gate from authoritative sources; only the Harness may remain resident.
 

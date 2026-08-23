@@ -19,6 +19,7 @@ import {
   buildTicketContextResult,
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
+import { harnessReadiness } from "./readiness-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
@@ -89,11 +90,7 @@ function readyInput() {
       digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       accepted: true,
     },
-    harness: {
-      identity: "HerdrHarness Lite@1111111",
-      digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-      parentReadyFence: true,
-    },
+    harness: harnessReadiness("acme/product", baseSha),
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
@@ -141,6 +138,7 @@ function standaloneInput() {
       digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       accepted: true,
     },
+    harness: harnessReadiness("acme/product", baseSha),
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
@@ -205,9 +203,13 @@ test("Admission Plan fails closed on reviewer or reviewed-body drift", () => {
   closed.children[0].state = "closed";
   assert.throws(() => buildAdmissionPlan(closed), /ISSUE_NOT_OPEN/);
 
-  const missingHarnessAssertion = readyInput();
-  missingHarnessAssertion.harness.parentReadyFence = false;
-  assert.throws(() => buildAdmissionPlan(missingHarnessAssertion), /operator-provided Harness compatibility assertion/);
+  const missingHarnessReceipt = readyInput();
+  delete missingHarnessReceipt.harness.readiness;
+  assert.throws(() => buildAdmissionPlan(missingHarnessReceipt), /executed Harness readiness receipt is required/);
+
+  const unsafeHarnessGate = readyInput();
+  unsafeHarnessGate.harness.readiness.projection.delivery.inspection.bypassActorsPresent = true;
+  assert.throws(() => buildAdmissionPlan(unsafeHarnessGate), /not Admission-safe/);
 });
 
 test("Admission Plan requires the exact activation checkpoint", () => {
@@ -229,6 +231,17 @@ test("standalone QUICK produces one exact Admission Plan", () => {
   assert.deepEqual(plan.operations[1].after, ["ready-for-agent"]);
   assert.deepEqual(validateAdmissionPlan(plan), { ok: true, problems: [] });
   assert.match(plan.operations[0].body, new RegExp(`Plan fingerprint: ${plan.planFingerprint}`));
+});
+
+test("standalone HUMAN work does not require a Harness execution receipt", () => {
+  const human = standaloneInput();
+  human.review.candidates[0].executionLane = "HUMAN";
+  delete human.harness;
+  const plan = buildStandaloneAdmissionPlan(human);
+
+  assert.equal(plan.reviewed.harness, null);
+  assert.deepEqual(plan.resources[0].controlledLabelsAfter, ["ready-for-human"]);
+  assert.deepEqual(validateAdmissionPlan(plan), { ok: true, problems: [] });
 });
 
 test("standalone QUICK rejects a missing or failed Context check", () => {

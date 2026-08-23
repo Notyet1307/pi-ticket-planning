@@ -20,4 +20,6 @@ Harness policy is the effective root repository policy. This gate does not assum
 
 For GitHub/Harness execution, the repository also keeps one tracked executable canonical validation script. The managed GitHub Actions workflow calls only that script. The default branch requires pull requests and strict status checks from a pinned GitHub App, has no Harness bypass or required human approval, permits the Harness merge method, and enables repository auto-merge. Missing or conflicting execution infrastructure blocks Admission; it is never repaired by skipping validation or weakening branch protection.
 
+Before fresh readiness review and again before ready-label apply, Admission executes the configured Harness `project-readiness:v1` command against the exact accepted base. Only its bounded stable repo/base/config, Provider/Docker, validation, and delivery-gate projection enters the private Admission bundle and Plan. Private Harness paths, Docker host, environment, validation output, and credentials never enter the Ticket or Tracker.
+
 The label strings used by this repository are defined in docs/agents/triage-labels.md. Tracker-specific relationship operations are defined in docs/agents/issue-tracker.md.

@@ -15,6 +15,7 @@ import {
   buildTicketContextResult,
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
+import { harnessReadiness } from "./readiness-fixture.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -56,7 +57,7 @@ function input() {
       result: checkTicketContext({ repo: repositoryPath, base: source.baseSha, body: child.body }),
     })),
     policy: { identity: "AGENTS.md@abc", digest: `sha256:${"b".repeat(64)}`, accepted: true },
-    harness: { identity: "HerdrHarness@abc", digest: `sha256:${"c".repeat(64)}`, parentReadyFence: true },
+    harness: harnessReadiness("acme/product", baseSha),
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
@@ -216,23 +217,32 @@ test("Admission apply re-runs Context checks against the accepted-base checkout"
   assert.deepEqual(adapter.mutations, []);
 });
 
-test("Admission apply binds the operator-provided Harness compatibility assertion", () => {
+test("Admission apply binds a fresh stable Harness readiness projection", () => {
   const plan = buildAdmissionPlan(input());
   const drifted = new MemoryAdapter(input());
-  drifted.state.harness.digest = `sha256:${"d".repeat(64)}`;
+  drifted.state.harness.readiness.projection.configDigest = "e".repeat(64);
   const driftResult = apply(plan, drifted);
   assert.equal(driftResult.status, "CONFLICT");
-  assert.equal(driftResult.problems.some(({ code }) => code === "HARNESS_CONTRACT_DRIFT"), true);
-  assert.equal(driftResult.problems.some(({ subject }) => subject === "operator-provided compatibility assertion changed"), true);
+  assert.equal(driftResult.problems.some(({ code }) => code === "HARNESS_READINESS_DRIFT"), true);
   assert.deepEqual(drifted.mutations, []);
 
   const missing = new MemoryAdapter(input());
-  missing.state.harness.parentReadyFence = false;
+  delete missing.state.harness.readiness;
   const missingResult = apply(plan, missing);
   assert.equal(missingResult.status, "CONFLICT");
-  assert.equal(missingResult.problems.some(({ code }) => code === "HARNESS_PARENT_FENCE_UNVERIFIED"), true);
-  assert.equal(missingResult.problems.some(({ subject }) => subject === "operator-provided compatibility assertion missing"), true);
+  assert.equal(missingResult.problems.some(({ code }) => code === "HARNESS_READINESS_UNAVAILABLE"), true);
   assert.deepEqual(missing.mutations, []);
+});
+
+test("Admission apply accepts a new receipt instance with the same stable readiness facts", () => {
+  const plan = buildAdmissionPlan(input());
+  const adapter = new MemoryAdapter(input());
+  adapter.state.harness.readiness.observedAt = new Date(Date.parse(adapter.state.harness.readiness.observedAt) + 1_000).toISOString();
+  adapter.state.harness.readiness.receiptDigest = `sha256:${"9".repeat(64)}`;
+
+  const result = apply(plan, adapter);
+  assert.equal(result.status, "COMPLETE");
+  assert.equal(adapter.state.parent.labels.includes("ready-for-agent"), true);
 });
 
 test("Admission apply never rolls labels back after a Harness claim", () => {
@@ -288,6 +298,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     candidate,
     source: { identity: "accepted-status-behavior", revision: "r1", baseSha },
     policy: { identity: "AGENTS.md@abc", digest: `sha256:${"b".repeat(64)}`, accepted: true },
+    harness: harnessReadiness("acme/product", baseSha),
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
@@ -307,6 +318,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
       repositoryPath,
       source: standalone.source,
       policy: standalone.policy,
+      harness: standalone.harness,
       currentCheckpoint: standalone.currentCheckpoint,
       contextChecks: standalone.contextChecks,
       candidate,

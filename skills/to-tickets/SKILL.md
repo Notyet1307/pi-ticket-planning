@@ -37,6 +37,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - stable source Scenario IDs, closed decisions, real blockers, decision sources, and explicit out-of-scope work;
 - an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
+- when primary verification depends on Docker, Compose, a non-default runtime, or another configured tool, the stable requirement and canonical tracked validation entry are explicit. Live socket, daemon, credential, and machine availability stay out of the Ticket and are proven later by Admission readiness.
 
 Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
 

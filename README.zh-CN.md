@@ -272,18 +272,28 @@ npm run check:admission-state -- --input /path/to/admission-bundle.json
 GitHub 图通过启动器准备和应用 exact Admission transaction：
 
 ```sh
+pi-ticket-plan admit readiness \
+  --repo owner/repo --base <exact-accepted-base-sha> \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json \
+  --out /tmp/harness-readiness.json
+
 pi-ticket-plan admit plan \
   --repo owner/repo --parent 90 \
   --review /tmp/review.json --context /tmp/context.json \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json \
   --out /tmp/admission-plan.json
 
 pi-ticket-plan admit apply \
   --plan /tmp/admission-plan.json \
   --expected-fingerprint sha256:<已确认的-plan-hash> \
-  --context /tmp/fresh-context.json
+  --context /tmp/fresh-context.json \
+  --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
+  --harness-config /private/project.harness.json
 ```
 
-独立 Ticket 使用 `--issue 42` 替换 `--parent 90`。`plan` 完全只读；`apply` 只接受已确认快照，保留无关标签，记录幂等 Admission comment，并在激活 Parent 前重读全部子票。`COMPLETE` 表示成功，`PARTIAL` 用同一 Plan 恢复，`CONFLICT` 必须重新 review。ready label 加 Admission record 才是 Harness handoff；Admission 不会独立探测已部署 Harness。
+独立 Ticket 使用 `--issue 42` 替换 `--parent 90`；复核为 `HUMAN` lane 时不传 Harness 参数。`readiness` 和 `plan` 可能执行 disposable 项目验证，但不会修改 Tracker 或 Harness workflow state；私有 Harness config 必须是 `0600`。`apply` 会重新运行 readiness，只接受与已确认 Plan 相同的稳定 repo/base/config/validation/gate projection，保留无关标签，记录幂等 Admission comment，并在激活 Parent 前重读全部子票。receipt 的时间、duration 和 output digest 都是临时证据，不进入 Ticket。`COMPLETE` 表示成功，`PARTIAL` 用同一 Plan 恢复，`CONFLICT` 必须重新 review。
 
 Harness claim、执行、review、merge、真实启用、健康和 Outcome 是不同事实。`ask-yet` 只在被调用时运行，并从权威来源恢复下一道 Gate；只有 Harness 可以常驻。
 

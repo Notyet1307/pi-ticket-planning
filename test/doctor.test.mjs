@@ -128,7 +128,7 @@ test("profile launcher dispatches doctor help without starting PI", () => {
 test("profile launcher dispatches Admission commands without starting PI", () => {
   const result = spawnSync(path.join(root, "profile", "pi-ticket-plan"), ["admit"], { encoding: "utf8" });
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /usage: plan .* apply --plan/u);
+  assert.match(result.stderr, /usage: readiness .* plan .* apply --plan/u);
 });
 
 test("profile launcher dispatches delivery-gate commands without starting PI", () => {
