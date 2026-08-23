@@ -4,6 +4,7 @@
 
 - Add fingerprinted two-phase GitHub CI and auto-merge gate setup with strict readback.
 - Require an executed exact-base Harness readiness receipt before activating `AGENT` work.
+- Add a cross-repository disposable readiness canary covering environment and merge-gate failures.
 
 ## v0.4.0 - 2026-08-21
 

@@ -312,6 +312,14 @@ npm run verify:ci
 npm run verify
 ```
 
+存在匹配的 Harness checkout 时，运行 disposable 跨仓合同 canary：
+
+```sh
+npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
+```
+
+它使用临时 Git 仓库、bare origin、Harness config、Pi agent directory 和 fake GitHub/Docker/Pi 命令，覆盖一条通过 receipt，以及 gate、Docker、tracked validation environment 缺失，并继续运行 Harness exact-HEAD/auto-merge guard tests。它不会使用真实 Provider、GitHub 仓库、生产 Docker daemon、Issue、label、PR 或 Harness ledger。
+
 Profile 烟测的预期结果是 `profile isolation: ok (27 skills)`。
 
 运行一个 fresh-process live case：

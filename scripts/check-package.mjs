@@ -58,6 +58,7 @@ const REQUIRED_FILES = [
   "scripts/check-docs.mjs",
   "scripts/check-profile.mjs",
   "scripts/check-ticket-context.mjs",
+  "scripts/canary-execution-readiness.mjs",
   "scripts/install-profile.mjs",
   "scripts/readiness-receipt.mjs",
   "scripts/workflow-contract.mjs",
@@ -117,6 +118,7 @@ export function validatePackage(root) {
 
   const expectedScripts = {
     admit: "node scripts/admit.mjs",
+    "canary:execution-readiness": "node scripts/canary-execution-readiness.mjs",
     check: "node scripts/check-package.mjs",
     "check:admission-state": "node scripts/check-admission-state.mjs",
     "check:behavior-fixtures": "node scripts/check-behavior-fixtures.mjs",
@@ -363,6 +365,17 @@ export function validatePackage(root) {
   ]);
   if (deliveryGate.includes("pull_request_target")) errors.push("delivery-gate workflow must not use pull_request_target");
 
+  const readinessCanary = fs.readFileSync(path.join(root, "scripts", "canary-execution-readiness.mjs"), "utf8");
+  requireTokens(errors, "scripts/canary-execution-readiness.mjs", readinessCanary, [
+    "gate-failed",
+    "docker-failed",
+    "validation-environment-failed",
+    "ci-and-ruleset-plan-apply",
+    "ledgerCreated",
+    "controller-ci-recovery.test.js",
+    "delivery-gate.test.mjs",
+  ]);
+
   const setupDelivery = fs.readFileSync(path.join(root, "skills", "setup-delivery-repository", "SKILL.md"), "utf8");
   requireTokens(errors, "skills/setup-delivery-repository/SKILL.md", setupDelivery, [
     "canonical validation script",
@@ -444,6 +457,7 @@ export function validatePackage(root) {
     "scripts/workflow-contract.mjs",
     "scripts/doctor.mjs",
     "scripts/delivery-gate.mjs",
+    "scripts/canary-execution-readiness.mjs",
     "scripts/readiness-receipt.mjs",
     "skills/setup-delivery-repository/issue-tracker-github.md",
   ]) {
