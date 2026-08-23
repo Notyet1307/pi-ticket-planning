@@ -84,7 +84,7 @@ For a split, the system first compiles stable Spec scenarios, then proves every 
 
 ## 8. When work reaches the Harness
 
-Admission cannot be bypassed. It checks the exact source and policy, current Issue body, controlled labels, blockers, graph when present, fresh readiness verdict, and operator-provided Harness compatibility assertion when applicable. A changed Issue or graph requires a new review and Plan.
+Admission cannot be bypassed. It checks the exact source and policy, current Issue body, controlled labels, blockers, graph when present, fresh readiness verdict, and an executed exact-base Harness readiness projection for `AGENT` work. A changed Issue, graph, project config, validation source, or delivery gate requires a new review or Plan.
 
 Only `admit apply` owns ready-label writes. The final ready label plus Admission comment is the configured Harness handoff. The meanings remain distinct:
 

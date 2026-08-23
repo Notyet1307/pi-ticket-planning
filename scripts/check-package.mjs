@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,6 +50,7 @@ const REQUIRED_FILES = [
   "profile/AGENTS.md",
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
+  "schemas/project-readiness-v1.schema.json",
   "scripts/admit.mjs",
   "scripts/delivery-gate.mjs",
   "scripts/check-admission-state.mjs",
@@ -57,6 +59,7 @@ const REQUIRED_FILES = [
   "scripts/check-profile.mjs",
   "scripts/check-ticket-context.mjs",
   "scripts/install-profile.mjs",
+  "scripts/readiness-receipt.mjs",
   "scripts/workflow-contract.mjs",
   "skills/admit-ticket/SKILL.md",
   "skills/ask-yet/SKILL.md",
@@ -283,6 +286,14 @@ export function validatePackage(root) {
     "Context conflicts:",
     "Context anchors:",
     "Context economy:",
+    "Harness readiness projection",
+  ]);
+  requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
+    "herdr-harness:project-readiness:v1",
+    "pi-ticket-plan admit readiness",
+    "--harness-cli",
+    "--harness-config",
+    "stable Harness readiness projection",
   ]);
   requireTokens(errors, "skills/triage/AGENT-BRIEF.md", triageBrief, [
     "## Starting state",
@@ -371,6 +382,19 @@ export function validatePackage(root) {
     "CONTROLLED_LABEL_DRIFT",
     "HARNESS_CLAIM_DETECTED",
     "WRITE_NOT_COMPLETED",
+    "runHarnessReadiness",
+    "HARNESS_READINESS_DRIFT",
+  ]);
+
+  const readinessReceiptScript = fs.readFileSync(path.join(root, "scripts", "readiness-receipt.mjs"), "utf8");
+  const readinessSchema = fs.readFileSync(path.join(root, "schemas", "project-readiness-v1.schema.json"));
+  const readinessSchemaDigest = createHash("sha256").update(readinessSchema).digest("hex");
+  requireTokens(errors, "scripts/readiness-receipt.mjs", readinessReceiptScript, [
+    "herdr-harness:project-readiness:v1",
+    "pi-ticket-planning:harness-readiness:v1",
+    "runHarnessReadiness",
+    "stableHarnessReadiness",
+    readinessSchemaDigest,
   ]);
 
   const graphCheck = fs.readFileSync(path.join(root, "scripts", "check-delivery-graph.mjs"), "utf8");
@@ -420,6 +444,7 @@ export function validatePackage(root) {
     "scripts/workflow-contract.mjs",
     "scripts/doctor.mjs",
     "scripts/delivery-gate.mjs",
+    "scripts/readiness-receipt.mjs",
     "skills/setup-delivery-repository/issue-tracker-github.md",
   ]) {
     const text = fs.readFileSync(path.join(root, relative), "utf8");

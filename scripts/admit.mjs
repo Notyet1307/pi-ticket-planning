@@ -12,6 +12,7 @@ import {
   evaluateMutation,
   evaluateTransition,
 } from "./workflow-contract.mjs";
+import { MAX_RECEIPT_AGE_MS, runHarnessReadiness, stableHarnessReadiness } from "./readiness-receipt.mjs";
 
 const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
 const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1";
@@ -106,6 +107,43 @@ function validateReview(review) {
     && review.graphVerdict === "READY";
 }
 
+function requireHarnessReadiness(harness, repo, baseSha, { fresh = false } = {}) {
+  let stable;
+  try {
+    stable = stableHarnessReadiness(harness);
+  } catch (error) {
+    throw planError(`executed Harness readiness receipt is required: ${error.message}`);
+  }
+  if (stable.projection.repo !== repo || stable.projection.baseSha !== baseSha) {
+    throw planError("executed Harness readiness target differs from the Admission source");
+  }
+  if (fresh) {
+    const age = Date.now() - Date.parse(harness.readiness.observedAt);
+    if (!Number.isFinite(age) || age < -60_000 || age > MAX_RECEIPT_AGE_MS) throw planError("executed Harness readiness receipt is outside the freshness window");
+  }
+  return stable;
+}
+
+function harnessStateProblems(expected, current, repo, baseSha) {
+  const problems = [];
+  let expectedStable;
+  let currentStable;
+  try {
+    expectedStable = requireHarnessReadiness(expected, repo, baseSha);
+  } catch {
+    problems.push(issue("HARNESS_READINESS_PLAN_INVALID"));
+    return problems;
+  }
+  try {
+    currentStable = requireHarnessReadiness(current, repo, baseSha);
+  } catch {
+    problems.push(issue("HARNESS_READINESS_UNAVAILABLE"));
+    return problems;
+  }
+  if (fingerprint(currentStable) !== fingerprint(expectedStable)) problems.push(issue("HARNESS_READINESS_DRIFT"));
+  return problems;
+}
+
 function validateActivationCheckpoint(checkpoint, target, revision, facts) {
   const problems = [];
   if (checkpoint?.stage !== "ADMISSION" || checkpoint?.verdict !== "ACTIVATION_AWAITING_CONFIRMATION") {
@@ -174,13 +212,7 @@ export function buildAdmissionPlan(input) {
   if (!validatePolicy(input.policy)) {
     throw planError("accepted policy identity and sha256 digest are required");
   }
-  if (
-    input.harness?.parentReadyFence !== true
-    || typeof input.harness.identity !== "string"
-    || !SHA256.test(input.harness.digest ?? "")
-  ) {
-    throw planError("operator-provided Harness compatibility assertion (parentReadyFence: true), identity, and sha256 digest are required");
-  }
+  requireHarnessReadiness(input.harness, input.repo, input.source?.baseSha, { fresh: true });
   if (!validateReview(input.review)) {
     throw planError("review is not READY or does not use the fresh reviewer contract");
   }
@@ -308,6 +340,7 @@ export function buildStandaloneAdmissionPlan(input) {
   if (reviewedCandidate?.verdict !== "READY" || !["AGENT", "HUMAN"].includes(reviewedCandidate.executionLane)) {
     throw planError("standalone review must contain one exact READY candidate");
   }
+  if (reviewedCandidate.executionLane === "AGENT") requireHarnessReadiness(input.harness, input.repo, input.source.baseSha, { fresh: true });
 
   const checkpointFacts = {
     "source.unchanged": { value: true, source: "admission-cli" },
@@ -339,6 +372,7 @@ export function buildStandaloneAdmissionPlan(input) {
     },
     contextChecks: input.contextChecks,
     policy: input.policy,
+    harness: reviewedCandidate.executionLane === "AGENT" ? input.harness : null,
     review: input.review,
     currentCheckpoint: input.currentCheckpoint,
   };
@@ -381,6 +415,14 @@ export function validateAdmissionPlan(plan) {
   if (plan.kind === "DELIVERY_GRAPH" && fingerprint(plan.reviewed?.graph) !== plan.graphFingerprint) {
     problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
   }
+  const plannedAgentExecution = plan.kind === "DELIVERY_GRAPH"
+    || plan.reviewed?.review?.candidates?.[0]?.executionLane === "AGENT";
+  if (plannedAgentExecution) problems.push(...harnessStateProblems(
+    plan.reviewed?.harness,
+    plan.reviewed?.harness,
+    plan.repo,
+    plan.reviewed?.source?.baseSha,
+  ));
   const resourceIds = (plan.resources ?? []).map(({ issue: issueId }) => issueId);
   if (new Set(resourceIds).size !== resourceIds.length) problems.push(issue("DUPLICATE_PLAN_RESOURCE"));
   const expectedResourceIds = plan.kind === "DELIVERY_GRAPH"
@@ -529,12 +571,7 @@ function immutableStateProblems(plan, state) {
     });
     problems.push(...checked.problems);
     if (String(state.parent?.id) !== plan.parent) problems.push(issue("PARENT_IDENTITY_DRIFT"));
-    if (fingerprint(state.harness) !== fingerprint(plan.reviewed.harness)) {
-      problems.push(issue("HARNESS_CONTRACT_DRIFT", "operator-provided compatibility assertion changed"));
-    }
-    if (state.harness?.parentReadyFence !== true) {
-      problems.push(issue("HARNESS_PARENT_FENCE_UNVERIFIED", "operator-provided compatibility assertion missing"));
-    }
+    problems.push(...harnessStateProblems(plan.reviewed.harness, state.harness, plan.repo, plan.reviewed.source?.baseSha));
     try {
       if (fingerprint(parseDeliveryGraph(state.parent.body)) !== plan.graphFingerprint) problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
     } catch (error) {
@@ -548,6 +585,9 @@ function immutableStateProblems(plan, state) {
       baseSha: state.source?.baseSha,
       contextChecks: state.contextChecks,
     }));
+    if (plan.reviewed?.review?.candidates?.[0]?.executionLane === "AGENT") {
+      problems.push(...harnessStateProblems(plan.reviewed.harness, state.harness, plan.repo, plan.reviewed.source?.baseSha));
+    }
   }
 
   for (const resource of plan.resources ?? []) {
@@ -807,13 +847,25 @@ export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, con
 
 function parseOptions(argv) {
   const values = new Map();
+  const allowed = new Set([
+    "input", "repo", "parent", "issue", "review", "context", "out", "plan", "expected-fingerprint",
+    "harness-cli", "harness-config", "base",
+  ]);
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
     const value = argv[index + 1];
     if (!key?.startsWith("--") || value === undefined) throw new Error("options must be --name value pairs");
-    values.set(key.slice(2), value);
+    const name = key.slice(2);
+    if (!allowed.has(name)) throw new Error(`unknown option --${name}`);
+    if (values.has(name)) throw new Error(`duplicate option --${name}`);
+    values.set(name, value);
   }
   return values;
+}
+
+function requireOptions(values, allowed, required) {
+  for (const name of values.keys()) if (!allowed.includes(name)) throw new Error(`option --${name} is not valid for this command`);
+  for (const name of required) if (!values.has(name)) throw new Error(`--${name} is required`);
 }
 
 function writeJson(target, value) {
@@ -844,10 +896,26 @@ function readJson(target, name) {
   return JSON.parse(text);
 }
 
+function reviewRequiresHarness(review, target) {
+  return review?.candidates?.some((candidate) => String(candidate.id) === String(target) && candidate.executionLane === "AGENT") === true;
+}
+
+function executeReadiness(options, { repo, source }) {
+  return runHarnessReadiness({
+    harnessCli: options.get("harness-cli"),
+    harnessConfig: options.get("harness-config"),
+    repo,
+    baseSha: source?.baseSha,
+  });
+}
+
 function planFromOptions(options) {
   if (options.has("input")) {
     const input = readJson(options.get("input"), "--input");
-    return input.candidate ? buildStandaloneAdmissionPlan(input) : buildAdmissionPlan(input);
+    const required = input.candidate ? reviewRequiresHarness(input.review, input.candidate.id) : true;
+    return input.candidate
+      ? buildStandaloneAdmissionPlan({ ...input, harness: required ? executeReadiness(options, input) : null })
+      : buildAdmissionPlan({ ...input, harness: executeReadiness(options, input) });
   }
   if (options.has("parent") === options.has("issue")) throw new Error("choose exactly one of --parent or --issue");
   const repo = options.get("repo");
@@ -858,6 +926,7 @@ function planFromOptions(options) {
   const adapter = createGitHubAdapter({ repo, kind, target, context });
   const state = adapter.read();
   if (kind === "STANDALONE") {
+    const required = reviewRequiresHarness(review, state.candidate?.id);
     return buildStandaloneAdmissionPlan({
       repo,
       repositoryPath: state.repositoryPath,
@@ -865,6 +934,7 @@ function planFromOptions(options) {
       source: state.source,
       policy: state.policy,
       contextChecks: state.contextChecks,
+      harness: required ? executeReadiness(options, { repo, source: state.source }) : null,
       review,
       currentCheckpoint: state.currentCheckpoint,
     });
@@ -877,7 +947,7 @@ function planFromOptions(options) {
     children: state.children,
     policy: state.policy,
     contextChecks: state.contextChecks,
-    harness: state.harness,
+    harness: executeReadiness(options, { repo, source: state.source }),
     review,
     currentCheckpoint: state.currentCheckpoint,
   });
@@ -888,12 +958,30 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
   try {
     const [command, ...argv] = process.argv.slice(2);
     const options = parseOptions(argv);
-    if (command === "plan") {
+    if (command === "readiness") {
+      requireOptions(options, ["repo", "base", "harness-cli", "harness-config", "out"], ["repo", "base", "harness-cli", "harness-config"]);
+      preflightJsonTarget(options.get("out"));
+      writeJson(options.get("out"), runHarnessReadiness({
+        harnessCli: options.get("harness-cli"),
+        harnessConfig: options.get("harness-config"),
+        repo: options.get("repo"),
+        baseSha: options.get("base"),
+      }));
+    } else if (command === "plan") {
+      if (options.has("input")) {
+        requireOptions(options, ["input", "harness-cli", "harness-config", "out"], ["input"]);
+      } else {
+        requireOptions(options, ["repo", "parent", "issue", "review", "context", "harness-cli", "harness-config", "out"], ["repo", "review", "context"]);
+      }
       preflightJsonTarget(options.get("out"));
       writeJson(options.get("out"), planFromOptions(options));
     } else if (command === "apply") {
+      requireOptions(options, ["plan", "expected-fingerprint", "context", "harness-cli", "harness-config", "out"], ["plan", "expected-fingerprint", "context"]);
       const plan = readJson(options.get("plan"), "--plan");
       const context = readJson(options.get("context"), "--context");
+      context.harness = plan.reviewed?.harness
+        ? executeReadiness(options, { repo: plan.repo, source: plan.reviewed.source })
+        : null;
       preflightJsonTarget(options.get("out"));
       const adapter = createGitHubAdapter({ repo: plan.repo, kind: plan.kind, target: plan.target, context });
       const result = applyAdmissionPlan(plan, adapter, {
@@ -902,7 +990,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
       writeApplyResult(options.get("out"), result);
       if (result.status !== "COMPLETE") process.exitCode = 1;
     } else {
-      throw new Error("usage: plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE [--out FILE]");
+      throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
     }
   } catch (error) {
     console.error(`ERROR ${error instanceof Error ? error.message : String(error)}`);

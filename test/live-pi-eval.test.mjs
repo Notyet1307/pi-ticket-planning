@@ -354,18 +354,20 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
   assert.match(bundle, /The approved enum is exactly dependency, test, infrastructure, or unsupported/u);
   assert.match(bundle, /Primary command: `npm test -- build-failure-v1`/u);
   assert.match(bundle, /Current blockers: none/u);
+  assert.match(bundle, /Fresh Harness readiness projection[\s\S]*Providers: Worker passed, Reviewer passed[\s\S]*canonical validation: passed[\s\S]*delivery gate: passed/u);
   assert.doesNotMatch(bundle, /public classify/u);
 });
 
 test("admission live fixture keeps candidate criteria bounded", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
-  const harness = admission.files["tracker/harness-compatibility-r006.md"];
+  const harness = admission.files["tracker/harness-readiness-r006.md"];
   const parentCoverage = admission.files["tracker/parent-70-ticket-coverage.md"];
   assert.match(admission.prompt, /tracker\/parent-70-ticket-coverage\.md/u);
   assert.match(parentCoverage, /## Ticket coverage[\s\S]*pi-ticket-planning:delivery-graph:v2/u);
   assert.deepEqual(validateDeliveryGraph(parseDeliveryGraph(parentCoverage)).problems, []);
-  assert.match(harness, /Harness compatibility assertion[\s\S]*identity:[^\n]+[\s\S]*digest:\s*sha256:[a-f0-9]{64}[\s\S]*parentReadyFence:\s*true/u);
+  assert.match(harness, /Harness readiness stable projection[\s\S]*project-readiness:v1[\s\S]*providers: worker=passed, reviewer=passed[\s\S]*validation: status=passed[\s\S]*delivery: status=passed[\s\S]*bypassActorsPresent=false/u);
+  assert.doesNotMatch(harness, /Harness CLI\/config paths[^\n]*(?:shown|included)|Docker host:\s*unix|token|credential:/iu);
   assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
   assert.match(admission.files["tracker/repository-context-recheck-r006.md"], /re-ran[\s\S]*against Git/u);
   const counts = [...bundle.matchAll(/Acceptance criteria:\n((?:- [^\n]+\n)+)Blocked by:/gu)]

@@ -46,6 +46,7 @@ READY additionally requires all of these findings:
 8. The effective root policy contains only stable global rules and does not conflict with accepted code or ADRs through stale implementation detail.
 9. The deterministic `pi-ticket-planning:ticket-context-check:v1` result is PASS and matches the candidate identity, exact body hash, and exact base SHA.
 10. A fresh executor can choose the first correct action directly from the Ticket, repository policy, and bounded anchors.
+11. Every `AGENT` candidate has a current passing Harness readiness projection bound to the reviewed repository/base/config: both Provider lanes, required local Docker, exact-base canonical validation, and the active strict no-bypass GitHub merge gate. A `HUMAN` lane does not borrow or fabricate this execution fact.
 
 An older accepted ADR remains authoritative until a valid supersession, same-concern conflict, missing reviewed-base path, or explicit historical/deprecated status proves otherwise. A current implementation that differs from a COMMITTED target normally describes `current state -> target state`; it is not itself a conflict. Missing or conflicting Context Quality is NEEDS_INFO. Use SPLIT only when the same evidence also proves multiple independent outcomes.
 

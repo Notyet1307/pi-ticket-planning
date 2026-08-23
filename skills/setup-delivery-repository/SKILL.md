@@ -137,6 +137,7 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 - tracker identity and stored tracker configuration agree;
 - required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
 - GitHub/Harness targets pass `pi-ticket-plan doctor --require admission`, including repository auto-merge, strict pinned required checks, zero human approvals, no relevant ruleset bypass, and merge-commit compatibility;
+- the private project Harness config and supported Harness CLI produce a passing exact-base `pi-ticket-plan admit readiness` binding without exposing their paths or raw output;
 - unrelated pre-existing files and changes remain untouched.
 
 For any repository, verify every policy pointer, the equivalent concern-owned Context authority boundary in the effective root policy, configured label, Scenario-coverage rule, and tracker operation. Confirm that no duplicate block, nested-policy assumption, current implementation detail, or accepted code/ADR conflict was introduced. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.

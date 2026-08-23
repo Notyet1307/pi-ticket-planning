@@ -84,7 +84,7 @@ Issue 需要产品塑形时，Candidate Frame、Release、accepted ADR、Deliver
 
 ## 8. 什么时候交给 Harness
 
-Admission 不能绕过。它检查 exact source 和 policy、当前 Issue body、受控标签、blocker、适用的 graph、fresh readiness verdict，以及适用时 operator 提供的 Harness compatibility assertion。Issue 或 graph 变化后，必须重新 review 和生成 Plan。
+Admission 不能绕过。它检查 exact source 和 policy、当前 Issue body、受控标签、blocker、适用的 graph、fresh readiness verdict，以及 `AGENT` 工作真实执行的 exact-base Harness readiness projection。Issue、graph、项目配置、validation source 或 delivery gate 变化后，必须重新 review 或生成 Plan。
 
 只有 `admit apply` 可以写 ready label。最终 ready label 加 Admission comment 才是已配置 Harness 的 handoff。下面含义彼此不同：
 
