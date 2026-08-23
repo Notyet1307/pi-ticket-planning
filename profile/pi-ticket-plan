@@ -38,4 +38,14 @@ if [ "${1-}" = "admit" ]; then
   exec node "$package_root/scripts/admit.mjs" "$@"
 fi
 
+if [ "${1-}" = "delivery-gate" ]; then
+  shift
+  if ! command -v node >/dev/null 2>&1; then
+    echo "FAIL  Node.js — command not found" >&2
+    echo "FIX  Install Node.js >= 22.16.0, then rerun delivery-gate" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/delivery-gate.mjs" "$@"
+fi
+
 exec pi "$@"

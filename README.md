@@ -62,6 +62,33 @@ pi-ticket-plan doctor
 
 The summary checks `Planning`, `Admission`, and `Release` readiness separately. Product shaping can be usable while GitHub Admission is not; for example, a missing ready label does not block an early product conversation. The default exits non-zero only when Planning is blocked. Use `pi-ticket-plan doctor --require admission` before activation or `pi-ticket-plan doctor --require all` for a strict full preflight. Checks report `PASS`, `FAIL`, `FIX`, or `SKIP`.
 
+### Configure the GitHub delivery gate
+
+For a GitHub repository that will use HerdrHarness, first commit one executable, Secret-free canonical validation script. The setup helper uses two fingerprinted phases; neither phase writes a ready label.
+
+```sh
+pi-ticket-plan delivery-gate plan \
+  --repo-path "$PWD" \
+  --validation-script scripts/herdr-validate.sh \
+  --out /tmp/delivery-workflow-plan.json
+
+pi-ticket-plan delivery-gate apply \
+  --plan /tmp/delivery-workflow-plan.json \
+  --expected-fingerprint sha256:CONFIRMED \
+  --repo-path "$PWD"
+```
+
+The first apply creates only `.github/workflows/herdr-delivery-gate.yml`. Review and merge that bootstrap through a feature PR. After its `herdr-delivery-gate` check succeeds on the current default branch, prepare and confirm the external enforcement Plan:
+
+```sh
+pi-ticket-plan delivery-gate plan --repo OWNER/REPOSITORY --out /tmp/delivery-enforcement-plan.json
+pi-ticket-plan delivery-gate apply \
+  --plan /tmp/delivery-enforcement-plan.json \
+  --expected-fingerprint sha256:CONFIRMED
+```
+
+The second apply installs and reads back the active strict ruleset with a pinned check source, zero human approvals, no bypass actors, and force-push/deletion protection before enabling repository auto-merge and merge commits. `COMPLETE` is success; `PARTIAL` rolls forward with the unchanged Plan; `CONFLICT` requires a fresh read and Plan. It never creates the project validation script, stages or publishes the workflow, provisions Secrets, or weakens an existing conflicting rule.
+
 ### Start
 
 Start at the project root because PI scopes sessions by working directory:

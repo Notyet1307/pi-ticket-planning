@@ -62,6 +62,33 @@ pi-ticket-plan doctor
 
 摘要分别检查 `Planning`、`Admission` 和 `Release` 就绪度。产品塑形可用，不代表 GitHub Admission 已经就绪；例如缺少 ready label 不会阻止前期产品对话。默认只有 Planning 被阻断时才以非零状态退出；激活前使用 `pi-ticket-plan doctor --require admission`，严格全量预检使用 `pi-ticket-plan doctor --require all`。检查结果使用 `PASS`、`FAIL`、`FIX` 或 `SKIP`。
 
+### 配置 GitHub 交付门禁
+
+准备交给 HerdrHarness 的 GitHub 仓库必须先提交一个可执行、无 Secret 的 canonical validation script。setup helper 分两个带 fingerprint 的阶段执行，两个阶段都不会写 ready label。
+
+```sh
+pi-ticket-plan delivery-gate plan \
+  --repo-path "$PWD" \
+  --validation-script scripts/herdr-validate.sh \
+  --out /tmp/delivery-workflow-plan.json
+
+pi-ticket-plan delivery-gate apply \
+  --plan /tmp/delivery-workflow-plan.json \
+  --expected-fingerprint sha256:CONFIRMED \
+  --repo-path "$PWD"
+```
+
+第一次 apply 只创建 `.github/workflows/herdr-delivery-gate.yml`。应通过 feature PR 人工复核并合并 bootstrap。当前默认分支上的 `herdr-delivery-gate` check 至少成功一次后，再准备并确认外部 enforcement Plan：
+
+```sh
+pi-ticket-plan delivery-gate plan --repo OWNER/REPOSITORY --out /tmp/delivery-enforcement-plan.json
+pi-ticket-plan delivery-gate apply \
+  --plan /tmp/delivery-enforcement-plan.json \
+  --expected-fingerprint sha256:CONFIRMED
+```
+
+第二次 apply 会先安装并回读 active strict ruleset：check source 固定、人工 approval 为零、没有 bypass actor，同时禁止 force push 和删除默认分支；确认规则生效后才开启 repository auto-merge 与 merge commit。`COMPLETE` 表示成功，`PARTIAL` 使用未变化的 Plan 向前恢复，`CONFLICT` 必须重新读取并生成 Plan。它不会创建项目验证脚本、stage 或发布 workflow、配置 Secret，也不会削弱已有冲突规则。
+
 ### 启动
 
 PI 会按工作目录划分 session，因此从项目根目录启动：

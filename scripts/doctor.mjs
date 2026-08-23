@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectGitHubDeliveryGate } from "./delivery-gate.mjs";
 
 export const PACKAGE_ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."));
 
@@ -330,16 +331,35 @@ function checkIssueCapabilities({ add, invoke, repo }) {
 }
 
 function checkRules({ add, invoke, repo, branch }) {
-  const result = invoke("gh", ["api", `repos/${repo}/rules/branches/${encodeURIComponent(branch)}`]);
-  const rules = parseJsonResult(result);
-  if (!rules.ok || !Array.isArray(rules.value)) {
-    add("Target repository", "WARN", "Default-branch rules", rules.detail);
+  let gate;
+  try {
+    gate = inspectGitHubDeliveryGate({
+      repo,
+      branch,
+      api(endpoint) {
+        const parsed = parseJsonResult(invoke("gh", ["api", endpoint]));
+        if (!parsed.ok) throw new Error(parsed.detail);
+        return parsed.value;
+      },
+    });
+  } catch (error) {
+    add("Target repository", "FAIL", "Harness merge rules", error.message, `Run: pi-ticket-plan delivery-gate plan --repo ${shellQuote(repo)}`);
     return;
   }
-  const types = new Set(rules.value.map((rule) => rule.type));
-  const missing = ["pull_request", "required_status_checks"].filter((type) => !types.has(type));
-  if (missing.length === 0) add("Target repository", "PASS", "Harness merge rules", `${branch} requires PRs and status checks`);
-  else add("Target repository", "WARN", "Harness merge rules", `${branch} lacks active ${missing.join(" and ")}`, `Review: https://github.com/${repo}/settings/rules`);
+  const missing = [];
+  if (!gate.repositoryAutoMerge) missing.push("repository auto-merge");
+  if (!gate.pullRequestRequired) missing.push("pull request rule");
+  if (!gate.strictRequiredStatusChecks) missing.push("strict status checks");
+  if (gate.requiredStatusChecks.length === 0) missing.push("required status check");
+  if (!gate.statusCheckSourcesPinned) missing.push("pinned check source");
+  if (gate.bypassActorsPresent) missing.push("no bypass actors");
+  if (gate.humanApprovalRequired) missing.push("zero human approvals");
+  if (!gate.mergeCommitAllowed || !gate.mergeMethodAllowed) missing.push("merge commit method");
+  if (missing.length === 0) {
+    add("Target repository", "PASS", "Harness merge rules", `${branch} · ${gate.requiredStatusChecks.join(", ")}`);
+  } else {
+    add("Target repository", "FAIL", "Harness merge rules", `missing ${missing.join(", ")}`, `Run: pi-ticket-plan delivery-gate plan --repo ${shellQuote(repo)}`);
+  }
 }
 
 function inspectProfileSource({ packageRoot, profileDir, launcher }) {

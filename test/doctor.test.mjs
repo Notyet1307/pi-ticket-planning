@@ -81,7 +81,29 @@ test("doctor checks a GitHub delivery target and isolates one missing label", ()
         }
         if (key === "gh label list --repo acme/demo --limit 1000 --json name") return ok(JSON.stringify(labels.map((name) => ({ name }))));
         if (key === "gh issue list --repo acme/demo --state all --limit 1 --json number") return ok("[]");
-        if (key === "gh api repos/acme/demo/rules/branches/main") return ok(JSON.stringify([{ type: "pull_request" }, { type: "required_status_checks" }]));
+        if (key === "gh api repos/acme/demo") return ok(JSON.stringify({ allow_auto_merge: true, allow_merge_commit: true }));
+        if (key === "gh api repos/acme/demo/rules/branches/main") return ok(JSON.stringify([
+          {
+            type: "required_status_checks",
+            ruleset_id: 71,
+            parameters: {
+              strict_required_status_checks_policy: true,
+              required_status_checks: [{ context: "verify", integration_id: 15368 }],
+            },
+          },
+          {
+            type: "pull_request",
+            ruleset_id: 71,
+            parameters: {
+              required_approving_review_count: 0,
+              required_reviewers: [],
+              require_code_owner_review: false,
+              require_last_push_approval: false,
+              allowed_merge_methods: ["merge"],
+            },
+          },
+        ]));
+        if (key === "gh api repos/acme/demo/rulesets/71") return ok(JSON.stringify({ enforcement: "active", bypass_actors: [] }));
         throw new Error(`unexpected command: ${key}`);
       },
     });
@@ -107,6 +129,12 @@ test("profile launcher dispatches Admission commands without starting PI", () =>
   const result = spawnSync(path.join(root, "profile", "pi-ticket-plan"), ["admit"], { encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /usage: plan .* apply --plan/u);
+});
+
+test("profile launcher dispatches delivery-gate commands without starting PI", () => {
+  const result = spawnSync(path.join(root, "profile", "pi-ticket-plan"), ["delivery-gate"], { encoding: "utf8" });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /delivery-gate plan .* delivery-gate apply/u);
 });
 
 function profileFixture() {
