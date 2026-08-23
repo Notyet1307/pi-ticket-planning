@@ -30,6 +30,7 @@
     "check:behavior-fixtures": "node scripts/check-behavior-fixtures.mjs",
     "check:profile": "node scripts/check-profile.mjs",
     "check:workflow": "node scripts/workflow-contract.mjs",
+    "canary:execution-readiness": "node scripts/canary-execution-readiness.mjs",
     "doctor": "node scripts/doctor.mjs",
     "delivery-gate": "node scripts/delivery-gate.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",

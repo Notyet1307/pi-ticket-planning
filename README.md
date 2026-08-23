@@ -312,6 +312,14 @@ After installation, verify the live Profile:
 npm run verify
 ```
 
+With the matching Harness checkout available, run the disposable cross-repository contract canary:
+
+```sh
+npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
+```
+
+It uses a temporary Git repository, bare origin, Harness config, Pi agent directory, and fake GitHub/Docker/Pi commands. It exercises one passing receipt plus missing gate, Docker, and tracked validation environment failures, then runs the Harness exact-HEAD/auto-merge guard tests. It does not use a real Provider, GitHub repository, production Docker daemon, Issue, label, PR, or Harness ledger.
+
 The expected Profile smoke result is `profile isolation: ok (27 skills)`.
 
 Run one fresh-process live case with:
