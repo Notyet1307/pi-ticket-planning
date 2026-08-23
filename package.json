@@ -31,6 +31,7 @@
     "check:profile": "node scripts/check-profile.mjs",
     "check:workflow": "node scripts/workflow-contract.mjs",
     "doctor": "node scripts/doctor.mjs",
+    "delivery-gate": "node scripts/delivery-gate.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "install:profile": "node scripts/install-profile.mjs",

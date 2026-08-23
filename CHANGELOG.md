@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add fingerprinted two-phase GitHub CI and auto-merge gate setup with strict readback.
+
 ## v0.4.0 - 2026-08-21
 
 - Make `ask-yet` candidate-first with progressive human responses.

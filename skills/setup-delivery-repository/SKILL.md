@@ -74,12 +74,25 @@ Create `CONTEXT.md` only for real terminology ambiguity and `CONTEXT-MAP.md` onl
 
 Write `docs/agents/delivery-gate.md` from the template. It must establish candidate state, Scenario coverage, walking-skeleton, strict-frontier, fresh review, human confirmation, and execution lanes. Include transactional ready activation and parent-last writes only for GitHub.
 
+### E. GitHub CI and merge gate
+
+For a GitHub repository that will use HerdrHarness, require one tracked, executable, Secret-free canonical validation script. It owns project-specific dependency setup, safe test environment creation, Docker/Compose profiles, validation, and cleanup. Do not infer a command from a package manager, copy an untracked `.env`, or create a language-specific script. If the script is missing, return an ENABLER or `NEEDS_INFO`; do not configure auto-merge.
+
+Delivery-gate setup has two separately approved phases:
+
+1. Run `pi-ticket-plan delivery-gate plan --repo-path <root> --validation-script <repo-relative-script> --out <private-plan>` and show its fingerprint. After confirmation, `delivery-gate apply` creates only `.github/workflows/herdr-delivery-gate.yml`; it never stages, commits, pushes, or overwrites different content. Publish that file through an explicitly approved feature PR and merge the bootstrap manually.
+2. Only after the managed GitHub Actions check succeeds on the current default branch, run `delivery-gate plan --repo OWNER/REPO`. The confirmed enforcement Plan first creates or updates the one active default-branch ruleset with strict pinned status checks, zero human approvals, no bypass actors, no force pushes/deletion, and merge-only compatibility; only after that readback succeeds does it enable repository auto-merge and merge commits. Apply is idempotent, rereads every external write, and rolls forward after a partial result.
+
+Never use `pull_request_target`, provision CI Secrets, add a Harness bypass, disable existing protection, or enable repository auto-merge before the required check exists. Existing unrelated workflows and rulesets remain untouched; a conflicting effective rule is `NEEDS_INFO`, not permission to weaken it.
+
 ## 3. Present one exact mutation plan
 
 For every starting state, determine whether standing automation approval covers the exact reversible operations. Apply covered operations without another interruption. Otherwise show one consolidated plan containing:
 
 - exact files to create or edit and the proposed Agent policy block;
 - exact tracker configuration, missing labels, and capability fallbacks;
+- the managed workflow plan/fingerprint or the exact reason CI bootstrap is not ready;
+- the repository setting and ruleset before/after projections for any enforcement Plan;
 - every external mutation, including repository creation, remote addition, push, and label creation.
 - for an existing GitHub/Harness target, the exact stage, commit, and permitted pre-delivery publication handoff that will put approved configuration into the accepted remote base; the implementation Harness cannot publish its own prerequisite setup.
 
@@ -92,7 +105,7 @@ For `GREENFIELD`, also show:
 
 Stage only authorized paths; never use `git add .`. Preserve every pre-existing file and change outside the approved set. Repository or label creation and push require standing approval that includes those external mutations or one consolidated approval. A required stable policy change is always shown once before it governs later work.
 
-The greenfield plan creates a delivery container only. It contains no application scaffold, language or framework selection, dependency manifest, database, CI, Docker setup, or AI architecture unless a later accepted Delivery Spec explicitly requires them.
+The greenfield plan creates a delivery container only. It contains no application scaffold, language or framework selection, dependency manifest, database, Docker setup, or AI architecture. CI bootstrap is eligible only after a tracked canonical validation script exists and the exact two-phase GitHub mutation Plans above are approved; setup never invents that script or its technology choices.
 
 ## 4. Apply the approved local setup
 
@@ -112,7 +125,7 @@ For `EXISTING`, write only the approved configuration and labels. Do not create 
 
 Create or add a remote and push only after the matching external mutation is approved. Refuse to overwrite a conflicting `origin`. Re-read the remote repository identity after creation or push.
 
-For GitHub, create only missing triage and Wayfinder labels after the repository exists. Do not rename or delete existing labels. If repository creation, push, capability discovery, or label provisioning fails, report the exact partial state and leave setup incomplete.
+For GitHub, create only missing triage and Wayfinder labels after the repository exists. Do not rename or delete existing labels. Apply a delivery-gate Plan only with its confirmed fingerprint and only in its declared phase. If repository creation, push, capability discovery, label provisioning, workflow bootstrap, check observation, or ruleset enforcement fails, report the exact partial state and leave setup incomplete.
 
 ## 6. Verify completion
 
@@ -123,6 +136,7 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 - the effective root policy path and content are known;
 - tracker identity and stored tracker configuration agree;
 - required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
+- GitHub/Harness targets pass `pi-ticket-plan doctor --require admission`, including repository auto-merge, strict pinned required checks, zero human approvals, no relevant ruleset bypass, and merge-commit compatibility;
 - unrelated pre-existing files and changes remain untouched.
 
 For any repository, verify every policy pointer, the equivalent concern-owned Context authority boundary in the effective root policy, configured label, Scenario-coverage rule, and tracker operation. Confirm that no duplicate block, nested-policy assumption, current implementation detail, or accepted code/ADR conflict was introduced. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.

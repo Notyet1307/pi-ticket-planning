@@ -50,6 +50,7 @@ const REQUIRED_FILES = [
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
   "scripts/admit.mjs",
+  "scripts/delivery-gate.mjs",
   "scripts/check-admission-state.mjs",
   "scripts/check-delivery-graph.mjs",
   "scripts/check-docs.mjs",
@@ -122,6 +123,7 @@ export function validatePackage(root) {
     "check:ticket-context": "node scripts/check-ticket-context.mjs",
     "check:workflow": "node scripts/workflow-contract.mjs",
     doctor: "node scripts/doctor.mjs",
+    "delivery-gate": "node scripts/delivery-gate.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     verify: "npm run verify:ci && npm run check:profile",
@@ -336,7 +338,26 @@ export function validatePackage(root) {
     "scripts/doctor.mjs",
     '= "admit"',
     "scripts/admit.mjs",
+    '= "delivery-gate"',
+    "scripts/delivery-gate.mjs",
     'exec pi "$@"',
+  ]);
+
+  const deliveryGate = fs.readFileSync(path.join(root, "scripts", "delivery-gate.mjs"), "utf8");
+  requireTokens(errors, "scripts/delivery-gate.mjs", deliveryGate, [
+    "pi-ticket-planning:delivery-gate-plan:v1",
+    "pi-ticket-planning:delivery-gate-result:v1",
+    "EXPECTED_FINGERPRINT_MISMATCH",
+    "EFFECTIVE_GATE_NOT_READY",
+  ]);
+  if (deliveryGate.includes("pull_request_target")) errors.push("delivery-gate workflow must not use pull_request_target");
+
+  const setupDelivery = fs.readFileSync(path.join(root, "skills", "setup-delivery-repository", "SKILL.md"), "utf8");
+  requireTokens(errors, "skills/setup-delivery-repository/SKILL.md", setupDelivery, [
+    "canonical validation script",
+    "delivery-gate plan",
+    "no bypass actors",
+    "pull_request_target",
   ]);
 
   const admit = fs.readFileSync(path.join(root, "scripts", "admit.mjs"), "utf8");
@@ -398,6 +419,7 @@ export function validatePackage(root) {
     "scripts/admit.mjs",
     "scripts/workflow-contract.mjs",
     "scripts/doctor.mjs",
+    "scripts/delivery-gate.mjs",
     "skills/setup-delivery-repository/issue-tracker-github.md",
   ]) {
     const text = fs.readFileSync(path.join(root, relative), "utf8");

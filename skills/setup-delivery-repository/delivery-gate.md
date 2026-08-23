@@ -18,4 +18,6 @@ Wayfinder maps and wayfinder:* decision tickets are planning artifacts. They nev
 
 Harness policy is the effective root repository policy. This gate does not assume nested `AGENTS.md` discovery or scoped precedence.
 
+For GitHub/Harness execution, the repository also keeps one tracked executable canonical validation script. The managed GitHub Actions workflow calls only that script. The default branch requires pull requests and strict status checks from a pinned GitHub App, has no Harness bypass or required human approval, permits the Harness merge method, and enables repository auto-merge. Missing or conflicting execution infrastructure blocks Admission; it is never repaired by skipping validation or weakening branch protection.
+
 The label strings used by this repository are defined in docs/agents/triage-labels.md. Tracker-specific relationship operations are defined in docs/agents/issue-tracker.md.
