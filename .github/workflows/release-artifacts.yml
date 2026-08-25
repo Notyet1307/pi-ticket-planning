@@ -1,0 +1,57 @@
+name: Build controlled Beta artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      proposal_run_id:
+        description: Exact successful Compatibility proposal workflow run ID
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ptp-release-artifacts
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download and verify qualification
+        run: |
+          mkdir -p '${{ runner.temp }}/ptp-release/input' '${{ runner.temp }}/ptp-release/dist'
+          test "$(gh run view '${{ inputs.proposal_run_id }}' --repo '${{ github.repository }}' --json conclusion,headSha --jq '.conclusion + " " + .headSha')" = "success ${{ github.sha }}"
+          gh run download '${{ inputs.proposal_run_id }}' --repo '${{ github.repository }}' --dir '${{ runner.temp }}/ptp-release/input'
+          qualification="$(find '${{ runner.temp }}/ptp-release/input' -name release-qualification.json -type f | head -n 1)"
+          proposal="$(find '${{ runner.temp }}/ptp-release/input' -name compatibility-proposal.json -type f | head -n 1)"
+          test -n "$qualification" && test -n "$proposal"
+          head="$(jq -r '.headSha' "$qualification")"
+          gh attestation verify "$qualification" -R '${{ github.repository }}' --signer-workflow 'github.com/${{ github.repository }}/.github/workflows/release-qualification.yml' --source-digest "$head"
+          gh attestation verify "$proposal" -R '${{ github.repository }}' --signer-workflow 'github.com/${{ github.repository }}/.github/workflows/compatibility-proposal.yml' --source-digest "$head"
+          npm run release:artifacts -- --qualification "$qualification" --proposal "$proposal" --out '${{ runner.temp }}/ptp-release/dist'
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Verify installable archive without Git
+        run: |
+          archive="$(find '${{ runner.temp }}/ptp-release/dist' -name '*-installable.tar.gz' -type f)"
+          root="$(mktemp -d)"
+          tar -xzf "$archive" -C "$root"
+          cd "$root"
+          npm ci --ignore-scripts --no-audit --no-fund
+          PI_TICKET_PLAN_STATE_DIR="$root/state" node scripts/planctl.mjs case create --target github:artifact/test --case-id PC-artifact --json
+      - uses: actions/attest@v4
+        with:
+          subject-checksums: ${{ runner.temp }}/ptp-release/dist/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: controlled-beta-artifacts-${{ github.sha }}
+          path: ${{ runner.temp }}/ptp-release/dist/*

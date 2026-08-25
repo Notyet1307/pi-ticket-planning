@@ -7,10 +7,12 @@ import { StringDecoder } from "node:string_decoder";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { validateArtifact } from "../protocol/kernel.mjs";
+import { runtimeMetadata } from "../installation/build-metadata.mjs";
 import { inspectLegacyCheckpointForEvaluation } from "./migrate-artifacts.mjs";
+import { finalizeReport, reportMetadata } from "../integration/report.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v3";
+const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v4";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "subagent"]);
 const MULTITURN_TOOLS = new Set([...READ_ONLY_TOOLS, "bash", "edit", "write"]);
 const CHINESE_STATUS_LABELS = ["当前目标：", "已经确认：", "仍然缺少：", "为什么现在不能继续：", "你只需要决定："];
@@ -440,8 +442,11 @@ export function evaluateCaseGate(attempts, caseIds) {
   const flaky = [];
   for (const id of caseIds) {
     const caseAttempts = attempts.filter(({ caseId }) => caseId === id);
-    if (!caseAttempts.some(({ status }) => status === "PASS")) failed.push(id);
-    else if (caseAttempts.some(({ status }) => status !== "PASS")) flaky.push(id);
+    const primary = caseAttempts.filter(({ retryOf }) => retryOf === undefined);
+    const unresolved = primary.filter((attempt) => attempt.status !== "PASS"
+      && !caseAttempts.some(({ retryOf, status }) => retryOf === attempt.attempt && status === "PASS"));
+    if (primary.length === 0 || unresolved.length > 0) failed.push(id);
+    else if (primary.some(({ status }) => status !== "PASS")) flaky.push(id);
   }
   return { passed: failed.length === 0, failed, flaky };
 }
@@ -480,6 +485,7 @@ export async function runLivePiEval({
   retryFailures = 0,
   requireClean = false,
   onProgress = () => {},
+  env = process.env,
   runtime = {},
 }) {
   const selected = selectLiveEvalCases(fixture, { caseId, suite, suiteManifest });
@@ -497,7 +503,7 @@ export async function runLivePiEval({
   const attempts = [];
   const startedAt = new Date().toISOString();
 
-  async function runAttempt(item, round, retryReason = "") {
+  async function runAttempt(item, round, retryReason = "", retryOf) {
     const attemptStarted = Date.now();
     const caseTimeoutMs = item.timeoutMs ?? timeoutMs;
     const isMultiturn = Array.isArray(item.turns);
@@ -512,6 +518,7 @@ export async function runLivePiEval({
     let infraError = "";
     const errors = [];
     let session;
+    let sessionStats = null;
     let sessionIdentity = "UNAVAILABLE";
     const cleanup = {
       session: isMultiturn ? "PENDING" : "NOT_APPLICABLE",
@@ -601,8 +608,8 @@ export async function runLivePiEval({
           id: turn.id,
           index: index + 1,
           status: turnStatus,
-          outputExcerpt: excerpt(output),
-          errors: infraError ? [infraError] : turnErrors,
+          outputExcerpt: excerpt(redact(output)),
+          errors: (infraError ? [infraError] : turnErrors).map(redact),
           observerActions: {
             files: Object.keys(turn.beforeTurn?.files ?? {}),
             mutations: summarizeMutations(observerMutations),
@@ -634,6 +641,7 @@ export async function runLivePiEval({
       infraError = error instanceof Error ? error.message : String(error);
     } finally {
       if (session) {
+        try { sessionStats = await session.stats(); } catch { /* Missing stats remain explicit in the attempt. */ }
         try {
           await session.close();
         } catch (error) {
@@ -653,14 +661,23 @@ export async function runLivePiEval({
       status,
       timeoutMs: caseTimeoutMs,
       durationMs: Date.now() - attemptStarted,
-      errors: [...errors, ...(infraError ? [infraError] : [])],
+      errors: [...errors, ...(infraError ? [infraError] : [])].map(redact),
       sessionIdentity,
       turns: turnReports,
       workspaceMutations: summarizeMutations(allMutations),
       cleanup,
+      usage: sessionStats ? {
+        source: "pi-session-stats",
+        toolCalls: sessionStats.toolCalls,
+        contextTokens: sessionStats.contextUsage?.tokens ?? 0,
+        totalTokens: sessionStats.tokens?.total ?? 0,
+      } : { source: "UNAVAILABLE", toolCalls: 0, contextTokens: 0, totalTokens: 0 },
+      forbiddenWrites: errors.filter((message) => /unauthorized (?:workspace|remote)/u.test(message)).length,
     };
+    if (status === "INFRA_FAIL") attempt.infrastructureCode = classifyInfrastructure(infraError);
     if (retryReason) attempt.retryReason = retryReason;
-    if (status !== "PASS" && outputs.length) attempt.output = outputs.join("\n\n--- next turn ---\n\n");
+    if (retryOf !== undefined) attempt.retryOf = retryOf;
+    if (status !== "PASS" && outputs.length) attempt.output = excerpt(redact(outputs.join("\n\n--- next turn ---\n\n")), 4_000);
     attempts.push(attempt);
     onProgress(`${status} ${item.id}${round > 1 ? ` [attempt ${round}]` : ""}`);
   }
@@ -669,28 +686,37 @@ export async function runLivePiEval({
     for (const item of selected) await runAttempt(item, round);
   }
   for (let retry = 1; retry <= retryFailures; retry += 1) {
-    const failed = new Set(evaluateCaseGate(attempts, selected.map(({ id }) => id)).failed);
-    if (failed.size === 0) break;
-    for (const item of selected.filter(({ id }) => failed.has(id))) {
-      const previous = attempts.findLast(({ caseId: id }) => id === item.id);
-      await runAttempt(item, repeat + retry, `${previous.status}: ${previous.errors.join("; ")}`);
+    const unresolved = attempts.filter((attempt) => attempt.retryOf === undefined && attempt.status !== "PASS"
+      && !attempts.some(({ caseId, retryOf, status }) => caseId === attempt.caseId && retryOf === attempt.attempt && status === "PASS"));
+    if (unresolved.length === 0) break;
+    for (const previous of unresolved) {
+      const item = selected.find(({ id }) => id === previous.caseId);
+      const nextAttempt = Math.max(...attempts.filter(({ caseId }) => caseId === previous.caseId).map(({ attempt }) => attempt)) + 1;
+      await runAttempt(item, nextAttempt, `${previous.status}: ${previous.errors.join("; ")}`, previous.attempt);
     }
   }
 
   const gate = evaluateCaseGate(attempts, selected.map(({ id }) => id));
   const evaluatedFixture = { version: fixture.version, cases: selected };
   const caseIds = selected.map(({ id }) => id);
-  return {
+  const fixtureSha256 = crypto.createHash("sha256").update(JSON.stringify(evaluatedFixture)).digest("hex");
+  const caseSetSha256 = crypto.createHash("sha256").update(JSON.stringify(caseIds)).digest("hex");
+  const [provider, ...modelParts] = model.split("/");
+  return finalizeReport({
     schema: REPORT_SCHEMA,
+    ...reportMetadata({ tier: "L2_REAL_MODEL", provider, model: modelParts.join("/") || model, thinking, env, observedAt: startedAt }),
     source,
-    fixtureSha256: crypto.createHash("sha256").update(JSON.stringify(evaluatedFixture)).digest("hex"),
-    caseSetSha256: crypto.createHash("sha256").update(JSON.stringify(caseIds)).digest("hex"),
+    fixtureSha256,
+    caseSetSha256,
     fixtureCaseIds: caseIds,
     caseCount: selected.length,
-    modelTurns: selected.reduce((total, item) => total + modelTurnCount(item), 0),
+    modelTurns: attempts.reduce((total, attempt) => total + (attempt.turns?.length ?? 1), 0),
+    toolCalls: attempts.reduce((total, attempt) => total + attempt.usage.toolCalls, 0),
+    contextTokens: attempts.reduce((total, attempt) => total + attempt.usage.contextTokens, 0),
+    totalTokens: attempts.reduce((total, attempt) => total + attempt.usage.totalTokens, 0),
+    forbiddenWrites: attempts.reduce((total, attempt) => total + attempt.forbiddenWrites, 0),
+    cleanupFailures: attempts.filter((attempt) => attempt.cleanup.workspace === "FAIL" || attempt.cleanup.session === "FAIL").length,
     caseTypes: selected.map((item) => ({ id: item.id, type: evalCaseType(item) })),
-    model,
-    thinking,
     suite: caseId ? "single" : suite,
     repeat,
     retryFailures,
@@ -699,26 +725,34 @@ export async function runLivePiEval({
     attempts,
     summary: summarizeLiveEvalAttempts(attempts),
     gate,
-  };
+    evidenceDigests: [`sha256:${fixtureSha256}`, `sha256:${caseSetSha256}`],
+  });
 }
 
-export async function createPiRpcSession({ cwd, launcher, model, thinking, timeoutMs, skill, tools, persisted, sessionDir, sessionName }) {
+export async function createPiRpcSession({ cwd, launcher, model, thinking, timeoutMs, skill, tools, persisted, sessionDir, sessionName, resume, extensions = [], sessionEnv = {} }) {
+  if (resume && sessionName) throw new Error("PI resume and session name are mutually exclusive");
+  if (resume) {
+    const metadata = fs.lstatSync(resume.file);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error("PI persisted session file is unsafe");
+    resume = { id: resume.id, file: fs.realpathSync(resume.file) };
+  }
   if (persisted) fs.mkdirSync(sessionDir, { recursive: true });
   const child = spawn(
     launcher,
     [
       "--mode", "rpc",
-      ...(persisted ? ["--session-dir", sessionDir, "--name", sessionName] : ["--no-session"]),
+      ...(resume ? ["--session", resume.file] : persisted ? ["--session-dir", sessionDir, "--name", sessionName] : ["--no-session"]),
       "--offline",
       "--no-approve",
       "--no-context-files",
       "--tools", tools.join(","),
+      ...extensions.flatMap((extension) => ["--extension", extension]),
       "--model", model,
       "--thinking", thinking,
     ],
     {
       cwd,
-      env: { ...process.env, PI_OFFLINE: "1" },
+      env: { ...process.env, ...sessionEnv, PI_OFFLINE: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
@@ -728,6 +762,9 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
   let settleWaiter = null;
   let terminalError = null;
   let closedResult = null;
+  let lastTimeoutControl = null;
+  const subagentResults = [];
+  const subagentCalls = new Map();
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (chunk) => { stderr += chunk; });
   child.once("error", failPending);
@@ -743,6 +780,20 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
     if (message.type === "agent_settled" && settleWaiter) {
       settleWaiter.resolve();
       settleWaiter = null;
+    }
+    const piMessage = message.message ?? message.data?.message;
+    for (const content of piMessage?.content ?? []) {
+      if ((content.type === "toolCall" || content.type === "tool_call") && content.name === "subagent" && content.id) {
+        subagentCalls.set(content.id, { toolCallId: content.id, name: content.name, arguments: structuredClone(content.arguments ?? content.input ?? {}) });
+      }
+    }
+    if (piMessage?.role === "toolResult" && piMessage.toolName === "subagent") {
+      subagentResults.push({
+        toolCall: structuredClone(subagentCalls.get(piMessage.toolCallId) ?? { toolCallId: piMessage.toolCallId, name: "subagent", arguments: null }),
+        toolCallId: piMessage.toolCallId,
+        details: structuredClone(piMessage.details ?? null),
+        isError: piMessage.isError === true,
+      });
     }
     if (message.type === "extension_ui_request" && message.id) {
       child.stdin.write(`${JSON.stringify({ type: "extension_ui_response", id: message.id, cancelled: true })}\n`);
@@ -783,10 +834,20 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
   const terminate = () => {
     if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
   };
-  const timed = (promise, label) => withTimeout(promise, timeoutMs, () => {
-    const error = new Error(`${label} timed out after ${timeoutMs}ms`);
-    failPending(error);
-    terminate();
+  const timed = (promise, label, limit = timeoutMs) => withTimeout(promise, limit, () => {
+    const error = new Error(`${label} timed out after ${limit}ms`);
+    if (child.exitCode === null && !child.stdin.destroyed) {
+      failPending(error);
+      const control = { attempted: true, acknowledged: false, response: null, error: null, promise: null };
+      control.promise = request({ type: "abort" }).then((response) => {
+        control.response = response;
+        control.acknowledged = response?.success === true;
+      }).catch((abortError) => { control.error = abortError instanceof Error ? abortError.message : String(abortError); });
+      lastTimeoutControl = control;
+      setTimeout(terminate, 2_000);
+    } else {
+      failPending(error);
+    }
     return error;
   });
 
@@ -803,7 +864,10 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
 
     const initialState = await timed(request({ type: "get_state" }), "PI session state");
     if (!initialState.success || !initialState.data?.sessionId) throw new Error("PI returned no session identity");
-    if (persisted) assertSessionPath(initialState.data.sessionFile, sessionDir);
+    if (persisted && !resume) assertSessionPath(initialState.data.sessionFile, sessionDir);
+    if (resume && (initialState.data.sessionId !== resume.id || realpathSafe(initialState.data.sessionFile) !== resume.file)) {
+      throw new Error("SESSION_ID_RECREATED_OR_NOT_FOUND");
+    }
     identity = {
       id: initialState.data.sessionId,
       file: initialState.data.sessionFile ?? "",
@@ -821,23 +885,56 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
 
   return {
     identity,
-    async prompt(message) {
+    pid: child.pid,
+    async prompt(message, { turnTimeoutMs = timeoutMs } = {}) {
       if (terminalError) throw terminalError;
       if (settleWaiter) throw new Error("PI session already has a prompt in flight");
       const settled = new Promise((resolve, reject) => { settleWaiter = { resolve, reject }; });
       settled.catch(() => {});
+      const resultOffset = subagentResults.length;
       const accepted = await timed(request({ type: "prompt", message }), "PI prompt acceptance");
       if (!accepted.success) {
         settleWaiter = null;
         throw new Error(`PI rejected prompt: ${JSON.stringify(accepted)}`);
       }
-      await timed(settled, "PI turn");
+      await timed(settled, "PI turn", turnTimeoutMs);
       const last = await timed(request({ type: "get_last_assistant_text" }), "PI assistant response");
       const state = await timed(request({ type: "get_state" }), "PI session state");
       if (!last.success || typeof last.data?.text !== "string") throw new Error("PI returned no final assistant text");
       if (!state.success || state.data?.sessionId !== identity.id) throw new Error("PI session identity changed during case");
-      if (persisted) assertSessionPath(state.data.sessionFile, sessionDir);
-      return { text: last.data.text, state: state.data };
+      if (persisted && !resume) assertSessionPath(state.data.sessionFile, sessionDir);
+      return { text: last.data.text, state: state.data, subagentResults: structuredClone(subagentResults.slice(resultOffset)) };
+    },
+    async entries() {
+      const response = await timed(request({ type: "get_entries" }), "PI session entries");
+      if (!response.success || !Array.isArray(response.data?.entries)) throw new Error("PI returned no session entries");
+      return structuredClone(response.data.entries);
+    },
+    async stats() {
+      const response = await timed(request({ type: "get_session_stats" }), "PI session stats");
+      if (!response.success || !Number.isInteger(response.data?.toolCalls) || !Number.isFinite(response.data?.tokens?.total)) throw new Error("PI returned invalid session statistics");
+      return structuredClone(response.data);
+    },
+    async abort() {
+      const response = await withTimeout(request({ type: "abort" }), 2_000, terminate);
+      if (!response.success) throw new Error("PI abort failed");
+      return response.data ?? null;
+    },
+    async timeoutControl() {
+      if (!lastTimeoutControl) return null;
+      await withTimeout(lastTimeoutControl.promise, 2_500, () => new Error("PI timeout abort acknowledgement missing")).catch(() => {});
+      return {
+        attempted: lastTimeoutControl.attempted,
+        acknowledged: lastTimeoutControl.acknowledged,
+        responseSuccess: lastTimeoutControl.response?.success === true,
+        error: lastTimeoutControl.error,
+      };
+    },
+    isAlive() {
+      try { process.kill(child.pid, 0); return true; } catch { return false; }
+    },
+    async waitForExit(limit = 5_000) {
+      return withTimeout(closed, limit, () => new Error("PI process exit not observed"));
     },
     async close() {
       if (closedByClient) return;
@@ -846,8 +943,19 @@ export async function createPiRpcSession({ cwd, launcher, model, thinking, timeo
       const result = closedResult ?? await withTimeout(closed, 5_000, terminate);
       stopReading();
       if (result.code !== 0) throw terminalError ?? new Error(stderr || `PI exited ${result.code ?? result.signal}`);
+      return { ...result, stderrDigest: crypto.createHash("sha256").update(stderr).digest("hex") };
     },
   };
+}
+
+export function readPiSessionHeader(file) {
+  const resolved = fs.realpathSync(file);
+  const metadata = fs.lstatSync(resolved);
+  if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error("PI child session file is unsafe");
+  const line = fs.readFileSync(resolved, "utf8").split("\n", 1)[0];
+  const header = JSON.parse(line);
+  if (!header?.id || typeof header.id !== "string" || typeof header.cwd !== "string") throw new Error("PI child session header is invalid");
+  return { id: header.id, cwd: header.cwd, parentSession: header.parentSession ?? null, file: resolved, digest: `sha256:${crypto.createHash("sha256").update(fs.readFileSync(resolved)).digest("hex")}` };
 }
 
 function attachJsonlLineReader(stream, onLine) {
@@ -906,6 +1014,25 @@ function redactSessionIdentity(identity) {
   if (!identity) return "UNAVAILABLE";
   const raw = typeof identity === "string" ? identity : `${identity.id ?? ""}\n${identity.file ?? ""}`;
   return `session:${crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12)}`;
+}
+
+function redact(value) {
+  return String(value ?? "")
+    .replace(/(?:authorization:\s*bearer|bearer)\s+[^\s]+/giu, "Bearer [REDACTED]")
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]+)\b/gu, "[REDACTED]")
+    .replace(/\b(token|api[_ -]?key|password|secret)\s*[:=]\s*[^\s,;]+/giu, "$1=[REDACTED]")
+    .replace(/[\u0000-\u001f\u007f]+/gu, " ");
+}
+
+function classifyInfrastructure(value) {
+  const message = String(value ?? "");
+  if (/clean(?:up)? failed|session cleanup|workspace cleanup/iu.test(message)) return "CLEANUP_FAILURE";
+  if (/timed out|timeout/iu.test(message)) return "TIMEOUT";
+  if (/\b(?:401|403)\b|auth(?:entication|orization)?|credential|unauthorized/iu.test(message)) return "PROVIDER_AUTH";
+  if (/fetch failed|network|ECONN|ENOTFOUND|EAI_AGAIN|socket/iu.test(message)) return "NETWORK";
+  if (/invalid JSONL|session identity|command catalog|RPC|protocol/iu.test(message)) return "RPC_PROTOCOL";
+  if (/PI exited|child exit|signal/iu.test(message)) return "CHILD_EXIT";
+  return "UNCLASSIFIED";
 }
 
 function excerpt(output, limit = 1_200) {
@@ -1115,11 +1242,10 @@ function realpathSafe(value) {
 }
 
 function gitState() {
-  const revision = spawnSync("git", ["-C", ROOT, "rev-parse", "HEAD"], { encoding: "utf8" });
   const dirty = spawnSync("git", ["-C", ROOT, "status", "--porcelain"], { encoding: "utf8" });
   return {
-    revision: revision.status === 0 ? revision.stdout.trim() : "UNKNOWN",
-    dirty: dirty.status !== 0 || Boolean(dirty.stdout.trim()),
+    revision: runtimeMetadata({ root: ROOT }).sourceCommit,
+    dirty: dirty.status === 0 ? Boolean(dirty.stdout.trim()) : false,
   };
 }
 

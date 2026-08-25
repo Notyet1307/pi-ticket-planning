@@ -486,7 +486,7 @@ test("Planning Case covers default IDs, Date clocks, valid capabilities, and gen
     expiresAt: later(60 * 60 * 1000),
     pi: { path: "/bin/pi", version: "1", digest: `sha256:${"2".repeat(64)}` },
     subagent: { version: "1" },
-    provider: { name: "provider", model: "model" },
+    provider: { name: "provider", model: "model", thinking: "high" },
     profileDigest: `sha256:${"3".repeat(64)}`,
     harness: null,
     repo: { target: TARGET, baseSha: "a".repeat(40) },

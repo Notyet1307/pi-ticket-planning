@@ -4,6 +4,7 @@ import { MAX_RECEIPT_AGE_MS, stableHarnessReadiness } from "../scripts/readiness
 
 export const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
 export const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1";
+export const REVIEW_AXES = ["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"];
 export const PLAN_KINDS = ["DELIVERY_GRAPH", "STANDALONE"];
 export const CONTROLLED_LABELS = ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human"];
 export const SHA256 = /^sha256:[a-f0-9]{64}$/;
@@ -97,11 +98,28 @@ export function validatePolicy(policy) {
   return policy?.accepted === true && nonEmpty(policy.identity) && SHA256.test(policy.digest ?? "");
 }
 
-export function validateReview(review) {
-  return review?.schema === REVIEW_SCHEMA
+export function validateReviewArtifact(review) {
+  const axes = review?.axes;
+  const candidates = review?.candidates;
+  const completeAxes = axes && Object.keys(axes).sort().join("\n") === [...REVIEW_AXES].sort().join("\n")
+    && REVIEW_AXES.every((name) => ["PASS", "FAIL", "NEEDS_INFO"].includes(axes[name]));
+  const validCandidates = Array.isArray(candidates) && candidates.length > 0
+    && new Set(candidates.map(({ id }) => String(id))).size === candidates.length;
+  const valid = review?.schema === REVIEW_SCHEMA
     && review.reviewer === "ticket-readiness-reviewer"
-    && nonEmpty(review.reviewedAt)
-    && review.graphVerdict === "READY";
+    && Number.isFinite(Date.parse(review.reviewedAt))
+    && nonEmpty(review.source?.identity) && nonEmpty(review.source?.revision) && /^[a-f0-9]{40,64}$/.test(review.source?.baseSha ?? "")
+    && completeAxes && validCandidates
+    && axes.inputBinding === "PASS" && axes.executionLane === "PASS"
+    && ["READY", "NEEDS_INFO"].includes(review.graphVerdict);
+  if (!valid) return false;
+  return review.graphVerdict === "READY"
+    ? REVIEW_AXES.every((name) => axes[name] === "PASS") && candidates.every(({ verdict }) => verdict === "READY")
+    : REVIEW_AXES.some((name) => axes[name] !== "PASS");
+}
+
+export function validateReview(review) {
+  return validateReviewArtifact(review) && review.graphVerdict === "READY";
 }
 
 export function requireHarnessReadiness(harness, repo, baseSha, { fresh = false, now = Date.now() } = {}) {

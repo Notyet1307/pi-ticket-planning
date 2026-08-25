@@ -5,7 +5,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { validateArtifact, validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
+import { validateArtifact, validateArtifactRuntime, validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
+import { runtimeMetadata } from "../installation/build-metadata.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -205,7 +206,7 @@ export function observeStaticCapabilities({ env = process.env } = {}) {
   const docker = executable("docker", env);
   const profile = profileObservation(env);
   const protocol = [validateRegistry(), validateCodeSchemaCoverage(), validateProtocolRules()];
-  const baseSha = gitOutput(["rev-parse", "HEAD"]) || "0".repeat(40);
+  const baseSha = runtimeMetadata({ root: ROOT }).sourceCommit;
   const target = repositoryTarget(env);
   const provider = env.PI_TICKET_PLAN_PROVIDER ?? "UNCONFIGURED";
   const model = env.PI_TICKET_PLAN_MODEL ?? "UNCONFIGURED";
@@ -249,6 +250,19 @@ function activeEvidence(observed, name, value = "PASS") {
   }];
 }
 
+function uniqueJsonBlock(text) {
+  if (typeof text !== "string" || !text.trim()) throw new Error("REVIEW_MACHINE_OUTPUT_MISSING");
+  const candidates = [];
+  try { candidates.push(JSON.parse(text.trim())); } catch { /* Require one fenced JSON block below. */ }
+  if (candidates.length === 0) {
+    for (const match of text.matchAll(/```json\s*\n([\s\S]*?)\n```/gu)) {
+      try { candidates.push(JSON.parse(match[1])); } catch { throw new Error("REVIEW_MACHINE_OUTPUT_INVALID"); }
+    }
+  }
+  if (candidates.length !== 1) throw new Error("REVIEW_MACHINE_OUTPUT_NOT_UNIQUE");
+  return candidates[0];
+}
+
 async function defaultActiveProbe(observed, { env }) {
   const results = new Map(RUNTIME_NAMES.map((name) => [name, {
     name,
@@ -282,6 +296,9 @@ async function defaultActiveProbe(observed, { env }) {
     let toolSession;
     let reviewerSession;
     let namedSession;
+    let resumedSession;
+    let timeoutSession;
+    let timeoutEvidence = null;
     try {
       const { createPiRpcSession } = await import("../scripts/eval-pi-behavior.mjs");
       toolSession = await createPiRpcSession({
@@ -298,14 +315,11 @@ async function defaultActiveProbe(observed, { env }) {
       });
       const toolResult = await toolSession.prompt(`Use the read tool on capability-probe.txt, then reply with the exact token from that file and nothing else.`);
       results.set("pi.session", { name: "pi.session", status: "SUPPORTED", reasonCode: "ACTIVE_SESSION_PASS", evidence: activeEvidence(observed, "pi.session", toolSession.identity.id) });
-      results.set("subagent.final-result", typeof toolResult.text === "string" && toolResult.text.length > 0
-        ? { name: "subagent.final-result", status: "SUPPORTED", reasonCode: "FINAL_TEXT_RETURNED", evidence: activeEvidence(observed, "subagent.final-result", toolResult.text) }
-        : { name: "subagent.final-result", status: "BLOCKED", reasonCode: "FINAL_TEXT_MISSING", evidence: [] });
-      results.set("tool-calling", toolResult.text.includes(token)
+      results.set("tool-calling", toolResult.text.trim() === token
         ? { name: "tool-calling", status: "SUPPORTED", reasonCode: "READ_TOOL_PROBE_PASS", evidence: activeEvidence(observed, "tool-calling", token) }
         : { name: "tool-calling", status: "BLOCKED", reasonCode: "READ_TOOL_PROBE_FAIL", evidence: [] });
 
-      const { createAdmissionReviewInput, materializeAdmissionReviewInput } = await import("../admission/review-transport.mjs");
+      const { captureAdmissionReviewInput, createAdmissionReviewInput, materializeAdmissionReviewInput } = await import("../admission/review-transport.mjs");
       const reviewedAt = new Date().toISOString();
       const reviewInput = createAdmissionReviewInput({
         repo: observed.target.startsWith("github:") ? observed.target.slice("github:".length) : "capability/probe",
@@ -337,18 +351,67 @@ async function defaultActiveProbe(observed, { env }) {
         sessionDir: "",
         sessionName: "capability-reviewer",
       });
-      const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, fresh context, no artifacts, no mission, and acceptance disabled. Give the child only this transport descriptor and ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
-      const fresh = reviewerSession.identity.id !== toolSession.identity.id;
-      const hasSchema = reviewerResult.text.includes("pi-ticket-planning:admission-review:v1")
-        && reviewerResult.text.includes(descriptor.binding.inputDigest);
+      const expectedAxes = { candidateReadiness: "NEEDS_INFO", contextQuality: "NEEDS_INFO", deliveryGraph: "NEEDS_INFO", scenarioCoverage: "NEEDS_INFO", walkingSkeleton: "NEEDS_INFO", strictFrontier: "NEEDS_INFO", executionLane: "PASS", inputBinding: "PASS" };
+      const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, context fresh, artifacts false, mission false, and omitted acceptance. Give the child only this transport descriptor as the end of its task, ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, echo the exact source and all eight axes ${JSON.stringify(expectedAxes)}, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
+      const evidence = reviewerResult.subagentResults;
+      const childTool = evidence.length === 1 ? evidence[0] : null;
+      const child = childTool?.details?.mode === "single" && childTool.details.results?.length === 1 ? childTool.details.results[0] : null;
+      const call = childTool?.toolCall?.arguments;
+      const childHeader = child?.sessionFile ? (await import("../scripts/eval-pi-behavior.mjs")).readPiSessionHeader(child.sessionFile) : null;
+      const finalResult = child && typeof child.finalOutput === "string" ? child.finalOutput : null;
+      const finalEvent = Boolean(childTool && !childTool.isError && childTool.details.runId && child?.index === 0
+        && child.agent === "ticket-readiness-reviewer" && child.exitCode === 0 && child.processSignal === null
+        && child.timedOut === false && child.interrupted === false && finalResult && childHeader?.id && fs.realpathSync(childHeader.cwd) === fs.realpathSync(reviewDirectory));
+      results.set("subagent.final-result", finalEvent
+        ? { name: "subagent.final-result", status: "SUPPORTED", reasonCode: "CHILD_FINAL_EVENT_PASS", evidence: activeEvidence(observed, "subagent.final-result", `${childTool.details.runId}:${childHeader.id}`) }
+        : { name: "subagent.final-result", status: "BLOCKED", reasonCode: "CHILD_FINAL_EVENT_MISSING", evidence: [] });
+      let review = null;
+      try { review = uniqueJsonBlock(finalResult); } catch { /* Project to BLOCKED below. */ }
+      const reviewStructure = review ? await validateArtifactRuntime(review) : { ok: false };
+      const hasSchema = reviewStructure.ok
+        && review.reviewedAt === reviewedAt
+        && JSON.stringify(canonical(review.source)) === JSON.stringify(canonical(reviewInput.source))
+        && JSON.stringify(canonical(review.axes)) === JSON.stringify(canonical(expectedAxes))
+        && review.graphVerdict === "NEEDS_INFO"
+        && review.candidates?.length === 1
+        && review.candidates[0].id === "CAPABILITY-1"
+        && review.candidates[0].verdict === "NEEDS_INFO"
+        && review.candidates[0].executionLane === "HUMAN"
+        && JSON.stringify(canonical(review.inputBinding)) === JSON.stringify(canonical(descriptor.binding));
+      let heldInputOnly = false;
+      try { heldInputOnly = captureAdmissionReviewInput(reviewDirectory).binding.inputDigest === descriptor.binding.inputDigest; } catch { /* Project to BLOCKED. */ }
+      const extensionPath = path.join(ROOT, "extensions", "ticket-readiness-read-guard.mjs");
+      const launchExtensions = child?.launchResolvedExtensions;
+      const capabilityAudit = child?.capabilityAudit;
+      const isolatedTools = capabilityAudit?.effectiveTools?.length === 1 && capabilityAudit.effectiveTools[0] === "read"
+        && capabilityAudit.extensionsDenied === false;
+      const isolatedExtensions = launchExtensions?.disableAmbientExtensions === true
+        && launchExtensions.effective?.length === 1
+        && fs.realpathSync(launchExtensions.effective[0]) === fs.realpathSync(extensionPath)
+        && child.runtimeAcknowledgedExtensions?.ids?.length >= 1;
+      const fresh = finalEvent
+        && call?.agent === "ticket-readiness-reviewer"
+        && call?.context === "fresh"
+        && call?.async === false
+        && call?.artifacts === false
+        && call?.mission === false
+        && call?.acceptance === undefined
+        && typeof call?.task === "string" && call.task.endsWith(JSON.stringify(descriptor))
+        && child.context === "fresh"
+        && JSON.stringify(child.skills) === JSON.stringify(["ticket-readiness"])
+        && child.acceptance?.effectiveAcceptance?.level === "none"
+        && !child.artifactPaths
+        && isolatedTools && isolatedExtensions && heldInputOnly
+        && childHeader?.id !== reviewerSession.identity.id
+        && childHeader?.file !== reviewerSession.identity.file;
       results.set("reviewer.fresh-context", fresh
-        ? { name: "reviewer.fresh-context", status: "SUPPORTED", reasonCode: "DISTINCT_FRESH_SESSION", evidence: activeEvidence(observed, "reviewer.fresh-context", reviewerSession.identity.id) }
-        : { name: "reviewer.fresh-context", status: "BLOCKED", reasonCode: "SESSION_ID_REUSED", evidence: [] });
+        ? { name: "reviewer.fresh-context", status: "SUPPORTED", reasonCode: "CHILD_FRESH_CONTEXT_PASS", evidence: activeEvidence(observed, "reviewer.fresh-context", `${childHeader.id}:${childHeader.digest}`) }
+        : { name: "reviewer.fresh-context", status: "BLOCKED", reasonCode: "CHILD_FRESH_CONTEXT_UNPROVEN", evidence: [] });
       results.set("reviewer.schema", hasSchema
-        ? { name: "reviewer.schema", status: "SUPPORTED", reasonCode: "REVIEW_SCHEMA_RETURNED", evidence: activeEvidence(observed, "reviewer.schema", reviewerResult.text) }
-        : { name: "reviewer.schema", status: "BLOCKED", reasonCode: "REVIEW_SCHEMA_MISSING", evidence: [] });
+        ? { name: "reviewer.schema", status: "SUPPORTED", reasonCode: "STRICT_REVIEW_SCHEMA_PASS", evidence: activeEvidence(observed, "reviewer.schema", review.inputBinding.inputDigest) }
+        : { name: "reviewer.schema", status: "BLOCKED", reasonCode: "STRICT_REVIEW_SCHEMA_FAILED", evidence: [] });
       results.set("provider.reviewer", hasSchema && fresh
-        ? { name: "provider.reviewer", status: "SUPPORTED", reasonCode: "ACTIVE_REVIEWER_RETURNED", evidence: activeEvidence(observed, "provider.reviewer", reviewerResult.text) }
+        ? { name: "provider.reviewer", status: "SUPPORTED", reasonCode: "ACTIVE_REVIEWER_CHILD_PASS", evidence: activeEvidence(observed, "provider.reviewer", childTool.details.runId) }
         : { name: "provider.reviewer", status: "BLOCKED", reasonCode: "ACTIVE_REVIEWER_FAILED", evidence: [] });
 
       namedSession = await createPiRpcSession({
@@ -364,32 +427,113 @@ async function defaultActiveProbe(observed, { env }) {
         sessionName: "capability-named",
       });
       const first = await namedSession.prompt("Reply exactly NAMED_SESSION_ONE.");
-      const second = await namedSession.prompt("Reply exactly NAMED_SESSION_TWO.");
-      const namedOk = first.state.sessionId === second.state.sessionId && first.state.sessionId === namedSession.identity.id;
-      for (const name of ["pi.named-session", "pi.persisted-session"]) {
-        results.set(name, namedOk
-          ? { name, status: "SUPPORTED", reasonCode: "NAMED_SESSION_CONTINUITY_PASS", evidence: activeEvidence(observed, name, namedSession.identity.id) }
-          : { name, status: "BLOCKED", reasonCode: "NAMED_SESSION_CONTINUITY_FAIL", evidence: [] });
-      }
-      results.set("timeout-cancellation", {
-        name: "timeout-cancellation",
-        status: "DEGRADED",
-        reasonCode: "CANCELLATION_PASS_TIMEOUT_NOT_FORCED",
-        evidence: activeEvidence(observed, "timeout-cancellation", String(timeoutMs)),
+      const firstEntries = await namedSession.entries();
+      const persistedIdentity = { id: namedSession.identity.id, file: namedSession.identity.file };
+      await namedSession.close();
+      const firstExited = !namedSession.isAlive();
+      namedSession = null;
+      resumedSession = await createPiRpcSession({
+        cwd: workspace,
+        launcher: observed.pi.path,
+        model: `${observed.provider}/${observed.model}`,
+        thinking: env.PI_TICKET_PLAN_THINKING,
+        timeoutMs,
+        skill: "ticket-readiness",
+        tools: ["read"],
+        persisted: true,
+        sessionDir,
+        resume: persistedIdentity,
       });
+      const resumedEntries = await resumedSession.entries();
+      const second = await resumedSession.prompt("Reply exactly NAMED_SESSION_TWO.");
+      const namedOk = firstExited && first.state.sessionId === persistedIdentity.id
+        && second.state.sessionId === persistedIdentity.id
+        && resumedSession.identity.id === persistedIdentity.id
+        && resumedSession.identity.file === fs.realpathSync(persistedIdentity.file)
+        && resumedEntries.length >= firstEntries.length;
+      results.set("pi.persisted-session", namedOk
+        ? { name: "pi.persisted-session", status: "SUPPORTED", reasonCode: "CROSS_PROCESS_SESSION_RESUME_PASS", evidence: activeEvidence(observed, "pi.persisted-session", `${persistedIdentity.id}:${persistedIdentity.file}`) }
+        : { name: "pi.persisted-session", status: "BLOCKED", reasonCode: "CROSS_PROCESS_SESSION_RESUME_FAIL", evidence: [] });
+      results.set("pi.named-session", {
+        name: "pi.named-session",
+        status: "BLOCKED",
+        reasonCode: "SESSION_NAME_NOT_RESUMABLE_BY_RUNTIME",
+        evidence: namedOk ? activeEvidence(observed, "pi.named-session", "exact-id-file-only") : [],
+      });
+      await resumedSession.close();
+      resumedSession = null;
+
+      timeoutSession = await createPiRpcSession({
+        cwd: workspace,
+        launcher: observed.pi.path,
+        model: `${observed.provider}/${observed.model}`,
+        thinking: env.PI_TICKET_PLAN_THINKING,
+        timeoutMs,
+        skill: "ticket-readiness",
+        tools: ["ptp_timeout_probe"],
+        persisted: false,
+        sessionDir: "",
+        extensions: [path.join(ROOT, "extensions", "capability-timeout-probe.mjs")],
+        sessionEnv: { PTP_TIMEOUT_PROBE_EVIDENCE: path.join(workspace, "timeout-probe.json") },
+      });
+      const timeoutParentPid = timeoutSession.pid;
+      const turnTimeoutMs = Number(env.PI_TICKET_PLAN_CONTROLLED_TIMEOUT_MS ?? 30_000);
+      if (!Number.isInteger(turnTimeoutMs) || turnTimeoutMs < 5_000 || turnTimeoutMs > 60_000) throw new Error("CONTROLLED_TIMEOUT_DURATION_INVALID");
+      let forced = false;
+      try { await timeoutSession.prompt("Call ptp_timeout_probe exactly once, wait for it, then reply TIMEOUT_PROBE_SHOULD_NOT_COMPLETE.", { turnTimeoutMs }); }
+      catch (error) { forced = (error instanceof Error ? error.message : String(error)) === `PI turn timed out after ${turnTimeoutMs}ms`; }
+      const abort = await timeoutSession.timeoutControl();
+      await timeoutSession.close().catch(() => {});
+      await timeoutSession.waitForExit().catch(() => {});
+      const timeoutFile = path.join(workspace, "timeout-probe.json");
+      let childEvidence = null;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        try {
+          childEvidence = JSON.parse(fs.readFileSync(timeoutFile, "utf8"));
+          if (childEvidence.childExited) break;
+        } catch { /* Wait for the controlled tool to persist its terminal receipt. */ }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      let childAlive = true;
+      if (Number.isInteger(childEvidence?.childPid)) {
+        try { process.kill(childEvidence.childPid, 0); } catch { childAlive = false; }
+        if (childAlive) {
+          try { process.kill(childEvidence.childPid, "SIGTERM"); } catch { /* Already exited. */ }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          try { process.kill(childEvidence.childPid, 0); process.kill(childEvidence.childPid, "SIGKILL"); } catch { childAlive = false; }
+        }
+      }
+      timeoutEvidence = {
+        forced,
+        abortAcknowledged: abort?.acknowledged === true,
+        parentPid: timeoutParentPid,
+        parentExited: !timeoutSession.isAlive(),
+        childPid: childEvidence?.childPid ?? null,
+        childAborted: childEvidence?.aborted === true,
+        childExited: childEvidence?.childExited === true && !childAlive,
+        evidenceDigest: childEvidence ? hash(childEvidence) : null,
+      };
+      timeoutSession = null;
     } catch (error) {
       const failureDigest = hash({ error: error instanceof Error ? error.message : String(error) });
       for (const name of ["pi.session", "pi.named-session", "pi.persisted-session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "tool-calling", "timeout-cancellation", "provider.reviewer"]) {
         if (results.get(name).status === "UNTESTED") results.set(name, { name, status: "BLOCKED", reasonCode: "ACTIVE_PROBE_FAILED", evidence: [{ kind: "active-probe", digest: failureDigest }] });
       }
     } finally {
-      for (const session of [namedSession, reviewerSession, toolSession]) {
+      for (const session of [timeoutSession, resumedSession, namedSession, reviewerSession, toolSession]) {
         if (session) await session.close().catch(() => {});
       }
       fs.rmSync(workspace, { recursive: true, force: true });
       fs.rmSync(sessionDir, { recursive: true, force: true });
       fs.rmSync(reviewDirectory, { recursive: true, force: true });
     }
+    const timeoutOk = timeoutEvidence?.forced && timeoutEvidence.abortAcknowledged
+      && timeoutEvidence.parentExited && timeoutEvidence.childAborted && timeoutEvidence.childExited
+      && DIGEST.test(timeoutEvidence.evidenceDigest ?? "")
+      && !fs.existsSync(workspace) && !fs.existsSync(sessionDir) && !fs.existsSync(reviewDirectory);
+    results.set("timeout-cancellation", timeoutOk
+      ? { name: "timeout-cancellation", status: "SUPPORTED", reasonCode: "FORCED_TIMEOUT_CLEANUP_PASS", evidence: activeEvidence(observed, "timeout-cancellation", hash(timeoutEvidence)) }
+      : { name: "timeout-cancellation", status: "BLOCKED", reasonCode: "FORCED_TIMEOUT_CLEANUP_FAILED", evidence: [] });
   }
 
   if (!observed.harness) {
@@ -470,9 +614,9 @@ export async function inspectCapabilities({
     expiresAt: new Date(Date.parse(observedAt) + ttlMs).toISOString(),
     pi: { path: observed.pi.path, version: observed.pi.version, digest: observed.pi.digest },
     subagent: { version: observed.profile.subagentVersion },
-    provider: { name: observed.provider, model: observed.model },
+    provider: { name: observed.provider, model: observed.model, thinking: env.PI_TICKET_PLAN_THINKING ?? "UNCONFIGURED" },
     profileDigest: observed.profile.digest,
-    harness: observed.harness,
+    harness: observed.harness ? { version: observed.harness.version, digest: observed.harness.digest, configDigest: observed.harness.configDigest } : null,
     repo: { target: observed.target, baseSha: observed.baseSha },
     capabilities,
   });

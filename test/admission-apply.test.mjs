@@ -26,6 +26,7 @@ import { createFactAttestation, producerAttestationSource } from "../protocol/ke
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
+const READY_AXES = Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((name) => [name, "PASS"]));
 
 function checkpoint(lane, id, revision) {
   return {
@@ -81,6 +82,8 @@ function input() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T12:00:00Z",
+      source,
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
         { id: "11", verdict: "READY", executionLane: "AGENT" },
@@ -201,8 +204,12 @@ function apply(plan, adapter) {
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
-    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
+    compatibilityMatrix: matrixFor(plan),
   });
+}
+
+function matrixFor(plan) {
+  return qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness, plan.reviewed.capabilityReceipt.observedAt).matrix;
 }
 
 test("Admission apply converges once and resumes the committed transaction idempotently", () => {
@@ -240,7 +247,7 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
-    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
+    compatibilityMatrix: matrixFor(plan),
   });
 
   assert.equal(result.status, "COMPLETE");
@@ -252,7 +259,7 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
-    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
+    compatibilityMatrix: matrixFor(plan),
   }).status, "COMPLETE");
   assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_COMMITTED");
 });
@@ -270,7 +277,7 @@ test("Admission transaction resumes when external state completed before approva
     changeAdmissionTransaction: (args) => store.changeAdmissionTransaction(args),
     consumeApproval() { throw Object.assign(new Error("simulated"), { code: "APPROVAL_CONSUME_FAILED" }); },
   };
-  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix };
+  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: matrixFor(plan) };
   assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: interrupted }).status, "PARTIAL");
   assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_EXTERNAL_COMPLETE");
   assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: store }).status, "COMPLETE");
@@ -296,7 +303,7 @@ test("Admission transaction resumes after approval consumption but before local 
       return store.changeAdmissionTransaction(args);
     },
   };
-  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix };
+  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: matrixFor(plan) };
   assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: interrupted }).status, "PARTIAL");
   assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.pending, []);
   assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_EXTERNAL_COMPLETE");
@@ -483,6 +490,8 @@ test("standalone QUICK uses the same idempotent apply path", () => {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T12:00:00Z",
+      source: { identity: "accepted-status-behavior", revision: "r1", baseSha },
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
     },

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/report-metadata-v1.schema.json",
+  "type": "object",
+  "required": ["reportId", "tier", "packageVersion", "headSha", "treeSha", "workflowName", "workflowRunId", "workflowRunAttempt", "workflowRunUrl", "repository", "actor", "runner", "provider", "model", "thinking", "piVersion", "piDigest", "subagentVersion", "profileDigest", "harnessVersion", "harnessDigest", "observedAt", "expiresAt", "evidenceDigests", "reportDigest"],
+  "properties": {
+    "reportId": { "type": "string", "pattern": "^RPT-[A-Za-z0-9-]+$" },
+    "tier": { "type": "string", "minLength": 1 },
+    "packageVersion": { "type": "string", "minLength": 1 },
+    "headSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "treeSha": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "workflowName": { "type": "string", "minLength": 1 },
+    "workflowRunId": { "type": "string", "minLength": 1 },
+    "workflowRunAttempt": { "type": "integer", "minimum": 0 },
+    "workflowRunUrl": { "type": ["string", "null"], "maxLength": 2048 },
+    "repository": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "runner": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "thinking": { "type": "string", "minLength": 1 },
+    "piVersion": { "type": "string", "minLength": 1 },
+    "piDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "subagentVersion": { "type": "string", "minLength": 1 },
+    "profileDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "harnessVersion": { "type": "string", "minLength": 1 },
+    "harnessDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "expiresAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "evidenceDigests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } },
+    "reportDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

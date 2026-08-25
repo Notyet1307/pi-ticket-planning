@@ -24,6 +24,7 @@ import { attachReviewBinding } from "./review-binding-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
+const READY_AXES = Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((name) => [name, "PASS"]));
 const graphFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "admission-cases.json"), "utf8"))
   .graphCases.find(({ expectedGraphVerdict }) => expectedGraphVerdict === "READY");
 
@@ -107,6 +108,8 @@ function readyInput() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T10:03:00Z",
+      source: structuredClone(snapshot.source),
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
         { id: "101", verdict: "READY", executionLane: "AGENT" },
@@ -150,6 +153,8 @@ function standaloneInput() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T10:03:00Z",
+      source,
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
     },

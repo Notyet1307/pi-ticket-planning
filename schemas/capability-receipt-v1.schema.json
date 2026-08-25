@@ -11,7 +11,7 @@
     "expiresAt": { "$ref": "common-v1.schema.json#/$defs/time" },
     "pi": { "$ref": "#/$defs/executable" },
     "subagent": { "type": "object", "required": ["version"] },
-    "provider": { "type": "object", "required": ["name", "model"] },
+    "provider": { "type": "object", "additionalProperties": false, "required": ["name", "model", "thinking"], "properties": { "name": { "type": "string", "minLength": 1 }, "model": { "type": "string", "minLength": 1 }, "thinking": { "type": "string", "minLength": 1 } } },
     "profileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
     "harness": { "type": ["object", "null"] },
     "repo": { "type": "object", "required": ["target", "baseSha"] },

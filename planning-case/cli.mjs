@@ -1,26 +1,24 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+import { runtimeMetadata } from "../installation/build-metadata.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
 export function controlMetadata({ clock, correlationId }) {
-  const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const git = spawnSync("git", ["-C", ROOT, "rev-parse", "HEAD"], { encoding: "utf8" });
-  if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(git.stdout.trim())) throw new PlanningCaseError("SOURCE_COMMIT_UNAVAILABLE");
+  const metadata = runtimeMetadata({ root: ROOT });
   return {
     producer: "pi-ticket-planning",
-    producerVersion: packageJson.version,
-    commit: git.stdout.trim(),
+    producerVersion: metadata.packageVersion,
+    commit: metadata.sourceCommit,
     observedAt: clock(),
     correlationId,
   };

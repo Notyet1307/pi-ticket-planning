@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/build-metadata-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "packageVersion", "sourceCommit", "treeDigest", "buildTime", "subagentVersion", "upstreamSkillCommit", "protocolVersions"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:build-metadata:v1" },
+    "packageVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+    "sourceCommit": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "treeDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "buildTime": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "subagentVersion": { "type": "string", "minLength": 1 },
+    "upstreamSkillCommit": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "protocolVersions": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "integer", "minimum": 1 } }
+  }
+}

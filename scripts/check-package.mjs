@@ -37,7 +37,10 @@ const REQUIRED_FILES = [
   ".github/workflows/ci.yml",
   ".github/workflows/model-eval.yml",
   ".github/workflows/integration-e2e.yml",
+  ".github/workflows/disposable-cleanup.yml",
   ".github/workflows/release-qualification.yml",
+  ".github/workflows/compatibility-proposal.yml",
+  ".github/workflows/release-artifacts.yml",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",
@@ -83,6 +86,9 @@ const REQUIRED_FILES = [
   "scripts/verify-context.mjs",
   "scripts/migrate-artifacts.mjs",
   "scripts/migrate-planning-case.mjs",
+  "scripts/migrate-evidence-reports.mjs",
+  "scripts/build-release-artifacts.mjs",
+  "scripts/generate-build-metadata.mjs",
   "planning-case/bindings.mjs",
   "planning-case/cli.mjs",
   "planning-case/events.mjs",
@@ -91,13 +97,22 @@ const REQUIRED_FILES = [
   "capabilities/cli.mjs",
   "capabilities/doctor.mjs",
   "capabilities/compatibility.mjs",
+  "capabilities/compatibility-cli.mjs",
   "capabilities/admission.mjs",
+  "capabilities/required.mjs",
   "compatibility/matrix.json",
   "docs/operations/compatibility-matrix.md",
   "installation/cli.mjs",
+  "installation/build-metadata.mjs",
   "installation/manager.mjs",
   "integration/e2e.mjs",
+  "integration/cleanup.mjs",
+  "integration/e2e-state.mjs",
+  "integration/live-adapter.mjs",
   "integration/qualify.mjs",
+  "integration/report.mjs",
+  "integration/provenance.mjs",
+  "extensions/capability-timeout-probe.mjs",
   "benchmark/benchmark.mjs",
   "outcome/ingest.mjs",
   "protocol/projections.mjs",
@@ -174,15 +189,18 @@ export function validatePackage(root) {
     "delivery-gate": "node scripts/delivery-gate.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
+    "e2e:cleanup": "node integration/cleanup.mjs",
     planctl: "node scripts/planctl.mjs",
     "release:qualify": "node integration/qualify.mjs",
+    "release:artifacts": "node scripts/build-release-artifacts.mjs",
     "test:integration:live": "node integration/e2e.mjs",
-    "test:integration:mock": "node --test test/admission-apply.test.mjs test/readiness-receipt.test.mjs test/review-transport.test.mjs test/integration-e2e.test.mjs",
+    "test:integration:mock": "node --test test/admission-apply.test.mjs test/readiness-receipt.test.mjs test/review-transport.test.mjs test/integration-e2e.test.mjs test/e2e-state.test.mjs",
     "test:admission-transaction": "node --test test/admission-apply.test.mjs",
     "test:migration": "node --test test/projections-migration.test.mjs",
-    "test:model": "node scripts/eval-pi-behavior.mjs --suite release --report artifacts/model-eval.json",
+    "test:model": "node scripts/eval-pi-behavior.mjs --suite release --repeat 3 --retry-failures 1 --require-clean --report artifacts/model-eval.json",
     "test:security": "node --test test/security.test.mjs test/protocol-kernel.test.mjs test/planning-case.test.mjs test/review-transport.test.mjs test/readiness-receipt.test.mjs",
-    "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/planning-case.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs",
+    "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=protocol/schema-runtime.mjs --test-coverage-include=protocol/semantic-dispatch.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=planning-case/events.mjs --test-coverage-include=planning-case/bindings.mjs --test-coverage-include=admission/apply.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-include=admission/postconditions.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/semantic-dispatch.test.mjs test/planning-case.test.mjs test/planning-case-events.test.mjs test/planning-case-bindings.test.mjs test/planctl.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs test/admission-postconditions.test.mjs",
+    "test:coverage:all": "node --experimental-test-coverage --test test/*.test.mjs",
     "test:state": "node --test test/planning-case.test.mjs test/planning-case-events.test.mjs test/planning-case-multiprocess.test.mjs test/planctl.test.mjs",
     verify: "npm run verify:ci && npm run check:profile",
     "verify:ci": "npm run check && npm run verify:single-kernel && npm run verify:protocol && npm run verify:context && npm run verify:context-coverage && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
@@ -203,15 +221,16 @@ export function validatePackage(root) {
     "actions/setup-node@v7",
     "npm ci --ignore-scripts --no-audit --no-fund",
     "npm run verify:ci",
+    "npm run test:coverage:all",
   ]);
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);
   const packageProfile = profile.packages?.find((entry) => entry?.source === "__PACKAGE_ROOT__");
-  const subagentsProfile = profile.packages?.find((entry) => entry?.source === "npm:pi-subagents@0.42.1");
+  const subagentEntries = profile.packages?.filter((entry) => /^npm:pi-subagents@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? "")) ?? [];
   if (!upstreamProfile) errors.push("profile does not pin the expected Matt upstream commit");
   if (!packageProfile) errors.push("profile does not expose the package-root install placeholder");
-  if (!subagentsProfile) errors.push("profile does not pin pi-subagents 0.42.1");
+  if (subagentEntries.length !== 1) errors.push("profile must pin one exact pi-subagents version");
   if (JSON.stringify(profile.skills) !== JSON.stringify(["!**"])) errors.push("profile must suppress ambient user skills");
   if (profile.subagents?.agentOverrides?.scout?.model !== SCOUT_MODEL) errors.push(`profile scout model must be ${SCOUT_MODEL}`);
   if (profile.subagents?.agentOverrides?.scout?.thinking !== SCOUT_THINKING) errors.push(`profile scout thinking must be ${SCOUT_THINKING}`);

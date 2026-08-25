@@ -8,7 +8,23 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [22.16.0, 26.x]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run verify:ci
+  whole-repository-coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -18,4 +34,10 @@ jobs:
         with:
           node-version: 22.16.0
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: npm run verify:ci
+      - run: npm run test:coverage:all
+  verify:
+    if: always()
+    needs: [test, whole-repository-coverage]
+    runs-on: ubuntu-latest
+    steps:
+      - run: test '${{ needs.test.result }}' = success && test "${{ needs['whole-repository-coverage'].result }}" = success

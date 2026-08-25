@@ -273,14 +273,15 @@
     {
       "namespace": "pi-ticket-planning",
       "name": "live-eval",
-      "schemaIdentity": "pi-ticket-planning:live-eval:v3",
-      "schemaPath": "schemas/live-eval-v3.schema.json",
-      "currentMajor": 3,
-      "readableMajors": [3],
+      "schemaIdentity": "pi-ticket-planning:live-eval:v4",
+      "schemaPath": "schemas/live-eval-v4.schema.json",
+      "schemaPaths": { "3": "schemas/live-eval-v3.schema.json", "4": "schemas/live-eval-v4.schema.json" },
+      "currentMajor": 4,
+      "readableMajors": [3, 4],
       "writer": "model-eval-runner",
       "readers": ["release-qualification", "operator"],
       "fingerprintAlgorithm": "sha256-utf8",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-evidence-reports.mjs#migrateLiveEvalV3"
     },
     {
       "namespace": "pi-ticket-planning",
@@ -383,26 +384,28 @@
     {
       "namespace": "pi-ticket-planning",
       "name": "compatibility-matrix",
-      "schemaIdentity": "pi-ticket-planning:compatibility-matrix:v1",
-      "schemaPath": "schemas/compatibility-matrix-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:compatibility-matrix:v2",
+      "schemaPath": "schemas/compatibility-matrix-v2.schema.json",
+      "schemaPaths": { "1": "schemas/compatibility-matrix-v1.schema.json", "2": "schemas/compatibility-matrix-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "release-qualification",
       "readers": ["doctor", "planning-case-resume", "admission-validate"],
       "fingerprintAlgorithm": "sha256-utf8",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-evidence-reports.mjs#migrateCompatibilityMatrixV1"
     },
     {
       "namespace": "pi-ticket-planning",
       "name": "e2e-report",
-      "schemaIdentity": "pi-ticket-planning:e2e-report:v1",
-      "schemaPath": "schemas/e2e-report-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:e2e-report:v2",
+      "schemaPath": "schemas/e2e-report-v2.schema.json",
+      "schemaPaths": { "1": "schemas/e2e-report-v1.schema.json", "2": "schemas/e2e-report-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "integration-e2e",
       "readers": ["release-qualification", "operator"],
       "fingerprintAlgorithm": "sha256-utf8",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-evidence-reports.mjs#migrateE2EReportV1"
     },
     {
       "namespace": "pi-ticket-planning",
@@ -419,14 +422,15 @@
     {
       "namespace": "pi-ticket-planning",
       "name": "release-qualification",
-      "schemaIdentity": "pi-ticket-planning:release-qualification:v1",
-      "schemaPath": "schemas/release-qualification-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:release-qualification:v2",
+      "schemaPath": "schemas/release-qualification-v2.schema.json",
+      "schemaPaths": { "1": "schemas/release-qualification-v1.schema.json", "2": "schemas/release-qualification-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "release-qualification",
       "readers": ["release-manager", "operator"],
       "fingerprintAlgorithm": "sha256-utf8",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-evidence-reports.mjs#migrateReleaseQualificationV1"
     },
     {
       "namespace": "pi-ticket-planning",
@@ -485,6 +489,42 @@
       "readableMajors": [1],
       "writer": "planning-case-cli",
       "readers": ["planning-case-store", "planning-case-resume"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "build-metadata",
+      "schemaIdentity": "pi-ticket-planning:build-metadata:v1",
+      "schemaPath": "schemas/build-metadata-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "build-metadata-generator",
+      "readers": ["command-runtime", "profile-installer", "release-manager"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "compatibility-proposal",
+      "schemaIdentity": "pi-ticket-planning:compatibility-proposal:v1",
+      "schemaPath": "schemas/compatibility-proposal-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "compatibility-checker",
+      "readers": ["update-cli", "release-manager"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "e2e-state",
+      "schemaIdentity": "pi-ticket-planning:e2e-state:v1",
+      "schemaPath": "schemas/e2e-state-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "integration-e2e",
+      "readers": ["e2e-cleanup"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
       "migrationPath": null
     }

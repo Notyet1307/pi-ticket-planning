@@ -3,6 +3,12 @@ import test from "node:test";
 
 import { projectRelease, projectSpec } from "../protocol/projections.mjs";
 import { migrateCheckpointV1, migrateDeliveryGraphV1 } from "../scripts/migrate-artifacts.mjs";
+import {
+  migrateCompatibilityMatrixV1,
+  migrateE2EReportV1,
+  migrateLiveEvalV3,
+  migrateReleaseQualificationV1,
+} from "../scripts/migrate-evidence-reports.mjs";
 import { migrateCaseTransactionV1, migratePlanningCaseEventV1, migratePlanningCaseV1 } from "../scripts/migrate-planning-case.mjs";
 
 test("Release and Spec projections bind exact source bytes", () => {
@@ -128,4 +134,51 @@ test("Planning Case v1 migration is explicit and fails on unprojectable free obj
   const ambiguous = structuredClone(snapshot);
   ambiguous.decisions.push({ arbitrary: true });
   assert.throws(() => migratePlanningCaseV1(ambiguous), /LEGACY_CONTEXT_INCOMPLETE/);
+});
+
+test("legacy evidence reports require explicit provenance before migration", () => {
+  const digest = `sha256:${"d".repeat(64)}`;
+  const context = {
+    reportId: "RPT-migration-test",
+    packageVersion: "0.5.0-alpha.0",
+    headSha: "a".repeat(40),
+    treeSha: digest,
+    workflowName: "migration-test",
+    workflowRunId: "1",
+    workflowRunAttempt: 1,
+    workflowRunUrl: "https://github.com/acme/product/actions/runs/1",
+    repository: "acme/product",
+    actor: "test",
+    runner: "test",
+    provider: "provider",
+    model: "model",
+    thinking: "high",
+    piVersion: "1.0.0",
+    piDigest: digest,
+    subagentVersion: "1.0.0",
+    profileDigest: digest,
+    harnessVersion: "1.0.0",
+    harnessDigest: digest,
+    observedAt: "2026-08-25T00:00:00Z",
+    expiresAt: "2026-08-26T00:00:00Z",
+    evidenceDigests: [digest],
+  };
+  const scenarios = Array.from({ length: 18 }, (_, index) => ({ id: `S${index + 1}` }));
+
+  const e2e = migrateE2EReportV1({ schema: "pi-ticket-planning:e2e-report:v1", status: "UNTESTED" }, { ...context, scenarios });
+  assert.equal(e2e.schema, "pi-ticket-planning:e2e-report:v2");
+  assert.match(e2e.reportDigest, /^sha256:/);
+  assert.equal(migrateLiveEvalV3({ schema: "pi-ticket-planning:live-eval:v3", summary: {} }, context).schema, "pi-ticket-planning:live-eval:v4");
+  assert.equal(migrateReleaseQualificationV1(
+    { schema: "pi-ticket-planning:release-qualification:v1", status: "BLOCKED", metrics: {}, problems: [] },
+    { ...context, tuples: [], evidenceRefs: [] },
+  ).schema, "pi-ticket-planning:release-qualification:v2");
+  assert.equal(migrateCompatibilityMatrixV1(
+    { schema: "pi-ticket-planning:compatibility-matrix:v1" },
+    { entries: [] },
+  ).schema, "pi-ticket-planning:compatibility-matrix:v2");
+  assert.throws(
+    () => migrateE2EReportV1({ schema: "pi-ticket-planning:e2e-report:v1" }, { scenarios }),
+    /LEGACY_PROVENANCE_UNAVAILABLE/,
+  );
 });

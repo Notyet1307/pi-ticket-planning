@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/release-qualification-v2.schema.json",
+  "allOf": [{ "$ref": "report-metadata-v1.schema.json" }],
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["schema", "status", "metrics", "tuples", "evidenceRefs", "problems"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:release-qualification:v2" },
+    "tier": { "const": "L4_COMMIT_BOUND_QUALIFICATION" },
+    "status": { "enum": ["COMPLETE", "BLOCKED"] },
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["realE2EScenarios", "scenarioKinds", "providersAndModels", "supportedTuples", "firstAttempts", "firstPassSuccessRate", "eventualSuccessRate", "retryRate", "unclassifiedInfrastructureFailures", "modelForbiddenWrites", "modelCleanupFailures", "unauthorizedWriteCount", "recoveryAttempts", "recoverySuccessRate", "cleanupSuccessRate", "unclassifiedFailureRate", "p50DurationMs", "p95DurationMs", "githubApiCalls", "modelTurns", "toolCalls", "contextTokens"],
+      "properties": {
+        "realE2EScenarios": { "type": "integer", "minimum": 0 }, "scenarioKinds": { "type": "integer", "minimum": 0 }, "providersAndModels": { "type": "integer", "minimum": 0 }, "supportedTuples": { "type": "integer", "minimum": 0 }, "firstAttempts": { "type": "integer", "minimum": 0 },
+        "firstPassSuccessRate": { "type": "number", "minimum": 0, "maximum": 1 }, "eventualSuccessRate": { "type": "number", "minimum": 0, "maximum": 1 }, "retryRate": { "type": "number", "minimum": 0 },
+        "unclassifiedInfrastructureFailures": { "type": "integer", "minimum": 0 }, "modelForbiddenWrites": { "type": "integer", "minimum": 0 }, "modelCleanupFailures": { "type": "integer", "minimum": 0 }, "unauthorizedWriteCount": { "type": "integer", "minimum": 0 }, "recoveryAttempts": { "type": "integer", "minimum": 0 }, "recoverySuccessRate": { "type": "number", "minimum": 0, "maximum": 1 }, "cleanupSuccessRate": { "type": "number", "minimum": 0, "maximum": 1 }, "unclassifiedFailureRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "p50DurationMs": { "type": ["number", "null"], "minimum": 0 }, "p95DurationMs": { "type": ["number", "null"], "minimum": 0 }, "githubApiCalls": { "type": "integer", "minimum": 0 }, "modelTurns": { "type": "integer", "minimum": 0 }, "toolCalls": { "type": "integer", "minimum": 0 }, "contextTokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tuples": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/tuple" } },
+    "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/evidence" } },
+    "problems": { "type": "array", "items": { "$ref": "common-v1.schema.json#/$defs/problem" } }
+  },
+  "$defs": {
+    "tuple": {
+      "type": "object", "additionalProperties": false,
+      "required": ["piVersion", "piDigest", "subagentVersion", "provider", "model", "thinking", "profileDigest", "harnessVersion", "harnessDigest"],
+      "properties": {
+        "piVersion": { "type": "string", "minLength": 1 }, "piDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "subagentVersion": { "type": "string", "minLength": 1 }, "provider": { "type": "string", "minLength": 1 }, "model": { "type": "string", "minLength": 1 }, "thinking": { "type": "string", "minLength": 1 }, "profileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "harnessVersion": { "type": "string", "minLength": 1 }, "harnessDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reportId", "tier", "digest", "workflowRunUrl", "file"],
+      "properties": {
+        "reportId": { "type": "string", "minLength": 1 }, "tier": { "type": "string", "minLength": 1 }, "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "workflowRunUrl": { "type": ["string", "null"] }, "file": { "type": ["string", "null"], "pattern": "^[^/\\\\]+$" }
+      }
+    }
+  }
+}

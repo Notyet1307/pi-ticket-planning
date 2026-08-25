@@ -1,0 +1,36 @@
+name: Disposable integration cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: Exact allowlisted disposable owner/repo
+        required: true
+      run_id:
+        description: Exact run identity to recover
+        required: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    environment: ptp-disposable-e2e
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Recover remote run manifest and clean exact resources
+        run: |
+          mkdir -p '${{ runner.temp }}/ptp-cleanup'
+          npm run e2e:cleanup -- \
+            --state '${{ runner.temp }}/ptp-cleanup/e2e-state.json' \
+            --repo '${{ inputs.repo }}' \
+            --run-id '${{ inputs.run_id }}'
+        env:
+          E2E_ALLOWLIST: ${{ vars.PTP_E2E_ALLOWLIST }}
+          GH_TOKEN: ${{ github.token }}

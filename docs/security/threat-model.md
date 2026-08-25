@@ -18,6 +18,7 @@ owns execution; this repository only ingests its results.
 | Capability Doctor | Static vs active evidence and expiring receipt | `capabilities/doctor.mjs:14`, `capabilities/doctor.mjs:412` |
 | Installer | Dry-run plan, contained writes, backup and exact rollback | `installation/manager.mjs:86`, `installation/manager.mjs:136`, `installation/manager.mjs:176` |
 | Live E2E guard | Exact disposable repo and run-bound confirmation | `integration/e2e.mjs:24`, `integration/e2e.mjs:67` |
+| Qualification | Report schema/digest/time/commit checks plus independent Actions attestation and run readback | `integration/report.mjs`, `integration/qualify.mjs` |
 
 ```mermaid
 flowchart LR
@@ -40,7 +41,8 @@ Effective resources differ by workflow:
 | Planning session | Case state | `PI_TICKET_PLAN_STATE_DIR`, then local-state default | Private state root, never target repo | Planner process | Store containment and modes | Same-account compromise is outside the filesystem-mode guarantee |
 | Reviewer | Input bytes | Materialized descriptor and child-only extension | One digest-named 0600 file | Fresh Reviewer only | Held descriptor and allowlisted read | Real Provider behavior needs active probe |
 | Admission | GitHub writes | Exact Plan plus refreshed context | Named repo/Issue operations only | GitHub API | Adapter validation and readback | App-auth identity handling remains deployment-dependent |
-| Live E2E | Disposable writes | Enable flag, exact allowlist, run token | Tagged dedicated repository resources | Test GitHub account | Three-part guard and cleanup | No current live adapter/report is qualified |
+| Live E2E | Disposable writes | Enable flag, exact allowlist, run token, actor/topic/default branch, no-production check | Tagged dedicated repository resources | Test GitHub account | Guarded live adapter and cleanup readback | Adapter code exists; no current disposable/Harness report is qualified |
+| Qualification | L2/L3 evidence | Exact Actions run IDs and current commit | Attested workflow artifacts only | Release operator | Schema, semantic, digest, expiry, uniqueness, attestation, and workflow readback | Local JSON and non-complete reports remain blocked |
 
 ## Threat Model, Trust Boundaries, and Assumptions
 
@@ -76,6 +78,7 @@ These are hypotheses for review, not confirmed vulnerabilities.
 | P2 | Marker injection makes an attacker comment look applied | Contributor can comment on Issue | Idempotency/readback bypass | Exact body plus authenticated author match | Pin app identity where app auth is used | `admission/github-adapter.mjs:56` |
 | P2 | Accidental live E2E targets a real repository | Operator enables integration with wrong target | Unintended test writes | Enable flag, exact allowlist, run confirmation, resource tag | Dedicated account/repo and retained cleanup command | `integration/e2e.mjs:67` |
 | P2 | External error leaks credentials into receipt/log | Tool returns credential-bearing stderr | Token disclosure | Structured codes and credential-shaped redaction | Keep raw output out of artifacts; rotate on exposure | `admission/apply.mjs:112` |
+| P0 | Fabricated or replayed local report promotes an untested tuple | Attacker can supply arbitrary JSON or duplicate prior evidence | Unsupported Provider/Harness gains Admission authority | Current-commit/time/digest checks, report and scenario deduplication, Actions attestation and workflow readback | Keep Matrix writes qualification-derived and digest-matched | `integration/qualify.mjs`; `capabilities/compatibility.mjs` |
 
 ## Severity Calibration
 
@@ -94,4 +97,5 @@ These are hypotheses for review, not confirmed vulnerabilities.
 
 Confidence in deterministic local controls is supported by L1 tests. Provider,
 real GitHub, Harness, cleanup, and release thresholds remain unqualified until
-their L2-L4 reports exist.
+current-commit L2-L4 reports pass the provenance checks. Their absence is a
+release blocker, not an invitation to weaken the verifier.

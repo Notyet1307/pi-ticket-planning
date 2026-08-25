@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { validateArtifact } from "../protocol/kernel.mjs";
 
 const MANIFEST = "installation.json";
 const SCHEMA = "pi-ticket-planning:installation-manifest:v1";
@@ -63,7 +64,8 @@ function readManifest(file) {
     throw new Error("installation manifest is unsafe");
   }
   const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (manifest?.schema !== SCHEMA || !SAFE_ID.test(manifest.installationId ?? "") || !Array.isArray(manifest.installedFiles)) {
+  if (manifest?.schema !== SCHEMA || !SAFE_ID.test(manifest.installationId ?? "") || !Array.isArray(manifest.installedFiles)
+    || !validateArtifact(manifest).ok) {
     throw new Error("installation manifest is invalid");
   }
   return manifest;

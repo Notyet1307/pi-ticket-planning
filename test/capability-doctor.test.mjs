@@ -28,9 +28,9 @@ function input(capabilities) {
     expiresAt: "2026-08-25T02:00:00.000Z",
     pi: { path: "/usr/local/bin/pi", version: "0.84.2", digest: DIGEST },
     subagent: { version: "0.42.1" },
-    provider: { name: "openai-codex", model: "gpt-5.6-sol" },
+    provider: { name: "openai-codex", model: "gpt-5.6-sol", thinking: "high" },
     profileDigest: DIGEST,
-    harness: null,
+    harness: { version: "1.0.0", configDigest: DIGEST },
     repo: { target: SUBJECT.target, baseSha: SUBJECT.revision },
     capabilities,
   };
@@ -150,15 +150,21 @@ test("compatibility requires one exact qualified tuple", () => {
   });
   assert.deepEqual(validateCompatibilityMatrix(loadCompatibilityMatrix()), { ok: true, problems: [] });
   const invalid = {
-    schema: "pi-ticket-planning:compatibility-matrix:v1",
+    schema: "pi-ticket-planning:compatibility-matrix:v2",
     defaultStatus: "UNTESTED",
     entries: [{
       piVersion: receipt.pi.version,
+      piDigest: receipt.pi.digest,
       subagentVersion: receipt.subagent.version,
       provider: receipt.provider.name,
       model: receipt.provider.model,
+      thinking: receipt.provider.thinking,
       profileDigest: receipt.profileDigest,
-      harnessDigest: null,
+      harnessVersion: receipt.harness.version,
+      harnessDigest: receipt.harness.configDigest,
+      packageCommit: receipt.subject.revision,
+      observedAt: receipt.observedAt,
+      expiresAt: receipt.expiresAt,
       status: "SUPPORTED",
       reasonCode: "CONFIG_PRESENT",
       evidence: [],
@@ -176,18 +182,24 @@ test("formal Admission requires active capabilities and an exact qualified tuple
     /CAPABILITY_TUPLE_UNTESTED/,
   );
   const matrix = {
-    schema: "pi-ticket-planning:compatibility-matrix:v1",
+    schema: "pi-ticket-planning:compatibility-matrix:v2",
     defaultStatus: "UNTESTED",
     entries: [{
       piVersion: receipt.pi.version,
+      piDigest: receipt.pi.digest,
       subagentVersion: receipt.subagent.version,
       provider: receipt.provider.name,
       model: receipt.provider.model,
+      thinking: receipt.provider.thinking,
       profileDigest: receipt.profileDigest,
-      harnessDigest: null,
+      harnessVersion: receipt.harness.version,
+      harnessDigest: receipt.harness.configDigest,
+      packageCommit: receipt.subject.revision,
+      observedAt: receipt.observedAt,
+      expiresAt: receipt.expiresAt,
       status: "SUPPORTED",
       reasonCode: "QUALIFIED",
-      evidence: [{ kind: "active-probe", digest: DIGEST }, { kind: "release-qualification", digest: DIGEST }],
+      evidence: ["active-capability", "l2-model", "l3-e2e", "l4-qualification"].map((kind) => ({ kind, digest: DIGEST })),
     }],
   };
   assert.doesNotThrow(() => requireAdmissionCapabilities(receipt, {

@@ -55,6 +55,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   if (!validateReview(input.review)) {
     throw planError("review is not READY or does not use the fresh reviewer contract");
   }
+  if (fingerprint(input.review.source) !== fingerprint(input.source)) throw planError("review source does not match the exact Admission source");
 
   const snapshot = parseDeliveryGraph(input.parent.body);
   const reviewById = new Map((input.review.candidates ?? []).map((candidate) => [String(candidate.id), candidate]));
@@ -180,6 +181,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
   if (contextCheckProblems.length > 0) throw planError("Ticket context check is not PASS", contextCheckProblems);
   if (!validatePolicy(input.policy)) throw planError("accepted policy identity and sha256 digest are required");
   if (!validateReview(input.review)) throw planError("review is not READY or does not use the fresh reviewer contract");
+  if (fingerprint(input.review.source) !== fingerprint(input.source)) throw planError("review source does not match the exact Admission source");
   const candidates = input.review.candidates ?? [];
   const reviewedCandidate = candidates.length === 1 && String(candidates[0].id) === String(candidate.id) ? candidates[0] : null;
   if (reviewedCandidate?.verdict !== "READY" || !["AGENT", "HUMAN"].includes(reviewedCandidate.executionLane)) {

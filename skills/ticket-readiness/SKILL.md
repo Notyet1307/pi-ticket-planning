@@ -98,6 +98,8 @@ After the human-readable fields, return one machine block. Echo the review times
   "schema": "pi-ticket-planning:admission-review:v1",
   "reviewer": "ticket-readiness-reviewer",
   "reviewedAt": "<exact bundle review timestamp>",
+  "source": { "identity": "<exact source identity>", "revision": "<exact source revision>", "baseSha": "<exact base SHA>" },
+  "axes": { "candidateReadiness": "PASS | FAIL | NEEDS_INFO", "contextQuality": "PASS | FAIL | NEEDS_INFO", "deliveryGraph": "PASS | FAIL | NEEDS_INFO", "scenarioCoverage": "PASS | FAIL | NEEDS_INFO", "walkingSkeleton": "PASS | FAIL | NEEDS_INFO", "strictFrontier": "PASS | FAIL | NEEDS_INFO", "executionLane": "PASS | FAIL | NEEDS_INFO", "inputBinding": "PASS | FAIL | NEEDS_INFO" },
   "graphVerdict": "READY | NEEDS_INFO",
   "candidates": [
     { "id": "<exact candidate identity>", "verdict": "READY | SPLIT | NEEDS_INFO", "executionLane": "AGENT | HUMAN" }
@@ -118,7 +120,7 @@ After the human-readable fields, return one machine block. Echo the review times
 }
 ```
 
-The JSON is a machine projection of the prose verdict, not a second judgment. `inputBinding` must equal the read result; its authoritative shape is `schemas/admission-review-v1.schema.json`. Any disagreement makes the review malformed.
+Echo the held `source` and `inputBinding` exactly and include every axis. READY requires all eight axes to PASS; omission or disagreement is malformed.
 
 For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the Delivery Graph checker result, one raw Ticket Context checker result per candidate, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, Context-check mismatch/failure, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
 
