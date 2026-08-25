@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildCapabilityReceipt,
   inspectCapabilities,
+  isSuccessfulReviewerChild,
   validateCapabilityReceipt,
 } from "../capabilities/doctor.mjs";
 import { compatibilityFor, loadCompatibilityMatrix, validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
@@ -55,6 +56,11 @@ test("Capability Receipt is deterministic and requires evidence per status", () 
   assert.match(receipt.digest, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(buildCapabilityReceipt(input(receipt.capabilities)), receipt);
   assert.deepEqual(validateCapabilityReceipt(receipt), { ok: true, problems: [] });
+});
+
+test("successful child receipts may omit optional false lifecycle fields", () => {
+  assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}" }), true);
+  assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}", timedOut: true }), false);
 });
 
 test("configuration alone cannot claim runtime support", () => {

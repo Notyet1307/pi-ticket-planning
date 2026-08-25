@@ -40,6 +40,12 @@ function problem(code, subject) {
   return subject === undefined ? { code } : { code, subject };
 }
 
+export function isSuccessfulReviewerChild(child) {
+  return child?.index === 0 && child.agent === "ticket-readiness-reviewer" && child.exitCode === 0
+    && child.processSignal == null && child.timedOut !== true && child.interrupted !== true
+    && child.stopped !== true && typeof child.finalOutput === "string" && child.finalOutput.length > 0;
+}
+
 function projection(receipt) {
   const { digest, ...value } = receipt;
   return value;
@@ -359,9 +365,9 @@ async function defaultActiveProbe(observed, { env }) {
       const call = childTool?.toolCall?.arguments;
       const childHeader = child?.sessionFile ? (await import("../scripts/eval-pi-behavior.mjs")).readPiSessionHeader(child.sessionFile) : null;
       const finalResult = child && typeof child.finalOutput === "string" ? child.finalOutput : null;
-      const finalEvent = Boolean(childTool && !childTool.isError && childTool.details.runId && child?.index === 0
-        && child.agent === "ticket-readiness-reviewer" && child.exitCode === 0 && child.processSignal === null
-        && child.timedOut === false && child.interrupted === false && finalResult && childHeader?.id && fs.realpathSync(childHeader.cwd) === fs.realpathSync(reviewDirectory));
+      const finalEvent = Boolean(childTool && !childTool.isError && childTool.details.runId
+        && isSuccessfulReviewerChild(child) && finalResult && childHeader?.id
+        && fs.realpathSync(childHeader.cwd) === fs.realpathSync(reviewDirectory));
       results.set("subagent.final-result", finalEvent
         ? { name: "subagent.final-result", status: "SUPPORTED", reasonCode: "CHILD_FINAL_EVENT_PASS", evidence: activeEvidence(observed, "subagent.final-result", `${childTool.details.runId}:${childHeader.id}`) }
         : { name: "subagent.final-result", status: "BLOCKED", reasonCode: "CHILD_FINAL_EVENT_MISSING", evidence: [] });
