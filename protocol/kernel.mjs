@@ -459,7 +459,7 @@ export function verifyProtocol({ protocol = loadProtocol() } = {}) {
     unreachableStates: stages.filter((stage) => !reached.has(stage)),
     undeclaredDeadEnds: stages.filter((stage) => (protocol.workflow.allowedTransitions?.[stage] ?? []).length === 0),
     factsWithoutProducer: facts.filter(([, rule]) => !Array.isArray(rule.sources) || rule.sources.length === 0).map(([name]) => name),
-    factsWithoutConsumer: facts.filter(([name]) => !consumers.has(name)).map(([name]) => name),
+    factsWithoutConsumer: facts.filter(([name, rule]) => !consumers.has(name) && !rule.archivePolicy).map(([name]) => name),
     mutationsWithoutPostconditions: Object.entries(protocol.authority.mutations ?? {})
       .filter(([, mutation]) => !Array.isArray(mutation.postconditions) || mutation.postconditions.length === 0)
       .map(([name]) => name),

@@ -212,7 +212,7 @@ class PlanningCaseStore {
   }
 
   bind({ caseId, target, name, binding } = {}) {
-    if (!["source", "release", "spec", "graph", "policy", "harness", "capability"].includes(name)) {
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"].includes(name)) {
       throw new PlanningCaseError("INVALID_BINDING_NAME");
     }
     if (!binding || typeof binding !== "object" || Array.isArray(binding)
@@ -515,7 +515,7 @@ class PlanningCaseStore {
       truthOwner: null,
       cost: null,
       stoppingRule: null,
-      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null },
+      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null },
       approvals: { pending: [], consumed: [] },
       lastCheckpoint: clone(checkpoint),
       lastEvent: null,

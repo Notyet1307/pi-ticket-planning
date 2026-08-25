@@ -24,7 +24,7 @@
     "bindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability"],
+      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"],
       "properties": {
         "source": { "type": ["object", "null"] },
         "release": { "type": ["object", "null"] },
@@ -32,7 +32,8 @@
         "graph": { "type": ["object", "null"] },
         "policy": { "type": ["object", "null"] },
         "harness": { "type": ["object", "null"] },
-        "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] }
+        "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
+        "outcome": { "oneOf": [{ "$ref": "outcome-receipt-v1.schema.json" }, { "type": "null" }] }
       }
     },
     "approvals": {

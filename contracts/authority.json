@@ -14,6 +14,7 @@
     "human.releaseDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.releaseReopened": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.identityRebind": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "human.outcomeLearningDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"], "archivePolicy": "planning-case-decision" },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
