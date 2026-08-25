@@ -15,10 +15,13 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { digest } from "../installation/manager.mjs";
+import { loadProtocol } from "../protocol/kernel.mjs";
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const UPSTREAM_SOURCE = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SUBAGENTS_SOURCE = "npm:pi-subagents@0.42.1";
+const REVIEWER_READ_GUARD = path.join("extensions", "ticket-readiness-read-guard.mjs");
 
 function timestamp() {
   return new Date().toISOString().replace(/[-:.]/g, "");
@@ -46,6 +49,11 @@ function mergedSettings(packageRoot, existing) {
   const packageEntry = template.packages.find((entry) => entry.source === "__PACKAGE_ROOT__");
   if (!packageEntry) throw new Error("profile template has no package-root placeholder");
   packageEntry.source = packageRoot;
+  const reviewer = template.subagents?.agentOverrides?.["ticket-readiness-reviewer"];
+  if (JSON.stringify(reviewer?.subagentOnlyExtensions) !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
+    throw new Error("profile template has no reviewer read guard placeholder");
+  }
+  reviewer.subagentOnlyExtensions = [path.join(packageRoot, REVIEWER_READ_GUARD)];
 
   return {
     ...existing,
@@ -59,6 +67,17 @@ function mergedSettings(packageRoot, existing) {
       },
     },
   };
+}
+
+export function managedProfileFiles({ packageRoot = PACKAGE_ROOT, profileDir }) {
+  const resolvedPackageRoot = path.resolve(packageRoot);
+  const resolvedProfileDir = path.resolve(profileDir);
+  const settingsFile = path.join(resolvedProfileDir, "settings.json");
+  const existing = existsSync(settingsFile) ? JSON.parse(readFileSync(settingsFile, "utf8")) : {};
+  return [
+    { path: "settings.json", content: `${JSON.stringify(mergedSettings(resolvedPackageRoot, existing), null, 2)}\n`, mode: 0o600 },
+    { path: "AGENTS.md", content: readFileSync(path.join(resolvedPackageRoot, "profile", "AGENTS.md"), "utf8"), mode: 0o644 },
+  ];
 }
 
 function installLink(target, link, backups) {
@@ -85,11 +104,16 @@ export function writeInstallation({
   profileDir,
   binDir,
   defaultProfileDir,
+  clock = () => new Date(),
+  sourceMetadata = {},
 }) {
   const resolvedPackageRoot = path.resolve(packageRoot);
   const resolvedProfileDir = path.resolve(profileDir);
   const resolvedBinDir = path.resolve(binDir);
   const backups = [];
+  const reviewerReadGuard = path.join(resolvedPackageRoot, REVIEWER_READ_GUARD);
+  const guardStat = lstatSafe(reviewerReadGuard);
+  if (!guardStat?.isFile() || guardStat.isSymbolicLink()) throw new Error("reviewer read guard is unavailable");
 
   mkdirSync(resolvedProfileDir, { recursive: true, mode: 0o700 });
   mkdirSync(resolvedBinDir, { recursive: true });
@@ -111,6 +135,8 @@ export function writeInstallation({
 
   const launcher = path.join(resolvedBinDir, "pi-ticket-plan");
   installLink(path.join(resolvedPackageRoot, "profile", "pi-ticket-plan"), launcher, backups);
+  const controlLauncher = path.join(resolvedBinDir, "pi-ticket-planctl");
+  installLink(path.join(resolvedPackageRoot, "profile", "pi-ticket-plan"), controlLauncher, backups);
 
   for (const name of ["auth.json", "models.json"]) {
     const source = path.join(defaultProfileDir, name);
@@ -118,7 +144,42 @@ export function writeInstallation({
     if (!lstatSafe(destination) && existsSync(source)) symlinkSync(source, destination);
   }
 
-  return { profileDir: resolvedProfileDir, launcher, backups };
+  const packageMetadata = JSON.parse(readFileSync(path.join(resolvedPackageRoot, "package.json"), "utf8"));
+  let sourceCommit = sourceMetadata.sourceCommit;
+  if (sourceCommit === undefined) {
+    try { sourceCommit = run("git", ["-C", resolvedPackageRoot, "rev-parse", "HEAD"]); } catch { sourceCommit = "UNTESTED"; }
+  }
+  const installedFiles = [settingsFile, path.join(resolvedProfileDir, "AGENTS.md")].map((file) => ({
+    path: path.relative(resolvedProfileDir, file),
+    digest: digest(readFileSync(file)),
+    mode: lstatSync(file).mode & 0o777,
+  }));
+  const manifest = {
+    schema: "pi-ticket-planning:installation-manifest:v1",
+    installationId: sourceMetadata.installationId ?? `I-${clock().toISOString().replace(/[-:.TZ]/g, "")}`,
+    packageVersion: sourceMetadata.packageVersion ?? packageMetadata.version,
+    sourceCommit: sourceCommit || "UNTESTED",
+    installedAt: clock().toISOString(),
+    nodeVersion: sourceMetadata.nodeVersion ?? process.versions.node,
+    piVersion: sourceMetadata.piVersion ?? "UNTESTED",
+    subagentVersion: sourceMetadata.subagentVersion ?? "UNTESTED",
+    upstreamSkillCommit: sourceMetadata.upstreamSkillCommit ?? packageMetadata.mattpocockUpstream?.commit ?? "UNTESTED",
+    profileDigest: digest(JSON.stringify(installedFiles)),
+    protocolVersions: sourceMetadata.protocolVersions
+      ?? Object.fromEntries(loadProtocol().registry.artifacts.map((artifact) => [artifact.name, artifact.currentMajor])),
+    installedFiles,
+    backups: backups.map((backup) => {
+      const metadata = lstatSync(backup);
+      return {
+        path: path.resolve(backup),
+        digest: metadata.isSymbolicLink() ? digest(`link:${readlinkSync(backup)}`) : digest(readFileSync(backup)),
+        mode: metadata.mode & 0o777,
+      };
+    }),
+  };
+  atomicWrite(path.join(resolvedProfileDir, "installation.json"), `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+
+  return { profileDir: resolvedProfileDir, launcher, controlLauncher, backups, manifest };
 }
 
 function run(command, args, env = process.env) {
@@ -138,11 +199,22 @@ function main(argv) {
   const defaultProfileDir = process.env.PI_TICKET_PLAN_DEFAULT_PROFILE_DIR ?? path.join(os.homedir(), ".pi", "agent");
   const piBin = process.env.PI_TICKET_PLAN_PI_BIN ?? "pi";
 
-  run(piBin, ["--version"]);
+  const piVersion = run(piBin, ["--version"]);
   run("git", ["--version"]);
   run("gh", ["--version"]);
+  const sourceCommit = run("git", ["-C", PACKAGE_ROOT, "rev-parse", "HEAD"]);
 
-  const installed = writeInstallation({ profileDir, binDir, defaultProfileDir });
+  const installed = writeInstallation({
+    profileDir,
+    binDir,
+    defaultProfileDir,
+    sourceMetadata: {
+      sourceCommit,
+      nodeVersion: process.version,
+      piVersion,
+      subagentVersion: "0.42.1",
+    },
+  });
   const runtimeEnv = {
     ...process.env,
     PI_CODING_AGENT_DIR: installed.profileDir,
@@ -158,6 +230,7 @@ function main(argv) {
 
   console.log(`profile installed: ${installed.profileDir}`);
   console.log(`launcher installed: ${installed.launcher}`);
+  console.log(`control launcher installed: ${installed.controlLauncher}`);
   for (const backup of installed.backups) console.log(`backup retained: ${backup}`);
   console.log(verification);
 }

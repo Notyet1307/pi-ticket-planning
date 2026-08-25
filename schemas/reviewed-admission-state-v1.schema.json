@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/reviewed-admission-state-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "repo", "target", "source", "contextChecks", "policy", "harness", "review", "reviewBinding", "capabilityReceipt", "currentCheckpoint"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:reviewed-admission-state:v1" },
+    "kind": { "enum": ["DELIVERY_GRAPH", "STANDALONE"] },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "source": { "type": "object" },
+    "graph": { "type": "object" },
+    "parentTitle": { "type": "string" },
+    "parentBodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "parentState": { "type": "string" },
+    "children": { "type": "array", "items": { "type": "object" } },
+    "candidate": { "type": "object" },
+    "contextChecks": { "type": "array" },
+    "policy": { "type": "object" },
+    "harness": { "type": ["object", "null"] },
+    "review": { "$ref": "admission-review-v1.schema.json" },
+    "reviewBinding": { "$ref": "admission-review-binding-v1.schema.json" },
+    "capabilityReceipt": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
+    "currentCheckpoint": { "type": "object" }
+  }
+}

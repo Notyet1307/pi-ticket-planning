@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
@@ -16,6 +19,9 @@ import {
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
+import { attachReviewBinding } from "./review-binding-fixture.mjs";
+import { createPlanningCaseStore } from "../planning-case/store.mjs";
+import { createFactAttestation } from "../protocol/kernel.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -46,7 +52,7 @@ function input() {
     walkingSkeleton: ["11", "12"],
   };
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
-  return {
+  return attachReviewBinding({
     repo: "acme/product",
     repositoryPath,
     parent: { id: "10", title: "Delivery parent", body: parentBody, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] },
@@ -69,7 +75,7 @@ function input() {
       ],
     },
     currentCheckpoint: { lane: "DELIVERY", stage: "ADMISSION", identity: "10@r2", verdict: "ACTIVATION_AWAITING_CONFIRMATION" },
-  };
+  });
 }
 
 class MemoryAdapter {
@@ -102,7 +108,7 @@ class MemoryAdapter {
 
   addComment(issue, body) {
     this.#fail("comment", issue, "before");
-    this.#issue(issue).comments.push({ body });
+    this.#issue(issue).comments.push({ body, authorVerified: true });
     this.mutations.push(`comment:${issue}`);
     this.#fail("comment", issue, "after");
   }
@@ -133,13 +139,60 @@ class MemoryAdapter {
   }
 }
 
-function apply(plan, adapter) {
-  return applyAdmissionPlan(plan, adapter, {
-    expectedFingerprint: plan.planFingerprint,
+const NOW = "2026-08-16T12:01:00.000Z";
+
+function approval(plan, id = "F-human-activation") {
+  return createFactAttestation({
+    id,
+    fact: "human.activation",
+    value: true,
+    subject: {
+      target: `github:${plan.repo}`,
+      kind: "admission-plan",
+      id: plan.planFingerprint,
+      revision: plan.reviewed.source.revision,
+      digest: plan.planFingerprint,
+    },
+    source: {
+      kind: "operator-asserted",
+      producer: "operator",
+      producerVersion: "human",
+      producerDigest: `sha256:${"e".repeat(64)}`,
+    },
+    observedAt: "2026-08-16T12:00:00.000Z",
+    expiresAt: "2026-08-16T13:00:00.000Z",
+    evidence: { kind: "operator", ref: "exact-plan-confirmation", digest: plan.planFingerprint },
   });
 }
 
-test("Admission apply converges once and a repeated apply is a no-op", () => {
+function memoryCaseStore(plan, value = approval(plan)) {
+  const snapshot = { target: `github:${plan.repo}`, approvals: { pending: [value], consumed: [] } };
+  return {
+    get({ target }) {
+      assert.equal(target, snapshot.target);
+      return structuredClone(snapshot);
+    },
+    consumeApproval({ approvalId }) {
+      const index = snapshot.approvals.pending.findIndex(({ id }) => id === approvalId);
+      if (index === -1) throw new Error("APPROVAL_ALREADY_CONSUMED");
+      snapshot.approvals.consumed.push(snapshot.approvals.pending.splice(index, 1)[0]);
+    },
+    snapshot,
+  };
+}
+
+function apply(plan, adapter) {
+  adapter.caseStore ??= memoryCaseStore(plan);
+  return applyAdmissionPlan(plan, adapter, {
+    expectedFingerprint: plan.planFingerprint,
+    planningCaseStore: adapter.caseStore,
+    caseId: "PC-admission",
+    approvalId: "F-human-activation",
+    now: NOW,
+  });
+}
+
+test("Admission apply converges once and rejects replay of its consumed approval", () => {
   const plan = buildAdmissionPlan(input());
   const adapter = new MemoryAdapter(input());
   const first = apply(plan, adapter);
@@ -151,9 +204,57 @@ test("Admission apply converges once and a repeated apply is a no-op", () => {
 
   const mutationCount = adapter.mutations.length;
   const second = apply(plan, adapter);
-  assert.equal(second.status, "COMPLETE");
+  assert.equal(second.status, "CONFLICT");
+  assert.equal(second.problems.some(({ code }) => code === "APPROVAL_ALREADY_CONSUMED"), true);
   assert.equal(adapter.mutations.length, mutationCount);
-  assert.equal(second.changed.length, 0);
+});
+
+test("Admission apply authorizes and consumes an exact approval in a persistent Planning Case", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-admission-case-"));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const plan = buildAdmissionPlan(input());
+  const store = createPlanningCaseStore({
+    stateDir: path.join(parent, "state"),
+    clock: () => NOW,
+    idGenerator: () => "PC-admission",
+  });
+  store.create({ target: `github:${plan.repo}`, caseId: "PC-admission" });
+  store.addApproval({ caseId: "PC-admission", approval: approval(plan) });
+  const adapter = new MemoryAdapter(input());
+
+  const result = applyAdmissionPlan(plan, adapter, {
+    expectedFingerprint: plan.planFingerprint,
+    planningCaseStore: store,
+    caseId: "PC-admission",
+    approvalId: "F-human-activation",
+    now: NOW,
+  });
+
+  assert.equal(result.status, "COMPLETE");
+  assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.pending, []);
+  assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.consumed.map(({ id }) => id), ["F-human-activation"]);
+  assert.equal(applyAdmissionPlan(plan, adapter, {
+    expectedFingerprint: plan.planFingerprint,
+    planningCaseStore: store,
+    caseId: "PC-admission",
+    approvalId: "F-human-activation",
+    now: NOW,
+  }).problems.some(({ code }) => code === "APPROVAL_ALREADY_CONSUMED"), true);
+});
+
+test("Admission apply rejects an approval for another exact Plan before any write", () => {
+  const plan = buildAdmissionPlan(input());
+  const foreign = approval(plan);
+  foreign.subject.id = `sha256:${"f".repeat(64)}`;
+  foreign.subject.digest = foreign.subject.id;
+  const adapter = new MemoryAdapter(input());
+  adapter.caseStore = memoryCaseStore(plan, foreign);
+
+  const result = apply(plan, adapter);
+
+  assert.equal(result.status, "CONFLICT");
+  assert.equal(result.problems.some(({ code }) => code === "FACT_SUBJECT_MISMATCH"), true);
+  assert.deepEqual(adapter.mutations, []);
 });
 
 test("Admission apply recovers a lost response after the server completed the write", () => {
@@ -312,6 +413,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     candidateId: candidate.id,
     result: checkTicketContext({ repo: repositoryPath, base: standalone.source.baseSha, body: candidate.body }),
   }];
+  attachReviewBinding(standalone);
   const plan = buildStandaloneAdmissionPlan(standalone);
   const adapter = {
     state: structuredClone({
@@ -327,7 +429,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     read() { return structuredClone(this.state); },
     readIssue() { return structuredClone(this.state.candidate); },
     readClaims() { return []; },
-    addComment(issue, body) { this.state.candidate.comments.push({ body }); this.mutations.push(`comment:${issue}`); },
+    addComment(issue, body) { this.state.candidate.comments.push({ body, authorVerified: true }); this.mutations.push(`comment:${issue}`); },
     setControlledLabels(issue, labels) {
       this.state.candidate.labels = ["copy", ...labels];
       this.mutations.push(`labels:${issue}`);
@@ -335,7 +437,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
   };
 
   assert.equal(apply(plan, adapter).status, "COMPLETE");
-  assert.equal(apply(plan, adapter).status, "COMPLETE");
+  assert.equal(apply(plan, adapter).status, "CONFLICT");
   assert.deepEqual(adapter.mutations, ["comment:42", "labels:42"]);
   assert.deepEqual(adapter.state.candidate.labels.sort(), ["copy", "ready-for-agent"]);
 });

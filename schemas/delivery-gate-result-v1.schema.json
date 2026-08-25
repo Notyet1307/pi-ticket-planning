@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/delivery-gate-result-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "planFingerprint", "changed", "recovered", "problems"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:delivery-gate-result:v1" },
+    "status": { "enum": ["COMPLETE", "PARTIAL", "CONFLICT"] },
+    "planFingerprint": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "changed": { "type": "array", "items": { "type": "string" } },
+    "recovered": { "type": "array", "items": { "type": "string" } },
+    "problems": { "type": "array", "items": { "type": "object" } }
+  }
+}

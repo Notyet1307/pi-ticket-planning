@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/result-envelope-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "command", "ok", "status", "data", "problems", "recovery", "meta"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:result-envelope:v1" },
+    "command": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{0,127}$" },
+    "ok": { "type": "boolean" },
+    "status": { "enum": ["COMPLETE", "PARTIAL", "CONFLICT", "BLOCKED", "UNSUPPORTED", "INVALID", "DEGRADED"] },
+    "data": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+    "problems": { "type": "array", "maxItems": 1000, "items": { "$ref": "common-v1.schema.json#/$defs/problem" } },
+    "recovery": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["command"],
+          "properties": { "command": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^[^\\u0000\\r\\n]+$" } }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producer", "producerVersion", "commit", "observedAt", "correlationId"],
+      "properties": {
+        "producer": { "const": "pi-ticket-planning" },
+        "producerVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$" },
+        "commit": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+        "correlationId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/delivery-gate-plan-v1.schema.json",
+  "type": "object",
+  "required": ["schema", "kind", "repo", "branch", "source", "operations", "recovery", "planFingerprint"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:delivery-gate-plan:v1" },
+    "kind": { "enum": ["WORKFLOW_BOOTSTRAP", "GITHUB_ENFORCEMENT"] },
+    "repo": { "type": "string" },
+    "branch": { "type": "string" },
+    "source": { "type": "object" },
+    "workflow": { "type": "object" },
+    "repositorySettings": { "type": "object" },
+    "ruleset": { "type": "object" },
+    "operations": { "type": "array", "minItems": 1 },
+    "recovery": { "type": "object" },
+    "planFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/release-qualification-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "metrics", "problems"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:release-qualification:v1" },
+    "status": { "enum": ["COMPLETE", "BLOCKED"] },
+    "metrics": { "type": "object" },
+    "problems": { "type": "array", "items": { "type": "object" } }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/e2e-report-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tier", "runId", "repo", "resourceTag", "status", "reasonCode", "scenarios", "metrics", "cleanup", "recoveryCommand"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:e2e-report:v1" },
+    "tier": { "const": "L3_REAL_DISPOSABLE_INTEGRATION" },
+    "runId": { "type": "string" },
+    "repo": { "type": ["string", "null"] },
+    "resourceTag": { "type": "string" },
+    "status": { "enum": ["COMPLETE", "PARTIAL", "BLOCKED", "UNTESTED"] },
+    "reasonCode": { "type": "string" },
+    "scenarios": { "type": "array", "minItems": 18, "items": { "type": "object" } },
+    "metrics": { "type": "object" },
+    "cleanup": { "type": "object" },
+    "recoveryCommand": { "type": ["string", "null"] }
+  }
+}

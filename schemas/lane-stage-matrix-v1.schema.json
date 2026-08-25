@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/lane-stage-matrix-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "combinations"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:lane-stage-matrix:v1" },
+    "combinations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["PRODUCT", "DELIVERY", "TRIAGE", "RISK", "INCIDENT"],
+      "properties": {
+        "PRODUCT": { "$ref": "#/$defs/stages" },
+        "DELIVERY": { "$ref": "#/$defs/stages" },
+        "TRIAGE": { "$ref": "#/$defs/stages" },
+        "RISK": { "$ref": "#/$defs/stages" },
+        "INCIDENT": { "$ref": "#/$defs/stages" }
+      }
+    }
+  },
+  "$defs": {
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["ORIENT", "FRAME", "EVIDENCE", "COMMIT", "SPEC", "TICKETS", "ADMISSION", "EXECUTION", "OUTCOME"] }
+    }
+  }
+}

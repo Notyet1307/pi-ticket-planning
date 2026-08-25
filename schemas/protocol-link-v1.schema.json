@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/protocol-link-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "artifact", "ownerPath"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:protocol-link:v1" },
+    "artifact": { "enum": ["workflow", "authority"] },
+    "ownerPath": { "enum": ["contracts/workflow.json", "contracts/authority.json"] }
+  }
+}

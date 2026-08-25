@@ -1,0 +1,12 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "PRODUCT/EVIDENCE/NEEDS_RESEARCH",
+  "required": [
+    "skills/ask-yet/SKILL.md",
+    "skills/ask-yet/references/evidence-method-selection.md"
+  ],
+  "optional": [],
+  "maxBytes": 26000,
+  "maxEstimatedTokens": 6500,
+  "maxDocuments": 2
+}

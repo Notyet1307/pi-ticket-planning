@@ -1,0 +1,12 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "PRODUCT/ORIENT/STATUS",
+  "required": [
+    "skills/ask-yet/SKILL.md",
+    "skills/ask-yet/references/human-interface.md"
+  ],
+  "optional": [],
+  "maxBytes": 22000,
+  "maxEstimatedTokens": 5500,
+  "maxDocuments": 2
+}

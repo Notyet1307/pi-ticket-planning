@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/outcome-receipt-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "subject", "source", "observedAt", "status", "evidence", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:outcome-receipt:v1" },
+    "id": { "type": "string", "pattern": "^OR-[A-Za-z0-9._:-]{1,125}$" },
+    "subject": { "$ref": "common-v1.schema.json#/$defs/subject" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producer", "producerVersion", "producerDigest"],
+      "properties": {
+        "kind": { "enum": ["harness", "tracker", "git"] },
+        "producer": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "producerVersion": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "producerDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "status": { "enum": ["ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "UNEVALUABLE"] },
+    "evidence": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "type": "object" } },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/context-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "route", "required", "optional", "maxBytes", "maxEstimatedTokens", "maxDocuments"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:context-manifest:v1" },
+    "route": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*(?:/[A-Z][A-Z0-9_]*){2}$" },
+    "required": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+    "optional": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+    "maxBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+    "maxEstimatedTokens": { "type": "integer", "minimum": 1, "maximum": 262144 },
+    "maxDocuments": { "type": "integer", "minimum": 1, "maximum": 20 }
+  },
+  "$defs": {
+    "path": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$" }
+  }
+}

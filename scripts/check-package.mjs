@@ -35,23 +35,39 @@ const ASK_YET_REFERENCES = [
 ];
 const REQUIRED_FILES = [
   ".github/workflows/ci.yml",
+  ".github/workflows/model-eval.yml",
+  ".github/workflows/integration-e2e.yml",
+  ".github/workflows/release-qualification.yml",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",
   "README.zh-CN.md",
+  "SECURITY.md",
   "agents/ticket-readiness-reviewer.md",
   "contracts/authority.json",
   "contracts/workflow.json",
   "docs/README.md",
+  "docs/security/threat-model.md",
+  "docs/security/trust-boundaries.md",
+  "docs/security/secure-operations.md",
   "fixtures/admission-cases.json",
   "fixtures/README.md",
   "install.sh",
   "package.json",
+  "package-lock.json",
   "profile/AGENTS.md",
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
   "schemas/project-readiness-v1.schema.json",
   "scripts/admit.mjs",
+  "admission/apply.mjs",
+  "admission/cli.mjs",
+  "admission/domain.mjs",
+  "admission/github-adapter.mjs",
+  "admission/plan.mjs",
+  "admission/recovery.mjs",
+  "admission/review-transport.mjs",
+  "admission/validate.mjs",
   "scripts/delivery-gate.mjs",
   "scripts/check-admission-state.mjs",
   "scripts/check-delivery-graph.mjs",
@@ -60,8 +76,30 @@ const REQUIRED_FILES = [
   "scripts/check-ticket-context.mjs",
   "scripts/canary-execution-readiness.mjs",
   "scripts/install-profile.mjs",
+  "scripts/planctl.mjs",
   "scripts/readiness-receipt.mjs",
   "scripts/workflow-contract.mjs",
+  "scripts/verify-protocol.mjs",
+  "scripts/verify-context.mjs",
+  "scripts/migrate-artifacts.mjs",
+  "planning-case/cli.mjs",
+  "planning-case/result.mjs",
+  "planning-case/store.mjs",
+  "capabilities/cli.mjs",
+  "capabilities/doctor.mjs",
+  "capabilities/compatibility.mjs",
+  "capabilities/admission.mjs",
+  "compatibility/matrix.json",
+  "docs/operations/compatibility-matrix.md",
+  "installation/cli.mjs",
+  "installation/manager.mjs",
+  "integration/e2e.mjs",
+  "integration/qualify.mjs",
+  "benchmark/benchmark.mjs",
+  "outcome/ingest.mjs",
+  "protocol/projections.mjs",
+  "protocol/legacy-adapter.mjs",
+  "context/manifest.mjs",
   "skills/admit-ticket/SKILL.md",
   "skills/ask-yet/SKILL.md",
   "skills/setup-delivery-repository/SKILL.md",
@@ -118,6 +156,7 @@ export function validatePackage(root) {
 
   const expectedScripts = {
     admit: "node scripts/admit.mjs",
+    benchmark: "node benchmark/benchmark.mjs",
     "canary:execution-readiness": "node scripts/canary-execution-readiness.mjs",
     check: "node scripts/check-package.mjs",
     "check:admission-state": "node scripts/check-admission-state.mjs",
@@ -131,8 +170,18 @@ export function validatePackage(root) {
     "delivery-gate": "node scripts/delivery-gate.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
+    planctl: "node scripts/planctl.mjs",
+    "release:qualify": "node integration/qualify.mjs",
+    "test:integration:live": "node integration/e2e.mjs",
+    "test:integration:mock": "node --test test/admission-apply.test.mjs test/readiness-receipt.test.mjs test/review-transport.test.mjs test/integration-e2e.test.mjs",
+    "test:model": "node scripts/eval-pi-behavior.mjs --suite release --report artifacts/model-eval.json",
+    "test:security": "node --test test/security.test.mjs test/protocol-kernel.test.mjs test/planning-case.test.mjs test/review-transport.test.mjs test/readiness-receipt.test.mjs",
+    "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/planning-case.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs",
+    "test:state": "node --test test/planning-case.test.mjs test/planctl.test.mjs",
     verify: "npm run verify:ci && npm run check:profile",
-    "verify:ci": "npm run check && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:ci": "npm run check && npm run verify:protocol && npm run verify:context && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
+    "verify:context": "node scripts/verify-context.mjs",
+    "verify:protocol": "node scripts/verify-protocol.mjs",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean",
   };
   for (const [name, command] of Object.entries(expectedScripts)) {
@@ -144,6 +193,7 @@ export function validatePackage(root) {
     "actions/checkout@v7",
     "fetch-depth: 0",
     "actions/setup-node@v7",
+    "npm ci --ignore-scripts --no-audit --no-fund",
     "npm run verify:ci",
   ]);
 
@@ -157,6 +207,10 @@ export function validatePackage(root) {
   if (JSON.stringify(profile.skills) !== JSON.stringify(["!**"])) errors.push("profile must suppress ambient user skills");
   if (profile.subagents?.agentOverrides?.scout?.model !== SCOUT_MODEL) errors.push(`profile scout model must be ${SCOUT_MODEL}`);
   if (profile.subagents?.agentOverrides?.scout?.thinking !== SCOUT_THINKING) errors.push(`profile scout thinking must be ${SCOUT_THINKING}`);
+  if (JSON.stringify(profile.subagents?.agentOverrides?.["ticket-readiness-reviewer"]?.subagentOnlyExtensions)
+    !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
+    errors.push("profile reviewer must bind the package-private read guard placeholder");
+  }
   for (const skill of lock.overriddenSkills) {
     if (!upstreamProfile?.skills?.includes(`!skills/engineering/${skill}/**`)) {
       errors.push(`profile does not exclude upstream override ${skill}`);
@@ -289,6 +343,8 @@ export function validatePackage(root) {
     "Context anchors:",
     "Context economy:",
     "Harness readiness projection",
+    "pi-ticket-planning:admission-review-binding:v1",
+    "inputBinding",
   ]);
   requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
     "herdr-harness:project-readiness:v1",
@@ -296,6 +352,8 @@ export function validatePackage(root) {
     "--harness-cli",
     "--harness-config",
     "stable Harness readiness projection",
+    "admit review-input",
+    "--review-binding",
   ]);
   requireTokens(errors, "skills/triage/AGENT-BRIEF.md", triageBrief, [
     "## Starting state",
@@ -342,6 +400,11 @@ export function validatePackage(root) {
   if (frontmatterValue(reviewer, "skillPath") !== "../skills") errors.push("reviewer does not pin its package-private skill path");
   if (frontmatterValue(reviewer, "tools") !== "read") errors.push("reviewer must permit only read for its configured skill");
   if (!/^extensions:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable ambient extensions");
+  requireTokens(errors, "agents/ticket-readiness-reviewer.md", reviewer, [
+    "pi-ticket-planning:admission-review-binding:v1",
+    "inputBinding",
+    "through EOF",
+  ]);
 
   const launcher = fs.readFileSync(path.join(root, "profile", "pi-ticket-plan"), "utf8");
   requireTokens(errors, "profile/pi-ticket-plan", launcher, [
@@ -353,6 +416,8 @@ export function validatePackage(root) {
     "scripts/admit.mjs",
     '= "delivery-gate"',
     "scripts/delivery-gate.mjs",
+    '= "case"',
+    "scripts/planctl.mjs",
     'exec pi "$@"',
   ]);
 
@@ -386,17 +451,47 @@ export function validatePackage(root) {
 
   const admit = fs.readFileSync(path.join(root, "scripts", "admit.mjs"), "utf8");
   requireTokens(errors, "scripts/admit.mjs", admit, [
+    "../admission/domain.mjs",
+    "../admission/plan.mjs",
+    "../admission/validate.mjs",
+    "../admission/apply.mjs",
+    "../admission/github-adapter.mjs",
+    "../admission/cli.mjs",
+  ]);
+  const admissionDomain = fs.readFileSync(path.join(root, "admission", "domain.mjs"), "utf8");
+  requireTokens(errors, "admission/domain.mjs", admissionDomain, [
     'const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1"',
     'const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1"',
-    "pi-ticket-planning:reviewed-admission-state:v1",
-    "pi-ticket-planning:admission-result:v1",
     "pi-ticket-planning:admission:v1:",
+    "HARNESS_READINESS_DRIFT",
+  ]);
+  const admissionPlan = fs.readFileSync(path.join(root, "admission", "plan.mjs"), "utf8");
+  requireTokens(errors, "admission/plan.mjs", admissionPlan, [
+    "pi-ticket-planning:reviewed-admission-state:v1",
+  ]);
+  const admissionApply = fs.readFileSync(path.join(root, "admission", "apply.mjs"), "utf8");
+  requireTokens(errors, "admission/apply.mjs", admissionApply, [
+    "pi-ticket-planning:admission-result:v1",
     "EXPECTED_FINGERPRINT_MISMATCH",
-    "CONTROLLED_LABEL_DRIFT",
     "HARNESS_CLAIM_DETECTED",
     "WRITE_NOT_COMPLETED",
+  ]);
+  const admissionRecovery = fs.readFileSync(path.join(root, "admission", "recovery.mjs"), "utf8");
+  requireTokens(errors, "admission/recovery.mjs", admissionRecovery, [
+    "CONTROLLED_LABEL_DRIFT",
+  ]);
+  const admissionCli = fs.readFileSync(path.join(root, "admission", "cli.mjs"), "utf8");
+  requireTokens(errors, "admission/cli.mjs", admissionCli, [
     "runHarnessReadiness",
-    "HARNESS_READINESS_DRIFT",
+    "review-input",
+    "review-binding",
+  ]);
+  const reviewTransport = fs.readFileSync(path.join(root, "admission", "review-transport.mjs"), "utf8");
+  requireTokens(errors, "admission/review-transport.mjs", reviewTransport, [
+    "pi-ticket-planning:admission-review-input:v1",
+    "pi-ticket-planning:admission-review-binding:v1",
+    "O_NOFOLLOW",
+    "nlink !== 1",
   ]);
 
   const readinessReceiptScript = fs.readFileSync(path.join(root, "scripts", "readiness-receipt.mjs"), "utf8");
@@ -449,8 +544,9 @@ export function validatePackage(root) {
   for (const relative of [
     "README.md",
     "README.zh-CN.md",
-    "profile/pi-ticket-plan",
-    "profile/settings.template.json",
+  "profile/pi-ticket-plan",
+  "profile/settings.template.json",
+  "extensions/ticket-readiness-read-guard.mjs",
     "scripts/check-profile.mjs",
     "scripts/check-admission-state.mjs",
     "scripts/admit.mjs",

@@ -1,0 +1,5 @@
+{
+  "schema": "pi-ticket-planning:protocol-link:v1",
+  "artifact": "workflow",
+  "ownerPath": "contracts/workflow.json"
+}

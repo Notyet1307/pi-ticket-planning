@@ -13,6 +13,7 @@ const LAUNCHER = path.resolve(
 );
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna:max";
 const UPSTREAM = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
+const REVIEWER_READ_GUARD = realpathSync(path.join(PACKAGE_ROOT, "extensions", "ticket-readiness-read-guard.mjs"));
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));
 const SUPPRESSED_SKILLS = new Set(lock.suppressedSkills ?? []);
 const PACKAGE_SKILLS = new Set([...lock.overriddenSkills, ...lock.packageSkills]);
@@ -132,6 +133,12 @@ if (!preflight.ok) {
     failures.push("reviewer launch contract must permit only read");
   }
   if (!contract.tools.disableAmbientExtensions) failures.push("reviewer launch contract permits ambient extensions");
+  if (JSON.stringify(contract.tools.configuredExtensions.map(realpathSafe)) !== JSON.stringify([REVIEWER_READ_GUARD])) {
+    failures.push("reviewer launch contract lacks its sole package-private read guard");
+  }
+  if (!contract.tools.extensionArgs.map(realpathSafe).includes(REVIEWER_READ_GUARD)) {
+    failures.push("reviewer child does not load the package-private read guard");
+  }
 }
 
 const scoutPreflight = await resolveSubagentLaunchContract({
@@ -149,6 +156,9 @@ if (!scoutPreflight.ok) {
 } else {
   if (scoutPreflight.contract.model !== SCOUT_MODEL) failures.push(`scout model is not ${SCOUT_MODEL}`);
   if (scoutPreflight.contract.thinking !== "max") failures.push("scout thinking is not max");
+  if (scoutPreflight.contract.tools.extensionArgs.map(realpathSafe).includes(REVIEWER_READ_GUARD)) {
+    failures.push("reviewer read guard leaked into scout children");
+  }
 }
 
 if (failures.length) {

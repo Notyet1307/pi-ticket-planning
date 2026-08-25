@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/planning-case-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "caseId", "checkpoint", "blocker", "nextAction", "selectedCandidate", "excludedCandidates", "facts", "decisions", "unknowns", "assumptions", "evidenceMethod", "truthOwner", "cost", "stoppingRule", "bindings", "approvals", "lastCheckpoint", "lastEvent", "createdAt", "updatedAt"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:planning-case:v1" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "checkpoint": { "$ref": "checkpoint-v2.schema.json" },
+    "blocker": { "type": ["object", "null"] },
+    "nextAction": { "type": "object" },
+    "selectedCandidate": { "type": ["object", "null"] },
+    "excludedCandidates": { "type": "array", "maxItems": 1000, "items": { "type": "object" } },
+    "facts": { "type": "array", "maxItems": 10000, "items": { "$ref": "fact-attestation-v1.schema.json" } },
+    "decisions": { "type": "array", "maxItems": 10000, "items": { "type": "object" } },
+    "unknowns": { "type": "array", "maxItems": 10000, "items": { "type": "object" } },
+    "assumptions": { "type": "array", "maxItems": 10000, "items": { "type": "object" } },
+    "evidenceMethod": { "type": ["object", "null"] },
+    "truthOwner": { "type": ["object", "null"] },
+    "cost": { "type": ["object", "null"] },
+    "stoppingRule": { "type": ["object", "null"] },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"],
+      "properties": {
+        "source": { "type": ["object", "null"] },
+        "release": { "type": ["object", "null"] },
+        "spec": { "type": ["object", "null"] },
+        "graph": { "type": ["object", "null"] },
+        "policy": { "type": ["object", "null"] },
+        "harness": { "type": ["object", "null"] },
+        "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
+        "outcome": { "oneOf": [{ "$ref": "outcome-receipt-v1.schema.json" }, { "type": "null" }] }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pending", "consumed"],
+      "properties": {
+        "pending": { "type": "array", "maxItems": 1000, "items": { "$ref": "fact-attestation-v1.schema.json" } },
+        "consumed": { "type": "array", "maxItems": 10000, "items": { "$ref": "fact-attestation-v1.schema.json" } }
+      }
+    },
+    "lastCheckpoint": { "$ref": "checkpoint-v2.schema.json" },
+    "lastEvent": { "type": ["string", "null"], "maxLength": 128, "pattern": "^[^\\u0000\\r\\n]*$" },
+    "createdAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "updatedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+  }
+}

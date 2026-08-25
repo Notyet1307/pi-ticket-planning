@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-plan-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "repo", "target", "reviewed", "reviewedFingerprint", "resources", "recovery", "operations", "planFingerprint"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-plan:v1" },
+    "kind": { "enum": ["DELIVERY_GRAPH", "STANDALONE"] },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "parent": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "graphFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "reviewed": { "$ref": "reviewed-admission-state-v1.schema.json" },
+    "reviewedFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "resources": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/resource" } },
+    "recovery": { "$ref": "#/$defs/recovery" },
+    "operations": { "type": "array", "minItems": 2, "maxItems": 20000, "items": { "type": "object" } },
+    "planFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  },
+  "$defs": {
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issue", "parent", "executionLane", "title", "bodyHash", "blockedBy", "state", "observedLabels", "controlledLabelsBefore", "controlledLabelsAfter", "addLabels", "removeLabels"],
+      "properties": {
+        "issue": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "parent": { "type": "boolean" },
+        "executionLane": { "enum": ["PARENT", "AGENT", "HUMAN"] },
+        "title": { "type": "string" },
+        "bodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "blockedBy": { "type": "array", "items": { "type": "string" } },
+        "state": { "const": "open" },
+        "observedLabels": { "type": "array", "items": { "type": "string" } },
+        "controlledLabelsBefore": { "type": "array", "items": { "type": "string" } },
+        "controlledLabelsAfter": { "type": "array", "items": { "type": "string" } },
+        "addLabels": { "type": "array", "items": { "type": "string" } },
+        "removeLabels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "rollback", "conflict"],
+      "properties": {
+        "strategy": { "const": "roll-forward" },
+        "rollback": { "type": "string" },
+        "conflict": { "type": "string" }
+      }
+    }
+  }
+}

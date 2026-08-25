@@ -1,0 +1,10 @@
+{
+  "schema": "pi-ticket-planning:lane-stage-matrix:v1",
+  "combinations": {
+    "PRODUCT": ["ORIENT", "FRAME", "EVIDENCE", "COMMIT", "OUTCOME"],
+    "DELIVERY": ["ORIENT", "SPEC", "TICKETS", "ADMISSION", "EXECUTION"],
+    "TRIAGE": ["ORIENT", "TICKETS", "ADMISSION", "EXECUTION"],
+    "RISK": ["ORIENT", "FRAME", "EVIDENCE", "COMMIT", "SPEC", "TICKETS", "ADMISSION", "EXECUTION", "OUTCOME"],
+    "INCIDENT": ["ORIENT", "FRAME", "EXECUTION", "OUTCOME"]
+  }
+}

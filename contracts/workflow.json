@@ -1,4 +1,5 @@
 {
+  "schema": "pi-ticket-planning:workflow:v1",
   "version": 1,
   "lanes": ["PRODUCT", "DELIVERY", "TRIAGE", "RISK", "INCIDENT"],
   "identityPatterns": {
@@ -69,6 +70,14 @@
       "sameRelease": true,
       "targetStages": ["FRAME", "EVIDENCE"],
       "requiredFacts": ["release.reworkActionRecorded"]
+    }
+  ],
+  "rebindTransitions": [
+    {
+      "sourceStage": "OUTCOME",
+      "targetStage": "ORIENT",
+      "requiredFacts": ["human.identityRebind"],
+      "changes": ["subject.id", "subject.revision"]
     }
   ],
   "verdictRequirements": {

@@ -18,6 +18,10 @@ package_root=$(CDPATH= cd "$script_dir/.." && pwd)
 export PI_TICKET_PLANNING_ROOT="$package_root"
 export PI_CODING_AGENT_DIR="${PI_TICKET_PLAN_PROFILE_DIR:-$HOME/.pi/ticket-planning}"
 
+if [ "$(basename "$0")" = "pi-ticket-planctl" ]; then
+  exec node "$package_root/scripts/planctl.mjs" "$@"
+fi
+
 if [ "${1-}" = "doctor" ]; then
   shift
   if ! command -v node >/dev/null 2>&1; then
@@ -46,6 +50,14 @@ if [ "${1-}" = "delivery-gate" ]; then
     exit 1
   fi
   exec node "$package_root/scripts/delivery-gate.mjs" "$@"
+fi
+
+if [ "${1-}" = "case" ]; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR Node.js command not found" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/planctl.mjs" "$@"
 fi
 
 exec pi "$@"

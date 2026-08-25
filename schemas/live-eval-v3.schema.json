@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/live-eval-v3.schema.json",
+  "type": "object",
+  "required": ["schema", "summary"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:live-eval:v3" },
+    "summary": { "type": "object" }
+  }
+}

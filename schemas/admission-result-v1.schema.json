@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-result-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "planFingerprint", "reviewedFingerprint", "changed", "recovered", "problems"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-result:v1" },
+    "status": { "enum": ["COMPLETE", "PARTIAL", "CONFLICT"] },
+    "planFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "reviewedFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "graphFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "changed": { "type": "array", "items": { "type": "string" } },
+    "recovered": { "type": "array", "items": { "type": "string" } },
+    "problems": { "type": "array", "items": { "$ref": "common-v1.schema.json#/$defs/problem" } }
+  }
+}
