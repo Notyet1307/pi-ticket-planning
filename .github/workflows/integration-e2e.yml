@@ -26,6 +26,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22.16.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run test:integration:live
         env:
           PI_TICKET_PLAN_E2E: "1"

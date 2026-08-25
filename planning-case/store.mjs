@@ -38,7 +38,6 @@ function clone(value) {
 }
 
 function defaultProcessAlive(pid) {
-  if (!Number.isInteger(pid) || pid < 1) return false;
   try {
     process.kill(pid, 0);
     return true;

@@ -8,6 +8,20 @@ The input can be one natural-language sentence or an Issue reference. The durabl
 
 > The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and activate Admission. It does not create implementation work or write GitHub ready labels without the applicable gate and approval.
 
+> **v0.5 alpha:** `main` now uses a versioned protocol kernel and recoverable
+> Planning Cases. Deterministic checks are available, but the compatibility
+> matrix has no qualified runtime tuple and no live L3 report exists. Formal
+> Admission therefore fails closed; `v0.4.0` remains the latest stable release.
+
+Machine control and recovery use `pi-ticket-planctl`:
+
+```sh
+pi-ticket-planctl case create --target github:OWNER/REPO --json
+pi-ticket-planctl case resume PC-ID --json
+pi-ticket-planctl doctor --capabilities --json
+pi-ticket-planctl update --dry-run --json
+```
+
 ## Start from any of three points
 
 | Your starting point | First input | What the system does first |

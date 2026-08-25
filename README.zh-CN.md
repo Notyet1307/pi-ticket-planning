@@ -8,6 +8,19 @@ PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求�
 
 > 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 Admission 激活仍由人负责。没有经过相应 Gate 和批准，它不会创建实现任务，也不会写 GitHub ready label。
 
+> **v0.5 alpha：** `main` 已使用版本化协议内核和可恢复 Planning Case；
+> 但兼容矩阵还没有 qualified runtime tuple，也没有真实 L3 报告，因此正式
+> Admission 会 fail closed。最新稳定版仍是 `v0.4.0`。
+
+机器控制与恢复统一使用 `pi-ticket-planctl`：
+
+```sh
+pi-ticket-planctl case create --target github:OWNER/REPO --json
+pi-ticket-planctl case resume PC-ID --json
+pi-ticket-planctl doctor --capabilities --json
+pi-ticket-planctl update --dry-run --json
+```
+
 ## 你可以从三种起点开始
 
 | 你的起点 | 第一条输入 | 系统先做什么 |

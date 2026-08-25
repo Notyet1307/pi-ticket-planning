@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the v0.5 versioned protocol kernel, Artifact Registry, Fact Attestation,
+  Planning Case state, Result Envelope, Context Manifests, and model checker.
+- Split Admission into deep modules and bind fresh Reviewer input, Capability
+  evidence, exact human approval, Tracker writes, and post-write proof.
+- Add dry-run local update/migration/rollback, read-only Outcome ingestion,
+  tiered evidence workflows, security controls, and performance checks.
 - Add fingerprinted two-phase GitHub CI and auto-merge gate setup with strict readback.
 - Require an executed exact-base Harness readiness receipt before activating `AGENT` work.
 - Add a cross-repository disposable readiness canary covering environment and merge-gate failures.

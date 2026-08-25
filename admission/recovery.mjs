@@ -14,9 +14,11 @@ export function stateIssue(plan, state, issueId) {
 }
 
 function comments(issueState) {
-  return (issueState?.comments ?? []).map((comment) => typeof comment === "string"
-    ? { body: comment, authorVerified: false }
-    : comment);
+  return (issueState?.comments ?? []).map((comment) => {
+    if (typeof comment === "string") return { body: comment, authorVerified: false };
+    if (comment && typeof comment === "object") return comment;
+    return { body: undefined, authorVerified: false };
+  });
 }
 
 export function operationState(operation, issueState) {

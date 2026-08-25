@@ -78,6 +78,12 @@ export function validateRegistry({ protocol = loadProtocol() } = {}) {
     if (entry.currentMajor > Math.min(...entry.readableMajors) && !entry.migrationPath) {
       problems.push(problem("MISSING_ARTIFACT_MIGRATION", key));
     }
+    if (entry.migrationPath) {
+      const migrationFile = path.resolve(protocol.root, entry.migrationPath.split("#", 1)[0]);
+      if (!within(protocol.root, migrationFile) || !fs.existsSync(migrationFile) || !fs.statSync(migrationFile).isFile()) {
+        problems.push(problem("MISSING_ARTIFACT_MIGRATION", key));
+      }
+    }
 
     const paths = new Set([entry.schemaPath, ...Object.values(entry.schemaPaths ?? {})]);
     for (const relative of paths) {
@@ -428,7 +434,8 @@ function reachableStages(workflow) {
   const reached = new Set(["ORIENT"]);
   const queue = ["ORIENT"];
   while (queue.length > 0) {
-    for (const target of workflow.allowedTransitions?.[queue.shift()] ?? []) {
+    const stage = queue.shift();
+    for (const target of workflow.allowedTransitions?.[stage] ?? []) {
       if (!reached.has(target)) {
         reached.add(target);
         queue.push(target);

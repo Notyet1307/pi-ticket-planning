@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeLegacyFacts } from "../protocol/legacy-adapter.mjs";
 
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const defaultWorkflow = JSON.parse(fs.readFileSync(path.join(moduleRoot, "contracts", "workflow.json"), "utf8"));
@@ -118,8 +119,9 @@ function transitionFacts(current, proposed, workflow) {
 
 function evaluateFacts(requiredFacts, facts, authority) {
   const problems = [];
+  const observations = normalizeLegacyFacts(facts, authority);
   for (const factName of requiredFacts) {
-    const observation = facts[factName];
+    const observation = observations[factName];
     if (observation?.value !== true) {
       problems.push(issue("MISSING_REQUIRED_FACT", factName));
       continue;
