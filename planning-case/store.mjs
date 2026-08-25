@@ -3,6 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { compatibilityFor } from "../capabilities/compatibility.mjs";
+import { validateCapabilityReceipt } from "../capabilities/doctor.mjs";
+import { loadContextManifest } from "../context/manifest.mjs";
 import { loadProtocol, validateFactAttestation } from "../protocol/kernel.mjs";
 
 const CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
@@ -62,6 +65,7 @@ class PlanningCaseStore {
     io = fs,
     failpoint = () => {},
     bindingVerifier = () => [],
+    contextManifestLoader = loadContextManifest,
   } = {}) {
     this.io = io;
     this.clock = () => normalizeTime(clock());
@@ -72,6 +76,7 @@ class PlanningCaseStore {
     this.pid = pid;
     this.failpoint = failpoint;
     this.bindingVerifier = bindingVerifier;
+    this.contextManifestLoader = contextManifestLoader;
     this.protocol = loadProtocol();
     this.stateDir = this.#initializeStateRoot(path.resolve(stateDir));
     this.casesDir = path.join(this.stateDir, "cases");
@@ -137,17 +142,16 @@ class PlanningCaseStore {
     const verified = this.verify({ caseId, target });
     if (verified.status !== "COMPLETE") throw new PlanningCaseError(verified.problems[0]?.code ?? "RECOVERY_REQUIRED");
     const snapshot = this.get({ caseId, target });
+    const capability = snapshot.bindings.capability
+      ? compatibilityFor(snapshot.bindings.capability)
+      : { status: "UNTESTED", reasonCode: "CAPABILITY_RECEIPT_MISSING", evidence: [] };
     return {
       currentState: snapshot.checkpoint,
       blocker: snapshot.blocker,
       nextAction: snapshot.nextAction,
-      contextManifest: {
-        route: `${snapshot.checkpoint.lane}/${snapshot.checkpoint.stage}/${snapshot.checkpoint.verdict}`,
-        required: [],
-        optional: [],
-      },
+      contextManifest: this.contextManifestLoader(`${snapshot.checkpoint.lane}/${snapshot.checkpoint.stage}/${snapshot.checkpoint.verdict}`),
       bindings: clone(snapshot.bindings),
-      compatibility: { protocol: "SUPPORTED", capabilities: "UNTESTED" },
+      compatibility: { protocol: "SUPPORTED", capabilities: capability.status, capabilityReason: capability.reasonCode },
       recoveryCommand: `pi-ticket-planctl case recover ${snapshot.caseId} --dry-run --json`,
     };
   }
@@ -208,12 +212,12 @@ class PlanningCaseStore {
   }
 
   bind({ caseId, target, name, binding } = {}) {
-    if (!["source", "release", "spec", "graph", "policy", "harness"].includes(name)) {
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability"].includes(name)) {
       throw new PlanningCaseError("INVALID_BINDING_NAME");
     }
     if (!binding || typeof binding !== "object" || Array.isArray(binding)
-      || !TARGET.test(binding.target ?? "")
-      || binding.target !== this.get({ caseId, target }).target
+      || !TARGET.test(binding.target ?? binding.subject?.target ?? "")
+      || (binding.target ?? binding.subject?.target) !== this.get({ caseId, target }).target
       || !/^sha256:[a-f0-9]{64}$/.test(binding.digest ?? "")) {
       throw new PlanningCaseError("INVALID_BINDING");
     }
@@ -248,6 +252,11 @@ class PlanningCaseStore {
       for (const item of bindingProblems) {
         if (!item || !/^[A-Z][A-Z0-9_]{0,127}$/.test(item.code ?? "")) throw new PlanningCaseError("BINDING_VERIFY_FAILED");
         problems.push({ code: item.code });
+      }
+      if (snapshot.bindings.capability) {
+        const checked = validateCapabilityReceipt(snapshot.bindings.capability, { now: this.clock() });
+        problems.push(...checked.problems.map(({ code }) => ({ code })));
+        if (snapshot.bindings.capability.subject?.target !== snapshot.target) problems.push({ code: "CAPABILITY_TARGET_MISMATCH" });
       }
       return { status: problems.length === 0 ? "COMPLETE" : "RECOVERY_REQUIRED", problems };
     } catch (error) {
@@ -506,7 +515,7 @@ class PlanningCaseStore {
       truthOwner: null,
       cost: null,
       stoppingRule: null,
-      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null },
+      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null },
       approvals: { pending: [], consumed: [] },
       lastCheckpoint: clone(checkpoint),
       lastEvent: null,

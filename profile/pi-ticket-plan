@@ -18,6 +18,10 @@ package_root=$(CDPATH= cd "$script_dir/.." && pwd)
 export PI_TICKET_PLANNING_ROOT="$package_root"
 export PI_CODING_AGENT_DIR="${PI_TICKET_PLAN_PROFILE_DIR:-$HOME/.pi/ticket-planning}"
 
+if [ "$(basename "$0")" = "pi-ticket-planctl" ]; then
+  exec node "$package_root/scripts/planctl.mjs" "$@"
+fi
+
 if [ "${1-}" = "doctor" ]; then
   shift
   if ! command -v node >/dev/null 2>&1; then

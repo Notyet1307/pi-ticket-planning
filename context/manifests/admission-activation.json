@@ -1,0 +1,9 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "DELIVERY/ADMISSION/ACTIVATION_AWAITING_CONFIRMATION",
+  "required": ["skills/admit-ticket/SKILL.md"],
+  "optional": [],
+  "maxBytes": 14000,
+  "maxEstimatedTokens": 3500,
+  "maxDocuments": 1
+}

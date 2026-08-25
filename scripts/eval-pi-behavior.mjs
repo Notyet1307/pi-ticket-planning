@@ -701,7 +701,7 @@ export async function runLivePiEval({
   };
 }
 
-async function createPiRpcSession({ cwd, launcher, model, thinking, timeoutMs, skill, tools, persisted, sessionDir, sessionName }) {
+export async function createPiRpcSession({ cwd, launcher, model, thinking, timeoutMs, skill, tools, persisted, sessionDir, sessionName }) {
   if (persisted) fs.mkdirSync(sessionDir, { recursive: true });
   const child = spawn(
     launcher,

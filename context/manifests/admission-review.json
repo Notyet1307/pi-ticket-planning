@@ -1,0 +1,12 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "DELIVERY/ADMISSION/REVIEW_IN_PROGRESS",
+  "required": [
+    "agents/ticket-readiness-reviewer.md",
+    "skills/ticket-readiness/SKILL.md"
+  ],
+  "optional": [],
+  "maxBytes": 14000,
+  "maxEstimatedTokens": 3500,
+  "maxDocuments": 2
+}

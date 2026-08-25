@@ -1,5 +1,7 @@
+import { runCapabilityCli } from "../capabilities/cli.mjs";
 import { runPlanningCaseCli } from "../planning-case/cli.mjs";
 
-const result = runPlanningCaseCli(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const result = argv[0] === "doctor" ? await runCapabilityCli(argv) : runPlanningCaseCli(argv);
 process.stdout.write(`${JSON.stringify(result.envelope, null, 2)}\n`);
 process.exitCode = result.exitCode;

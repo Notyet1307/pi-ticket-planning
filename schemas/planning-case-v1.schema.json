@@ -24,14 +24,15 @@
     "bindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "release", "spec", "graph", "policy", "harness"],
+      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability"],
       "properties": {
         "source": { "type": ["object", "null"] },
         "release": { "type": ["object", "null"] },
         "spec": { "type": ["object", "null"] },
         "graph": { "type": ["object", "null"] },
         "policy": { "type": ["object", "null"] },
-        "harness": { "type": ["object", "null"] }
+        "harness": { "type": ["object", "null"] },
+        "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] }
       }
     },
     "approvals": {

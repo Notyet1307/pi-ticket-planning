@@ -212,8 +212,9 @@ export function stableHarnessReadiness(value) {
   };
 }
 
-export function runHarnessReadiness({ harnessCli, harnessConfig, repo, baseSha, now = new Date().toISOString() }) {
+export function runHarnessReadiness({ harnessCli, harnessConfig, repo, baseSha, now = new Date().toISOString(), timeoutMs = READINESS_TIMEOUT_MS }) {
   if (!REPO.test(repo ?? "") || !SHA.test(baseSha ?? "")) throw new Error("Harness readiness target identity is invalid");
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > READINESS_TIMEOUT_MS) throw new Error("Harness readiness timeout is invalid");
   for (const [label, value] of [["Harness CLI", harnessCli], ["Harness config", harnessConfig]]) {
     if (typeof value !== "string" || !path.isAbsolute(value)) throw new Error(`${label} path must be absolute`);
     let stat;
@@ -236,7 +237,7 @@ export function runHarnessReadiness({ harnessCli, harnessConfig, repo, baseSha, 
     fs.realpathSync(harnessCli), "readiness", "--config", fs.realpathSync(harnessConfig), "--base", baseSha, "--json",
   ], {
     encoding: "utf8",
-    timeout: READINESS_TIMEOUT_MS,
+    timeout: timeoutMs,
     maxBuffer: 128 * 1024,
     env: process.env,
   });

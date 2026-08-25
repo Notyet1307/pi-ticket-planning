@@ -364,6 +364,30 @@
       "readers": ["planning-case-recovery"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
       "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "context-manifest",
+      "schemaIdentity": "pi-ticket-planning:context-manifest:v1",
+      "schemaPath": "schemas/context-manifest-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "route-owner",
+      "readers": ["context-loader", "verify-context", "planning-case-resume"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "compatibility-matrix",
+      "schemaIdentity": "pi-ticket-planning:compatibility-matrix:v1",
+      "schemaPath": "schemas/compatibility-matrix-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "release-qualification",
+      "readers": ["doctor", "planning-case-resume", "admission-validate"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
     }
   ]
 }

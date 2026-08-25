@@ -10,7 +10,7 @@ import { resultEnvelope } from "./result.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
 
-function metadata({ clock, correlationId }) {
+export function controlMetadata({ clock, correlationId }) {
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   const git = spawnSync("git", ["-C", ROOT, "rev-parse", "HEAD"], { encoding: "utf8" });
   if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(git.stdout.trim())) throw new PlanningCaseError("SOURCE_COMMIT_UNAVAILABLE");
@@ -145,7 +145,7 @@ export function runPlanningCaseCli(argv, {
         data,
         problems,
         recovery,
-        meta: metadata({ clock, correlationId }),
+        meta: controlMetadata({ clock, correlationId }),
       }),
     };
   } catch (error) {
@@ -159,7 +159,7 @@ export function runPlanningCaseCli(argv, {
         data: {},
         problems: [{ code }],
         recovery: recoveryFor(caseId),
-        meta: metadata({ clock, correlationId }),
+        meta: controlMetadata({ clock, correlationId }),
       }),
     };
   }

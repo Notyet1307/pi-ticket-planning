@@ -69,6 +69,8 @@ test("a new process resumes one private Planning Case without chat history", (t)
   assert.equal(resumed.bindings.source, null);
   assert.equal(resumed.compatibility.protocol, "SUPPORTED");
   assert.equal(resumed.compatibility.capabilities, "UNTESTED");
+  assert.equal(resumed.contextManifest.route, "PRODUCT/ORIENT/NEEDS_TARGET");
+  assert.deepEqual(resumed.contextManifest.required, ["skills/ask-yet/SKILL.md"]);
   assert.match(resumed.recoveryCommand, /case recover PC-resume --dry-run --json$/);
 
   const directory = caseDirectory(stateDir, created.caseId);

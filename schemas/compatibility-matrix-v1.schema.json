@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/compatibility-matrix-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "defaultStatus", "entries"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:compatibility-matrix:v1" },
+    "defaultStatus": { "const": "UNTESTED" },
+    "entries": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["piVersion", "subagentVersion", "provider", "model", "profileDigest", "harnessDigest", "status", "reasonCode", "evidence"],
+        "properties": {
+          "piVersion": { "type": "string", "minLength": 1 },
+          "subagentVersion": { "type": "string", "minLength": 1 },
+          "provider": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 },
+          "profileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+          "harnessDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+          "status": { "enum": ["SUPPORTED", "DEGRADED", "BLOCKED", "UNTESTED"] },
+          "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+          "evidence": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  }
+}
