@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/delivery-graph-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "source", "scenarios", "children", "walkingSkeleton"],
+  "properties": {
+    "version": { "const": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "revision", "baseSha"],
+      "properties": {
+        "identity": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" }
+      }
+    },
+    "scenarios": { "type": "array", "minItems": 1, "items": { "$ref": "delivery-graph-v2.schema.json#/$defs/scenario" } },
+    "children": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/child" } },
+    "walkingSkeleton": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  },
+  "$defs": {
+    "child": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "coverageRole", "sourceScenarios", "blockedBy", "primaryVerification", "executionLane"],
+      "properties": {
+        "id": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "title": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "coverageRole": { "enum": ["DIRECT", "ENABLER"] },
+        "sourceScenarios": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "blockedBy": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "externalBlockers": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "primaryVerification": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "executionLane": { "enum": ["AGENT", "HUMAN"] },
+        "downstreamConsumers": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "exitCondition": { "$ref": "common-v1.schema.json#/$defs/safeText" }
+      }
+    }
+  }
+}

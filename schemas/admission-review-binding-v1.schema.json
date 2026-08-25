@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "subject", "inputDigest", "byteCount", "createdAt"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-review-binding:v1" },
+    "subject": { "$ref": "common-v1.schema.json#/$defs/subject" },
+    "inputDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "byteCount": { "type": "integer", "minimum": 2, "maximum": 16777216 },
+    "createdAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+  }
+}

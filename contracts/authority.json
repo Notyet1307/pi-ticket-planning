@@ -1,36 +1,45 @@
 {
+  "schema": "pi-ticket-planning:authority:v1",
   "version": 1,
+  "factDefaults": {
+    "requiredSubjectFields": ["target", "kind", "id", "revision", "digest"],
+    "crossRevision": false,
+    "reusable": false,
+    "freshness": { "mode": "immutable" }
+  },
   "facts": {
-    "evidence.persisted": { "owner": "release-artifact", "sources": ["git", "provided-artifact"] },
-    "release.readinessPassed": { "owner": "release-readiness", "sources": ["release-readiness-check"] },
-    "human.commitment": { "owner": "human", "sources": ["operator-asserted"] },
-    "human.releaseDecision": { "owner": "human", "sources": ["operator-asserted"] },
-    "human.releaseReopened": { "owner": "human", "sources": ["operator-asserted"] },
-    "release.persisted": { "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
-    "release.reopenConditionMet": { "owner": "release-evidence", "sources": ["reopen-condition-check"] },
-    "release.reworkActionRecorded": { "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
-    "release.accepted": { "owner": "release-artifact", "sources": ["accepted-artifact"] },
-    "git.deliveryBase": { "owner": "git", "sources": ["git"] },
-    "spec.persisted": { "owner": "tracker", "sources": ["tracker-api", "git"] },
-    "tickets.persisted": { "owner": "tracker", "sources": ["tracker-api", "git"] },
-    "graph.passed": { "owner": "deterministic-checker", "sources": ["check-admission-state"] },
-    "human.graphApproval": { "owner": "human", "sources": ["operator-asserted"] },
-    "source.unchanged": { "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli"] },
-    "policy.accepted": { "owner": "git-policy", "sources": ["git-policy-check"] },
-    "review.ready": { "owner": "fresh-reviewer", "sources": ["ticket-readiness-reviewer"] },
-    "human.activation": { "owner": "human", "sources": ["operator-asserted"] },
-    "tracker.ready": { "owner": "tracker", "sources": ["tracker-api", "admission-cli"] },
-    "harness.active": { "owner": "harness", "sources": ["harness-ledger"] },
-    "harness.terminalSuccess": { "owner": "harness", "sources": ["harness-ledger"] },
-    "git.acceptedSource": { "owner": "git", "sources": ["git"] },
-    "release.recorded": { "owner": "release-record", "sources": ["release-record"] },
-    "release.enabled": { "owner": "runtime", "sources": ["deployment-fact"] },
-    "release.smokePassed": { "owner": "release-record", "sources": ["release-record"] },
-    "outcome.windowElapsed": { "owner": "outcome-evaluator", "sources": ["outcome-evaluator"] },
-    "outcome.evidence": { "owner": "signal-evidence", "sources": ["signal-evidence"] }
+    "evidence.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "provided-artifact"] },
+    "release.readinessPassed": { "kind": "LIVE_FACT", "owner": "release-readiness", "sources": ["release-readiness-check"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "human.commitment": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "human.releaseDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "human.releaseReopened": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "human.identityRebind": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
+    "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
+    "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
+    "release.accepted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["accepted-artifact"] },
+    "git.deliveryBase": { "kind": "IMMUTABLE_FACT", "owner": "git", "sources": ["git"] },
+    "spec.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
+    "tickets.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
+    "graph.passed": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state"], "freshness": { "mode": "same-mutation" } },
+    "human.graphApproval": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "source.unchanged": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli"], "freshness": { "mode": "same-mutation" } },
+    "policy.accepted": { "kind": "IMMUTABLE_FACT", "owner": "git-policy", "sources": ["git-policy-check"] },
+    "review.ready": { "kind": "LIVE_FACT", "owner": "fresh-reviewer", "sources": ["ticket-readiness-reviewer"], "freshness": { "mode": "same-mutation" } },
+    "human.activation": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "tracker.ready": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "admission-cli"] },
+    "harness.active": { "kind": "HARNESS_FACT", "owner": "harness", "sources": ["harness-ledger"], "freshness": { "mode": "max-age", "maxAgeMs": 300000 } },
+    "harness.terminalSuccess": { "kind": "HARNESS_FACT", "owner": "harness", "sources": ["harness-ledger"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "git.acceptedSource": { "kind": "IMMUTABLE_FACT", "owner": "git", "sources": ["git"] },
+    "release.recorded": { "kind": "IMMUTABLE_FACT", "owner": "release-record", "sources": ["release-record"] },
+    "release.enabled": { "kind": "LIVE_FACT", "owner": "runtime", "sources": ["deployment-fact"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "release.smokePassed": { "kind": "LIVE_FACT", "owner": "release-record", "sources": ["release-record"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "outcome.windowElapsed": { "kind": "LIVE_FACT", "owner": "outcome-evaluator", "sources": ["outcome-evaluator"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
+    "outcome.evidence": { "kind": "IMMUTABLE_FACT", "owner": "signal-evidence", "sources": ["signal-evidence"] }
   },
   "mutations": {
     "admission.apply": {
+      "strict": true,
       "actor": "admission-cli",
       "sourceStage": "ADMISSION",
       "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
@@ -38,9 +47,11 @@
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "human.activation"],
-      "producesFacts": ["tracker.ready"]
+      "producesFacts": ["tracker.ready"],
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan"]
     },
     "admission.applyStandalone": {
+      "strict": true,
       "actor": "admission-cli",
       "sourceStage": "ADMISSION",
       "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
@@ -48,7 +59,8 @@
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "human.activation"],
-      "producesFacts": ["tracker.ready"]
+      "producesFacts": ["tracker.ready"],
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan"]
     }
   }
 }

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/harness-readiness-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["identity", "digest", "readiness"],
+  "properties": {
+    "identity": { "const": "HerdrHarness herdr-harness:project-readiness:v1" },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "observedAt", "receiptDigest", "projection"],
+      "properties": {
+        "schema": { "const": "pi-ticket-planning:harness-readiness:v1" },
+        "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+        "receiptDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "projection": { "type": "object" }
+      }
+    }
+  }
+}

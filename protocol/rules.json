@@ -1,0 +1,45 @@
+{
+  "schema": "pi-ticket-planning:protocol-rules:v1",
+  "rules": [
+    {
+      "id": "PTP-AUTH-001",
+      "ownerPath": "contracts/authority.json",
+      "kind": "authority",
+      "status": "active",
+      "since": "0.5.0-alpha",
+      "sourceDecision": "protocol-hardening-v0.5"
+    },
+    {
+      "id": "PTP-FLOW-001",
+      "ownerPath": "contracts/workflow.json",
+      "kind": "workflow",
+      "status": "active",
+      "since": "0.5.0-alpha",
+      "sourceDecision": "protocol-hardening-v0.5"
+    },
+    {
+      "id": "PTP-ADMISSION-001",
+      "ownerPath": "scripts/admit.mjs",
+      "kind": "mutation",
+      "status": "active",
+      "since": "0.5.0-alpha",
+      "sourceDecision": "protocol-hardening-v0.5"
+    },
+    {
+      "id": "PTP-STATE-001",
+      "ownerPath": "contracts/workflow.json",
+      "kind": "state",
+      "status": "active",
+      "since": "0.5.0-alpha",
+      "sourceDecision": "protocol-hardening-v0.5"
+    },
+    {
+      "id": "PTP-SEC-001",
+      "ownerPath": "AGENTS.md",
+      "kind": "security",
+      "status": "active",
+      "since": "0.5.0-alpha",
+      "sourceDecision": "protocol-hardening-v0.5"
+    }
+  ]
+}

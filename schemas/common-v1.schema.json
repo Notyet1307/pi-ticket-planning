@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/common-v1.schema.json",
+  "$defs": {
+    "safeText": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^[^\\u0000\\r\\n]+$" },
+    "safeMultilineText": { "type": "string", "maxLength": 65536, "pattern": "^[^\\u0000]*$" },
+    "target": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[a-z][a-z0-9+.-]*:[^\\u0000\\r\\n]+$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[a-f0-9]{40,64}$" },
+    "time": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+        "subject": { "type": "string", "maxLength": 512, "pattern": "^[^\\u0000\\r\\n]*$" },
+        "detail": { "type": "string", "maxLength": 4096, "pattern": "^[^\\u0000]*$" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "kind", "id", "revision", "digest"],
+      "properties": {
+        "target": { "$ref": "#/$defs/target" },
+        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "id": { "type": "string", "minLength": 1, "maxLength": 512, "pattern": "^[^\\u0000\\r\\n]+$" },
+        "revision": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000\\r\\n]+$" },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

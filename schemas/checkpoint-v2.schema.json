@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/checkpoint-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "lane", "stage", "verdict", "subject"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:checkpoint:v2" },
+    "lane": { "enum": ["PRODUCT", "DELIVERY", "TRIAGE", "RISK", "INCIDENT"] },
+    "stage": { "enum": ["ORIENT", "FRAME", "EVIDENCE", "COMMIT", "SPEC", "TICKETS", "ADMISSION", "EXECUTION", "OUTCOME"] },
+    "verdict": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+    "subject": { "$ref": "common-v1.schema.json#/$defs/subject" }
+  }
+}

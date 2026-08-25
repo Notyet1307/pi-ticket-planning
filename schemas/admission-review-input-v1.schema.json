@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-input-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "subject", "reviewedAt", "source", "policy", "contextChecks", "reviewTarget"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-review-input:v1" },
+    "subject": { "$ref": "common-v1.schema.json#/$defs/subject" },
+    "reviewedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "source": { "type": "object" },
+    "policy": { "type": "object" },
+    "contextChecks": { "type": "array" },
+    "reviewTarget": {
+      "oneOf": [
+        { "type": "object", "required": ["parent", "children", "graph"] },
+        { "type": "object", "required": ["candidate"] }
+      ]
+    },
+    "harness": { "type": ["object", "null"] }
+  }
+}

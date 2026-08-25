@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/ticket-context-check-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "ok", "verdict", "baseSha", "bodyHash", "anchorCount", "anchors", "problems", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:ticket-context-check:v1" },
+    "ok": { "type": "boolean" },
+    "verdict": { "enum": ["PASS", "FAIL"] },
+    "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "bodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "anchorCount": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "anchors": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "purpose", "blobSha"],
+        "properties": {
+          "path": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+          "purpose": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+          "blobSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" }
+        }
+      }
+    },
+    "problems": { "type": "array", "items": { "$ref": "common-v1.schema.json#/$defs/problem" } },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

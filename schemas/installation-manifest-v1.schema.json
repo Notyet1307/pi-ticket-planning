@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/installation-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "installationId", "packageVersion", "sourceCommit", "installedAt", "nodeVersion", "piVersion", "subagentVersion", "upstreamSkillCommit", "profileDigest", "protocolVersions", "installedFiles", "backups"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:installation-manifest:v1" },
+    "installationId": { "type": "string", "pattern": "^I-[A-Za-z0-9._:-]{1,126}$" },
+    "packageVersion": { "type": "string", "minLength": 1 },
+    "sourceCommit": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "installedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "nodeVersion": { "type": "string" },
+    "piVersion": { "type": "string" },
+    "subagentVersion": { "type": "string" },
+    "upstreamSkillCommit": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "profileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "protocolVersions": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+    "installedFiles": { "type": "array", "items": { "type": "object" } },
+    "backups": { "type": "array", "items": { "type": "object" } }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "reviewer", "reviewedAt", "graphVerdict", "candidates"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-review:v1" },
+    "reviewer": { "const": "ticket-readiness-reviewer" },
+    "reviewedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "graphVerdict": { "enum": ["READY", "NEEDS_INFO"] },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "verdict", "executionLane"],
+        "properties": {
+          "id": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+          "verdict": { "enum": ["READY", "SPLIT", "NEEDS_INFO"] },
+          "executionLane": { "enum": ["AGENT", "HUMAN"] }
+        }
+      }
+    }
+  }
+}

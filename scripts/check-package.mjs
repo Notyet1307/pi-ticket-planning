@@ -62,6 +62,7 @@ const REQUIRED_FILES = [
   "scripts/install-profile.mjs",
   "scripts/readiness-receipt.mjs",
   "scripts/workflow-contract.mjs",
+  "scripts/verify-protocol.mjs",
   "skills/admit-ticket/SKILL.md",
   "skills/ask-yet/SKILL.md",
   "skills/setup-delivery-repository/SKILL.md",
@@ -132,7 +133,8 @@ export function validatePackage(root) {
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     verify: "npm run verify:ci && npm run check:profile",
-    "verify:ci": "npm run check && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:ci": "npm run check && npm run verify:protocol && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:protocol": "node scripts/verify-protocol.mjs",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean",
   };
   for (const [name, command] of Object.entries(expectedScripts)) {

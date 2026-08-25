@@ -37,7 +37,8 @@
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "install:profile": "node scripts/install-profile.mjs",
     "test": "node --test test/*.test.mjs",
-    "verify:ci": "npm run check && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:ci": "npm run check && npm run verify:protocol && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:protocol": "node scripts/verify-protocol.mjs",
     "verify": "npm run verify:ci && npm run check:profile",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean"
   },

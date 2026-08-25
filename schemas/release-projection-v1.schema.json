@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/release-projection-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "id", "revision", "status", "source", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:release-projection:v1" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "id": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "status": { "enum": ["CANDIDATE", "READY_TO_COMMIT", "COMMITTED", "HOLD", "REWORK", "DROP", "RELEASED_AWAITING_EVIDENCE", "REVIEWED"] },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "baseSha", "path", "blobDigest"],
+      "properties": {
+        "ref": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "path": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "blobDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}
