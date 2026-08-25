@@ -9,6 +9,7 @@ import {
   validateCapabilityReceipt,
 } from "../capabilities/doctor.mjs";
 import { compatibilityFor, loadCompatibilityMatrix, validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
+import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -164,4 +165,35 @@ test("compatibility requires one exact qualified tuple", () => {
     }],
   };
   assert.equal(validateCompatibilityMatrix(invalid).problems[0].code, "QUALIFIED_COMPATIBILITY_EVIDENCE_MISSING");
+});
+
+test("formal Admission requires active capabilities and an exact qualified tuple", () => {
+  const active = ["runtime.pi", "pi.session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "provider.reviewer"]
+    .map((name) => ({ name, status: "SUPPORTED", reasonCode: "ACTIVE_PROBE_PASS", evidence: [{ kind: "active-probe", digest: DIGEST }] }));
+  const receipt = buildCapabilityReceipt(input(active));
+  assert.throws(
+    () => requireAdmissionCapabilities(receipt, { repo: "Notyet1307/example", baseSha: SUBJECT.revision, now: "2026-08-25T01:30:00.000Z" }),
+    /CAPABILITY_TUPLE_UNTESTED/,
+  );
+  const matrix = {
+    schema: "pi-ticket-planning:compatibility-matrix:v1",
+    defaultStatus: "UNTESTED",
+    entries: [{
+      piVersion: receipt.pi.version,
+      subagentVersion: receipt.subagent.version,
+      provider: receipt.provider.name,
+      model: receipt.provider.model,
+      profileDigest: receipt.profileDigest,
+      harnessDigest: null,
+      status: "SUPPORTED",
+      reasonCode: "QUALIFIED",
+      evidence: [{ kind: "active-probe", digest: DIGEST }, { kind: "release-qualification", digest: DIGEST }],
+    }],
+  };
+  assert.doesNotThrow(() => requireAdmissionCapabilities(receipt, {
+    repo: "Notyet1307/example",
+    baseSha: SUBJECT.revision,
+    now: "2026-08-25T01:30:00.000Z",
+    matrix,
+  }));
 });

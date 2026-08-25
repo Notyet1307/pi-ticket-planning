@@ -13,16 +13,18 @@ export function stateIssue(plan, state, issueId) {
   return state.children?.find(({ id }) => String(id) === String(issueId));
 }
 
-function commentBodies(issueState) {
-  return (issueState?.comments ?? []).map((comment) => typeof comment === "string" ? comment : comment.body);
+function comments(issueState) {
+  return (issueState?.comments ?? []).map((comment) => typeof comment === "string"
+    ? { body: comment, authorVerified: false }
+    : comment);
 }
 
 export function operationState(operation, issueState) {
   if (!issueState) return { status: "conflict", problem: issue("MISSING_PLAN_RESOURCE", operation.issue) };
   if (operation.kind === "comment") {
-    const matches = commentBodies(issueState).filter((body) => typeof body === "string" && body.includes(operation.marker));
+    const matches = comments(issueState).filter(({ body }) => typeof body === "string" && body.includes(operation.marker));
     if (matches.length === 0) return { status: "before" };
-    if (matches.length === 1 && matches[0] === operation.body) return { status: "after" };
+    if (matches.length === 1 && matches[0].body === operation.body && matches[0].authorVerified === true) return { status: "after" };
     return { status: "conflict", problem: issue("ADMISSION_COMMENT_MISMATCH", operation.issue) };
   }
   if (operation.kind === "labels") {
@@ -63,6 +65,10 @@ export function immutableStateProblems(plan, state) {
   if (fingerprint(state.currentCheckpoint) !== fingerprint(plan.reviewed.currentCheckpoint)) problems.push(issue("CHECKPOINT_DRIFT"));
   if (fingerprint(state.contextChecks) !== fingerprint(plan.reviewed.contextChecks)) {
     problems.push(issue("CONTEXT_CHECK_DRIFT"));
+  }
+  if (plan.reviewed.capabilityReceipt
+    && fingerprint(state.capabilityReceipt) !== fingerprint(plan.reviewed.capabilityReceipt)) {
+    problems.push(issue("CAPABILITY_RECEIPT_DRIFT"));
   }
 
   if (plan.kind === "DELIVERY_GRAPH") {

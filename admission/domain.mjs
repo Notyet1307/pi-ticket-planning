@@ -12,6 +12,15 @@ export function issue(code, subject) {
   return subject ? { code, subject } : { code };
 }
 
+export function safeError(value) {
+  return String(value ?? "")
+    .replace(/(?:authorization:\s*bearer|bearer)\s+[^\s]+/giu, "Bearer [REDACTED]")
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]+)\b/gu, "[REDACTED]")
+    .replace(/\b(token|api[_ -]?key|password|secret)\s*[:=]\s*[^\s,;]+/giu, "$1=[REDACTED]")
+    .replace(/[\u0000-\u001f\u007f]+/gu, " ")
+    .slice(0, 512);
+}
+
 export function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (!value || typeof value !== "object") return value;
@@ -100,7 +109,7 @@ export function requireHarnessReadiness(harness, repo, baseSha, { fresh = false,
   try {
     stable = stableHarnessReadiness(harness);
   } catch (error) {
-    throw planError(`executed Harness readiness receipt is required: ${error.message}`);
+    throw planError(`executed Harness readiness receipt is required: ${safeError(error.message)}`);
   }
   if (stable.projection.repo !== repo || stable.projection.baseSha !== baseSha) {
     throw planError("executed Harness readiness target differs from the Admission source");

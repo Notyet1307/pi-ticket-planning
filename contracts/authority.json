@@ -15,6 +15,7 @@
     "human.releaseReopened": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.identityRebind": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.outcomeLearningDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"], "archivePolicy": "planning-case-decision" },
+    "capability.admissionReady": { "kind": "CAPABILITY_FACT", "owner": "doctor", "sources": ["capability-receipt"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 }, "archivePolicy": "capability-receipt" },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },

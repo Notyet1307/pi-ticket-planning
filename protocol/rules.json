@@ -35,7 +35,7 @@
     },
     {
       "id": "PTP-SEC-001",
-      "ownerPath": "AGENTS.md",
+      "ownerPath": "SECURITY.md",
       "kind": "security",
       "status": "active",
       "since": "0.5.0-alpha",

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { PLAN_KINDS, sameValues } from "./domain.mjs";
+import { PLAN_KINDS, safeError, sameValues } from "./domain.mjs";
 import { controlledLabels } from "./recovery.mjs";
 
 function runGhJson(args, input) {
@@ -9,7 +9,7 @@ function runGhJson(args, input) {
     maxBuffer: 32 * 1024 * 1024,
   });
   if (run.error) throw run.error;
-  if (run.status !== 0) throw new Error(run.stderr.trim() || `gh exited ${run.status}`);
+  if (run.status !== 0) throw new Error(safeError(run.stderr.trim()) || `gh exited ${run.status}`);
   return run.stdout.trim() ? JSON.parse(run.stdout) : undefined;
 }
 
@@ -18,6 +18,13 @@ export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, con
   if (!PLAN_KINDS.includes(kind)) throw new Error(`unsupported Admission kind ${kind}`);
   const targetId = String(target);
   if (!/^[1-9][0-9]*$/.test(targetId)) throw new Error("target must be a positive GitHub Issue number");
+  let actorLogin;
+
+  function authenticatedLogin() {
+    if (actorLogin !== undefined) return actorLogin;
+    try { actorLogin = runJson(["api", "user"])?.login ?? null; } catch { actorLogin = null; }
+    return actorLogin;
+  }
 
   function readPages(endpoint) {
     const pages = runJson(["api", "--paginate", "--slurp", endpoint]);
@@ -42,7 +49,12 @@ export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, con
       blockedBy: includeBlockers ? blockers(issueId) : [],
       assignees: (data.assignees ?? []).map(({ login }) => login),
       comments: includeComments
-        ? readPages(`repos/${repo}/issues/${issueId}/comments?per_page=100`).map(({ body }) => ({ body }))
+        ? readPages(`repos/${repo}/issues/${issueId}/comments?per_page=100`).map(({ body, user, performed_via_github_app: app }) => ({
+            body,
+            author: user?.login ?? null,
+            app: app?.slug ?? null,
+            authorVerified: Boolean(user?.login && authenticatedLogin() === user.login),
+          }))
         : [],
     };
   }

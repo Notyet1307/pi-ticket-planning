@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { ADMISSION_READINESS_SCHEMA, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
+import { validateCapabilityReceipt } from "../capabilities/doctor.mjs";
 
 export const ADMISSION_REVIEW_INPUT_SCHEMA = "pi-ticket-planning:admission-review-input:v1";
 export const ADMISSION_REVIEW_BINDING_SCHEMA = "pi-ticket-planning:admission-review-binding:v1";
@@ -30,7 +31,7 @@ function exactKeys(value, keys, label) {
 }
 
 function safeText(value, label, { multiline = false, max = 1_048_576 } = {}) {
-  if (typeof value !== "string" || value.length === 0 || value.length > max || value.includes("\0")
+  if (typeof value !== "string" || value.length === 0 || value.length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
     || (!multiline && /[\r\n]/u.test(value))) throw new Error(`${label} is invalid`);
   return value;
 }
@@ -126,6 +127,7 @@ export function createAdmissionReviewInput({
   candidate,
   contextChecks,
   harness,
+  capabilityReceipt,
   reviewedAt,
 }) {
   if (!REPO.test(repo ?? "")) throw new Error("Review repo is invalid");
@@ -147,6 +149,7 @@ export function createAdmissionReviewInput({
     contextChecks: projectContextChecks(contextChecks),
     reviewTarget,
     harness: harness === null || harness === undefined ? null : stableHarnessReadiness(harness),
+    capability: capabilityReceipt ?? null,
     trust: trustMetadata(),
   };
   const targetId = candidate ? String(candidate.id) : String(parent.id);
@@ -163,7 +166,7 @@ export function createAdmissionReviewInput({
 }
 
 export function validateAdmissionReviewInput(input) {
-  exactKeys(input, ["schema", "subject", "reviewedAt", "source", "policy", "contextChecks", "reviewTarget", "harness", "trust"], "Admission review input");
+  exactKeys(input, ["schema", "subject", "reviewedAt", "source", "policy", "contextChecks", "reviewTarget", "harness", "capability", "trust"], "Admission review input");
   if (input.schema !== ADMISSION_REVIEW_INPUT_SCHEMA || !Number.isFinite(Date.parse(input.reviewedAt))) throw new Error("Admission review input identity is invalid");
   exactKeys(input.subject, ["target", "kind", "id", "revision", "digest"], "Admission review subject");
   if (!input.subject.target.startsWith("github:") || input.subject.kind !== "admission-review" || !DIGEST.test(input.subject.digest ?? "")) {
@@ -184,6 +187,9 @@ export function validateAdmissionReviewInput(input) {
     });
   } else throw new Error("Admission review target kind is invalid");
   if (input.harness !== null) validateStableHarnessProjection(input.harness);
+  if (input.capability !== null && !validateCapabilityReceipt(input.capability, { now: input.reviewedAt }).ok) {
+    throw new Error("Admission review capability receipt is invalid");
+  }
   if (!same(input.trust, trustMetadata())) throw new Error("Admission review trust metadata is invalid");
   if (input.subject.digest !== hashText(JSON.stringify(canonical(subjectProjection(input))))) throw new Error("Admission review subject digest is invalid");
   const bytes = Buffer.byteLength(JSON.stringify(input), "utf8");
@@ -214,6 +220,7 @@ export function reviewBindingForAdmission(input) {
     candidate: input.candidate,
     contextChecks: input.contextChecks,
     harness: input.harness ?? null,
+    capabilityReceipt: input.capabilityReceipt ?? null,
     reviewedAt: input.review?.reviewedAt,
   });
   return bindAdmissionReviewInput(reviewInput).binding;

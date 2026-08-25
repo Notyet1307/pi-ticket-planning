@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-input-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "subject", "reviewedAt", "source", "policy", "contextChecks", "reviewTarget", "harness", "trust"],
+  "required": ["schema", "subject", "reviewedAt", "source", "policy", "contextChecks", "reviewTarget", "harness", "capability", "trust"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:admission-review-input:v1" },
     "subject": { "$ref": "common-v1.schema.json#/$defs/subject" },
@@ -18,6 +18,7 @@
       ]
     },
     "harness": { "type": ["object", "null"] },
+    "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
     "trust": { "type": "object" }
   }
 }

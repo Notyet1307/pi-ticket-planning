@@ -6,6 +6,8 @@ import { buildAdmissionPlan, buildStandaloneAdmissionPlan } from "./plan.mjs";
 import { applyAdmissionPlan } from "./apply.mjs";
 import { createGitHubAdapter } from "./github-adapter.mjs";
 import { createAdmissionReviewInput, materializeAdmissionReviewInput } from "./review-transport.mjs";
+import { safeError } from "./domain.mjs";
+import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
 
 function parseOptions(argv) {
   const values = new Map();
@@ -49,7 +51,7 @@ function writeApplyResult(target, result) {
     writeJson(target, result);
   } catch (error) {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    console.error(`WARN Admission result file was not written: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`WARN Admission result file was not written: ${safeError(error instanceof Error ? error.message : error)}`);
   }
 }
 
@@ -77,6 +79,7 @@ function planFromOptions(options) {
   const reviewBinding = suppliedBinding.binding ?? suppliedBinding;
   if (options.has("input")) {
     const input = readJson(options.get("input"), "--input");
+    requireAdmissionCapabilities(input.capabilityReceipt, { repo: input.repo, baseSha: input.source?.baseSha });
     const required = input.candidate ? reviewRequiresHarness(input.review, input.candidate.id) : true;
     return input.candidate
       ? buildStandaloneAdmissionPlan({ ...input, reviewBinding, harness: required ? executeReadiness(options, input) : null })
@@ -90,6 +93,7 @@ function planFromOptions(options) {
   const review = readJson(options.get("review"), "--review");
   const adapter = createGitHubAdapter({ repo, kind, target, context });
   const state = adapter.read();
+  requireAdmissionCapabilities(context.capabilityReceipt, { repo, baseSha: state.source?.baseSha });
   if (kind === "STANDALONE") {
     const required = reviewRequiresHarness(review, state.candidate?.id);
     return buildStandaloneAdmissionPlan({
@@ -154,6 +158,7 @@ export function runAdmissionCli() {
       requireOptions(options, ["plan", "expected-fingerprint", "context", "harness-cli", "harness-config", "out"], ["plan", "expected-fingerprint", "context"]);
       const plan = readJson(options.get("plan"), "--plan");
       const context = readJson(options.get("context"), "--context");
+      requireAdmissionCapabilities(context.capabilityReceipt, { repo: plan.repo, baseSha: plan.reviewed?.source?.baseSha });
       context.harness = plan.reviewed?.harness
         ? executeReadiness(options, { repo: plan.repo, source: plan.reviewed.source })
         : null;
@@ -168,7 +173,7 @@ export function runAdmissionCli() {
       throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; review-input --input FILE --review-dir PRIVATE_DIR [--reviewed-at ISO8601] [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --review-binding FILE --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
     }
   } catch (error) {
-    console.error(`ERROR ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`ERROR ${safeError(error instanceof Error ? error.message : error)}`);
     process.exitCode = 2;
   }
 }

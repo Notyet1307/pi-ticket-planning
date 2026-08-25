@@ -103,7 +103,7 @@ class MemoryAdapter {
 
   addComment(issue, body) {
     this.#fail("comment", issue, "before");
-    this.#issue(issue).comments.push({ body });
+    this.#issue(issue).comments.push({ body, authorVerified: true });
     this.mutations.push(`comment:${issue}`);
     this.#fail("comment", issue, "after");
   }
@@ -329,7 +329,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     read() { return structuredClone(this.state); },
     readIssue() { return structuredClone(this.state.candidate); },
     readClaims() { return []; },
-    addComment(issue, body) { this.state.candidate.comments.push({ body }); this.mutations.push(`comment:${issue}`); },
+    addComment(issue, body) { this.state.candidate.comments.push({ body, authorVerified: true }); this.mutations.push(`comment:${issue}`); },
     setControlledLabels(issue, labels) {
       this.state.candidate.labels = ["copy", ...labels];
       this.mutations.push(`labels:${issue}`);

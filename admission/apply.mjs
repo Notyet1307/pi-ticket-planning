@@ -1,5 +1,5 @@
 import { evaluateMutation, evaluateTransition } from "../scripts/workflow-contract.mjs";
-import { issue } from "./domain.mjs";
+import { issue, safeError } from "./domain.mjs";
 import { validateAdmissionPlan } from "./validate.mjs";
 import { immutableStateProblems, preActivationProblems, operationState, resourceStateProblems, stateIssue } from "./recovery.mjs";
 
@@ -27,7 +27,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   try {
     current = adapter.read();
   } catch (error) {
-    return applyResult("CONFLICT", plan, [], [], [issue("READ_FAILED", error instanceof Error ? error.message : String(error))]);
+    return applyResult("CONFLICT", plan, [], [], [issue("READ_FAILED", safeError(error instanceof Error ? error.message : error))]);
   }
   const initialProblems = immutableStateProblems(plan, current);
   if (initialProblems.length > 0) return applyResult("CONFLICT", plan, [], [], initialProblems);
@@ -64,7 +64,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
         current = adapter.read();
       } catch (error) {
         return applyResult(changed.length + recovered.length > 0 ? "PARTIAL" : "CONFLICT", plan, changed, recovered, [
-          issue("READ_FAILED", `activation:${error instanceof Error ? error.message : String(error)}`),
+          issue("READ_FAILED", `activation:${safeError(error instanceof Error ? error.message : error)}`),
         ]);
       }
       const activationProblems = preActivationProblems(plan, current);
@@ -76,7 +76,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
       issueState = adapter.readIssue(operation.issue);
     } catch (error) {
       return applyResult(changed.length + recovered.length > 0 ? "PARTIAL" : "CONFLICT", plan, changed, recovered, [
-        issue("READ_FAILED", `${operation.issue}:${error instanceof Error ? error.message : String(error)}`),
+        issue("READ_FAILED", `${operation.issue}:${safeError(error instanceof Error ? error.message : error)}`),
       ]);
     }
     const resource = plan.resources.find(({ issue: issueId }) => issueId === operation.issue);
@@ -91,7 +91,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
       claims = adapter.readClaims();
     } catch (error) {
       return applyResult(changed.length + recovered.length > 0 ? "PARTIAL" : "CONFLICT", plan, changed, recovered, [
-        issue("READ_FAILED", `claims:${error instanceof Error ? error.message : String(error)}`),
+        issue("READ_FAILED", `claims:${safeError(error instanceof Error ? error.message : error)}`),
       ]);
     }
     if (claims.length > 0) {
@@ -109,7 +109,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
       issueState = adapter.readIssue(operation.issue);
     } catch (error) {
       return applyResult("PARTIAL", plan, changed, recovered, [
-        issue("READ_AFTER_WRITE_FAILED", `${operation.issue}:${error instanceof Error ? error.message : String(error)}`),
+        issue("READ_AFTER_WRITE_FAILED", `${operation.issue}:${safeError(error instanceof Error ? error.message : error)}`),
       ]);
     }
     const afterWriteProblems = resourceStateProblems(resource, issueState);
@@ -123,7 +123,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
     }
     if (status.status === "conflict") return applyResult("CONFLICT", plan, changed, recovered, [status.problem]);
     return applyResult("PARTIAL", plan, changed, recovered, [
-      issue("WRITE_NOT_COMPLETED", `${operation.kind}:${operation.issue}${writeError ? `:${writeError.message}` : ""}`),
+      issue("WRITE_NOT_COMPLETED", `${operation.kind}:${operation.issue}${writeError ? `:${safeError(writeError.message)}` : ""}`),
     ]);
   }
 
@@ -131,7 +131,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
     current = adapter.read();
   } catch (error) {
     return applyResult(changed.length + recovered.length > 0 ? "PARTIAL" : "CONFLICT", plan, changed, recovered, [
-      issue("FINAL_READ_FAILED", error instanceof Error ? error.message : String(error)),
+      issue("FINAL_READ_FAILED", safeError(error instanceof Error ? error.message : error)),
     ]);
   }
   const finalProblems = immutableStateProblems(plan, current);

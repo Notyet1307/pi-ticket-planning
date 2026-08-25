@@ -92,6 +92,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: input.harness,
     review: input.review,
     reviewBinding,
+    capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };
   const reviewedFingerprint = fingerprint(reviewed);
@@ -203,6 +204,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: reviewedCandidate.executionLane === "AGENT" ? input.harness : null,
     review: input.review,
     reviewBinding,
+    capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };
   const reviewedFingerprint = fingerprint(reviewed);
