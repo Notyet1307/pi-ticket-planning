@@ -46,6 +46,13 @@ export function isSuccessfulReviewerChild(child) {
     && child.stopped !== true && typeof child.finalOutput === "string" && child.finalOutput.length > 0;
 }
 
+export function selectReviewerChildTool(evidence) {
+  const executions = (evidence ?? []).filter((item) => item?.details?.mode === "single"
+    && item?.toolCall?.arguments?.agent === "ticket-readiness-reviewer"
+    && item.details.results?.length === 1);
+  return executions.length === 1 ? executions[0] : null;
+}
+
 function projection(receipt) {
   const { digest, ...value } = receipt;
   return value;
@@ -360,8 +367,8 @@ async function defaultActiveProbe(observed, { env }) {
       const expectedAxes = { candidateReadiness: "NEEDS_INFO", contextQuality: "NEEDS_INFO", deliveryGraph: "NEEDS_INFO", scenarioCoverage: "NEEDS_INFO", walkingSkeleton: "NEEDS_INFO", strictFrontier: "NEEDS_INFO", executionLane: "PASS", inputBinding: "PASS" };
       const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, context fresh, artifacts false, mission false, and omitted acceptance. Give the child only this transport descriptor as the end of its task, ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, echo the exact source and all eight axes ${JSON.stringify(expectedAxes)}, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
       const evidence = reviewerResult.subagentResults;
-      const childTool = evidence.length === 1 ? evidence[0] : null;
-      const child = childTool?.details?.mode === "single" && childTool.details.results?.length === 1 ? childTool.details.results[0] : null;
+      const childTool = selectReviewerChildTool(evidence);
+      const child = childTool?.details.results[0] ?? null;
       const call = childTool?.toolCall?.arguments;
       const childHeader = child?.sessionFile ? (await import("../scripts/eval-pi-behavior.mjs")).readPiSessionHeader(child.sessionFile) : null;
       const finalResult = child && typeof child.finalOutput === "string" ? child.finalOutput : null;

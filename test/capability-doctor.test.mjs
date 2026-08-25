@@ -7,6 +7,7 @@ import {
   buildCapabilityReceipt,
   inspectCapabilities,
   isSuccessfulReviewerChild,
+  selectReviewerChildTool,
   validateCapabilityReceipt,
 } from "../capabilities/doctor.mjs";
 import { compatibilityFor, loadCompatibilityMatrix, validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
@@ -61,6 +62,12 @@ test("Capability Receipt is deterministic and requires evidence per status", () 
 test("successful child receipts may omit optional false lifecycle fields", () => {
   assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}" }), true);
   assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}", timedOut: true }), false);
+});
+
+test("reviewer execution selection ignores read-only subagent management calls", () => {
+  const execution = { toolCall: { arguments: { agent: "ticket-readiness-reviewer" } }, details: { mode: "single", results: [{}] } };
+  assert.equal(selectReviewerChildTool([{ toolCall: { arguments: { action: "get" } }, details: { mode: "management" } }, execution]), execution);
+  assert.equal(selectReviewerChildTool([execution, structuredClone(execution)]), null);
 });
 
 test("configuration alone cannot claim runtime support", () => {
