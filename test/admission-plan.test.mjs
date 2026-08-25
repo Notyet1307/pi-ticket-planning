@@ -291,3 +291,32 @@ test("GitHub Admission rejects an ambiguous target before any API call", () => {
     /positive GitHub Issue number/,
   );
 });
+
+test("GitHub and Clock boundaries are injectable", () => {
+  const calls = [];
+  const adapter = createGitHubAdapter({
+    repo: "acme/product",
+    kind: "STANDALONE",
+    target: "42",
+    context: { source: { identity: "R1", revision: "r1", baseSha: "a".repeat(40) } },
+    runJson(args) {
+      calls.push(args);
+      const endpoint = args.at(-1);
+      if (args.includes("--paginate")) return [[]];
+      if (endpoint === "repos/acme/product/issues/42") {
+        return { number: 42, title: "Probe", body: "Body", labels: [], state: "open", updated_at: "2026-08-25T00:00:00Z", assignees: [] };
+      }
+      throw new Error(`unexpected fake endpoint ${endpoint}`);
+    },
+  });
+  assert.equal(adapter.read().candidate.id, "42");
+  assert.equal(calls.length, 3);
+
+  const input = readyInput();
+  input.harness.readiness.observedAt = "2026-08-25T00:00:00.000Z";
+  assert.doesNotThrow(() => buildAdmissionPlan(input, { clock: () => Date.parse("2026-08-25T00:30:00.000Z") }));
+  assert.throws(
+    () => buildAdmissionPlan(input, { clock: () => Date.parse("2026-08-25T02:00:00.000Z") }),
+    /freshness window/,
+  );
+});

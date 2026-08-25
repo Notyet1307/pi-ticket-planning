@@ -52,6 +52,13 @@ const REQUIRED_FILES = [
   "profile/settings.template.json",
   "schemas/project-readiness-v1.schema.json",
   "scripts/admit.mjs",
+  "admission/apply.mjs",
+  "admission/cli.mjs",
+  "admission/domain.mjs",
+  "admission/github-adapter.mjs",
+  "admission/plan.mjs",
+  "admission/recovery.mjs",
+  "admission/validate.mjs",
   "scripts/delivery-gate.mjs",
   "scripts/check-admission-state.mjs",
   "scripts/check-delivery-graph.mjs",
@@ -404,17 +411,38 @@ export function validatePackage(root) {
 
   const admit = fs.readFileSync(path.join(root, "scripts", "admit.mjs"), "utf8");
   requireTokens(errors, "scripts/admit.mjs", admit, [
+    "../admission/domain.mjs",
+    "../admission/plan.mjs",
+    "../admission/validate.mjs",
+    "../admission/apply.mjs",
+    "../admission/github-adapter.mjs",
+    "../admission/cli.mjs",
+  ]);
+  const admissionDomain = fs.readFileSync(path.join(root, "admission", "domain.mjs"), "utf8");
+  requireTokens(errors, "admission/domain.mjs", admissionDomain, [
     'const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1"',
     'const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1"',
-    "pi-ticket-planning:reviewed-admission-state:v1",
-    "pi-ticket-planning:admission-result:v1",
     "pi-ticket-planning:admission:v1:",
+    "HARNESS_READINESS_DRIFT",
+  ]);
+  const admissionPlan = fs.readFileSync(path.join(root, "admission", "plan.mjs"), "utf8");
+  requireTokens(errors, "admission/plan.mjs", admissionPlan, [
+    "pi-ticket-planning:reviewed-admission-state:v1",
+  ]);
+  const admissionApply = fs.readFileSync(path.join(root, "admission", "apply.mjs"), "utf8");
+  requireTokens(errors, "admission/apply.mjs", admissionApply, [
+    "pi-ticket-planning:admission-result:v1",
     "EXPECTED_FINGERPRINT_MISMATCH",
-    "CONTROLLED_LABEL_DRIFT",
     "HARNESS_CLAIM_DETECTED",
     "WRITE_NOT_COMPLETED",
+  ]);
+  const admissionRecovery = fs.readFileSync(path.join(root, "admission", "recovery.mjs"), "utf8");
+  requireTokens(errors, "admission/recovery.mjs", admissionRecovery, [
+    "CONTROLLED_LABEL_DRIFT",
+  ]);
+  const admissionCli = fs.readFileSync(path.join(root, "admission", "cli.mjs"), "utf8");
+  requireTokens(errors, "admission/cli.mjs", admissionCli, [
     "runHarnessReadiness",
-    "HARNESS_READINESS_DRIFT",
   ]);
 
   const readinessReceiptScript = fs.readFileSync(path.join(root, "scripts", "readiness-receipt.mjs"), "utf8");

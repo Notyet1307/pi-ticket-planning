@@ -19,7 +19,7 @@
     },
     {
       "id": "PTP-ADMISSION-001",
-      "ownerPath": "scripts/admit.mjs",
+      "ownerPath": "admission/apply.mjs",
       "kind": "mutation",
       "status": "active",
       "since": "0.5.0-alpha",
