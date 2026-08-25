@@ -1,0 +1,35 @@
+name: Disposable live integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: Exact allowlisted disposable owner/repo
+        required: true
+      run_id:
+        description: Unique run identity
+        required: true
+      confirmation:
+        description: One-time confirmation from expectedConfirmation(repo, run_id)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 120
+    environment: ptp-disposable-e2e
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+      - run: npm run test:integration:live
+        env:
+          PI_TICKET_PLAN_E2E: "1"
+          E2E_REPO: ${{ inputs.repo }}
+          E2E_ALLOWLIST: ${{ vars.PTP_E2E_ALLOWLIST }}
+          E2E_CONFIRM_WRITE: ${{ inputs.confirmation }}
+          GITHUB_RUN_ID: ${{ inputs.run_id }}

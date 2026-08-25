@@ -35,6 +35,9 @@ const ASK_YET_REFERENCES = [
 ];
 const REQUIRED_FILES = [
   ".github/workflows/ci.yml",
+  ".github/workflows/model-eval.yml",
+  ".github/workflows/integration-e2e.yml",
+  ".github/workflows/release-qualification.yml",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",
@@ -83,6 +86,9 @@ const REQUIRED_FILES = [
   "docs/operations/compatibility-matrix.md",
   "installation/cli.mjs",
   "installation/manager.mjs",
+  "integration/e2e.mjs",
+  "integration/qualify.mjs",
+  "benchmark/benchmark.mjs",
   "outcome/ingest.mjs",
   "context/manifest.mjs",
   "skills/admit-ticket/SKILL.md",
@@ -141,6 +147,7 @@ export function validatePackage(root) {
 
   const expectedScripts = {
     admit: "node scripts/admit.mjs",
+    benchmark: "node benchmark/benchmark.mjs",
     "canary:execution-readiness": "node scripts/canary-execution-readiness.mjs",
     check: "node scripts/check-package.mjs",
     "check:admission-state": "node scripts/check-admission-state.mjs",
@@ -155,9 +162,13 @@ export function validatePackage(root) {
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     planctl: "node scripts/planctl.mjs",
+    "release:qualify": "node integration/qualify.mjs",
+    "test:integration:live": "node integration/e2e.mjs",
+    "test:integration:mock": "node --test test/admission-apply.test.mjs test/readiness-receipt.test.mjs test/review-transport.test.mjs test/integration-e2e.test.mjs",
+    "test:model": "node scripts/eval-pi-behavior.mjs --suite release --report artifacts/model-eval.json",
     "test:state": "node --test test/planning-case.test.mjs test/planctl.test.mjs",
     verify: "npm run verify:ci && npm run check:profile",
-    "verify:ci": "npm run check && npm run verify:protocol && npm run verify:context && npm run check:behavior-fixtures && npm run check:docs && npm test",
+    "verify:ci": "npm run check && npm run verify:protocol && npm run verify:context && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run benchmark",
     "verify:context": "node scripts/verify-context.mjs",
     "verify:protocol": "node scripts/verify-protocol.mjs",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean",

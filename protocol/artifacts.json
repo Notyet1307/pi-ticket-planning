@@ -388,6 +388,42 @@
       "readers": ["doctor", "planning-case-resume", "admission-validate"],
       "fingerprintAlgorithm": "sha256-utf8",
       "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "e2e-report",
+      "schemaIdentity": "pi-ticket-planning:e2e-report:v1",
+      "schemaPath": "schemas/e2e-report-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "integration-e2e",
+      "readers": ["release-qualification", "operator"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "benchmark-report",
+      "schemaIdentity": "pi-ticket-planning:benchmark-report:v1",
+      "schemaPath": "schemas/benchmark-report-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "benchmark-runner",
+      "readers": ["ci", "release-qualification", "operator"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "release-qualification",
+      "schemaIdentity": "pi-ticket-planning:release-qualification:v1",
+      "schemaPath": "schemas/release-qualification-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "release-qualification",
+      "readers": ["release-manager", "operator"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
     }
   ]
 }

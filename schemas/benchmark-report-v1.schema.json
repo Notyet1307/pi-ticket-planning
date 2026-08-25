@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/benchmark-report-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "graph", "cases", "metrics", "regressions"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:benchmark-report:v1" },
+    "graph": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+    "cases": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+    "metrics": { "type": "object" },
+    "regressions": { "type": "boolean" }
+  }
+}
