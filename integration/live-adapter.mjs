@@ -161,12 +161,13 @@ export function createLiveAdapter({ env = process.env } = {}) {
         const standardLabels = ["needs-triage", "ready-for-agent"].every((name) => gh(["api", `repos/${context.repo}/labels/${encodeURIComponent(name)}`], undefined, { notFound: true }));
         if (standardLabels) {
           ready.state = persistE2EState(createE2EState({ repo: context.repo, runId: context.runId, actor }), ready.stateFile);
-          ready.label = ensureLabel(context);
-          const control = gh(["api", "--method", "POST", `repos/${context.repo}/issues`, "--input", "-"], { title: e2eControlTitle(context.runId), body: e2eControlBody(ready.state), labels: [ready.label] });
+          const control = gh(["api", "--method", "POST", `repos/${context.repo}/issues`, "--input", "-"], { title: e2eControlTitle(context.runId), body: e2eControlBody(ready.state), labels: [] });
           const controlReadback = gh(["api", `repos/${context.repo}/issues/${control.number}`]);
           if (controlReadback.body !== e2eControlBody(ready.state) || controlReadback.user?.login !== actor) throw new Error("E2E_CONTROL_CREATE_READBACK_FAILED");
           ready.state = persistE2EState(bindE2EControlIssue(ready.state, control.number), ready.stateFile);
           persistRemoteE2EState(ready.state, gh);
+          ready.label = ensureLabel(context);
+          labels(context, control.number, [ready.label]);
           setup = { status: "PASS", externalWrites: mutations.length - before, evidenceDigests: [digest(mutations.slice(before))] };
         } else {
           setup = { status: "FAIL", externalWrites: 0, evidenceDigests: [digest({ runId: context.runId, setup: "standard-labels-missing" })] };

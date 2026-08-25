@@ -14,6 +14,7 @@ import {
   e2eControlTitle,
   loadE2EState,
   persistE2EState,
+  validateE2ECleanupTarget,
 } from "../integration/e2e-state.mjs";
 
 function resource(runId, id) {
@@ -109,4 +110,12 @@ test("remote control issue recovers cleanup after the runner state file is lost"
   assert.equal(loadE2EState(recoveredFile).status, "COMPLETE");
   assert.equal(issues.every(({ state: value }) => value === "closed"), true);
   assert.equal(github.label, false);
+});
+
+test("cleanup target repeats every disposable repository guard", () => {
+  const env = { E2E_REPO: "acme/disposable", E2E_ALLOWLIST: "acme/disposable", E2E_ACTOR_ALLOWLIST: "tester", E2E_REPO_TOPIC: "ptp-e2e", E2E_DEFAULT_BRANCH: "main", E2E_NO_PRODUCTION_REMOTE: "1", GITHUB_REPOSITORY: "acme/package" };
+  const repository = { default_branch: "main", has_issues: true, archived: false, disabled: false };
+  assert.equal(validateE2ECleanupTarget({ env, actor: "tester", repository, topics: ["ptp-e2e"] }), true);
+  assert.throws(() => validateE2ECleanupTarget({ env: { ...env, GITHUB_REPOSITORY: env.E2E_REPO }, actor: "tester", repository, topics: ["ptp-e2e"] }), /E2E_CLEANUP_TARGET_GUARD_FAILED/);
+  assert.throws(() => validateE2ECleanupTarget({ env, actor: "other", repository, topics: ["ptp-e2e"] }), /E2E_CLEANUP_TARGET_GUARD_FAILED/);
 });

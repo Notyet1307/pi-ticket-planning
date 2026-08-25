@@ -33,4 +33,8 @@ jobs:
             --run-id '${{ inputs.run_id }}'
         env:
           E2E_ALLOWLIST: ${{ vars.PTP_E2E_ALLOWLIST }}
+          E2E_ACTOR_ALLOWLIST: ${{ vars.PTP_E2E_ACTOR_ALLOWLIST }}
+          E2E_REPO_TOPIC: ${{ vars.PTP_E2E_REPO_TOPIC }}
+          E2E_DEFAULT_BRANCH: ${{ vars.PTP_E2E_DEFAULT_BRANCH }}
+          E2E_NO_PRODUCTION_REMOTE: "1"
           GH_TOKEN: ${{ github.token }}

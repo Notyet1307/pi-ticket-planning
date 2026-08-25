@@ -28,6 +28,18 @@ export function recoveryCommand(repo, runId) {
   return `npm run e2e:cleanup -- --state "$PTP_E2E_STATE" --repo ${repo} --run-id ${runId}`;
 }
 
+export function validateE2ECleanupTarget({ env, actor, repository, topics }) {
+  const actors = new Set((env.E2E_ACTOR_ALLOWLIST ?? "").split(",").map((value) => value.trim()).filter(Boolean));
+  const allowlist = new Set((env.E2E_ALLOWLIST ?? "").split(",").map((value) => value.trim()).filter(Boolean));
+  const repo = env.E2E_REPO;
+  if (!allowlist.has(repo) || !actors.has(actor) || env.E2E_NO_PRODUCTION_REMOTE !== "1"
+    || repo === env.GITHUB_REPOSITORY || env.E2E_REPO_TOPIC === undefined || !topics.includes(env.E2E_REPO_TOPIC)
+    || repository?.default_branch !== env.E2E_DEFAULT_BRANCH || !repository?.has_issues || repository.archived || repository.disabled) {
+    throw new Error("E2E_CLEANUP_TARGET_GUARD_FAILED");
+  }
+  return true;
+}
+
 export function e2eControlMarker(runId) {
   return `<!-- ptp-e2e-control:${runId} -->`;
 }
