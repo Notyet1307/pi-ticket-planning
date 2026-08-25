@@ -33,6 +33,8 @@ const context = {
     "check-admission-state": producer("check-admission-state", "check-admission-state"),
     "git-policy-check": producer("git-policy-check", "git-policy-check"),
     "ticket-readiness-reviewer": producer("ticket-readiness-reviewer", "ticket-readiness-reviewer"),
+    "capability-receipt": producer("capability-receipt", "doctor"),
+    "harness-ledger": producer("harness-ledger", "herdr-harness"),
   },
 };
 const evidence = { kind: "artifact", ref: "legacy:test", digest: `sha256:${"c".repeat(64)}` };
@@ -85,6 +87,8 @@ test("legacy mutation cannot bypass exact same-mutation or approval binding", ()
     "policy.accepted": fact("git-policy-check"),
     "graph.passed": fact("check-admission-state"),
     "review.ready": fact("ticket-readiness-reviewer"),
+    "capability.admissionReady": fact("capability-receipt"),
+    "harness.readinessPassed": fact("harness-ledger"),
     "human.activation": fact("operator-asserted", { subject: approvalSubject }),
   };
   assert.equal(evaluateMutation({ mutation: "admission.apply", actor: "admission-cli", transition, facts }, mutationContext).allowed, true);

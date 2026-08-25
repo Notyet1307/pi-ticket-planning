@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/case-transaction-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "caseId", "target", "createdAt", "beforeEvent", "event", "nextSnapshot", "status"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:case-transaction:v2" },
+    "id": { "type": "string", "pattern": "^TX-[A-Za-z0-9._:-]{1,125}$" },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "createdAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "beforeEvent": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "event": { "$ref": "planning-case-event-v2.schema.json" },
+    "nextSnapshot": { "$ref": "planning-case-v2.schema.json" },
+    "status": { "enum": ["INTENT", "COMMITTED"] },
+    "committedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+  }
+}

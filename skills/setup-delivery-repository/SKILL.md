@@ -7,6 +7,8 @@ description: Configure an existing or greenfield repository when ask-yet finds m
 
 Establish the repository facts consumed by planning and admission. Explore, resolve authorization once, apply the smallest permitted setup, and verify the resulting delivery base.
 
+Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, record setup decisions, and bind the verified source, policy, tracker, and delivery base after readback. Repository setup is incomplete while any binding exists only in conversation or the working tree.
+
 ## 1. Classify the starting state
 
 Resolve the exact target directory and classify it:

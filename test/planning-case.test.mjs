@@ -27,6 +27,21 @@ function eventDigest(value) {
   return `sha256:${createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex")}`;
 }
 
+function fileBinding(file, content = "binding\n") {
+  fs.writeFileSync(file, content, { mode: 0o600 });
+  const contentDigest = `sha256:${createHash("sha256").update(content).digest("hex")}`;
+  return {
+    schema: "pi-ticket-planning:planning-case-binding:v1",
+    target: TARGET,
+    revision: "main",
+    digest: contentDigest,
+    producer: "test",
+    observedAt: NOW,
+    expiresAt: null,
+    verification: { kind: "FILE", ref: file, digest: contentDigest },
+  };
+}
+
 function caseDirectory(root, caseId, target = TARGET) {
   return path.join(root, "cases", targetHash(target), caseId);
 }
@@ -71,7 +86,7 @@ test("a new process resumes one private Planning Case without chat history", (t)
   const resumed = second.resume({ caseId: created.caseId });
   assert.equal(resumed.currentState.stage, "ORIENT");
   assert.equal(resumed.blocker, null);
-  assert.equal(resumed.nextAction.kind, "ROUTE");
+  assert.equal(resumed.nextAction.kind, "COMMAND");
   assert.equal(resumed.bindings.source, null);
   assert.equal(resumed.compatibility.protocol, "SUPPORTED");
   assert.equal(resumed.compatibility.capabilities, "UNTESTED");
@@ -224,7 +239,7 @@ test("event replay repairs a drifted snapshot and source drift blocks resume", (
   store.bind({
     caseId: "PC-replay",
     name: "source",
-    binding: { target: TARGET, kind: "git", revision: "main", digest: `sha256:${"d".repeat(64)}` },
+    binding: fileBinding(path.join(stateDir, "source-binding.txt")),
   });
   const drifted = createPlanningCaseStore({
     stateDir,
@@ -232,6 +247,21 @@ test("event replay repairs a drifted snapshot and source drift blocks resume", (
     bindingVerifier: () => [{ code: "SOURCE_DRIFT" }],
   });
   assert.throws(() => drifted.resume({ caseId: "PC-replay" }), (error) => error.code === "SOURCE_DRIFT");
+});
+
+test("online bindings detect readback drift while offline resume is degraded", (t) => {
+  const stateDir = temporaryState(t);
+  const store = createPlanningCaseStore({ stateDir, clock: () => NOW, idGenerator: () => "PC-binding" });
+  store.create({ target: TARGET });
+  const file = path.join(stateDir, "binding-source.txt");
+  store.bind({ caseId: "PC-binding", name: "source", binding: fileBinding(file, "before\n") });
+  assert.deepEqual(store.verify({ caseId: "PC-binding" }), { status: "COMPLETE", problems: [] });
+  fs.writeFileSync(file, "after\n", { mode: 0o600 });
+  assert.equal(store.verify({ caseId: "PC-binding" }).problems[0].code, "BINDING_READBACK_DRIFT");
+  const offline = store.resume({ caseId: "PC-binding", offline: true });
+  assert.equal(offline.mode, "DEGRADED");
+  assert.equal(offline.mutationAllowed, false);
+  assert.equal(offline.compatibility.protocol, "DEGRADED");
 });
 
 test("unsafe state roots and relaxed file permissions are rejected", (t) => {
@@ -321,12 +351,11 @@ test("Planning Case detects capability, directory, descriptor, event, and transa
   const stateDir = temporaryState(t);
   const store = createPlanningCaseStore({ stateDir, clock: () => NOW, idGenerator: () => "PC-deep-guards" });
   store.create({ target: TARGET });
-  store.bind({
+  assert.throws(() => store.bind({
     caseId: "PC-deep-guards",
     name: "capability",
     binding: { schema: "bad", subject: { target: TARGET }, digest: `sha256:${"a".repeat(64)}` },
-  });
-  assert.equal(store.verify({ caseId: "PC-deep-guards" }).problems.some(({ code }) => code === "INVALID_CAPABILITY_RECEIPT_SCHEMA"), true);
+  }), (error) => error.code === "INVALID_BINDING");
 
   const directory = caseDirectory(stateDir, "PC-deep-guards");
   fs.chmodSync(directory, 0o755);
@@ -351,7 +380,7 @@ test("Planning Case detects capability, directory, descriptor, event, and transa
   const snapshot = JSON.parse(fs.readFileSync(snapshotFile, "utf8"));
   snapshot.lastEvent = replacement.digest;
   fs.writeFileSync(snapshotFile, `${JSON.stringify(snapshot)}\n`, { mode: 0o600 });
-  assert.equal(store.verify({ caseId: "PC-deep-guards" }).problems[0].code, "UNKNOWN_CASE_EVENT");
+  assert.equal(store.verify({ caseId: "PC-deep-guards" }).problems[0].code, "EVENT_LOG_CORRUPT");
 
   const corruptDir = temporaryState(t);
   const clean = createPlanningCaseStore({ stateDir: corruptDir, clock: () => NOW, idGenerator: () => "PC-files" });
@@ -439,7 +468,7 @@ test("Planning Case rejects invalid consumed events and transaction records", (t
   const snapshot = JSON.parse(fs.readFileSync(snapshotFile, "utf8"));
   snapshot.lastEvent = last.digest;
   fs.writeFileSync(snapshotFile, `${JSON.stringify(snapshot)}\n`, { mode: 0o600 });
-  assert.equal(store.verify({ caseId: "PC-event-records" }).problems[0].code, "INVALID_CASE_EVENT");
+  assert.equal(store.verify({ caseId: "PC-event-records" }).problems[0].code, "APPROVAL_NOT_FOUND");
 
   const transactionDirectory = path.join(directory, "transactions");
   fs.writeFileSync(path.join(transactionDirectory, "TX-invalid.json"), JSON.stringify({ schema: "bad", id: "TX-invalid", status: "NOPE" }), { mode: 0o600 });

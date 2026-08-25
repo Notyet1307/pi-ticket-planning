@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/planning-case-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "revision", "digest", "producer", "observedAt", "expiresAt", "verification"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:planning-case-binding:v1" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "producer": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "expiresAt": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/time" }, { "type": "null" }] },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "digest"],
+      "properties": {
+        "kind": { "enum": ["FILE", "GIT", "GITHUB", "HARNESS"] },
+        "ref": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    }
+  }
+}

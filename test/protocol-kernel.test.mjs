@@ -271,6 +271,8 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     fact("policy.accepted", true, { source: { ...fact("release.readinessPassed").source, kind: "git-policy-check" } }),
     fact("graph.passed", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
     fact("review.ready", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "ticket-readiness-reviewer" } }),
+    fact("capability.admissionReady", true, { source: { ...fact("release.readinessPassed").source, kind: "capability-receipt" } }),
+    fact("harness.readinessPassed", true, { source: { ...fact("release.readinessPassed").source, kind: "harness-ledger" } }),
     fact("human.activation", true, {
       subject: approvalSubject,
       source: { ...fact("release.readinessPassed").source, kind: "operator-asserted", producer: "operator" },
@@ -313,6 +315,15 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     "approval.singleConsumed",
     "transaction.committed",
   ]);
+  const withoutRuntime = facts.filter(({ fact: name }) => !["capability.admissionReady", "harness.readinessPassed", "graph.passed"].includes(name));
+  assert.equal(evaluateMutation({
+    mutation: "admission.applyStandaloneHuman", actor: "admission-cli", transition, facts: withoutRuntime,
+    consumedApprovalIds: [], mutationId, now: "2026-08-25T00:01:00.000Z",
+  }).allowed, true);
+  assert.equal(evaluateMutation({
+    mutation: "admission.applyStandaloneAgent", actor: "admission-cli", transition, facts: withoutRuntime,
+    consumedApprovalIds: [], mutationId, now: "2026-08-25T00:01:00.000Z",
+  }).allowed, false);
 
   const replay = evaluateMutation({
     mutation: "admission.apply",
@@ -732,7 +743,7 @@ test("optional-field defaults are explicit rather than inferred", (t) => {
 
   const noRequirements = loadProtocol();
   noRequirements.workflow.transitionRequirements = null;
-  noRequirements.workflow.rebindTransitions[0].requiredFacts = null;
+  noRequirements.workflow.rebindTransitions.find(({ sourceStage }) => sourceStage === "OUTCOME").requiredFacts = null;
   const current = { schema: "pi-ticket-planning:checkpoint:v2", lane: "PRODUCT", stage: "OUTCOME", verdict: "ACHIEVED", subject: SUBJECT };
   const proposed = { schema: "pi-ticket-planning:checkpoint:v2", lane: "PRODUCT", stage: "ORIENT", verdict: "NEEDS_TARGET", subject: { ...SUBJECT, id: "R9", revision: "r9" } };
   assert.equal(evaluateTransition({ current, proposed, rebind: true }, { protocol: noRequirements }).allowed, true);

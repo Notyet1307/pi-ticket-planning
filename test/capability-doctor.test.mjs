@@ -9,7 +9,7 @@ import {
   validateCapabilityReceipt,
 } from "../capabilities/doctor.mjs";
 import { compatibilityFor, loadCompatibilityMatrix, validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
-import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
+import { REQUIRED_ADMISSION_CAPABILITIES, requireAdmissionCapabilities } from "../capabilities/admission.mjs";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -168,7 +168,7 @@ test("compatibility requires one exact qualified tuple", () => {
 });
 
 test("formal Admission requires active capabilities and an exact qualified tuple", () => {
-  const active = ["runtime.pi", "pi.session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "provider.reviewer"]
+  const active = REQUIRED_ADMISSION_CAPABILITIES
     .map((name) => ({ name, status: "SUPPORTED", reasonCode: "ACTIVE_PROBE_PASS", evidence: [{ kind: "active-probe", digest: DIGEST }] }));
   const receipt = buildCapabilityReceipt(input(active));
   assert.throws(

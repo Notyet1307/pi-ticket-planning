@@ -20,7 +20,7 @@ In Simplified Chinese, when `human_action` requires a reply, begin its action se
 
 Before choosing response density, identify whether that action depends on one product or workflow term not yet explained in the conversation. If so, name and define it in one short ordinary-language sentence and state whether current facts show an existing capability, a candidate protocol, or work not yet implemented. This explanation is part of the current human task, not optional expansion.
 
-The machine state remains governed by `contracts/workflow.json`, `contracts/authority.json`, and `scripts/workflow-contract.mjs`. Presentation cannot legalize a transition, hide an approval target, or weaken a safety boundary.
+The machine state remains governed by `contracts/workflow.json`, `contracts/authority.json`, `protocol/kernel.mjs`, and the replayed Planning Case. Presentation cannot legalize a transition, hide an approval target, or weaken a safety boundary.
 
 ## Select one form
 

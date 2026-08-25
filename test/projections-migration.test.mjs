@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { projectRelease, projectSpec } from "../protocol/projections.mjs";
 import { migrateCheckpointV1, migrateDeliveryGraphV1 } from "../scripts/migrate-artifacts.mjs";
+import { migrateCaseTransactionV1, migratePlanningCaseEventV1, migratePlanningCaseV1 } from "../scripts/migrate-planning-case.mjs";
 
 test("Release and Spec projections bind exact source bytes", () => {
   const release = projectRelease({
@@ -58,4 +59,73 @@ test("legacy Checkpoint and Delivery Graph migration is explicit and determinist
   assert.equal(v2.version, 2);
   assert.equal(v2.source.specContentHash, `sha256:${"b".repeat(64)}`);
   assert.throws(() => migrateDeliveryGraphV1(v1, {}), /migration context/);
+});
+
+test("Planning Case v1 migration is explicit and fails on unprojectable free objects", () => {
+  const checkpoint = {
+    schema: "pi-ticket-planning:checkpoint:v2",
+    lane: "PRODUCT",
+    stage: "ORIENT",
+    verdict: "NEEDS_TARGET",
+    subject: { target: "github:acme/product", kind: "none", id: "NONE", revision: "0", digest: `sha256:${"a".repeat(64)}` },
+  };
+  const snapshot = {
+    schema: "pi-ticket-planning:planning-case:v1",
+    target: "github:acme/product",
+    caseId: "PC-legacy",
+    checkpoint,
+    blocker: null,
+    nextAction: { kind: "ROUTE", command: "pi-ticket-planctl case resume PC-legacy --json" },
+    selectedCandidate: null,
+    excludedCandidates: [],
+    facts: [],
+    decisions: [],
+    unknowns: [],
+    assumptions: [],
+    evidenceMethod: null,
+    truthOwner: null,
+    cost: null,
+    stoppingRule: null,
+    bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null },
+    approvals: { pending: [], consumed: [] },
+    lastCheckpoint: checkpoint,
+    lastEvent: null,
+    createdAt: "2026-08-25T00:00:00Z",
+    updatedAt: "2026-08-25T00:00:00Z",
+  };
+  const migrated = migratePlanningCaseV1(snapshot);
+  assert.equal(migrated.schema, "pi-ticket-planning:planning-case:v2");
+  assert.equal(migrated.nextAction.kind, "COMMAND");
+  assert.deepEqual(migrated.consumedFactIds, []);
+
+  const event = {
+    schema: "pi-ticket-planning:planning-case-event:v1",
+    id: "E-legacy",
+    sequence: 1,
+    caseId: snapshot.caseId,
+    target: snapshot.target,
+    type: "CASE_CREATED",
+    at: snapshot.createdAt,
+    data: { snapshot },
+    transactionId: "TX-legacy",
+    previousDigest: null,
+    digest: `sha256:${"b".repeat(64)}`,
+  };
+  const migratedEvent = migratePlanningCaseEventV1(event);
+  assert.equal(migratedEvent.schema, "pi-ticket-planning:planning-case-event:v2");
+  const transaction = {
+    schema: "pi-ticket-planning:case-transaction:v1",
+    id: "TX-legacy",
+    caseId: snapshot.caseId,
+    target: snapshot.target,
+    createdAt: snapshot.createdAt,
+    beforeEvent: null,
+    event,
+    nextSnapshot: snapshot,
+    status: "INTENT",
+  };
+  assert.equal(migrateCaseTransactionV1(transaction).schema, "pi-ticket-planning:case-transaction:v2");
+  const ambiguous = structuredClone(snapshot);
+  ambiguous.decisions.push({ arbitrary: true });
+  assert.throws(() => migratePlanningCaseV1(ambiguous), /LEGACY_CONTEXT_INCOMPLETE/);
 });

@@ -7,6 +7,8 @@ description: Run independent readiness and graph review when ask-yet has persist
 
 Move candidate implementation issues through an independent fresh-context review, then activate only the unchanged READY result in its reviewed execution lane after human confirmation.
 
+Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume online, bind exact policy, Context, Capability, Harness, review, and graph inputs, and use package `plan/apply`; those commands alone advance the durable `ADMISSION_*` transaction and consume the exact approval. Completion requires a new-process Case replay showing `ADMISSION_COMMITTED`.
+
 Use /ticket-readiness as the contract. The ticket-readiness-reviewer subagent is the sole scope and readiness judge; this skill owns deterministic graph-integrity checks, evidence gathering, user confirmation, and tracker mutation.
 
 ## Preconditions

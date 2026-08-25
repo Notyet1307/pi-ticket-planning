@@ -82,7 +82,10 @@ const REQUIRED_FILES = [
   "scripts/verify-protocol.mjs",
   "scripts/verify-context.mjs",
   "scripts/migrate-artifacts.mjs",
+  "scripts/migrate-planning-case.mjs",
+  "planning-case/bindings.mjs",
   "planning-case/cli.mjs",
+  "planning-case/events.mjs",
   "planning-case/result.mjs",
   "planning-case/store.mjs",
   "capabilities/cli.mjs",
@@ -102,6 +105,7 @@ const REQUIRED_FILES = [
   "context/manifest.mjs",
   "skills/admit-ticket/SKILL.md",
   "skills/ask-yet/SKILL.md",
+  "skills/planning-case-runtime.md",
   "skills/setup-delivery-repository/SKILL.md",
   "skills/setup-delivery-repository/issue-tracker-github.md",
   "skills/setup-delivery-repository/issue-tracker-gitlab.md",
@@ -174,10 +178,12 @@ export function validatePackage(root) {
     "release:qualify": "node integration/qualify.mjs",
     "test:integration:live": "node integration/e2e.mjs",
     "test:integration:mock": "node --test test/admission-apply.test.mjs test/readiness-receipt.test.mjs test/review-transport.test.mjs test/integration-e2e.test.mjs",
+    "test:admission-transaction": "node --test test/admission-apply.test.mjs",
+    "test:migration": "node --test test/projections-migration.test.mjs",
     "test:model": "node scripts/eval-pi-behavior.mjs --suite release --report artifacts/model-eval.json",
     "test:security": "node --test test/security.test.mjs test/protocol-kernel.test.mjs test/planning-case.test.mjs test/review-transport.test.mjs test/readiness-receipt.test.mjs",
     "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/planning-case.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs",
-    "test:state": "node --test test/planning-case.test.mjs test/planctl.test.mjs",
+    "test:state": "node --test test/planning-case.test.mjs test/planning-case-events.test.mjs test/planning-case-multiprocess.test.mjs test/planctl.test.mjs",
     verify: "npm run verify:ci && npm run check:profile",
     "verify:ci": "npm run check && npm run verify:single-kernel && npm run verify:protocol && npm run verify:context && npm run verify:context-coverage && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
     "verify:context": "node scripts/verify-context.mjs",
@@ -270,6 +276,10 @@ export function validatePackage(root) {
   if (skillTexts.some((text) => /\/skill:to-release\b/.test(text))) errors.push("active Skill recommends obsolete /skill:to-release");
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
+  for (const name of ["ask-yet", "to-spec", "to-tickets", "admit-ticket", "triage", "setup-delivery-repository"]) {
+    const text = fs.readFileSync(path.join(skillRoot, name, "SKILL.md"), "utf8");
+    if (!text.includes("planning-case-runtime.md")) errors.push(`${name} does not enter the Planning Case runtime`);
+  }
   for (const reference of ASK_YET_REFERENCES) {
     if (!askYet.includes(`](references/${reference})`)) errors.push(`ask-yet does not route to ${reference}`);
   }
@@ -289,7 +299,7 @@ export function validatePackage(root) {
     "`admit-ticket`",
     "contracts/workflow.json",
     "contracts/authority.json",
-    "scripts/workflow-contract.mjs",
+    "pi-ticket-planctl case transition",
   ]);
 
   const checkpoint = "Checkpoint: <LANE>/<STAGE> · <authoritative work identity or NONE> · <allowed verdict>";

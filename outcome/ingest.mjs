@@ -71,7 +71,7 @@ export function validateOutcomeReceipt(receipt, { expectedSubject } = {}) {
 export function ingestOutcomeReceipt(receipt, { expectedSubject, store, caseId } = {}) {
   const checked = validateOutcomeReceipt(receipt, { expectedSubject });
   if (!checked.ok) throw new Error(checked.problems.map(({ code }) => code).join(","));
-  if (store) store.bind({ caseId, name: "outcome", binding: receipt });
+  if (store) store.ingestOutcome({ caseId, target: receipt.subject.target, receipt });
   return {
     status: "COMPLETE",
     allowedLearning: [...LEARNING],
@@ -89,6 +89,15 @@ export function confirmOutcomeLearning(receipt, decisionAttestation, { store, ca
   if (store) {
     store.addApproval({ caseId, approval: decisionAttestation });
     store.consumeApproval({ caseId, approvalId: decisionAttestation.id });
+    store.record({ caseId, type: "LEARNING_DECISION_RECORDED", data: { learning: {
+      decision: decisionAttestation.value,
+      subject: receipt.subject,
+      outcomeReceiptDigest: receipt.digest,
+      operatorApproval: decisionAttestation.id,
+      affectedRuleIds: [],
+      rationaleRef: decisionAttestation.evidence.ref,
+      observedAt: decisionAttestation.observedAt,
+    } } });
   }
   return { status: "COMPLETE", decision: decisionAttestation.value, kernelMutation: false };
 }

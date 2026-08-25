@@ -20,6 +20,7 @@ import {
 } from "../scripts/check-ticket-context.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
+import { qualifiedCapability } from "./capability-fixture.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 
@@ -62,6 +63,7 @@ function input() {
     walkingSkeleton: ["11", "12"],
   };
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
+  const harness = harnessReadiness("acme/product", baseSha);
   return attachReviewBinding({
     repo: "acme/product",
     repositoryPath,
@@ -73,7 +75,8 @@ function input() {
       result: checkTicketContext({ repo: repositoryPath, base: source.baseSha, body: child.body }),
     })),
     policy: { identity: "AGENTS.md@abc", digest: `sha256:${"b".repeat(64)}`, accepted: true },
-    harness: harnessReadiness("acme/product", baseSha),
+    harness,
+    capabilityReceipt: qualifiedCapability("acme/product", baseSha, harness, NOW).receipt,
     review: {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
@@ -95,6 +98,7 @@ class MemoryAdapter {
       source: admissionInput.source,
       policy: admissionInput.policy,
       harness: admissionInput.harness,
+      capabilityReceipt: admissionInput.capabilityReceipt,
       currentCheckpoint: admissionInput.currentCheckpoint,
       contextChecks: admissionInput.contextChecks,
       parent: admissionInput.parent,
@@ -149,7 +153,7 @@ class MemoryAdapter {
   }
 }
 
-const NOW = "2026-08-16T12:01:00.000Z";
+const NOW = new Date().toISOString();
 
 function approval(plan, id = "F-human-activation") {
   return createFactAttestation({
@@ -164,14 +168,14 @@ function approval(plan, id = "F-human-activation") {
       digest: plan.planFingerprint,
     },
     source: producerAttestationSource("operator-asserted", "operator", { producerVersion: "human" }),
-    observedAt: "2026-08-16T12:00:00.000Z",
-    expiresAt: "2026-08-16T13:00:00.000Z",
+    observedAt: NOW,
+    expiresAt: new Date(Date.parse(NOW) + 60 * 60 * 1000).toISOString(),
     evidence: { kind: "operator", ref: "exact-plan-confirmation", digest: plan.planFingerprint },
   });
 }
 
 function memoryCaseStore(plan, value = approval(plan)) {
-  const snapshot = { target: `github:${plan.repo}`, approvals: { pending: [value], consumed: [] } };
+  const snapshot = { target: `github:${plan.repo}`, approvals: { pending: [value], consumed: [] }, admissionTransaction: null };
   return {
     get({ target }) {
       assert.equal(target, snapshot.target);
@@ -181,6 +185,9 @@ function memoryCaseStore(plan, value = approval(plan)) {
       const index = snapshot.approvals.pending.findIndex(({ id }) => id === approvalId);
       if (index === -1) throw new Error("APPROVAL_ALREADY_CONSUMED");
       snapshot.approvals.consumed.push(snapshot.approvals.pending.splice(index, 1)[0]);
+    },
+    changeAdmissionTransaction({ transaction }) {
+      snapshot.admissionTransaction = structuredClone(transaction);
     },
     snapshot,
   };
@@ -194,14 +201,15 @@ function apply(plan, adapter) {
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
+    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
   });
 }
 
-test("Admission apply converges once and rejects replay of its consumed approval", () => {
+test("Admission apply converges once and resumes the committed transaction idempotently", () => {
   const plan = buildAdmissionPlan(input());
   const adapter = new MemoryAdapter(input());
   const first = apply(plan, adapter);
-  assert.equal(first.status, "COMPLETE");
+  assert.equal(first.status, "COMPLETE", JSON.stringify(first));
   assert.deepEqual(adapter.mutations.filter((item) => item.startsWith("labels:")), ["labels:11", "labels:12", "labels:10"]);
   assert.deepEqual(adapter.state.children[0].labels.sort(), ["bug", "ready-for-agent"]);
   assert.deepEqual(adapter.state.children[1].labels, ["ready-for-human"]);
@@ -209,8 +217,7 @@ test("Admission apply converges once and rejects replay of its consumed approval
 
   const mutationCount = adapter.mutations.length;
   const second = apply(plan, adapter);
-  assert.equal(second.status, "CONFLICT");
-  assert.equal(second.problems.some(({ code }) => code === "APPROVAL_ALREADY_CONSUMED"), true);
+  assert.equal(second.status, "COMPLETE");
   assert.equal(adapter.mutations.length, mutationCount);
 });
 
@@ -233,6 +240,7 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
+    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
   });
 
   assert.equal(result.status, "COMPLETE");
@@ -244,7 +252,55 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
     caseId: "PC-admission",
     approvalId: "F-human-activation",
     now: NOW,
-  }).problems.some(({ code }) => code === "APPROVAL_ALREADY_CONSUMED"), true);
+    compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix,
+  }).status, "COMPLETE");
+  assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_COMMITTED");
+});
+
+test("Admission transaction resumes when external state completed before approval consumption", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-admission-external-complete-"));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const plan = buildAdmissionPlan(input());
+  const store = createPlanningCaseStore({ stateDir: path.join(parent, "state"), clock: () => NOW, idGenerator: () => "PC-admission" });
+  store.create({ target: `github:${plan.repo}`, caseId: "PC-admission" });
+  store.addApproval({ caseId: "PC-admission", approval: approval(plan) });
+  const adapter = new MemoryAdapter(input());
+  const interrupted = {
+    get: (args) => store.get(args),
+    changeAdmissionTransaction: (args) => store.changeAdmissionTransaction(args),
+    consumeApproval() { throw Object.assign(new Error("simulated"), { code: "APPROVAL_CONSUME_FAILED" }); },
+  };
+  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix };
+  assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: interrupted }).status, "PARTIAL");
+  assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_EXTERNAL_COMPLETE");
+  assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: store }).status, "COMPLETE");
+});
+
+test("Admission transaction resumes after approval consumption but before local commit", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-admission-approval-consumed-"));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const plan = buildAdmissionPlan(input());
+  const store = createPlanningCaseStore({ stateDir: path.join(parent, "state"), clock: () => NOW, idGenerator: () => "PC-admission" });
+  store.create({ target: `github:${plan.repo}`, caseId: "PC-admission" });
+  store.addApproval({ caseId: "PC-admission", approval: approval(plan) });
+  const adapter = new MemoryAdapter(input());
+  let fail = true;
+  const interrupted = {
+    get: (args) => store.get(args),
+    consumeApproval: (args) => store.consumeApproval(args),
+    changeAdmissionTransaction(args) {
+      if (fail && args.transaction.state === "ADMISSION_APPROVAL_CONSUMED") {
+        fail = false;
+        throw Object.assign(new Error("simulated"), { code: "SIMULATED_CRASH" });
+      }
+      return store.changeAdmissionTransaction(args);
+    },
+  };
+  const options = { expectedFingerprint: plan.planFingerprint, caseId: "PC-admission", approvalId: "F-human-activation", now: NOW, compatibilityMatrix: qualifiedCapability(plan.repo, plan.reviewed.source.baseSha, plan.reviewed.harness).matrix };
+  assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: interrupted }).status, "PARTIAL");
+  assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.pending, []);
+  assert.equal(store.get({ caseId: "PC-admission" }).admissionTransaction.state, "ADMISSION_EXTERNAL_COMPLETE");
+  assert.equal(applyAdmissionPlan(plan, adapter, { ...options, planningCaseStore: store }).status, "COMPLETE");
 });
 
 test("Admission apply rejects an approval for another exact Plan before any write", () => {
@@ -259,6 +315,24 @@ test("Admission apply rejects an approval for another exact Plan before any writ
 
   assert.equal(result.status, "CONFLICT");
   assert.equal(result.problems.some(({ code }) => code === "FACT_SUBJECT_MISMATCH"), true);
+  assert.deepEqual(adapter.mutations, []);
+});
+
+test("Agent Admission cannot bypass the qualified Capability fact", () => {
+  const admissionInput = input();
+  admissionInput.capabilityReceipt = null;
+  attachReviewBinding(admissionInput);
+  const plan = buildAdmissionPlan(admissionInput);
+  const adapter = new MemoryAdapter(admissionInput);
+  const result = applyAdmissionPlan(plan, adapter, {
+    expectedFingerprint: plan.planFingerprint,
+    planningCaseStore: memoryCaseStore(plan),
+    caseId: "PC-admission",
+    approvalId: "F-human-activation",
+    now: NOW,
+  });
+  assert.equal(result.status, "CONFLICT");
+  assert.equal(result.problems[0].code, "CAPABILITY_RECEIPT_REQUIRED");
   assert.deepEqual(adapter.mutations, []);
 });
 
@@ -414,6 +488,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     },
     currentCheckpoint: checkpoint("TRIAGE", "42", "r1"),
   };
+  standalone.capabilityReceipt = qualifiedCapability("acme/product", baseSha, standalone.harness, NOW).receipt;
   standalone.contextChecks = [{
     candidateId: candidate.id,
     result: checkTicketContext({ repo: repositoryPath, base: standalone.source.baseSha, body: candidate.body }),
@@ -426,6 +501,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
       source: standalone.source,
       policy: standalone.policy,
       harness: standalone.harness,
+      capabilityReceipt: standalone.capabilityReceipt,
       currentCheckpoint: standalone.currentCheckpoint,
       contextChecks: standalone.contextChecks,
       candidate,
@@ -442,7 +518,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
   };
 
   assert.equal(apply(plan, adapter).status, "COMPLETE");
-  assert.equal(apply(plan, adapter).status, "CONFLICT");
+  assert.equal(apply(plan, adapter).status, "COMPLETE");
   assert.deepEqual(adapter.mutations, ["comment:42", "labels:42"]);
   assert.deepEqual(adapter.state.candidate.labels.sort(), ["copy", "ready-for-agent"]);
 });

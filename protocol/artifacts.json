@@ -112,14 +112,15 @@
     {
       "namespace": "pi-ticket-planning",
       "name": "planning-case",
-      "schemaIdentity": "pi-ticket-planning:planning-case:v1",
-      "schemaPath": "schemas/planning-case-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:planning-case:v2",
+      "schemaPath": "schemas/planning-case-v2.schema.json",
+      "schemaPaths": { "1": "schemas/planning-case-v1.schema.json", "2": "schemas/planning-case-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "planning-case-store",
       "readers": ["planning-case-store", "planning-case-cli", "admission-validate"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-planning-case.mjs#migratePlanningCaseV1"
     },
     {
       "namespace": "pi-ticket-planning",
@@ -344,26 +345,28 @@
     {
       "namespace": "pi-ticket-planning",
       "name": "planning-case-event",
-      "schemaIdentity": "pi-ticket-planning:planning-case-event:v1",
-      "schemaPath": "schemas/planning-case-event-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:planning-case-event:v2",
+      "schemaPath": "schemas/planning-case-event-v2.schema.json",
+      "schemaPaths": { "1": "schemas/planning-case-event-v1.schema.json", "2": "schemas/planning-case-event-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "planning-case-store",
       "readers": ["planning-case-store", "planning-case-recovery"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256-chain",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-planning-case.mjs#migratePlanningCaseEventV1"
     },
     {
       "namespace": "pi-ticket-planning",
       "name": "case-transaction",
-      "schemaIdentity": "pi-ticket-planning:case-transaction:v1",
-      "schemaPath": "schemas/case-transaction-v1.schema.json",
-      "currentMajor": 1,
-      "readableMajors": [1],
+      "schemaIdentity": "pi-ticket-planning:case-transaction:v2",
+      "schemaPath": "schemas/case-transaction-v2.schema.json",
+      "schemaPaths": { "1": "schemas/case-transaction-v1.schema.json", "2": "schemas/case-transaction-v2.schema.json" },
+      "currentMajor": 2,
+      "readableMajors": [1, 2],
       "writer": "planning-case-store",
       "readers": ["planning-case-recovery"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
-      "migrationPath": null
+      "migrationPath": "scripts/migrate-planning-case.mjs#migrateCaseTransactionV1"
     },
     {
       "namespace": "pi-ticket-planning",
@@ -459,6 +462,30 @@
       "writer": "repository-maintainer",
       "readers": ["protocol-kernel", "verify-protocol"],
       "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "admission-transaction",
+      "schemaIdentity": "pi-ticket-planning:admission-transaction:v1",
+      "schemaPath": "schemas/admission-transaction-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "planning-case-store",
+      "readers": ["admission-apply", "planning-case-recovery"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "planning-case-binding",
+      "schemaIdentity": "pi-ticket-planning:planning-case-binding:v1",
+      "schemaPath": "schemas/planning-case-binding-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "planning-case-cli",
+      "readers": ["planning-case-store", "planning-case-resume"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
       "migrationPath": null
     }
   ]

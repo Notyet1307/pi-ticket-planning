@@ -7,6 +7,8 @@ description: Compile an exact COMMITTED Release or other decision-complete sourc
 
 Compile decided behavior into one durable parent Delivery Spec. Do not interview the human, choose product behavior, or recover authority from conversation memory.
 
+Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, bind the accepted Release/source and delivery base before compilation, transition through `SPEC` with Kernel facts, then bind the exact published Spec before reporting completion.
+
 The repository, issue tracker, triage labels, and exact Git base must already be configured by the `setup-delivery-repository` helper. Use `ticket-readiness` for artifact roles and activation invariants.
 
 ## Process

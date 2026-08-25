@@ -20,6 +20,7 @@ function createRuntime(root) {
     allowUnionTypes: true,
     strict: true,
     strictRequired: false,
+    strictTypes: false,
     validateFormats: true,
   });
   addFormats(ajv, { mode: "full" });
