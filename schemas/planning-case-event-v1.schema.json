@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/planning-case-event-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "sequence", "caseId", "target", "type", "at", "data", "transactionId", "previousDigest", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:planning-case-event:v1" },
+    "id": { "type": "string", "pattern": "^E-[A-Za-z0-9._:-]{1,126}$" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "type": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+    "at": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "data": { "type": "object" },
+    "transactionId": { "type": "string", "pattern": "^TX-[A-Za-z0-9._:-]{1,125}$" },
+    "previousDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

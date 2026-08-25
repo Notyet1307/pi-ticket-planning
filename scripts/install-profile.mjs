@@ -111,6 +111,8 @@ export function writeInstallation({
 
   const launcher = path.join(resolvedBinDir, "pi-ticket-plan");
   installLink(path.join(resolvedPackageRoot, "profile", "pi-ticket-plan"), launcher, backups);
+  const controlLauncher = path.join(resolvedBinDir, "pi-ticket-planctl");
+  installLink(path.join(resolvedPackageRoot, "profile", "pi-ticket-plan"), controlLauncher, backups);
 
   for (const name of ["auth.json", "models.json"]) {
     const source = path.join(defaultProfileDir, name);
@@ -118,7 +120,7 @@ export function writeInstallation({
     if (!lstatSafe(destination) && existsSync(source)) symlinkSync(source, destination);
   }
 
-  return { profileDir: resolvedProfileDir, launcher, backups };
+  return { profileDir: resolvedProfileDir, launcher, controlLauncher, backups };
 }
 
 function run(command, args, env = process.env) {
@@ -158,6 +160,7 @@ function main(argv) {
 
   console.log(`profile installed: ${installed.profileDir}`);
   console.log(`launcher installed: ${installed.launcher}`);
+  console.log(`control launcher installed: ${installed.controlLauncher}`);
   for (const backup of installed.backups) console.log(`backup retained: ${backup}`);
   console.log(verification);
 }

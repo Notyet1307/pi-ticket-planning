@@ -340,6 +340,30 @@
       "readers": ["profile-installer", "doctor", "update-cli"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
       "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "planning-case-event",
+      "schemaIdentity": "pi-ticket-planning:planning-case-event:v1",
+      "schemaPath": "schemas/planning-case-event-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "planning-case-store",
+      "readers": ["planning-case-store", "planning-case-recovery"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256-chain",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "case-transaction",
+      "schemaIdentity": "pi-ticket-planning:case-transaction:v1",
+      "schemaPath": "schemas/case-transaction-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "planning-case-store",
+      "readers": ["planning-case-recovery"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
     }
   ]
 }

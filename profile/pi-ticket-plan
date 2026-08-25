@@ -48,4 +48,12 @@ if [ "${1-}" = "delivery-gate" ]; then
   exec node "$package_root/scripts/delivery-gate.mjs" "$@"
 fi
 
+if [ "${1-}" = "case" ]; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR Node.js command not found" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/planctl.mjs" "$@"
+fi
+
 exec pi "$@"

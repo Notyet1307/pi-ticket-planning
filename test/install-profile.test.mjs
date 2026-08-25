@@ -31,6 +31,8 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     assert.equal(settings.packages.find((entry) => entry.source === PACKAGE_ROOT)?.source, PACKAGE_ROOT);
     assert.equal(lstatSync(first.launcher).isSymbolicLink(), true);
     assert.equal(path.resolve(binDir, readlinkSync(first.launcher)), path.join(PACKAGE_ROOT, "profile", "pi-ticket-plan"));
+    assert.equal(lstatSync(first.controlLauncher).isSymbolicLink(), true);
+    assert.equal(path.resolve(binDir, readlinkSync(first.controlLauncher)), path.join(PACKAGE_ROOT, "profile", "pi-ticket-plan"));
     assert.equal(lstatSync(path.join(profileDir, "auth.json")).isSymbolicLink(), true);
     assert.equal(lstatSync(path.join(profileDir, "models.json")).isSymbolicLink(), true);
     assert.equal(lstatSync(settingsFile).mode & 0o777, 0o600);
