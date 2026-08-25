@@ -21,10 +21,20 @@ import {
 import { harnessReadiness } from "./readiness-fixture.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
-import { createFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
+
+function checkpoint(lane, id, revision) {
+  return {
+    schema: "pi-ticket-planning:checkpoint:v2",
+    lane,
+    stage: "ADMISSION",
+    verdict: "ACTIVATION_AWAITING_CONFIRMATION",
+    subject: { target: "github:acme/product", kind: "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
+  };
+}
 
 function input() {
   const specBody = "# Spec\n\n## Behavioral scenarios\n### S1: First\nFirst.\n\n### S2: Second\nSecond.";
@@ -74,7 +84,7 @@ function input() {
         { id: "12", verdict: "READY", executionLane: "HUMAN" },
       ],
     },
-    currentCheckpoint: { lane: "DELIVERY", stage: "ADMISSION", identity: "10@r2", verdict: "ACTIVATION_AWAITING_CONFIRMATION" },
+    currentCheckpoint: checkpoint("DELIVERY", "10", "r2"),
   });
 }
 
@@ -153,12 +163,7 @@ function approval(plan, id = "F-human-activation") {
       revision: plan.reviewed.source.revision,
       digest: plan.planFingerprint,
     },
-    source: {
-      kind: "operator-asserted",
-      producer: "operator",
-      producerVersion: "human",
-      producerDigest: `sha256:${"e".repeat(64)}`,
-    },
+    source: producerAttestationSource("operator-asserted", "operator", { producerVersion: "human" }),
     observedAt: "2026-08-16T12:00:00.000Z",
     expiresAt: "2026-08-16T13:00:00.000Z",
     evidence: { kind: "operator", ref: "exact-plan-confirmation", digest: plan.planFingerprint },
@@ -407,7 +412,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
       graphVerdict: "READY",
       candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
     },
-    currentCheckpoint: { lane: "TRIAGE", stage: "ADMISSION", identity: "42@r1", verdict: "ACTIVATION_AWAITING_CONFIRMATION" },
+    currentCheckpoint: checkpoint("TRIAGE", "42", "r1"),
   };
   standalone.contextChecks = [{
     candidateId: candidate.id,

@@ -1,6 +1,6 @@
 {
   "schema": "pi-ticket-planning:context-manifest:v1",
-  "route": "PRODUCT/ORIENT/STATUS",
+  "route": "DELIVERY/ADMISSION/ADMITTED",
   "required": [
     "skills/ask-yet/SKILL.md",
     "skills/ask-yet/references/human-interface.md"

@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
+import { validateArtifact, validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -65,6 +65,11 @@ export function validateCapabilityReceipt(receipt, { now } = {}) {
   const problems = [];
   if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) {
     return { ok: false, problems: [problem("INVALID_CAPABILITY_RECEIPT")] };
+  }
+  try {
+    problems.push(...validateArtifact(receipt).problems);
+  } catch {
+    problems.push(problem("INVALID_CAPABILITY_RECEIPT"));
   }
   if (now !== undefined && Number.isFinite(Date.parse(now)) && Date.parse(now) > Date.parse(receipt.expiresAt)) {
     problems.push(problem("CAPABILITY_RECEIPT_EXPIRED"));

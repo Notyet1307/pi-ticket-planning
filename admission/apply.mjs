@@ -1,4 +1,4 @@
-import { createFactAttestation, evaluateMutation } from "../protocol/kernel.mjs";
+import { createFactAttestation, evaluateMutation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { fingerprint, issue, safeError } from "./domain.mjs";
 import { validateAdmissionPlan } from "./validate.mjs";
 import { immutableStateProblems, preActivationProblems, operationState, resourceStateProblems, stateIssue } from "./recovery.mjs";
@@ -15,8 +15,6 @@ function applyResult(status, plan, changed, recovered, problems = []) {
     problems,
   };
 }
-
-const PRODUCER_DIGEST = fingerprint({ component: "admission/apply.mjs", protocol: "v1" });
 
 function checkpointSubject(plan) {
   return {
@@ -38,42 +36,38 @@ function approvalSubject(plan) {
   };
 }
 
-function fact(plan, name, subject, sourceKind, evidence, now) {
+function fact(plan, name, subject, sourceKind, evidence, now, mutationId) {
   return createFactAttestation({
     id: `F-${name.replaceAll(".", "-")}-${plan.planFingerprint.slice(-12)}`,
     fact: name,
     value: true,
     subject,
-    source: {
-      kind: sourceKind,
-      producer: sourceKind,
-      producerVersion: "0.5.0-alpha.0",
-      producerDigest: PRODUCER_DIGEST,
-    },
+    source: producerAttestationSource(sourceKind, sourceKind),
     observedAt: now,
     expiresAt: null,
+    mutationId,
     evidence,
   });
 }
 
-function mutationFacts(plan, approval, now) {
+function mutationFacts(plan, approval, now, mutationId) {
   const subject = checkpointSubject(plan);
   const facts = [
     fact(plan, "source.unchanged", subject, plan.kind === "DELIVERY_GRAPH" ? "check-admission-state" : "admission-cli", {
       kind: "tracker",
       ref: `github:${plan.repo}#${plan.target}@${plan.reviewed.source.revision}`,
       digest: fingerprint(plan.reviewed.source),
-    }, now),
+    }, now, mutationId),
     fact(plan, "policy.accepted", subject, "git-policy-check", {
       kind: "artifact",
       ref: plan.reviewed.policy.identity,
       digest: plan.reviewed.policy.digest,
-    }, now),
+    }, now, mutationId),
     fact(plan, "review.ready", subject, "ticket-readiness-reviewer", {
       kind: "artifact",
       ref: plan.reviewed.reviewBinding.schema,
       digest: plan.reviewed.reviewBinding.inputDigest,
-    }, now),
+    }, now, mutationId),
     approval,
   ];
   if (plan.kind === "DELIVERY_GRAPH") {
@@ -81,7 +75,7 @@ function mutationFacts(plan, approval, now) {
       kind: "artifact",
       ref: `github:${plan.repo}#${plan.target}:delivery-graph`,
       digest: plan.graphFingerprint,
-    }, now));
+    }, now, mutationId));
   }
   return facts;
 }
@@ -129,6 +123,7 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   const approvalState = readApproval(plan, options);
   if (approvalState.problems.length > 0) return applyResult("CONFLICT", plan, [], [], approvalState.problems);
   const now = options.now ?? new Date().toISOString();
+  const mutationId = `admission:${plan.planFingerprint}`;
   const subject = checkpointSubject(plan);
   const transition = {
     current: {
@@ -151,8 +146,9 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
     mutation: plan.kind === "DELIVERY_GRAPH" ? "admission.apply" : "admission.applyStandalone",
     actor: "admission-cli",
     transition,
-    facts: mutationFacts(plan, approvalState.approval, now),
+    facts: mutationFacts(plan, approvalState.approval, now, mutationId),
     consumedApprovalIds: approvalState.consumedApprovalIds,
+    mutationId,
     now,
   });
   if (!authorization.allowed) return applyResult("CONFLICT", plan, [], [], authorization.problems);

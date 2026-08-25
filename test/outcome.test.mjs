@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { buildOutcomeReceipt, confirmOutcomeLearning, ingestOutcomeReceipt, validateOutcomeReceipt } from "../outcome/ingest.mjs";
-import { createFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 
 const TARGET = "github:Notyet1307/example";
@@ -66,7 +66,7 @@ test("Outcome learning requires one human attestation and never edits Kernel", (
     fact: "human.outcomeLearningDecision",
     value: "NO_CHANGE",
     subject: SUBJECT,
-    source: { kind: "operator-asserted", producer: "operator", producerVersion: "human", producerDigest: `sha256:${"d".repeat(64)}` },
+    source: producerAttestationSource("operator-asserted", "operator", { producerVersion: "human" }),
     observedAt: "2026-08-25T01:00:00.000Z",
     expiresAt: null,
     evidence: { kind: "operator", ref: `outcome:${outcome.digest}`, digest: outcome.digest },

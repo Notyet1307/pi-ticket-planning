@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { validateFactAttestation } from "../protocol/kernel.mjs";
+import { validateArtifact, validateFactAttestation } from "../protocol/kernel.mjs";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const STATUSES = new Set(["ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "UNEVALUABLE"]);
@@ -48,6 +48,11 @@ export function buildOutcomeReceipt(value) {
 export function validateOutcomeReceipt(receipt, { expectedSubject } = {}) {
   const problems = [];
   if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return { ok: false, problems: [problem("INVALID_OUTCOME_RECEIPT")] };
+  try {
+    problems.push(...validateArtifact(receipt).problems);
+  } catch {
+    problems.push(problem("INVALID_OUTCOME_RECEIPT"));
+  }
   if (receipt.schema !== "pi-ticket-planning:outcome-receipt:v1" || !/^OR-[A-Za-z0-9._:-]{1,125}$/.test(receipt.id ?? "")
     || !STATUSES.has(receipt.status) || !Number.isFinite(Date.parse(receipt.observedAt))) problems.push(problem("INVALID_OUTCOME_RECEIPT"));
   if (expectedSubject && !same(receipt.subject, expectedSubject)) problems.push(problem("OUTCOME_SUBJECT_MISMATCH"));

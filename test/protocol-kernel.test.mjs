@@ -12,9 +12,15 @@ import {
   evaluateTransition,
   loadProtocol,
   parseArtifactIdentity,
+  producerAttestationSource,
   validateArtifact,
+  validateArtifactRuntime,
   validateCodeSchemaCoverage,
+  validateComponentRegistry,
   validateFactAttestation,
+  validatePostconditionRegistry,
+  validateProducerRegistry,
+  validateProtocolDefinition,
   validateProtocolRules,
   validateRegistry,
   verifyProtocol,
@@ -31,17 +37,12 @@ const SUBJECT = {
 };
 
 function fact(name, value = true, overrides = {}) {
-  return createFactAttestation({
+  const attestation = createFactAttestation({
     id: `F-${name.replaceAll(".", "-")}`,
     fact: name,
     value,
     subject: SUBJECT,
-    source: {
-      kind: "release-readiness-check",
-      producer: "pi-ticket-planning",
-      producerVersion: "0.5.0-dev",
-      producerDigest: `sha256:${"2".repeat(64)}`,
-    },
+    source: producerAttestationSource("release-readiness-check", "ask-yet", { producerVersion: "0.5.0-dev" }),
     observedAt: "2026-08-25T00:00:00.000Z",
     expiresAt: null,
     evidence: {
@@ -51,6 +52,12 @@ function fact(name, value = true, overrides = {}) {
     },
     ...overrides,
   });
+  if (overrides.source) {
+    const descriptor = loadProtocol().producers.sources[overrides.source.kind];
+    const producer = descriptor.producers.includes(overrides.source.producer) ? overrides.source.producer : descriptor.producers[0];
+    attestation.source = producerAttestationSource(overrides.source.kind, producer, { producerVersion: overrides.source.producerVersion });
+  }
+  return attestation;
 }
 
 test("protocol registry resolves every current artifact and rejects unknown majors", () => {
@@ -76,6 +83,102 @@ test("artifact registry has one writer, declared readers, and existing unique sc
   assert.deepEqual(validateProtocolRules(), { ok: true, problems: [] });
 });
 
+test("runtime dispatcher applies local schema and artifact semantics", async () => {
+  const protocol = loadProtocol();
+  for (const value of [protocol.registry, protocol.components, protocol.producers, protocol.postconditions, protocol.rules, protocol.workflow, protocol.authority, protocol.laneStageMatrix]) {
+    assert.equal((await validateArtifactRuntime(value, { protocol })).ok, true, value.schema);
+  }
+  const release = {
+    schema: "pi-ticket-planning:release-projection:v1",
+    target: TARGET,
+    id: "R001",
+    revision: "r1",
+    status: "COMMITTED",
+    source: { ref: "refs/heads/main", baseSha: "a".repeat(40), path: "release.md", blobDigest: `sha256:${"b".repeat(64)}` },
+  };
+  const { createHash } = await import("node:crypto");
+  release.digest = `sha256:${createHash("sha256").update(JSON.stringify(release), "utf8").digest("hex")}`;
+  assert.equal((await validateArtifactRuntime(release, { protocol })).ok, true);
+  release.digest = `sha256:${"c".repeat(64)}`;
+  assert.equal((await validateArtifactRuntime(release, { protocol })).problems[0].code, "RELEASE_PROJECTION_DIGEST_MISMATCH");
+});
+
+test("component, producer, and postcondition registries fail closed", () => {
+  const invalidComponents = loadProtocol();
+  invalidComponents.components = { schema: "bad", components: null };
+  assert.equal(validateComponentRegistry({ protocol: invalidComponents }).problems[0].code, "INVALID_COMPONENT_REGISTRY");
+  for (const [code, mutate] of [
+    ["INVALID_COMPONENT_ENTRY", (protocol) => { protocol.components.components["herdr-harness"].adapter = "missing"; }],
+    ["MISSING_COMPONENT_ENTRY", (protocol) => { protocol.components.components["protocol-kernel"].path = "missing.mjs"; }],
+    ["MISSING_COMPONENT_EXPORT", (protocol) => { protocol.components.components["protocol-kernel"].export = "missing"; }],
+    ["INVALID_COMPONENT_ENTRY", (protocol) => { protocol.components.components["protocol-kernel"].kind = "invented"; }],
+  ]) {
+    const protocol = loadProtocol();
+    mutate(protocol);
+    assert.equal(validateComponentRegistry({ protocol }).problems.some((item) => item.code === code), true, code);
+  }
+
+  const invalidPostconditions = loadProtocol();
+  invalidPostconditions.postconditions = { schema: "bad", verifiers: null };
+  assert.equal(validatePostconditionRegistry({ protocol: invalidPostconditions }).problems[0].code, "INVALID_POSTCONDITION_REGISTRY");
+  for (const mutate of [
+    (protocol) => { protocol.postconditions.verifiers["comments.exactReadback"].path = "missing.mjs"; },
+    (protocol) => { protocol.postconditions.verifiers["comments.exactReadback"].export = "missing"; },
+    (protocol) => { delete protocol.postconditions.verifiers["comments.exactReadback"]; },
+  ]) {
+    const protocol = loadProtocol();
+    mutate(protocol);
+    assert.equal(validatePostconditionRegistry({ protocol }).problems.some(({ code }) => code === "MISSING_POSTCONDITION_VERIFIER"), true);
+  }
+
+  const invalidProducers = loadProtocol();
+  invalidProducers.producers = { schema: "bad", sources: null };
+  assert.equal(validateProducerRegistry({ protocol: invalidProducers }).problems[0].code, "INVALID_PRODUCER_REGISTRY");
+  for (const [code, mutate] of [
+    ["MISSING_FACT_PRODUCER", (protocol) => { delete protocol.producers.sources.git; }],
+    ["INVALID_FACT_PRODUCER", (protocol) => { protocol.producers.sources.git.producers = []; }],
+    ["INVALID_FACT_PRODUCER", (protocol) => { protocol.producers.sources.git.command = "bad command"; }],
+    ["MISSING_FACT_PRODUCER", (protocol) => { protocol.producers.sources["provided-artifact"].path = "missing"; }],
+    ["INVALID_FACT_PRODUCER", (protocol) => { protocol.producers.sources["check-admission-state"].export = "missing"; }],
+    ["INVALID_FACT_PRODUCER", (protocol) => { protocol.producers.sources["provided-artifact"].kind = "invented"; }],
+  ]) {
+    const protocol = loadProtocol();
+    mutate(protocol);
+    assert.equal(validateProducerRegistry({ protocol }).problems.some((item) => item.code === code), true, code);
+  }
+  const unavailable = loadProtocol();
+  unavailable.producers.sources.git.command = "ptp-command-that-does-not-exist";
+  assert.throws(() => producerAttestationSource("git", "git", { protocol: unavailable }), /PRODUCER_COMMAND_UNAVAILABLE/);
+  assert.throws(() => producerAttestationSource("missing", "missing"), /UNREGISTERED_FACT_PRODUCER/);
+});
+
+test("protocol definition reports broken graph references", () => {
+  const protocol = loadProtocol();
+  protocol.workflow.allowedTransitions.UNKNOWN = ["UNKNOWN"];
+  protocol.workflow.verdictRequirements.UNKNOWN = ["missing.fact"];
+  protocol.workflow.transitionRequirements.push({ sourceStage: "UNKNOWN", sourceVerdict: "UNKNOWN", targetStages: ["UNKNOWN"], requiredFacts: ["missing.fact"] });
+  protocol.authority.mutations.broken = {
+    strict: true,
+    actor: "x",
+    sourceStage: "UNKNOWN",
+    sourceVerdict: "UNKNOWN",
+    targetStage: "UNKNOWN",
+    targetVerdict: "UNKNOWN",
+    approvalFact: "missing.fact",
+    requiredFacts: ["missing.fact"],
+    producesFacts: ["missing.fact"],
+    postconditions: [],
+  };
+  protocol.laneStageMatrix.combinations.UNKNOWN = ["UNKNOWN"];
+  const codes = validateProtocolDefinition(protocol.workflow, protocol.authority, { protocol }).problems.map(({ code }) => code);
+  for (const code of [
+    "UNKNOWN_TRANSITION_STAGE", "UNKNOWN_TRANSITION_TARGET", "UNKNOWN_REQUIREMENT_VERDICT", "UNKNOWN_REQUIRED_FACT",
+    "INVALID_TRANSITION_REQUIREMENT_SOURCE", "INVALID_TRANSITION_REQUIREMENT_TARGET", "UNKNOWN_TRANSITION_REQUIREMENT_FACT",
+    "INVALID_MUTATION_TARGET", "INVALID_MUTATION_SOURCE", "UNKNOWN_MUTATION_APPROVAL_FACT", "UNKNOWN_MUTATION_FACT",
+    "UNKNOWN_MATRIX_LANE", "UNKNOWN_MATRIX_STAGE",
+  ]) assert.equal(codes.includes(code), true, code);
+});
+
 test("FactAttestation binds producer, subject, freshness, and evidence", () => {
   const attestation = fact("release.readinessPassed");
   assert.equal(validateFactAttestation(attestation).ok, true);
@@ -90,6 +193,27 @@ test("FactAttestation binds producer, subject, freshness, and evidence", () => {
   const wrongSubject = structuredClone(attestation);
   wrongSubject.subject.target = "github:other/repo";
   assert.equal(validateFactAttestation(wrongSubject, { expectedSubject: SUBJECT }).problems[0].code, "FACT_SUBJECT_MISMATCH");
+
+  const mutationFact = fact("source.unchanged", true, {
+    mutationId: "mutation-1",
+    source: { kind: "check-admission-state", producer: "check-admission-state", producerVersion: "1", producerDigest: `sha256:${"0".repeat(64)}` },
+  });
+  assert.equal(validateFactAttestation(mutationFact, { mutationId: "mutation-1" }).ok, true);
+  assert.equal(validateFactAttestation(mutationFact, { mutationId: "mutation-2" }).problems.some(({ code }) => code === "FACT_MUTATION_MISMATCH"), true);
+  assert.equal(validateFactAttestation(mutationFact, { mutationId: "mutation-1", consumedFactIds: [mutationFact.id] }).problems.some(({ code }) => code === "FACT_ALREADY_CONSUMED"), true);
+  const forgedDigest = structuredClone(mutationFact);
+  forgedDigest.source.producerDigest = `sha256:${"0".repeat(64)}`;
+  assert.equal(validateFactAttestation(forgedDigest, { mutationId: "mutation-1" }).problems.some(({ code }) => code === "FACT_PRODUCER_DIGEST_MISMATCH"), true);
+  const unknownProducer = structuredClone(mutationFact);
+  unknownProducer.source.producer = "unknown";
+  assert.equal(validateFactAttestation(unknownProducer, { mutationId: "mutation-1" }).problems.some(({ code }) => code === "FACT_PRODUCER_NOT_REGISTERED"), true);
+  const invalidMutation = structuredClone(attestation);
+  invalidMutation.mutationId = "bad\n";
+  assert.equal(validateFactAttestation(invalidMutation).problems.some(({ code }) => code === "INVALID_FACT_MUTATION_ID"), true);
+
+  const crossRevision = loadProtocol();
+  crossRevision.authority.facts[attestation.fact].crossRevision = true;
+  assert.equal(validateFactAttestation(attestation, { protocol: crossRevision, expectedSubject: { ...SUBJECT, revision: "r2" } }).ok, true);
 });
 
 test("transition validation rejects illegal lane-stage combinations and identity jumps", () => {
@@ -140,12 +264,13 @@ test("transition validation rejects illegal lane-stage combinations and identity
 
 test("strict mutation consumes one exact approval and declares postconditions", () => {
   const planFingerprint = `sha256:${"4".repeat(64)}`;
+  const mutationId = `admission:${planFingerprint}`;
   const approvalSubject = { ...SUBJECT, kind: "admission-plan", id: planFingerprint, digest: planFingerprint };
   const facts = [
-    fact("source.unchanged", true, { source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
+    fact("source.unchanged", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
     fact("policy.accepted", true, { source: { ...fact("release.readinessPassed").source, kind: "git-policy-check" } }),
-    fact("graph.passed", true, { source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
-    fact("review.ready", true, { source: { ...fact("release.readinessPassed").source, kind: "ticket-readiness-reviewer" } }),
+    fact("graph.passed", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
+    fact("review.ready", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "ticket-readiness-reviewer" } }),
     fact("human.activation", true, {
       subject: approvalSubject,
       source: { ...fact("release.readinessPassed").source, kind: "operator-asserted", producer: "operator" },
@@ -175,6 +300,7 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     transition,
     facts,
     consumedApprovalIds: [],
+    mutationId,
     now: "2026-08-25T00:01:00.000Z",
   });
   assert.equal(allowed.allowed, true);
@@ -184,6 +310,8 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     "activation.parentLast",
     "harness.noClaimDuringApply",
     "tracker.matchesPlan",
+    "approval.singleConsumed",
+    "transaction.committed",
   ]);
 
   const replay = evaluateMutation({
@@ -192,12 +320,23 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     transition,
     facts,
     consumedApprovalIds: [facts.at(-1).id],
+    mutationId,
   });
   assert.equal(replay.problems.some(({ code }) => code === "APPROVAL_ALREADY_CONSUMED"), true);
 });
 
 test("protocol model checker reports a closed reachable machine", () => {
   assert.deepEqual(verifyProtocol(), {
+    legalStates: 169,
+    reachableLegalStates: 169,
+    unreachableLegalStates: [],
+    invalidCombinations: [],
+    blockedWithoutRecovery: [],
+    factsWithoutExecutableProducer: [],
+    humanGatesWithoutEntry: [],
+    mutationsWithoutPostconditionVerifier: [],
+    contextRoutesMissing: [],
+    orphanContextRoutes: [],
     reachableStates: "9/9",
     unreachableStates: [],
     undeclaredDeadEnds: [],
@@ -280,7 +419,7 @@ test("Fact, Checkpoint, and Mutation malformed branches fail closed", () => {
     subject: SUBJECT,
   });
   assert.equal(invalidCheckpoint.ok, false);
-  assert.equal(validateArtifact({ ...invalidCheckpoint, schema: "pi-ticket-planning:result-envelope:v1" }).ok, true);
+  assert.equal(validateArtifact({ ...invalidCheckpoint, schema: "pi-ticket-planning:result-envelope:v1" }).ok, false);
   const badSubjectCheckpoint = validateArtifact({
     schema: "pi-ticket-planning:checkpoint:v2",
     lane: "PRODUCT",
@@ -288,7 +427,7 @@ test("Fact, Checkpoint, and Mutation malformed branches fail closed", () => {
     verdict: "FRAME_CANDIDATE",
     subject: { ...SUBJECT, digest: "bad" },
   });
-  assert.equal(badSubjectCheckpoint.problems.some(({ code }) => code === "INVALID_CHECKPOINT_SUBJECT"), true);
+  assert.equal(badSubjectCheckpoint.problems.some(({ code }) => code === "ARTIFACT_SCHEMA_INVALID"), true);
   const illegal = evaluateTransition({
     current: { schema: "pi-ticket-planning:checkpoint:v2", lane: "PRODUCT", stage: "COMMIT", verdict: "READY_TO_COMMIT", subject: SUBJECT },
     proposed: { schema: "pi-ticket-planning:checkpoint:v2", lane: "DELIVERY", stage: "ADMISSION", verdict: "BLOCKED", subject: SUBJECT },
@@ -421,7 +560,7 @@ test("kernel guard branches reject duplicates, false facts, and malformed rule g
   broken.authority.mutations["admission.apply"].postconditions = [];
   broken.workflow.rebindTransitions.push({ sourceStage: "NOPE", targetStage: "NOPE", changes: [], requiredFacts: ["missing"] });
   const report = verifyProtocol({ protocol: broken });
-  assert.equal(report.undeclaredDeadEnds.includes("OUTCOME"), true);
+  assert.equal(report.undeclaredDeadEnds.some((id) => id.includes("/OUTCOME/")), true);
   assert.equal(report.factsWithoutProducer.includes("release.readinessPassed"), true);
   assert.equal(report.mutationsWithoutPostconditions.includes("admission.apply"), true);
   assert.equal(report.ambiguousAuthorityOwners.includes("release.readinessPassed"), true);
@@ -584,7 +723,7 @@ test("optional-field defaults are explicit rather than inferred", (t) => {
   }
   const arraySubject = { ...SUBJECT, extra: ["a", "b"] };
   const arrayFact = fact("release.readinessPassed", true, { subject: arraySubject });
-  assert.equal(validateFactAttestation(arrayFact, { expectedSubject: arraySubject }).ok, true);
+  assert.equal(validateFactAttestation(arrayFact, { expectedSubject: arraySubject }).ok, false);
   const noCheckpointSubject = evaluateTransition({
     current: null,
     proposed: { schema: "pi-ticket-planning:checkpoint:v2", lane: "PRODUCT", stage: "FRAME", verdict: "FRAME_CANDIDATE" },

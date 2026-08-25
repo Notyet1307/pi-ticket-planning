@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { buildCapabilityReceipt } from "../capabilities/doctor.mjs";
 import { createPlanningCaseStore, PlanningCaseError } from "../planning-case/store.mjs";
 
@@ -50,12 +50,7 @@ function approval(id = "F-human-activation") {
       revision: "v1",
       digest: fingerprint,
     },
-    source: {
-      kind: "operator-asserted",
-      producer: "operator",
-      producerVersion: "human",
-      producerDigest: `sha256:${"b".repeat(64)}`,
-    },
+    source: producerAttestationSource("operator-asserted", "operator", { producerVersion: "human" }),
     observedAt: NOW,
     expiresAt: null,
     evidence: {

@@ -1,0 +1,9 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "DELIVERY/SPEC/SPEC_IN_PROGRESS",
+  "required": ["skills/to-spec/SKILL.md"],
+  "optional": [],
+  "maxBytes": 12000,
+  "maxEstimatedTokens": 3000,
+  "maxDocuments": 1
+}

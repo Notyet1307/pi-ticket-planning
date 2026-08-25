@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateArtifact } from "../protocol/kernel.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
 export const DELIVERY_GRAPH_MARKER = "<!-- pi-ticket-planning:delivery-graph:v2 -->";
@@ -152,6 +153,13 @@ export function validateDeliveryGraph(snapshot) {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
     contract.push(issue("INVALID_SNAPSHOT"));
     return result(contract, coverage, skeleton, frontier);
+  }
+
+  try {
+    const structural = validateArtifact(snapshot, { identity: `pi-ticket-planning:delivery-graph:v${snapshot.version}` });
+    contract.push(...structural.problems);
+  } catch {
+    contract.push(issue("INVALID_DELIVERY_GRAPH_ARTIFACT"));
   }
 
   if (snapshot.version === 1) contract.push(issue("NEEDS_MIGRATION", "v1->v2"));

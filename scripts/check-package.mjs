@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
-import { validateContracts } from "./workflow-contract.mjs";
+import { validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
@@ -179,9 +179,11 @@ export function validatePackage(root) {
     "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/planning-case.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs",
     "test:state": "node --test test/planning-case.test.mjs test/planctl.test.mjs",
     verify: "npm run verify:ci && npm run check:profile",
-    "verify:ci": "npm run check && npm run verify:protocol && npm run verify:context && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
+    "verify:ci": "npm run check && npm run verify:single-kernel && npm run verify:protocol && npm run verify:context && npm run verify:context-coverage && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
     "verify:context": "node scripts/verify-context.mjs",
+    "verify:context-coverage": "node scripts/verify-context-coverage.mjs",
     "verify:protocol": "node scripts/verify-protocol.mjs",
+    "verify:single-kernel": "node scripts/verify-single-kernel.mjs",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean",
   };
   for (const [name, command] of Object.entries(expectedScripts)) {
@@ -593,7 +595,9 @@ export function validatePackage(root) {
     if (!graphVerdicts.has(verdict)) errors.push(`missing graph ${verdict} fixture`);
   }
   for (const item of fixtures.graphCases ?? []) {
-    const actual = validateDeliveryGraph(item).verdict;
+    const { id: _id, expectedGraphVerdict: _verdict, expectedProblemCodes: _codes, ...snapshot } = structuredClone(item);
+    for (const child of snapshot.children ?? []) child.externalBlockers ??= [];
+    const actual = validateDeliveryGraph(snapshot).verdict;
     if (actual !== item.expectedGraphVerdict) {
       errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
     }

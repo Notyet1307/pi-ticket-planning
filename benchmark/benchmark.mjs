@@ -43,6 +43,7 @@ function percentile(values, quantile) {
 }
 
 export function runBenchmark({ ticketSizes = [100, 500, 1000], caseSizes = [10, 50], clock = process.hrtime.bigint } = {}) {
+  validateDeliveryGraph(graph(1));
   const cpu = process.cpuUsage();
   const memory = process.memoryUsage().heapUsed;
   const graphResults = ticketSizes.map((size) => {

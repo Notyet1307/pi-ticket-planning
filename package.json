@@ -19,6 +19,10 @@
   "engines": {
     "node": ">=22.16.0"
   },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
   "scripts": {
     "admit": "node scripts/admit.mjs",
     "check": "node scripts/check-package.mjs",
@@ -46,9 +50,11 @@
     "test:coverage": "node --experimental-test-coverage --test --test-coverage-include=protocol/kernel.mjs --test-coverage-include=planning-case/store.mjs --test-coverage-include=admission/recovery.mjs --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 test/protocol-kernel.test.mjs test/planning-case.test.mjs test/outcome.test.mjs test/admission-recovery.test.mjs test/admission-apply.test.mjs",
     "test:state": "node --test test/planning-case.test.mjs test/planctl.test.mjs",
     "release:qualify": "node integration/qualify.mjs",
-    "verify:ci": "npm run check && npm run verify:protocol && npm run verify:context && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
+    "verify:ci": "npm run check && npm run verify:single-kernel && npm run verify:protocol && npm run verify:context && npm run verify:context-coverage && npm run check:behavior-fixtures && npm run check:docs && npm test && npm run test:coverage && npm run benchmark",
     "verify:context": "node scripts/verify-context.mjs",
+    "verify:context-coverage": "node scripts/verify-context-coverage.mjs",
     "verify:protocol": "node scripts/verify-protocol.mjs",
+    "verify:single-kernel": "node scripts/verify-single-kernel.mjs",
     "verify": "npm run verify:ci && npm run check:profile",
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean"
   },

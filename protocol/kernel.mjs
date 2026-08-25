@@ -1,6 +1,11 @@
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { validateLocalSchema } from "./schema-runtime.mjs";
+import { resolveContextTemplate } from "../context/manifest.mjs";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const IDENTITY = /^([a-z][a-z0-9-]*):([a-z][a-z0-9-]*):v([1-9][0-9]*)$/;
@@ -11,6 +16,10 @@ const SAFE_TOKEN = /^[^\u0000\r\n]+$/;
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function sha256(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
 function within(root, target) {
@@ -35,7 +44,10 @@ export function loadProtocol({ root = REPOSITORY_ROOT } = {}) {
   return {
     root: resolvedRoot,
     registry: readJson(path.join(protocolRoot, "artifacts.json")),
+    components: readJson(path.join(protocolRoot, "components.json")),
     rules: readJson(path.join(protocolRoot, "rules.json")),
+    postconditions: readJson(path.join(protocolRoot, "postconditions.json")),
+    producers: readJson(path.join(protocolRoot, "producers.json")),
     laneStageMatrix: readJson(path.join(protocolRoot, "lane-stage-matrix.json")),
     workflow: resolveProtocolLink(workflowLink, resolvedRoot),
     authority: resolveProtocolLink(authorityLink, resolvedRoot),
@@ -68,8 +80,9 @@ export function validateRegistry({ protocol = loadProtocol() } = {}) {
       || new Set(entry.readableMajors).size !== entry.readableMajors.length) {
       problems.push(problem("INVALID_READABLE_MAJORS", key));
     }
-    if (typeof entry.writer !== "string" || entry.writer.length === 0) problems.push(problem("MISSING_ARTIFACT_WRITER", key));
-    if (!Array.isArray(entry.readers) || entry.readers.length === 0 || new Set(entry.readers).size !== entry.readers.length) {
+    if (typeof entry.writer !== "string" || !protocol.components?.components?.[entry.writer]) problems.push(problem("MISSING_ARTIFACT_WRITER", key));
+    if (!Array.isArray(entry.readers) || entry.readers.length === 0 || new Set(entry.readers).size !== entry.readers.length
+      || entry.readers.some((reader) => !protocol.components?.components?.[reader])) {
       problems.push(problem("MISSING_ARTIFACT_READERS", key));
     }
     if (typeof entry.fingerprintAlgorithm !== "string" || entry.fingerprintAlgorithm.length === 0) {
@@ -95,12 +108,44 @@ export function validateRegistry({ protocol = loadProtocol() } = {}) {
       try {
         const schema = readJson(file);
         if (typeof schema.$id !== "string" || schema.$id.length === 0) problems.push(problem("MISSING_JSON_SCHEMA_ID", relative));
-        else if (schemaIds.has(schema.$id)) problems.push(problem("DUPLICATE_JSON_SCHEMA_ID", schema.$id));
-        else schemaIds.add(schema.$id);
+        else {
+          if (schema.$id.split(/[?#]/u, 1)[0].split("/").at(-1) !== path.basename(relative)) problems.push(problem("JSON_SCHEMA_IDENTITY_MISMATCH", relative));
+          if (schemaIds.has(schema.$id)) problems.push(problem("DUPLICATE_JSON_SCHEMA_ID", schema.$id));
+          else schemaIds.add(schema.$id);
+        }
       } catch {
         problems.push(problem("INVALID_ARTIFACT_SCHEMA", relative));
       }
     }
+  }
+  problems.push(...validateComponentRegistry({ protocol }).problems);
+  return { ok: problems.length === 0, problems };
+}
+
+export function validateComponentRegistry({ protocol = loadProtocol() } = {}) {
+  const problems = [];
+  const components = protocol.components;
+  if (components?.schema !== "pi-ticket-planning:component-registry:v1"
+    || !components.components || typeof components.components !== "object" || Array.isArray(components.components)) {
+    return { ok: false, problems: [problem("INVALID_COMPONENT_REGISTRY")] };
+  }
+  for (const [id, descriptor] of Object.entries(components.components)) {
+    if (descriptor.kind === "actor") continue;
+    if (descriptor.kind === "external") {
+      if (!components.components[descriptor.adapter]) problems.push(problem("INVALID_COMPONENT_ENTRY", id));
+      continue;
+    }
+    const file = typeof descriptor.path === "string" ? path.resolve(protocol.root, descriptor.path) : "";
+    if (!file || !within(protocol.root, file) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      problems.push(problem("MISSING_COMPONENT_ENTRY", id));
+      continue;
+    }
+    if (descriptor.kind === "module") {
+      const text = fs.readFileSync(file, "utf8");
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(descriptor.export ?? "")
+        || !text.includes(`export function ${descriptor.export}`)
+        && !text.includes(`export async function ${descriptor.export}`)) problems.push(problem("MISSING_COMPONENT_EXPORT", id));
+    } else if (!["command", "skill", "workflow"].includes(descriptor.kind)) problems.push(problem("INVALID_COMPONENT_ENTRY", id));
   }
   return { ok: problems.length === 0, problems };
 }
@@ -122,7 +167,18 @@ export function validateCodeSchemaCoverage({ protocol = loadProtocol() } = {}) {
     entry.readableMajors.map((major) => `${entry.namespace}:${entry.name}:v${major}`)));
   const observed = new Map();
   const assignment = /(?:\b[A-Z][A-Z0-9_]*SCHEMA[A-Z0-9_]*\s*=\s*|\bschema\s*:\s*)["'`]((?:pi-ticket-planning|herdr-harness):[a-z0-9-]+:v[1-9][0-9]*)["'`]/g;
-  for (const relative of ["scripts", "protocol", "admission", "planning-case"].flatMap((directory) => codeFiles(protocol.root, directory))) {
+  for (const relative of [
+    "scripts",
+    "protocol",
+    "admission",
+    "planning-case",
+    "capabilities",
+    "installation",
+    "integration",
+    "outcome",
+    "benchmark",
+    "extensions",
+  ].flatMap((directory) => codeFiles(protocol.root, directory))) {
     const text = fs.readFileSync(path.join(protocol.root, relative), "utf8");
     for (const match of text.matchAll(assignment)) {
       if (!observed.has(match[1])) observed.set(match[1], relative);
@@ -157,6 +213,138 @@ export function validateProtocolRules({ protocol = loadProtocol() } = {}) {
   return { ok: problems.length === 0, problems };
 }
 
+export function validatePostconditionRegistry({ protocol = loadProtocol() } = {}) {
+  const problems = [];
+  if (protocol.postconditions?.schema !== "pi-ticket-planning:postcondition-registry:v1"
+    || !protocol.postconditions.verifiers
+    || typeof protocol.postconditions.verifiers !== "object"
+    || Array.isArray(protocol.postconditions.verifiers)) {
+    return { ok: false, problems: [problem("INVALID_POSTCONDITION_REGISTRY")] };
+  }
+  for (const [id, descriptor] of Object.entries(protocol.postconditions.verifiers)) {
+    const file = typeof descriptor?.path === "string" ? path.resolve(protocol.root, descriptor.path) : "";
+    if (!file || !within(protocol.root, file) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      problems.push(problem("MISSING_POSTCONDITION_VERIFIER", id));
+      continue;
+    }
+    const text = fs.readFileSync(file, "utf8");
+    const exported = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(descriptor.export ?? "")
+      && text.includes(`export function ${descriptor.export}`);
+    if (!exported) problems.push(problem("MISSING_POSTCONDITION_VERIFIER", id));
+  }
+  for (const mutation of Object.values(protocol.authority.mutations ?? {})) {
+    for (const id of mutation.postconditions ?? []) {
+      if (!protocol.postconditions.verifiers[id]) problems.push(problem("MISSING_POSTCONDITION_VERIFIER", id));
+    }
+  }
+  return { ok: problems.length === 0, problems };
+}
+
+export function validateProducerRegistry({ protocol = loadProtocol() } = {}) {
+  const problems = [];
+  if (protocol.producers?.schema !== "pi-ticket-planning:producer-registry:v1"
+    || !protocol.producers.sources
+    || typeof protocol.producers.sources !== "object"
+    || Array.isArray(protocol.producers.sources)) {
+    return { ok: false, problems: [problem("INVALID_PRODUCER_REGISTRY")] };
+  }
+  for (const source of new Set(Object.values(protocol.authority.facts ?? {}).flatMap((rule) => rule.sources ?? []))) {
+    const descriptor = protocol.producers.sources[source];
+    if (!descriptor) {
+      problems.push(problem("MISSING_FACT_PRODUCER", source));
+      continue;
+    }
+    if (!Array.isArray(descriptor.producers) || descriptor.producers.length === 0 || new Set(descriptor.producers).size !== descriptor.producers.length) {
+      problems.push(problem("INVALID_FACT_PRODUCER", source));
+    }
+    if (descriptor.kind === "command") {
+      if (!/^[A-Za-z0-9._+-]+$/.test(descriptor.command ?? "")) problems.push(problem("INVALID_FACT_PRODUCER", source));
+      continue;
+    }
+    const file = typeof descriptor.path === "string" ? path.resolve(protocol.root, descriptor.path) : "";
+    if (!file || !within(protocol.root, file) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      problems.push(problem("MISSING_FACT_PRODUCER", source));
+      continue;
+    }
+    if (descriptor.kind === "module") {
+      const text = fs.readFileSync(file, "utf8");
+      if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(descriptor.export ?? "")
+        || !text.includes(`export function ${descriptor.export}`)
+        && !text.includes(`export async function ${descriptor.export}`)) {
+        problems.push(problem("INVALID_FACT_PRODUCER", source));
+      }
+    } else if (descriptor.kind !== "skill") problems.push(problem("INVALID_FACT_PRODUCER", source));
+  }
+  return { ok: problems.length === 0, problems };
+}
+
+function producerDigest(descriptor, protocol) {
+  if (descriptor.kind === "command") {
+    const result = spawnSync(descriptor.command, ["--version"], { encoding: "utf8", timeout: 15_000 });
+    if (result.status !== 0) throw new Error("PRODUCER_COMMAND_UNAVAILABLE");
+    return sha256(`${descriptor.command}\n${result.stdout.trim()}\n${result.stderr.trim()}`);
+  }
+  return sha256(fs.readFileSync(path.resolve(protocol.root, descriptor.path)));
+}
+
+export function producerAttestationSource(kind, producer, { protocol = loadProtocol(), producerVersion } = {}) {
+  const descriptor = protocol.producers.sources[kind];
+  if (!descriptor || !descriptor.producers?.includes(producer)) throw new Error(`UNREGISTERED_FACT_PRODUCER: ${kind}:${producer}`);
+  return {
+    kind,
+    producer,
+    producerVersion: producerVersion ?? readJson(path.join(protocol.root, "package.json")).version,
+    producerDigest: producerDigest(descriptor, protocol),
+  };
+}
+
+export function validateProtocolDefinition(
+  workflow = loadProtocol().workflow,
+  authority = loadProtocol().authority,
+  { protocol = loadProtocol() } = {},
+) {
+  const problems = [];
+  const workflowSchema = validateLocalSchema(workflow, "schemas/workflow-v1.schema.json", { root: protocol.root });
+  const authoritySchema = validateLocalSchema(authority, "schemas/authority-v1.schema.json", { root: protocol.root });
+  problems.push(...workflowSchema.problems, ...authoritySchema.problems);
+  if (!workflowSchema.ok || !authoritySchema.ok) return { ok: false, problems };
+
+  for (const [stage, targets] of Object.entries(workflow.allowedTransitions)) {
+    if (!workflow.stages[stage]) problems.push(problem("UNKNOWN_TRANSITION_STAGE", stage));
+    for (const target of targets) if (!workflow.stages[target]) problems.push(problem("UNKNOWN_TRANSITION_TARGET", `${stage}->${target}`));
+  }
+  for (const [verdict, facts] of Object.entries(workflow.verdictRequirements ?? {})) {
+    const knownVerdict = Object.values(workflow.stages).some((stage) => stage.verdicts?.includes(verdict));
+    if (!knownVerdict) problems.push(problem("UNKNOWN_REQUIREMENT_VERDICT", verdict));
+    for (const fact of facts) if (!authority.facts[fact]) problems.push(problem("UNKNOWN_REQUIRED_FACT", `${verdict}:${fact}`));
+  }
+  for (const [index, rule] of (workflow.transitionRequirements ?? []).entries()) {
+    const subject = `transitionRequirements[${index}]`;
+    if (!workflow.stages[rule.sourceStage]?.verdicts?.includes(rule.sourceVerdict)) {
+      problems.push(problem("INVALID_TRANSITION_REQUIREMENT_SOURCE", subject));
+    }
+    if (!Array.isArray(rule.targetStages) || rule.targetStages.some((stage) => !workflow.stages[stage])) {
+      problems.push(problem("INVALID_TRANSITION_REQUIREMENT_TARGET", subject));
+    }
+    for (const fact of rule.requiredFacts ?? []) {
+      if (!authority.facts[fact]) problems.push(problem("UNKNOWN_TRANSITION_REQUIREMENT_FACT", `${subject}:${fact}`));
+    }
+  }
+  for (const [name, mutation] of Object.entries(authority.mutations)) {
+    if (!workflow.stages[mutation.targetStage]?.verdicts?.includes(mutation.targetVerdict)) problems.push(problem("INVALID_MUTATION_TARGET", name));
+    if (!workflow.stages[mutation.sourceStage]?.verdicts?.includes(mutation.sourceVerdict)) problems.push(problem("INVALID_MUTATION_SOURCE", name));
+    if (mutation.approvalFact && !authority.facts[mutation.approvalFact]) problems.push(problem("UNKNOWN_MUTATION_APPROVAL_FACT", `${name}:${mutation.approvalFact}`));
+    for (const fact of [...(mutation.requiredFacts ?? []), ...(mutation.producesFacts ?? [])]) {
+      if (!authority.facts[fact]) problems.push(problem("UNKNOWN_MUTATION_FACT", `${name}:${fact}`));
+    }
+  }
+  for (const [lane, stages] of Object.entries(protocol.laneStageMatrix.combinations ?? {})) {
+    if (!workflow.lanes.includes(lane)) problems.push(problem("UNKNOWN_MATRIX_LANE", lane));
+    for (const stage of stages) if (!workflow.stages[stage]) problems.push(problem("UNKNOWN_MATRIX_STAGE", `${lane}:${stage}`));
+  }
+  return { ok: problems.length === 0, problems };
+}
+
 function artifactEntry(registry, namespace, name) {
   return registry?.artifacts?.find((entry) => entry.namespace === namespace && entry.name === name);
 }
@@ -173,27 +361,41 @@ export function parseArtifactIdentity(identity, registry = loadProtocol().regist
   return parsed;
 }
 
-export function validateArtifact(value, { protocol = loadProtocol() } = {}) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.schema !== "string") {
+function artifactSchemaPath(entry, major) {
+  return entry.schemaPaths?.[String(major)] ?? entry.schemaPath;
+}
+
+export function validateArtifact(value, { protocol = loadProtocol(), identity: expectedIdentity } = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("INVALID_ARTIFACT");
   }
-  const identity = parseArtifactIdentity(value.schema, protocol.registry);
-  if (identity.name === "fact-attestation") return validateFactAttestation(value, { protocol });
+  const claimedIdentity = value.schema ?? expectedIdentity;
+  if (typeof claimedIdentity !== "string" || value.schema && expectedIdentity && value.schema !== expectedIdentity) throw new Error("INVALID_ARTIFACT");
+  const identity = parseArtifactIdentity(claimedIdentity, protocol.registry);
+  const entry = artifactEntry(protocol.registry, identity.namespace, identity.name);
+  const structural = validateLocalSchema(value, artifactSchemaPath(entry, identity.major), { root: protocol.root });
+  if (!structural.ok) return { ...structural, identity };
+  if (identity.name === "fact-attestation") return { ...validateFactAttestation(value, { protocol }), identity };
   if (identity.name === "checkpoint") {
     const problems = validateCheckpoint(value, protocol);
-    return { ok: problems.length === 0, problems };
+    return { ok: problems.length === 0, problems, identity };
   }
-  return { ok: true, problems: [] };
+  if (identity.name === "artifact-registry") return { ...validateRegistry({ protocol: { ...protocol, registry: value } }), identity };
+  if (identity.name === "component-registry") return { ...validateComponentRegistry({ protocol: { ...protocol, components: value } }), identity };
+  if (identity.name === "producer-registry") return { ...validateProducerRegistry({ protocol: { ...protocol, producers: value } }), identity };
+  if (identity.name === "postcondition-registry") return { ...validatePostconditionRegistry({ protocol: { ...protocol, postconditions: value } }), identity };
+  if (identity.name === "protocol-rules") return { ...validateProtocolRules({ protocol: { ...protocol, rules: value } }), identity };
+  if (identity.name === "workflow") return { ...validateProtocolDefinition(value, protocol.authority, { protocol }), identity };
+  if (identity.name === "authority") return { ...validateProtocolDefinition(protocol.workflow, value, { protocol }), identity };
+  return { ok: true, problems: [], identity };
 }
 
-function canonical(value) {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
-}
-
-function same(left, right) {
-  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+export async function validateArtifactRuntime(value, options = {}) {
+  const structural = validateArtifact(value, options);
+  if (!structural.ok) return structural;
+  const { validateRegisteredArtifactSemantics } = await import("./semantic-dispatch.mjs");
+  const semantic = await validateRegisteredArtifactSemantics(value, structural.identity, { protocol: options.protocol ?? loadProtocol() });
+  return { ok: semantic.problems.length === 0, problems: semantic.problems, identity: structural.identity };
 }
 
 function problem(code, subject) {
@@ -236,11 +438,14 @@ export function validateFactAttestation(attestation, {
   protocol = loadProtocol(),
   expectedSubject,
   now,
+  mutationId,
+  consumedFactIds = [],
 } = {}) {
   const problems = [];
   if (!attestation || typeof attestation !== "object" || Array.isArray(attestation)) {
     return { ok: false, problems: [problem("INVALID_FACT_ATTESTATION")] };
   }
+  problems.push(...validateLocalSchema(attestation, "schemas/fact-attestation-v1.schema.json", { root: protocol.root }).problems);
   if (attestation.schema !== "pi-ticket-planning:fact-attestation:v1") problems.push(problem("INVALID_FACT_SCHEMA"));
   if (!FACT_ID.test(attestation.id ?? "")) problems.push(problem("INVALID_FACT_ID"));
   if (!FACT_NAME.test(attestation.fact ?? "")) problems.push(problem("INVALID_FACT_NAME"));
@@ -248,7 +453,14 @@ export function validateFactAttestation(attestation, {
   if (!rule) problems.push(problem("UNKNOWN_FACT", attestation.fact));
   const requiredFields = rule?.requiredSubjectFields ?? ["target", "kind", "id", "revision", "digest"];
   if (!validSubject(attestation.subject, requiredFields)) problems.push(problem("INVALID_FACT_SUBJECT"));
-  else if (expectedSubject && !same(attestation.subject, expectedSubject)) problems.push(problem("FACT_SUBJECT_MISMATCH"));
+  else if (expectedSubject) {
+    for (const field of ["target", "kind", "id", "digest"]) {
+      if (attestation.subject[field] !== expectedSubject[field]) problems.push(problem("FACT_SUBJECT_MISMATCH", field));
+    }
+    if (rule?.crossRevision !== true && attestation.subject.revision !== expectedSubject.revision) {
+      problems.push(problem("FACT_REVISION_MISMATCH"));
+    }
+  }
 
   const source = attestation.source;
   if (!source || typeof source !== "object" || Array.isArray(source)
@@ -259,6 +471,13 @@ export function validateFactAttestation(attestation, {
     problems.push(problem("INVALID_FACT_SOURCE"));
   } else if (rule && !rule.sources?.includes(source.kind)) {
     problems.push(problem("FACT_PRODUCER_NOT_ALLOWED"));
+  } else if (rule) {
+    try {
+      const registered = producerAttestationSource(source.kind, source.producer, { protocol, producerVersion: source.producerVersion });
+      if (registered.producerDigest !== source.producerDigest) problems.push(problem("FACT_PRODUCER_DIGEST_MISMATCH"));
+    } catch {
+      problems.push(problem("FACT_PRODUCER_NOT_REGISTERED"));
+    }
   }
 
   if (!validTime(attestation.observedAt)) problems.push(problem("INVALID_FACT_OBSERVED_AT"));
@@ -272,6 +491,13 @@ export function validateFactAttestation(attestation, {
       problems.push(problem("STALE_FACT"));
     }
   }
+  if (rule?.freshness?.mode === "same-mutation") {
+    if (!SAFE_TOKEN.test(attestation.mutationId ?? "")) problems.push(problem("FACT_MUTATION_ID_REQUIRED"));
+    else if (mutationId !== undefined && attestation.mutationId !== mutationId) problems.push(problem("FACT_MUTATION_MISMATCH"));
+  } else if (attestation.mutationId !== undefined && !SAFE_TOKEN.test(attestation.mutationId)) {
+    problems.push(problem("INVALID_FACT_MUTATION_ID"));
+  }
+  if (rule?.reusable !== true && consumedFactIds.includes(attestation.id)) problems.push(problem("FACT_ALREADY_CONSUMED", attestation.id));
 
   const evidence = attestation.evidence;
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)
@@ -286,6 +512,7 @@ export function validateFactAttestation(attestation, {
 function validateCheckpoint(checkpoint, protocol) {
   const problems = [];
   if (!checkpoint || typeof checkpoint !== "object" || Array.isArray(checkpoint)) return [problem("INVALID_CHECKPOINT")];
+  problems.push(...validateLocalSchema(checkpoint, "schemas/checkpoint-v2.schema.json", { root: protocol.root }).problems);
   if (checkpoint.schema !== "pi-ticket-planning:checkpoint:v2") problems.push(problem("INVALID_CHECKPOINT_SCHEMA"));
   const stage = protocol.workflow.stages?.[checkpoint.stage];
   if (!protocol.workflow.lanes?.includes(checkpoint.lane)) problems.push(problem("INVALID_LANE", checkpoint.lane));
@@ -354,7 +581,7 @@ function factsByName(facts) {
   return { byName, duplicates };
 }
 
-function requiredFactProblems(names, facts, expectedSubject, protocol, now) {
+function requiredFactProblems(names, facts, expectedSubject, protocol, { now, mutationId, consumedFactIds }) {
   const problems = [];
   for (const name of [...new Set(names)]) {
     const attestation = facts.get(name);
@@ -362,7 +589,7 @@ function requiredFactProblems(names, facts, expectedSubject, protocol, now) {
       problems.push(problem("MISSING_REQUIRED_FACT", name));
       continue;
     }
-    const checked = validateFactAttestation(attestation, { protocol, expectedSubject, now });
+    const checked = validateFactAttestation(attestation, { protocol, expectedSubject, now, mutationId, consumedFactIds });
     problems.push(...checked.problems.map((item) => ({ ...item, fact: name })));
     if (attestation.value !== true) problems.push(problem("MISSING_REQUIRED_FACT", name));
   }
@@ -375,7 +602,15 @@ function humanGates(problems, authority) {
     .map(({ subject }) => subject))];
 }
 
-export function evaluateTransition({ current, proposed, facts = [], now, rebind = false }, { protocol = loadProtocol() } = {}) {
+export function evaluateTransition({
+  current,
+  proposed,
+  facts = [],
+  now,
+  mutationId,
+  consumedFactIds = [],
+  rebind = false,
+}, { protocol = loadProtocol() } = {}) {
   const shaped = transitionShape(current, proposed, protocol, rebind);
   const indexed = factsByName(facts);
   const required = [
@@ -386,7 +621,7 @@ export function evaluateTransition({ current, proposed, facts = [], now, rebind 
   const problems = [
     ...shaped.problems,
     ...indexed.duplicates.map((name) => problem("DUPLICATE_FACT_ATTESTATION", name)),
-    ...requiredFactProblems(required, indexed.byName, proposed?.subject, protocol, now),
+    ...requiredFactProblems(required, indexed.byName, proposed?.subject, protocol, { now, mutationId, consumedFactIds }),
   ];
   return { allowed: problems.length === 0, problems, requiredHumanGates: humanGates(problems, protocol.authority) };
 }
@@ -397,6 +632,8 @@ export function evaluateMutation({
   transition,
   facts = [],
   consumedApprovalIds = [],
+  consumedFactIds = [],
+  mutationId,
   now,
 }, { protocol = loadProtocol() } = {}) {
   const rule = protocol.authority.mutations?.[mutation];
@@ -415,7 +652,7 @@ export function evaluateMutation({
   problems.push(...indexed.duplicates.map((name) => problem("DUPLICATE_FACT_ATTESTATION", name)));
   for (const name of rule.requiredFacts ?? []) {
     const expectedSubject = name === rule.approvalFact ? transition?.approvalSubject : transition?.proposed?.subject;
-    problems.push(...requiredFactProblems([name], indexed.byName, expectedSubject, protocol, now));
+    problems.push(...requiredFactProblems([name], indexed.byName, expectedSubject, protocol, { now, mutationId, consumedFactIds }));
   }
   if (rule.approvalFact) {
     if (!transition?.approvalSubject) problems.push(problem("MISSING_APPROVAL_SUBJECT", rule.approvalFact));
@@ -427,6 +664,9 @@ export function evaluateMutation({
     problems,
     requiredHumanGates: humanGates(problems, protocol.authority),
     postconditions: [...(rule.postconditions ?? [])],
+    consumedFactIds: problems.length === 0
+      ? [...indexed.byName.values()].filter((fact) => factRule(fact.fact, protocol.authority)?.reusable !== true).map((fact) => fact.id)
+      : [],
   };
 }
 
@@ -451,9 +691,50 @@ function factConsumers(protocol) {
   for (const rule of protocol.workflow.transitionRequirements ?? []) for (const fact of rule.requiredFacts ?? []) consumers.add(fact);
   for (const rule of protocol.workflow.rebindTransitions ?? []) for (const fact of rule.requiredFacts ?? []) consumers.add(fact);
   for (const mutation of Object.values(protocol.authority.mutations ?? {})) {
-    for (const fact of [...(mutation.requiredFacts ?? []), ...(mutation.producesFacts ?? [])]) consumers.add(fact);
+    for (const fact of mutation.requiredFacts ?? []) consumers.add(fact);
   }
   return consumers;
+}
+
+function legalProtocolStates(protocol) {
+  const states = [];
+  for (const [lane, stageNames] of Object.entries(protocol.laneStageMatrix.combinations ?? {})) {
+    for (const stageName of stageNames) {
+      const stage = protocol.workflow.stages?.[stageName];
+      if (!stage) continue;
+      for (const verdict of stage.verdicts ?? []) {
+        for (const identityKind of stage.identityKinds ?? []) {
+          states.push({ lane, stage: stageName, verdict, identityKind, id: `${lane}/${stageName}/${verdict}/${identityKind}` });
+        }
+      }
+    }
+  }
+  return states;
+}
+
+function stateSuccessors(state, states, workflow) {
+  const targetStages = new Set(workflow.allowedTransitions?.[state.stage] ?? []);
+  return states.filter((candidate) => targetStages.has(candidate.stage)
+    && (candidate.identityKind === state.identityKind || state.stage === "OUTCOME" && candidate.stage === "ORIENT"));
+}
+
+function contextCoverage(protocol, states) {
+  const directory = path.join(protocol.root, "context", "manifests");
+  const manifests = fs.existsSync(directory) ? fs.readdirSync(directory).filter((name) => name.endsWith(".json")) : [];
+  const routes = [...new Set(states.map(({ lane, stage, verdict }) => `${lane}/${stage}/${verdict}`))];
+  const used = new Set();
+  const missing = [];
+  for (const route of routes) {
+    try {
+      used.add(resolveContextTemplate(route, { root: protocol.root }));
+    } catch {
+      missing.push(route);
+    }
+  }
+  return {
+    missing,
+    orphans: manifests.filter((name) => !used.has(name)),
+  };
 }
 
 export function verifyProtocol({ protocol = loadProtocol() } = {}) {
@@ -461,11 +742,50 @@ export function verifyProtocol({ protocol = loadProtocol() } = {}) {
   const reached = reachableStages(protocol.workflow);
   const consumers = factConsumers(protocol);
   const facts = Object.entries(protocol.authority.facts ?? {});
+  const states = legalProtocolStates(protocol);
+  const stateIds = new Set(states.map(({ id }) => id));
+  const initial = states.filter(({ stage }) => stage === "ORIENT");
+  const reachable = new Set(initial.map(({ id }) => id));
+  const queue = [...initial];
+  while (queue.length > 0) {
+    const state = queue.shift();
+    for (const next of stateSuccessors(state, states, protocol.workflow)) {
+      if (!reachable.has(next.id)) {
+        reachable.add(next.id);
+        queue.push(next);
+      }
+    }
+  }
+  const recoverableVerdicts = new Set(["BLOCKED", "HOLD", "REWORK", "PARTIAL"]);
+  const terminal = (state) => state.verdict === "DROP"
+    || state.stage === "OUTCOME" && ["ACHIEVED", "NOT_ACHIEVED", "UNEVALUABLE"].includes(state.verdict);
+  const declaredDeadEnds = states.filter((state) => !terminal(state) && stateSuccessors(state, states, protocol.workflow).length === 0).map(({ id }) => id);
+  const blockedWithoutRecovery = states.filter((state) => recoverableVerdicts.has(state.verdict)
+    && !stateSuccessors(state, states, protocol.workflow).some((next) => next.id !== state.id)).map(({ id }) => id);
+  const invalidCombinations = Object.entries(protocol.laneStageMatrix.combinations ?? {}).flatMap(([lane, names]) => [
+    ...(protocol.workflow.lanes?.includes(lane) ? [] : [`${lane}:UNKNOWN_LANE`]),
+    ...names.filter((stage) => !protocol.workflow.stages?.[stage]).map((stage) => `${lane}/${stage}`),
+  ]);
+  const postconditions = validatePostconditionRegistry({ protocol });
+  const producers = validateProducerRegistry({ protocol });
+  const factsWithoutDeclaredSource = facts.filter(([, rule]) => !Array.isArray(rule.sources) || rule.sources.length === 0).map(([name]) => name);
+  const coverage = contextCoverage(protocol, states);
   const report = {
+    legalStates: states.length,
+    reachableLegalStates: reachable.size,
+    unreachableLegalStates: states.filter(({ id }) => !reachable.has(id)).map(({ id }) => id),
+    invalidCombinations,
+    blockedWithoutRecovery,
+    factsWithoutExecutableProducer: [...factsWithoutDeclaredSource, ...producers.problems.filter(({ code }) => code === "MISSING_FACT_PRODUCER").map(({ subject }) => subject)],
+    humanGatesWithoutEntry: facts.filter(([, rule]) => rule.owner === "human"
+      && !(rule.sources ?? []).some((source) => protocol.producers.sources[source])).map(([name]) => name),
+    mutationsWithoutPostconditionVerifier: postconditions.problems.map(({ subject }) => subject).filter(Boolean),
+    contextRoutesMissing: coverage.missing,
+    orphanContextRoutes: coverage.orphans,
     reachableStates: `${reached.size}/${stages.length}`,
     unreachableStates: stages.filter((stage) => !reached.has(stage)),
-    undeclaredDeadEnds: stages.filter((stage) => (protocol.workflow.allowedTransitions?.[stage] ?? []).length === 0),
-    factsWithoutProducer: facts.filter(([, rule]) => !Array.isArray(rule.sources) || rule.sources.length === 0).map(([name]) => name),
+    undeclaredDeadEnds: declaredDeadEnds,
+    factsWithoutProducer: [...factsWithoutDeclaredSource, ...producers.problems.filter(({ code }) => ["MISSING_FACT_PRODUCER", "INVALID_FACT_PRODUCER"].includes(code)).map(({ subject }) => subject)],
     factsWithoutConsumer: facts.filter(([name, rule]) => !consumers.has(name) && !rule.archivePolicy).map(([name]) => name),
     mutationsWithoutPostconditions: Object.entries(protocol.authority.mutations ?? {})
       .filter(([, mutation]) => !Array.isArray(mutation.postconditions) || mutation.postconditions.length === 0)
@@ -479,5 +799,6 @@ export function verifyProtocol({ protocol = loadProtocol() } = {}) {
         || rule.requiredFacts?.some((fact) => !protocol.authority.facts?.[fact]))
       .map((rule) => `${rule.sourceStage ?? "?"}->${rule.targetStage ?? "?"}`),
   };
+  if (reachable.size > stateIds.size) throw new Error("MODEL_CHECKER_STATE_CORRUPTION");
   return report;
 }

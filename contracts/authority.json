@@ -50,7 +50,7 @@
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "human.activation"],
       "producesFacts": ["tracker.ready"],
-      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan"]
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
     "admission.applyStandalone": {
       "strict": true,
@@ -62,7 +62,7 @@
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "human.activation"],
       "producesFacts": ["tracker.ready"],
-      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan"]
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     }
   }
 }

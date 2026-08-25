@@ -6,7 +6,8 @@ import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
-import { parseCheckpoint, validateCheckpointState } from "./workflow-contract.mjs";
+import { validateArtifact } from "../protocol/kernel.mjs";
+import { inspectLegacyCheckpointForEvaluation } from "./migrate-artifacts.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPORT_SCHEMA = "pi-ticket-planning:live-eval:v3";
@@ -406,8 +407,8 @@ function matchAskYetCheckpoint(lines) {
   if (!last?.startsWith("Checkpoint:")) errors.push("Checkpoint is not the final non-empty line");
   if (last?.startsWith("Checkpoint:")) {
     try {
-      const state = parseCheckpoint(last);
-      for (const problem of validateCheckpointState(state)) errors.push(`invalid Checkpoint: ${problem.code}`);
+      const state = inspectLegacyCheckpointForEvaluation(last);
+      for (const problem of validateArtifact(state).problems) errors.push(`invalid Checkpoint: ${problem.code}`);
     } catch (error) {
       errors.push(`invalid Checkpoint: ${error instanceof Error ? error.message : String(error)}`);
     }

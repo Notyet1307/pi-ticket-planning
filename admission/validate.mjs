@@ -1,10 +1,16 @@
 import { issue, PLAN_SCHEMA, PLAN_KINDS, SHA256, fingerprint, approvalProjection, harnessStateProblems, sameValues, reviewComment } from "./domain.mjs";
 import { controlledLabels } from "./recovery.mjs";
 import { validateAdmissionReviewBinding } from "./review-transport.mjs";
+import { validateArtifact } from "../protocol/kernel.mjs";
 
 export function validateAdmissionPlan(plan) {
   const problems = [];
   if (!plan || typeof plan !== "object" || Array.isArray(plan)) return { ok: false, problems: [issue("INVALID_ADMISSION_PLAN")] };
+  try {
+    problems.push(...validateArtifact(plan).problems);
+  } catch {
+    problems.push(issue("INVALID_ADMISSION_PLAN"));
+  }
   if (plan.schema !== PLAN_SCHEMA) problems.push(issue("UNSUPPORTED_ADMISSION_PLAN"));
   if (!PLAN_KINDS.includes(plan.kind)) problems.push(issue("INVALID_ADMISSION_PLAN_KIND", plan.kind));
   if (!SHA256.test(plan.planFingerprint ?? "") || fingerprint(approvalProjection(plan)) !== plan.planFingerprint) {

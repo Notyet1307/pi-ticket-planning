@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
-import { createFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
@@ -98,12 +98,7 @@ function approvalFor({ plan, caseId, correlationId, observedAt }) {
     fact: "human.activation",
     value: true,
     subject,
-    source: {
-      kind: "operator-asserted",
-      producer: "pi-ticket-planctl",
-      producerVersion: "0.5.0-alpha.0",
-      producerDigest: fingerprint({ component: "planning-case/cli.mjs", command: "case.approve", schema: 1 }),
-    },
+    source: producerAttestationSource("operator-asserted", "pi-ticket-planctl"),
     observedAt,
     expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
     evidence: { kind: "operator", ref: `case:${caseId}:admission.apply`, digest: plan.planFingerprint },

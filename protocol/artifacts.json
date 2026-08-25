@@ -424,6 +424,42 @@
       "readers": ["release-manager", "operator"],
       "fingerprintAlgorithm": "sha256-utf8",
       "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "component-registry",
+      "schemaIdentity": "pi-ticket-planning:component-registry:v1",
+      "schemaPath": "schemas/component-registry-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "repository-maintainer",
+      "readers": ["protocol-kernel", "verify-protocol"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "producer-registry",
+      "schemaIdentity": "pi-ticket-planning:producer-registry:v1",
+      "schemaPath": "schemas/producer-registry-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "repository-maintainer",
+      "readers": ["protocol-kernel", "verify-protocol"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "postcondition-registry",
+      "schemaIdentity": "pi-ticket-planning:postcondition-registry:v1",
+      "schemaPath": "schemas/postcondition-registry-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "repository-maintainer",
+      "readers": ["protocol-kernel", "verify-protocol"],
+      "fingerprintAlgorithm": "sha256-utf8",
+      "migrationPath": null
     }
   ]
 }

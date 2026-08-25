@@ -1,5 +1,5 @@
 import { hashText } from "../scripts/check-delivery-graph.mjs";
-import { evaluateTransition } from "../scripts/workflow-contract.mjs";
+import { evaluateTransition } from "../protocol/kernel.mjs";
 import { MAX_RECEIPT_AGE_MS, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 
 export const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
@@ -141,13 +141,17 @@ export function harnessStateProblems(expected, current, repo, baseSha) {
   return problems;
 }
 
-export function validateActivationCheckpoint(checkpoint, target, revision, facts) {
+export function validateActivationCheckpoint(checkpoint, expectedSubject, facts, { now, mutationId } = {}) {
   const problems = [];
-  if (checkpoint?.stage !== "ADMISSION" || checkpoint?.verdict !== "ACTIVATION_AWAITING_CONFIRMATION") {
+  if (checkpoint?.schema !== "pi-ticket-planning:checkpoint:v2"
+    || checkpoint?.stage !== "ADMISSION"
+    || checkpoint?.verdict !== "ACTIVATION_AWAITING_CONFIRMATION") {
     problems.push(issue("EXPECTED_ACTIVATION_AWAITING_CONFIRMATION"));
   }
-  if (checkpoint?.identity !== `${target}@${revision}`) problems.push(issue("CHECKPOINT_IDENTITY_MISMATCH"));
-  const checked = evaluateTransition({ current: null, proposed: checkpoint, facts });
+  if (checkpoint?.subject?.target !== expectedSubject.target
+    || checkpoint?.subject?.id !== expectedSubject.id
+    || checkpoint?.subject?.revision !== expectedSubject.revision) problems.push(issue("CHECKPOINT_IDENTITY_MISMATCH"));
+  const checked = evaluateTransition({ current: null, proposed: checkpoint, facts, now, mutationId });
   problems.push(...checked.problems);
   return problems;
 }

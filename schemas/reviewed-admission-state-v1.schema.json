@@ -22,6 +22,6 @@
     "review": { "$ref": "admission-review-v1.schema.json" },
     "reviewBinding": { "$ref": "admission-review-binding-v1.schema.json" },
     "capabilityReceipt": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
-    "currentCheckpoint": { "type": "object" }
+    "currentCheckpoint": { "$ref": "checkpoint-v2.schema.json" }
   }
 }

@@ -3,18 +3,35 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseCheckpoint } from "./workflow-contract.mjs";
+import { parseLegacyCheckpoint } from "../protocol/legacy-adapter.mjs";
 
 const digest = (value) => `sha256:${createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")}`;
 
-export function migrateCheckpointV1(line, { target }) {
-  const legacy = parseCheckpoint(line);
-  const kind = legacy.identity === "NONE" ? "none" : legacy.identity.includes("@") ? "ticket" : "release";
+export function migrateCheckpointV1(line, context) {
+  try {
+    return parseLegacyCheckpoint(line, context);
+  } catch (error) {
+    if (error?.code === "LEGACY_CONTEXT_INCOMPLETE") throw new Error("Checkpoint migration context is incomplete");
+    throw error;
+  }
+}
+
+export function inspectLegacyCheckpointForEvaluation(line, { target = "eval:pi-behavior", observedAt = new Date(0).toISOString() } = {}) {
+  const match = typeof line === "string"
+    ? line.trim().match(/^Checkpoint: ([A-Z]+)\/([A-Z_]+) · ([^\s·]+) · ([A-Z_]+)$/)
+    : null;
+  if (!match) throw new Error("INVALID_LEGACY_CHECKPOINT");
+  const identity = match[3];
+  const kind = identity === "NONE" ? "none" : identity.includes("@") ? "ticket" : "release";
   const separator = kind === "ticket" ? "@" : "/";
-  const parts = kind === "none" ? ["NONE", "0"] : legacy.identity.split(separator);
-  if (!target || parts.length !== 2) throw new Error("Checkpoint migration context is invalid");
-  const subject = { target, kind, id: parts[0], revision: parts[1], digest: digest({ target, identity: legacy.identity }) };
-  return { schema: "pi-ticket-planning:checkpoint:v2", lane: legacy.lane, stage: legacy.stage, verdict: legacy.verdict, subject };
+  const parts = kind === "none" ? ["NONE", "0"] : identity.split(separator);
+  if (parts.length !== 2) throw new Error("INVALID_LEGACY_CHECKPOINT");
+  return migrateCheckpointV1(line, {
+    target,
+    subject: { target, kind, id: parts[0], revision: parts[1], digest: digest({ target, identity }) },
+    observedAt,
+    producer: { name: "pi-behavior-evaluator", version: "1", digest: digest({ component: "scripts/eval-pi-behavior.mjs" }) },
+  });
 }
 
 export function migrateDeliveryGraphV1(value, context) {

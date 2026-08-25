@@ -35,6 +35,9 @@ test("Release and Spec projections bind exact source bytes", () => {
 test("legacy Checkpoint and Delivery Graph migration is explicit and deterministic", () => {
   const checkpoint = migrateCheckpointV1("Checkpoint: PRODUCT/EVIDENCE · R001/r2 · NEEDS_RESEARCH", {
     target: "github:acme/product",
+    subject: { target: "github:acme/product", kind: "release", id: "R001", revision: "r2", digest: `sha256:${"d".repeat(64)}` },
+    observedAt: "2026-08-25T00:00:00Z",
+    producer: { name: "migration-test", version: "1", digest: `sha256:${"e".repeat(64)}` },
   });
   assert.equal(checkpoint.schema, "pi-ticket-planning:checkpoint:v2");
   assert.deepEqual(checkpoint.subject.kind, "release");

@@ -1,0 +1,12 @@
+{
+  "schema": "pi-ticket-planning:postcondition-registry:v1",
+  "verifiers": {
+    "comments.exactReadback": { "path": "admission/postconditions.mjs", "export": "verifyCommentsExactReadback" },
+    "labels.exactControlledState": { "path": "admission/postconditions.mjs", "export": "verifyLabelsExactControlledState" },
+    "activation.parentLast": { "path": "admission/postconditions.mjs", "export": "verifyParentLast" },
+    "harness.noClaimDuringApply": { "path": "admission/postconditions.mjs", "export": "verifyNoHarnessClaim" },
+    "tracker.matchesPlan": { "path": "admission/postconditions.mjs", "export": "verifyTrackerMatchesPlan" },
+    "approval.singleConsumed": { "path": "admission/postconditions.mjs", "export": "verifyApprovalSingleConsumed" },
+    "transaction.committed": { "path": "admission/postconditions.mjs", "export": "verifyTransactionCommitted" }
+  }
+}
