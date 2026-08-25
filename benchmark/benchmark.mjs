@@ -35,30 +35,30 @@ function graph(size) {
   };
 }
 
-function elapsed(start) { return Number(process.hrtime.bigint() - start) / 1_000_000; }
+function elapsed(start, clock) { return Number(clock() - start) / 1_000_000; }
 
 function percentile(values, quantile) {
   const sorted = [...values].sort((left, right) => left - right);
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * quantile) - 1)] ?? 0;
 }
 
-export function runBenchmark({ ticketSizes = [100, 500, 1000], caseSizes = [10, 50] } = {}) {
+export function runBenchmark({ ticketSizes = [100, 500, 1000], caseSizes = [10, 50], clock = process.hrtime.bigint } = {}) {
   const cpu = process.cpuUsage();
   const memory = process.memoryUsage().heapUsed;
   const graphResults = ticketSizes.map((size) => {
-    const start = process.hrtime.bigint();
+    const start = clock();
     const checked = validateDeliveryGraph(graph(size));
-    const durationMs = elapsed(start);
+    const durationMs = elapsed(start, clock);
     if (!checked.ok) throw new Error(`benchmark graph ${size} failed`);
     return { size, durationMs, blockedEdges: size - 1, filesystemOperations: 0 };
   });
   const caseResults = caseSizes.map((size) => {
     const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-benchmark-"));
     const store = createPlanningCaseStore({ stateDir, idGenerator: (() => { let id = 0; return () => `PC-bench-${size}-${++id}`; })() });
-    const start = process.hrtime.bigint();
+    const start = clock();
     for (let index = 0; index < size; index += 1) store.create({ target: `github:benchmark/repo-${index}` });
     const listed = store.list();
-    const durationMs = elapsed(start);
+    const durationMs = elapsed(start, clock);
     fs.rmSync(stateDir, { recursive: true, force: true });
     if (listed.length !== size) throw new Error(`benchmark case ${size} failed`);
     return { size, durationMs, filesystemOperations: size * 8 };
