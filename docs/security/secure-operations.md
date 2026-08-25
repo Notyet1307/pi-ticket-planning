@@ -11,8 +11,10 @@
 - A live integration run requires all of `PI_TICKET_PLAN_E2E=1`, one exact
   `E2E_REPO` in `E2E_ALLOWLIST`, and the run-bound confirmation. Every created
   resource uses `ptp-e2e:<run-id>` and retains a cleanup command on failure.
-- Review a Plan fingerprint before apply. Rebuild the Plan after Source, Policy,
-  Body, Graph, Context, Label, readiness, or capability drift.
+- Review a Plan fingerprint, record it with `case approve`, and pass that exact
+  Case/approval ID to Apply. Rebuild the Plan after Source, Policy, Body, Graph,
+  Context, Label, readiness, or capability drift. A consumed approval is never
+  reusable.
 - Preserve `PARTIAL` and `CONFLICT` results. Re-run the same unchanged Plan only
   for an explicitly resumable partial write; never compensate after a Harness
   claim.

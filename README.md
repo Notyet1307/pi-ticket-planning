@@ -299,15 +299,22 @@ pi-ticket-plan admit plan \
   --harness-config /private/project.harness.json \
   --out /tmp/admission-plan.json
 
+pi-ticket-planctl case create \
+  --target github:owner/repo --case-id PC-admission-90 --json
+pi-ticket-planctl case approve PC-admission-90 \
+  --plan /tmp/admission-plan.json \
+  --expected-fingerprint sha256:<confirmed-plan-hash> --json
+
 pi-ticket-plan admit apply \
   --plan /tmp/admission-plan.json \
   --expected-fingerprint sha256:<confirmed-plan-hash> \
+  --case-id PC-admission-90 --approval-id F-<id-from-case.approve> \
   --context /tmp/fresh-context.json \
   --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
   --harness-config /private/project.harness.json
 ```
 
-A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMAN` lane omits the Harness flags. `readiness` and `plan` may run disposable project validation but do not mutate Tracker or Harness workflow state. The private Harness config must be mode `0600`. `apply` reruns readiness, accepts only the confirmed stable repo/base/config/validation/gate projection, preserves unrelated labels, records an idempotent Admission comment, and rereads all children before activating a parent. Receipt timestamps, durations, and output digests are transient and never enter the Ticket. `COMPLETE` is success, `PARTIAL` resumes with the same Plan, and `CONFLICT` requires a new review.
+A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMAN` lane omits the Harness flags. `case approve` records a one-hour, exact-Plan activation approval in the private Planning Case. `apply` reads that attestation through the protocol kernel and consumes it only after every postcondition passes; `PARTIAL` keeps it pending for the same Plan, while replay after `COMPLETE` is a conflict. `readiness` and `plan` may run disposable project validation but do not mutate Tracker or Harness workflow state. The private Harness config must be mode `0600`.
 
 Harness claim, execution, review, merge, real enablement, health, and Outcome remain distinct. `ask-yet` runs only when invoked and reconstructs the next gate from authoritative sources; only the Harness may remain resident.
 

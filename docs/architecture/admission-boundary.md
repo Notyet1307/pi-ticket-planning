@@ -21,3 +21,7 @@ Apply preserves the v0.4 invariants: exact expected fingerprint; all drift check
 blocker-first children; comment then labels; claim check before each write;
 parent activation last; exact author/body marker readback; ambiguous-write
 recovery; final readback; and distinct `COMPLETE`, `PARTIAL`, and `CONFLICT`.
+The actual mutation is authorized by the v0.5 protocol kernel with exact
+FactAttestations for Source, Policy, Graph, Reviewer, and human activation. The
+human attestation is read from the target-partitioned Planning Case and consumed
+only after final readback; a completed approval cannot authorize another Apply.

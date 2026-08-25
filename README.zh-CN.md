@@ -298,15 +298,22 @@ pi-ticket-plan admit plan \
   --harness-config /private/project.harness.json \
   --out /tmp/admission-plan.json
 
+pi-ticket-planctl case create \
+  --target github:owner/repo --case-id PC-admission-90 --json
+pi-ticket-planctl case approve PC-admission-90 \
+  --plan /tmp/admission-plan.json \
+  --expected-fingerprint sha256:<已确认的-plan-hash> --json
+
 pi-ticket-plan admit apply \
   --plan /tmp/admission-plan.json \
   --expected-fingerprint sha256:<已确认的-plan-hash> \
+  --case-id PC-admission-90 --approval-id F-<来自-case.approve的-id> \
   --context /tmp/fresh-context.json \
   --harness-cli /absolute/HerdrHarness-lite/dist/src/cli.js \
   --harness-config /private/project.harness.json
 ```
 
-独立 Ticket 使用 `--issue 42` 替换 `--parent 90`；复核为 `HUMAN` lane 时不传 Harness 参数。`readiness` 和 `plan` 可能执行 disposable 项目验证，但不会修改 Tracker 或 Harness workflow state；私有 Harness config 必须是 `0600`。`apply` 会重新运行 readiness，只接受与已确认 Plan 相同的稳定 repo/base/config/validation/gate projection，保留无关标签，记录幂等 Admission comment，并在激活 Parent 前重读全部子票。receipt 的时间、duration 和 output digest 都是临时证据，不进入 Ticket。`COMPLETE` 表示成功，`PARTIAL` 用同一 Plan 恢复，`CONFLICT` 必须重新 review。
+独立 Ticket 使用 `--issue 42` 替换 `--parent 90`；复核为 `HUMAN` lane 时不传 Harness 参数。`case approve` 会在私有 Planning Case 中记录一个一小时有效、绑定 exact Plan 的激活批准。`apply` 通过协议内核读取该 Attestation，并只在所有 postcondition 通过后消费它；`PARTIAL` 为同一 Plan 保留 pending，`COMPLETE` 后重放则冲突。`readiness` 和 `plan` 可能执行 disposable 项目验证，但不会修改 Tracker 或 Harness workflow state；私有 Harness config 必须是 `0600`。
 
 Harness claim、执行、review、merge、真实启用、健康和 Outcome 是不同事实。`ask-yet` 只在被调用时运行，并从权威来源恢复下一道 Gate；只有 Harness 可以常驻。
 

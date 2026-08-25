@@ -8,6 +8,7 @@ import { createGitHubAdapter } from "./github-adapter.mjs";
 import { createAdmissionReviewInput, materializeAdmissionReviewInput } from "./review-transport.mjs";
 import { safeError } from "./domain.mjs";
 import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
+import { createPlanningCaseStore } from "../planning-case/store.mjs";
 
 function parseOptions(argv) {
   const values = new Map();
@@ -15,6 +16,7 @@ function parseOptions(argv) {
     "input", "repo", "parent", "issue", "review", "context", "out", "plan", "expected-fingerprint",
     "harness-cli", "harness-config", "base",
     "review-binding", "review-dir", "reviewed-at",
+    "case-id", "approval-id",
   ]);
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
@@ -155,7 +157,7 @@ export function runAdmissionCli() {
       preflightJsonTarget(options.get("out"));
       writeJson(options.get("out"), planFromOptions(options));
     } else if (command === "apply") {
-      requireOptions(options, ["plan", "expected-fingerprint", "context", "harness-cli", "harness-config", "out"], ["plan", "expected-fingerprint", "context"]);
+      requireOptions(options, ["plan", "expected-fingerprint", "context", "harness-cli", "harness-config", "case-id", "approval-id", "out"], ["plan", "expected-fingerprint", "context", "case-id", "approval-id"]);
       const plan = readJson(options.get("plan"), "--plan");
       const context = readJson(options.get("context"), "--context");
       requireAdmissionCapabilities(context.capabilityReceipt, { repo: plan.repo, baseSha: plan.reviewed?.source?.baseSha });
@@ -166,11 +168,14 @@ export function runAdmissionCli() {
       const adapter = createGitHubAdapter({ repo: plan.repo, kind: plan.kind, target: plan.target, context });
       const result = applyAdmissionPlan(plan, adapter, {
         expectedFingerprint: options.get("expected-fingerprint"),
+        planningCaseStore: createPlanningCaseStore(),
+        caseId: options.get("case-id"),
+        approvalId: options.get("approval-id"),
       });
       writeApplyResult(options.get("out"), result);
       if (result.status !== "COMPLETE") process.exitCode = 1;
     } else {
-      throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; review-input --input FILE --review-dir PRIVATE_DIR [--reviewed-at ISO8601] [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --review-binding FILE --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
+      throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; review-input --input FILE --review-dir PRIVATE_DIR [--reviewed-at ISO8601] [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --review-binding FILE --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --case-id PC-ID --approval-id F-ID --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
     }
   } catch (error) {
     console.error(`ERROR ${safeError(error instanceof Error ? error.message : error)}`);

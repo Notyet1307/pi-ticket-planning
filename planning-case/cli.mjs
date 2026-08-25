@@ -6,9 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
+import { approvalProjection, fingerprint } from "../admission/domain.mjs";
+import { createFactAttestation } from "../protocol/kernel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
+const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
 export function controlMetadata({ clock, correlationId }) {
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
@@ -65,6 +68,48 @@ function errorStatus(code) {
   return "INVALID";
 }
 
+function readAdmissionPlan(file) {
+  try {
+    const plan = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
+    if (plan?.schema !== "pi-ticket-planning:admission-plan:v1"
+      || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(plan.repo ?? "")
+      || !SHA256.test(plan.planFingerprint ?? "")
+      || typeof plan.reviewed?.source?.revision !== "string"
+      || plan.reviewed.source.revision.length === 0
+      || fingerprint(approvalProjection(plan)) !== plan.planFingerprint) {
+      throw new Error("invalid");
+    }
+    return plan;
+  } catch {
+    throw new PlanningCaseError("INVALID_ADMISSION_PLAN");
+  }
+}
+
+function approvalFor({ plan, caseId, correlationId, observedAt }) {
+  const subject = {
+    target: `github:${plan.repo}`,
+    kind: "admission-plan",
+    id: plan.planFingerprint,
+    revision: plan.reviewed.source.revision,
+    digest: plan.planFingerprint,
+  };
+  return createFactAttestation({
+    id: `F-human-activation-${correlationId.slice(2)}`,
+    fact: "human.activation",
+    value: true,
+    subject,
+    source: {
+      kind: "operator-asserted",
+      producer: "pi-ticket-planctl",
+      producerVersion: "0.5.0-alpha.0",
+      producerDigest: fingerprint({ component: "planning-case/cli.mjs", command: "case.approve", schema: 1 }),
+    },
+    observedAt,
+    expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
+    evidence: { kind: "operator", ref: `case:${caseId}:admission.apply`, digest: plan.planFingerprint },
+  });
+}
+
 export function runPlanningCaseCli(argv, {
   env = process.env,
   clock = () => new Date().toISOString(),
@@ -98,6 +143,18 @@ export function runPlanningCaseCli(argv, {
       requireShape(parsed, { allowed: ["target"], positionals: 1 });
       [caseId] = parsed.positionals;
       data = { case: store.get({ caseId, target: parsed.options.get("target") }) };
+    } else if (parsed.command === "approve") {
+      requireShape(parsed, { allowed: ["plan", "expected-fingerprint"], required: ["plan", "expected-fingerprint"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      const plan = readAdmissionPlan(parsed.options.get("plan"));
+      if (parsed.options.get("expected-fingerprint") !== plan.planFingerprint) {
+        throw new PlanningCaseError("EXPECTED_FINGERPRINT_MISMATCH");
+      }
+      const target = `github:${plan.repo}`;
+      if (store.get({ caseId, target }).target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
+      const approval = approvalFor({ plan, caseId, correlationId, observedAt: clock() });
+      store.addApproval({ caseId, target, approval });
+      data = { approval };
     } else if (parsed.command === "resume") {
       requireShape(parsed, { allowed: ["target"], positionals: 1 });
       [caseId] = parsed.positionals;

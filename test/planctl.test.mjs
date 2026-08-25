@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TARGET = "github:Notyet1307/example";
@@ -73,4 +74,41 @@ test("pi-ticket-planctl returns stable INVALID problems", (t) => {
   assert.equal(invalid.json.status, "INVALID");
   assert.deepEqual(invalid.json.problems, [{ code: "INVALID_CASE_ID" }]);
   assert.equal(invalid.json.recovery, null);
+});
+
+test("pi-ticket-planctl records one operator approval bound to an exact Admission Plan", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-planctl-approval-"));
+  const stateDir = path.join(parent, "state");
+  const planFile = path.join(parent, "plan.json");
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const plan = {
+    schema: "pi-ticket-planning:admission-plan:v1",
+    kind: "STANDALONE",
+    repo: "Notyet1307/example",
+    target: "90",
+    reviewedFingerprint: `sha256:${"b".repeat(64)}`,
+    resources: [],
+    reviewed: { source: { revision: "r2" } },
+  };
+  plan.planFingerprint = fingerprint(approvalProjection(plan));
+  fs.writeFileSync(planFile, `${JSON.stringify(plan)}\n`, { mode: 0o600 });
+  const created = run(stateDir, ["case", "create", "--target", TARGET, "--case-id", "PC-approve", "--json"]);
+  assert.equal(created.status, 0, created.stderr);
+
+  const approved = run(stateDir, [
+    "case", "approve", "PC-approve", "--plan", planFile, "--expected-fingerprint", plan.planFingerprint, "--json",
+  ]);
+
+  assert.equal(approved.status, 0, approved.stderr);
+  assert.equal(approved.json.command, "case.approve");
+  assert.equal(approved.json.data.approval.fact, "human.activation");
+  assert.deepEqual(approved.json.data.approval.subject, {
+    target: TARGET,
+    kind: "admission-plan",
+    id: plan.planFingerprint,
+    revision: "r2",
+    digest: plan.planFingerprint,
+  });
+  const status = run(stateDir, ["case", "status", "PC-approve", "--json"]);
+  assert.deepEqual(status.json.data.case.approvals.pending.map(({ id }) => id), [approved.json.data.approval.id]);
 });

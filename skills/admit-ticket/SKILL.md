@@ -88,10 +88,12 @@ Re-fetch the admission set first. Treat updated timestamps as reread signals, th
 For a READY GitHub delivery map or standalone candidate, rebuild the context JSON from those fresh facts and fresh Context-check results, then run only:
 
 ```text
-pi-ticket-plan admit apply --plan <plan.json> --expected-fingerprint <confirmed sha256> --context <fresh-context.json> --harness-cli <absolute dist/src/cli.js> --harness-config <private 0600 config>
+pi-ticket-planctl case create --target github:<owner/repo> --case-id <PC-id> --json
+pi-ticket-planctl case approve <PC-id> --plan <plan.json> --expected-fingerprint <confirmed sha256> --json
+pi-ticket-plan admit apply --plan <plan.json> --expected-fingerprint <confirmed sha256> --case-id <PC-id> --approval-id <F-id from case.approve> --context <fresh-context.json> --harness-cli <absolute dist/src/cli.js> --harness-config <private 0600 config>
 ```
 
-`admit apply` is the sole owner of READY Admission comments and ready-label writes. It compares the approved fingerprint, accepts only the planned before/after or safe in-progress controlled-label states, preserves unrelated labels through per-label changes, validates the fresh Context-check digests against the reviewed Plan, deduplicates comments by marker, and rereads ambiguous writes. A delivery map activates blockers-first children and the parent last; a standalone Plan contains one resource. Body, base, policy, or Context-check drift returns `CONFLICT` and requires a new bundle and review. `COMPLETE` is success; `PARTIAL` is safely resumable with the same unchanged plan and fingerprint. Never compensate by removing a ready label after a Harness claim.
+`admit apply` is the sole owner of READY Admission comments and ready-label writes. It authorizes only the pending Planning Case approval whose FactAttestation subject matches the exact Plan, rejects consumed or foreign approvals, accepts only the planned before/after or safe in-progress controlled-label states, preserves unrelated labels through per-label changes, validates the fresh Context-check digests against the reviewed Plan, deduplicates comments by marker, and rereads ambiguous writes. A delivery map activates blockers-first children and the parent last; a standalone Plan contains one resource. Body, base, policy, or Context-check drift returns `CONFLICT` and requires a new bundle and review. `COMPLETE` consumes the approval; `PARTIAL` leaves it pending and is safely resumable with the same unchanged Plan. Never compensate by removing a ready label after a Harness claim.
 
 The following direct outcome rules apply only to confirmed non-READY review outcomes. They never bypass `admit apply` for any READY activation:
 

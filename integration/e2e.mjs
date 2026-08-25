@@ -85,9 +85,13 @@ export async function runIntegrationE2E({ env = process.env, runId = env.GITHUB_
   }
   let cleanup;
   try { cleanup = await adapter.cleanup(context); } catch { cleanup = { status: "FAIL", recoveryCommand: `pi-ticket-planctl e2e cleanup --run-id ${runId}` }; }
-  const passed = scenarios.filter(({ status }) => status === "PASS").length;
+  const passed = scenarios.filter(({ status, retries: count = 0 }) => status === "PASS" && count === 0).length;
   const eventual = scenarios.filter(({ status }) => ["PASS", "RECOVERED"].includes(status)).length;
   const retries = scenarios.reduce((total, scenario) => total + (scenario.retries ?? 0), 0);
+  const recoveryAttempts = scenarios.filter(({ status, retries: count = 0, recoveryAttempted }) => (
+    status === "RECOVERED" || count > 0 || recoveryAttempted === true
+  ));
+  const recovered = recoveryAttempts.filter(({ status }) => ["PASS", "RECOVERED"].includes(status)).length;
   const durations = scenarios.map(({ durationMs = 0 }) => durationMs);
   const metrics = {
     first_pass_success_rate: passed / scenarios.length,
@@ -95,7 +99,7 @@ export async function runIntegrationE2E({ env = process.env, runId = env.GITHUB_
     retry_rate: retries / scenarios.length,
     unclassified_failure_rate: scenarios.filter(({ reasonCode }) => reasonCode === "UNCLASSIFIED_FAILURE").length / scenarios.length,
     unauthorized_write_count: scenarios.reduce((total, scenario) => total + (scenario.metrics?.unauthorizedWrites ?? 0), 0),
-    recovery_success_rate: scenarios.filter(({ status }) => status === "RECOVERED").length === 0 ? 1 : 1,
+    recovery_success_rate: recoveryAttempts.length === 0 ? 0 : recovered / recoveryAttempts.length,
     p50_duration_ms: percentile(durations, 0.5),
     p95_duration_ms: percentile(durations, 0.95),
     model_turns: scenarios.reduce((total, scenario) => total + (scenario.metrics?.modelTurns ?? 0), 0),
@@ -103,7 +107,10 @@ export async function runIntegrationE2E({ env = process.env, runId = env.GITHUB_
     context_tokens: scenarios.reduce((total, scenario) => total + (scenario.metrics?.contextTokens ?? 0), 0),
     github_api_calls: scenarios.reduce((total, scenario) => total + (scenario.metrics?.githubApiCalls ?? 0), 0),
   };
-  const complete = passed === scenarios.length && cleanup.status === "PASS" && metrics.unauthorized_write_count === 0;
+  const complete = eventual === scenarios.length
+    && cleanup.status === "PASS"
+    && metrics.unauthorized_write_count === 0
+    && metrics.unclassified_failure_rate === 0;
   return {
     schema: "pi-ticket-planning:e2e-report:v1",
     tier: "L3_REAL_DISPOSABLE_INTEGRATION",

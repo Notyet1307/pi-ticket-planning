@@ -13,7 +13,7 @@ owns execution; this repository only ingests its results.
 | Protocol kernel | Registry, Fact, transition, identity, and mutation checks | `protocol/kernel.mjs:158`, `protocol/kernel.mjs:229`, `protocol/kernel.mjs:388` |
 | Planning Case store | Private state, locks, event chain, transaction recovery | `planning-case/store.mjs:270`, `planning-case/store.mjs:412`, `planning-case/store.mjs:645` |
 | Reviewer transport | Exact projected bytes and no-link held descriptor | `admission/review-transport.mjs:262`, `admission/review-transport.mjs:284` |
-| Admission apply | Exact Plan, claim checks, writes, and readback | `admission/apply.mjs:19`, `admission/apply.mjs:98`, `admission/apply.mjs:112` |
+| Admission apply | Kernel authorization, exact Plan, claim checks, writes, approval consumption, and readback | `admission/apply.mjs:89`, `admission/apply.mjs:150`, `admission/apply.mjs:244` |
 | GitHub adapter | Validated target and authenticated comment readback | `admission/github-adapter.mjs:16`, `admission/github-adapter.mjs:56` |
 | Capability Doctor | Static vs active evidence and expiring receipt | `capabilities/doctor.mjs:14`, `capabilities/doctor.mjs:412` |
 | Installer | Dry-run plan, contained writes, backup and exact rollback | `installation/manager.mjs:86`, `installation/manager.mjs:136`, `installation/manager.mjs:176` |
@@ -25,7 +25,8 @@ flowchart LR
   P --> R[Fresh read-only Reviewer]
   R --> B[Bound review result]
   B --> A[Admission Plan]
-  H[Human exact fingerprint] --> A
+  H[Human exact fingerprint] --> C[Pending Planning Case approval]
+  C --> A
   A --> G[GitHub mutation and readback]
   G --> X[HerdrHarness execution]
   X --> O[Read-only Outcome Receipt]
@@ -67,8 +68,8 @@ These are hypotheses for review, not confirmed vulnerabilities.
 
 | Priority | Scenario and capability gain | Prerequisites | Impact | Existing controls | Mitigation | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0 | Replay or substitute an approval to activate another Plan | Attacker can inject a Fact or stale Case state | Unauthorized ready labels | Exact subject and consumed approval event | Keep operator approval bound to one Plan digest and expiry | `protocol/kernel.mjs:388`; `planning-case/store.mjs:727` |
-| P0 | Drift Tracker data during partial apply | Concurrent Issue/label/body change or lost response | Wrong Issue state presented as admitted | Pre-read, per-write readback, final readback, claim detection | Preserve `PARTIAL/CONFLICT`; rebuild after drift | `admission/apply.mjs:19`; `admission/apply.mjs:112` |
+| P0 | Replay or substitute an approval to activate another Plan | Attacker can inject a Fact or stale Case state | Unauthorized ready labels | Exact subject, expiry, kernel check, and consumed approval event | Keep operator approval bound to one Plan digest and target Case | `admission/apply.mjs:89`; `protocol/kernel.mjs:394`; `planning-case/store.mjs:195` |
+| P0 | Drift Tracker data during partial apply | Concurrent Issue/label/body change or lost response | Wrong Issue state presented as admitted | Pre-read, per-write readback, final readback, claim detection | Preserve `PARTIAL/CONFLICT`; rebuild after drift | `admission/apply.mjs:113`; `admission/apply.mjs:233` |
 | P1 | Prompt injection produces a false READY | Attacker controls candidate or policy text | Reviewer content influences Plan | Fresh context, projected input, binding echo, deterministic checks | Require active Reviewer capability and reject malformed binding | `extensions/ticket-readiness-read-guard.mjs:45`; `admission/review-transport.mjs:284` |
 | P1 | Path/Symlink swap reads or overwrites another file | Local access to state/temporary path | Confidentiality or state corruption | Containment, no-follow open, inode/link/mode checks | Keep state local; fail on any unsafe metadata | `planning-case/store.mjs:412`; `admission/review-transport.mjs:262` |
 | P1 | Forge Harness/Provider capability from config presence | Attacker supplies self-consistent JSON | Unsafe Admission proceeds | Producer/digest/freshness validation; runtime-only support needs active evidence | Qualify exact tuples and expire receipts | `capabilities/doctor.mjs:14`; `capabilities/doctor.mjs:92` |

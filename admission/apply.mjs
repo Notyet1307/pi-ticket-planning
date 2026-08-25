@@ -1,5 +1,5 @@
-import { evaluateMutation, evaluateTransition } from "../scripts/workflow-contract.mjs";
-import { issue, safeError } from "./domain.mjs";
+import { createFactAttestation, evaluateMutation } from "../protocol/kernel.mjs";
+import { fingerprint, issue, safeError } from "./domain.mjs";
 import { validateAdmissionPlan } from "./validate.mjs";
 import { immutableStateProblems, preActivationProblems, operationState, resourceStateProblems, stateIssue } from "./recovery.mjs";
 
@@ -14,6 +14,100 @@ function applyResult(status, plan, changed, recovered, problems = []) {
     recovered,
     problems,
   };
+}
+
+const PRODUCER_DIGEST = fingerprint({ component: "admission/apply.mjs", protocol: "v1" });
+
+function checkpointSubject(plan) {
+  return {
+    target: `github:${plan.repo}`,
+    kind: "ticket",
+    id: plan.target,
+    revision: plan.reviewed.source.revision,
+    digest: plan.reviewedFingerprint,
+  };
+}
+
+function approvalSubject(plan) {
+  return {
+    target: `github:${plan.repo}`,
+    kind: "admission-plan",
+    id: plan.planFingerprint,
+    revision: plan.reviewed.source.revision,
+    digest: plan.planFingerprint,
+  };
+}
+
+function fact(plan, name, subject, sourceKind, evidence, now) {
+  return createFactAttestation({
+    id: `F-${name.replaceAll(".", "-")}-${plan.planFingerprint.slice(-12)}`,
+    fact: name,
+    value: true,
+    subject,
+    source: {
+      kind: sourceKind,
+      producer: sourceKind,
+      producerVersion: "0.5.0-alpha.0",
+      producerDigest: PRODUCER_DIGEST,
+    },
+    observedAt: now,
+    expiresAt: null,
+    evidence,
+  });
+}
+
+function mutationFacts(plan, approval, now) {
+  const subject = checkpointSubject(plan);
+  const facts = [
+    fact(plan, "source.unchanged", subject, plan.kind === "DELIVERY_GRAPH" ? "check-admission-state" : "admission-cli", {
+      kind: "tracker",
+      ref: `github:${plan.repo}#${plan.target}@${plan.reviewed.source.revision}`,
+      digest: fingerprint(plan.reviewed.source),
+    }, now),
+    fact(plan, "policy.accepted", subject, "git-policy-check", {
+      kind: "artifact",
+      ref: plan.reviewed.policy.identity,
+      digest: plan.reviewed.policy.digest,
+    }, now),
+    fact(plan, "review.ready", subject, "ticket-readiness-reviewer", {
+      kind: "artifact",
+      ref: plan.reviewed.reviewBinding.schema,
+      digest: plan.reviewed.reviewBinding.inputDigest,
+    }, now),
+    approval,
+  ];
+  if (plan.kind === "DELIVERY_GRAPH") {
+    facts.splice(2, 0, fact(plan, "graph.passed", subject, "check-admission-state", {
+      kind: "artifact",
+      ref: `github:${plan.repo}#${plan.target}:delivery-graph`,
+      digest: plan.graphFingerprint,
+    }, now));
+  }
+  return facts;
+}
+
+function readApproval(plan, options) {
+  if (!options.planningCaseStore?.get || !options.planningCaseStore?.consumeApproval
+    || typeof options.caseId !== "string" || typeof options.approvalId !== "string") {
+    return { problems: [issue("PLANNING_CASE_APPROVAL_REQUIRED")] };
+  }
+  try {
+    const snapshot = options.planningCaseStore.get({
+      caseId: options.caseId,
+      target: `github:${plan.repo}`,
+    });
+    const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
+    const approval = approvals.find(({ id }) => id === options.approvalId);
+    if (!approval) return { problems: [issue("APPROVAL_NOT_FOUND", options.approvalId)] };
+    return {
+      approval,
+      consumedApprovalIds: snapshot.approvals.consumed.map(({ id }) => id),
+      problems: [],
+    };
+  } catch (error) {
+    const code = /^[A-Z][A-Z0-9_]{0,127}$/.test(error?.code ?? "") ? error.code : "PLANNING_CASE_READ_FAILED";
+    return { problems: [issue(code)] };
+  }
 }
 
 export function applyAdmissionPlan(plan, adapter, options = {}) {
@@ -32,27 +126,34 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   const initialProblems = immutableStateProblems(plan, current);
   if (initialProblems.length > 0) return applyResult("CONFLICT", plan, [], [], initialProblems);
 
-  const facts = {
-    "source.unchanged": { value: true, source: plan.kind === "DELIVERY_GRAPH" ? "check-admission-state" : "admission-cli" },
-    "policy.accepted": { value: true, source: "git-policy-check" },
-    "review.ready": { value: true, source: "ticket-readiness-reviewer" },
-    "human.activation": { value: true, source: "operator-asserted", subject: options.expectedFingerprint },
-  };
-  if (plan.kind === "DELIVERY_GRAPH") facts["graph.passed"] = { value: true, source: "check-admission-state" };
+  const approvalState = readApproval(plan, options);
+  if (approvalState.problems.length > 0) return applyResult("CONFLICT", plan, [], [], approvalState.problems);
+  const now = options.now ?? new Date().toISOString();
+  const subject = checkpointSubject(plan);
   const transition = {
-    current: plan.reviewed.currentCheckpoint,
+    current: {
+      schema: "pi-ticket-planning:checkpoint:v2",
+      lane: plan.reviewed.currentCheckpoint.lane,
+      stage: "ADMISSION",
+      verdict: "ACTIVATION_AWAITING_CONFIRMATION",
+      subject,
+    },
     proposed: {
-      ...plan.reviewed.currentCheckpoint,
+      schema: "pi-ticket-planning:checkpoint:v2",
+      lane: plan.reviewed.currentCheckpoint.lane,
       stage: "ADMISSION",
       verdict: "ADMITTED",
+      subject,
     },
-    approvalSubject: options.expectedFingerprint,
+    approvalSubject: approvalSubject(plan),
   };
   const authorization = evaluateMutation({
     mutation: plan.kind === "DELIVERY_GRAPH" ? "admission.apply" : "admission.applyStandalone",
     actor: "admission-cli",
     transition,
-    facts,
+    facts: mutationFacts(plan, approvalState.approval, now),
+    consumedApprovalIds: approvalState.consumedApprovalIds,
+    now,
   });
   if (!authorization.allowed) return applyResult("CONFLICT", plan, [], [], authorization.problems);
 
@@ -141,14 +242,15 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   }
   if (finalProblems.length > 0) return applyResult("CONFLICT", plan, changed, recovered, finalProblems);
 
-  const completed = evaluateTransition({
-    current: transition.current,
-    proposed: transition.proposed,
-    facts: {
-      ...facts,
-      "tracker.ready": { value: true, source: "admission-cli" },
-    },
-  });
-  if (!completed.allowed) return applyResult("CONFLICT", plan, changed, recovered, completed.problems);
+  try {
+    options.planningCaseStore.consumeApproval({
+      caseId: options.caseId,
+      target: `github:${plan.repo}`,
+      approvalId: options.approvalId,
+    });
+  } catch (error) {
+    const code = /^[A-Z][A-Z0-9_]{0,127}$/.test(error?.code ?? "") ? error.code : "APPROVAL_CONSUME_FAILED";
+    return applyResult(changed.length + recovered.length > 0 ? "PARTIAL" : "CONFLICT", plan, changed, recovered, [issue(code)]);
+  }
   return applyResult("COMPLETE", plan, changed, recovered);
 }

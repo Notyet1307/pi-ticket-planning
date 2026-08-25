@@ -17,3 +17,9 @@ checks.
 single next action, exact route Context Manifest, artifact bindings, capability
 compatibility, and recovery command. It reads no chat history. Skills call the
 CLI or store interface; direct JSON edits are unsupported.
+
+`case approve <id> --plan <file> --expected-fingerprint <sha256> --json` is the
+operator entry for Admission activation. It records a one-hour FactAttestation
+bound to the case target, source revision, and exact Plan digest. Apply leaves it
+pending across `PARTIAL`, then appends one consumed event after all mutation
+postconditions pass.

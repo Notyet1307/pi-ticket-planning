@@ -26,7 +26,9 @@ managed files cause a conflict. Install transactions retain private backups and
 snapshots; rollback never reverses GitHub comments, labels, Issues, PRs, or
 Harness delivery.
 
-An Admission `PARTIAL` result may reuse only the unchanged Plan and approval.
+An Admission `PARTIAL` result may reuse only the unchanged Plan and still-pending
+Planning Case approval. `COMPLETE` records `APPROVAL_CONSUMED`; reusing that
+approval is `APPROVAL_ALREADY_CONSUMED` and performs no write.
 `CONFLICT`, Source/Policy/Body/Graph/Context/Label/readiness/capability drift, or a
 Harness claim requires a new path-specific decision; no compensating label
 removal is automatic.

@@ -46,3 +46,30 @@ test("exact allowlist and one-time confirmation bind the run", async () => {
   });
   assert.equal(wrong.reasonCode, "E2E_CONFIRMATION_MISMATCH");
 });
+
+test("recovery metrics reflect attempted recovery instead of reporting a constant success", async () => {
+  const repo = "acme/ptp-e2e";
+  const runId = "run-recovery";
+  const report = await runIntegrationE2E({
+    env: {
+      PI_TICKET_PLAN_E2E: "1",
+      E2E_REPO: repo,
+      E2E_ALLOWLIST: repo,
+      E2E_CONFIRM_WRITE: expectedConfirmation({ repo, runId }),
+    },
+    runId,
+    adapter: {
+      async runScenario({ id }) {
+        if (id === "rate-limit") return { status: "RECOVERED", durationMs: 2, retries: 1 };
+        if (id === "timeout") return { status: "FAIL", reasonCode: "RECOVERY_FAILED", durationMs: 2, retries: 1 };
+        return { status: "PASS", durationMs: 1 };
+      },
+      async cleanup() { return { status: "PASS" }; },
+    },
+  });
+
+  assert.equal(report.status, "PARTIAL");
+  assert.equal(report.metrics.first_pass_success_rate, 16 / 18);
+  assert.equal(report.metrics.eventual_success_rate, 17 / 18);
+  assert.equal(report.metrics.recovery_success_rate, 0.5);
+});

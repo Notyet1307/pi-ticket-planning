@@ -18,3 +18,5 @@ the Protocol Kernel, Planning Case Store, and Admission recovery core.
 Every L3 resource is tagged `ptp-e2e:<run-id>`. A write run additionally requires
 the enable flag, exact allowlisted repository, and run-bound confirmation. A
 missing real adapter remains `UNTESTED`.
+Recovery rate is successful eventual outcomes divided by scenarios that actually
+attempted recovery; no recovery attempts produce `0`, not synthetic success.
