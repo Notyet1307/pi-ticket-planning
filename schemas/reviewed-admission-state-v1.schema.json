@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/reviewed-admission-state-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "kind", "repo", "target", "source", "contextChecks", "policy", "harness", "review", "currentCheckpoint"],
+  "required": ["schema", "kind", "repo", "target", "source", "contextChecks", "policy", "harness", "review", "reviewBinding", "currentCheckpoint"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:reviewed-admission-state:v1" },
     "kind": { "enum": ["DELIVERY_GRAPH", "STANDALONE"] },
@@ -20,6 +20,7 @@
     "policy": { "type": "object" },
     "harness": { "type": ["object", "null"] },
     "review": { "$ref": "admission-review-v1.schema.json" },
+    "reviewBinding": { "$ref": "admission-review-binding-v1.schema.json" },
     "currentCheckpoint": { "type": "object" }
   }
 }

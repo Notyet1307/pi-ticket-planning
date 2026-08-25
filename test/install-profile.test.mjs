@@ -29,6 +29,10 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     const settingsFile = path.join(profileDir, "settings.json");
     const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
     assert.equal(settings.packages.find((entry) => entry.source === PACKAGE_ROOT)?.source, PACKAGE_ROOT);
+    assert.deepEqual(
+      settings.subagents.agentOverrides["ticket-readiness-reviewer"].subagentOnlyExtensions,
+      [path.join(PACKAGE_ROOT, "extensions", "ticket-readiness-read-guard.mjs")],
+    );
     assert.equal(lstatSync(first.launcher).isSymbolicLink(), true);
     assert.equal(path.resolve(binDir, readlinkSync(first.launcher)), path.join(PACKAGE_ROOT, "profile", "pi-ticket-plan"));
     assert.equal(lstatSync(first.controlLauncher).isSymbolicLink(), true);

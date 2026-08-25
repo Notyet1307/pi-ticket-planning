@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "reviewer", "reviewedAt", "graphVerdict", "candidates"],
+  "required": ["schema", "reviewer", "reviewedAt", "graphVerdict", "candidates", "inputBinding"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:admission-review:v1" },
     "reviewer": { "const": "ticket-readiness-reviewer" },
@@ -23,6 +23,7 @@
           "executionLane": { "enum": ["AGENT", "HUMAN"] }
         }
       }
-    }
+    },
+    "inputBinding": { "$ref": "admission-review-binding-v1.schema.json" }
   }
 }

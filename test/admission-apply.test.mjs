@@ -16,6 +16,7 @@ import {
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
+import { attachReviewBinding } from "./review-binding-fixture.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -46,7 +47,7 @@ function input() {
     walkingSkeleton: ["11", "12"],
   };
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
-  return {
+  return attachReviewBinding({
     repo: "acme/product",
     repositoryPath,
     parent: { id: "10", title: "Delivery parent", body: parentBody, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] },
@@ -69,7 +70,7 @@ function input() {
       ],
     },
     currentCheckpoint: { lane: "DELIVERY", stage: "ADMISSION", identity: "10@r2", verdict: "ACTIVATION_AWAITING_CONFIRMATION" },
-  };
+  });
 }
 
 class MemoryAdapter {
@@ -312,6 +313,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
     candidateId: candidate.id,
     result: checkTicketContext({ repo: repositoryPath, base: standalone.source.baseSha, body: candidate.body }),
   }];
+  attachReviewBinding(standalone);
   const plan = buildStandaloneAdmissionPlan(standalone);
   const adapter = {
     state: structuredClone({

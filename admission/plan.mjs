@@ -2,6 +2,7 @@ import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
 import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { verifyCandidateContextChecks } from "../scripts/check-ticket-context.mjs";
 import { issue, nonEmpty, planError, validatePolicy, requireHarnessReadiness, validateReview, validateActivationCheckpoint, fingerprint, sameValues, buildResource, finalizePlan, PLAN_SCHEMA } from "./domain.mjs";
+import { requireExactAdmissionReviewBinding } from "./review-transport.mjs";
 
 export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw planError("invalid Admission input");
@@ -47,6 +48,12 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     if (live?.title !== child.title) throw planError("candidate title drifted", [issue("TITLE_MISMATCH", child.id)]);
     if (live?.state !== "open") throw planError("candidate must be open", [issue("ISSUE_NOT_OPEN", child.id)]);
   }
+  let reviewBinding;
+  try {
+    reviewBinding = requireExactAdmissionReviewBinding(input);
+  } catch (error) {
+    throw planError(error instanceof Error ? error.message : String(error));
+  }
   const checkpointFacts = {
     "source.unchanged": { value: true, source: "check-admission-state" },
     "policy.accepted": { value: true, source: "git-policy-check" },
@@ -84,6 +91,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     policy: input.policy,
     harness: input.harness,
     review: input.review,
+    reviewBinding,
     currentCheckpoint: input.currentCheckpoint,
   };
   const reviewedFingerprint = fingerprint(reviewed);
@@ -155,6 +163,12 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
     throw planError("standalone review must contain one exact READY candidate");
   }
   if (reviewedCandidate.executionLane === "AGENT") requireHarnessReadiness(input.harness, input.repo, input.source.baseSha, { fresh: true, now: clock() });
+  let reviewBinding;
+  try {
+    reviewBinding = requireExactAdmissionReviewBinding(input);
+  } catch (error) {
+    throw planError(error instanceof Error ? error.message : String(error));
+  }
 
   const checkpointFacts = {
     "source.unchanged": { value: true, source: "admission-cli" },
@@ -188,6 +202,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
     policy: input.policy,
     harness: reviewedCandidate.executionLane === "AGENT" ? input.harness : null,
     review: input.review,
+    reviewBinding,
     currentCheckpoint: input.currentCheckpoint,
   };
   const reviewedFingerprint = fingerprint(reviewed);

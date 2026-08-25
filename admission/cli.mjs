@@ -5,12 +5,14 @@ import { runHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { buildAdmissionPlan, buildStandaloneAdmissionPlan } from "./plan.mjs";
 import { applyAdmissionPlan } from "./apply.mjs";
 import { createGitHubAdapter } from "./github-adapter.mjs";
+import { createAdmissionReviewInput, materializeAdmissionReviewInput } from "./review-transport.mjs";
 
 function parseOptions(argv) {
   const values = new Map();
   const allowed = new Set([
     "input", "repo", "parent", "issue", "review", "context", "out", "plan", "expected-fingerprint",
     "harness-cli", "harness-config", "base",
+    "review-binding", "review-dir", "reviewed-at",
   ]);
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
@@ -71,12 +73,14 @@ function executeReadiness(options, { repo, source }) {
 }
 
 function planFromOptions(options) {
+  const suppliedBinding = readJson(options.get("review-binding"), "--review-binding");
+  const reviewBinding = suppliedBinding.binding ?? suppliedBinding;
   if (options.has("input")) {
     const input = readJson(options.get("input"), "--input");
     const required = input.candidate ? reviewRequiresHarness(input.review, input.candidate.id) : true;
     return input.candidate
-      ? buildStandaloneAdmissionPlan({ ...input, harness: required ? executeReadiness(options, input) : null })
-      : buildAdmissionPlan({ ...input, harness: executeReadiness(options, input) });
+      ? buildStandaloneAdmissionPlan({ ...input, reviewBinding, harness: required ? executeReadiness(options, input) : null })
+      : buildAdmissionPlan({ ...input, reviewBinding, harness: executeReadiness(options, input) });
   }
   if (options.has("parent") === options.has("issue")) throw new Error("choose exactly one of --parent or --issue");
   const repo = options.get("repo");
@@ -97,6 +101,7 @@ function planFromOptions(options) {
       contextChecks: state.contextChecks,
       harness: required ? executeReadiness(options, { repo, source: state.source }) : null,
       review,
+      reviewBinding,
       currentCheckpoint: state.currentCheckpoint,
     });
   }
@@ -110,6 +115,7 @@ function planFromOptions(options) {
     contextChecks: state.contextChecks,
     harness: executeReadiness(options, { repo, source: state.source }),
     review,
+    reviewBinding,
     currentCheckpoint: state.currentCheckpoint,
   });
 }
@@ -127,11 +133,20 @@ export function runAdmissionCli() {
         repo: options.get("repo"),
         baseSha: options.get("base"),
       }));
+    } else if (command === "review-input") {
+      requireOptions(options, ["input", "review-dir", "reviewed-at", "out"], ["input", "review-dir"]);
+      const input = readJson(options.get("input"), "--input");
+      const reviewInput = createAdmissionReviewInput({
+        ...input,
+        reviewedAt: options.get("reviewed-at") ?? input.reviewedAt,
+      });
+      preflightJsonTarget(options.get("out"));
+      writeJson(options.get("out"), materializeAdmissionReviewInput(reviewInput, options.get("review-dir")));
     } else if (command === "plan") {
       if (options.has("input")) {
-        requireOptions(options, ["input", "harness-cli", "harness-config", "out"], ["input"]);
+        requireOptions(options, ["input", "review-binding", "harness-cli", "harness-config", "out"], ["input", "review-binding"]);
       } else {
-        requireOptions(options, ["repo", "parent", "issue", "review", "context", "harness-cli", "harness-config", "out"], ["repo", "review", "context"]);
+        requireOptions(options, ["repo", "parent", "issue", "review", "review-binding", "context", "harness-cli", "harness-config", "out"], ["repo", "review", "review-binding", "context"]);
       }
       preflightJsonTarget(options.get("out"));
       writeJson(options.get("out"), planFromOptions(options));
@@ -150,7 +165,7 @@ export function runAdmissionCli() {
       writeApplyResult(options.get("out"), result);
       if (result.status !== "COMPLETE") process.exitCode = 1;
     } else {
-      throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
+      throw new Error("usage: readiness --repo OWNER/REPO --base SHA --harness-cli FILE --harness-config FILE [--out FILE]; review-input --input FILE --review-dir PRIVATE_DIR [--reviewed-at ISO8601] [--out FILE]; plan (--input FILE | --repo OWNER/REPO (--parent NUMBER | --issue NUMBER) --review FILE --context FILE) --review-binding FILE --harness-cli FILE --harness-config FILE [--out FILE]; apply --plan FILE --expected-fingerprint SHA256 --context FILE --harness-cli FILE --harness-config FILE [--out FILE]");
     }
   } catch (error) {
     console.error(`ERROR ${error instanceof Error ? error.message : String(error)}`);

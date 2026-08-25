@@ -20,6 +20,7 @@ import {
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
+import { attachReviewBinding } from "./review-binding-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
@@ -68,7 +69,7 @@ function readyInput() {
   snapshot.children[0].bodyHash = hashText(children[0].body);
   snapshot.children[1].bodyHash = hashText(children[1].body);
   const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
-  return {
+  return attachReviewBinding({
     repo: "acme/product",
     repositoryPath: root,
     parent: {
@@ -107,7 +108,7 @@ function readyInput() {
       identity: `100@${snapshot.source.revision}`,
       verdict: "ACTIVATION_AWAITING_CONFIRMATION",
     },
-  };
+  });
 }
 
 function standaloneInput() {
@@ -124,7 +125,7 @@ function standaloneInput() {
     revision: "r1",
     baseSha,
   };
-  return {
+  return attachReviewBinding({
     repo: "acme/product",
     repositoryPath: root,
     candidate,
@@ -152,7 +153,7 @@ function standaloneInput() {
       identity: "42@r1",
       verdict: "ACTIVATION_AWAITING_CONFIRMATION",
     },
-  };
+  });
 }
 
 test("Admission Plan is deterministic and activates children before the parent", () => {
@@ -212,6 +213,18 @@ test("Admission Plan fails closed on reviewer or reviewed-body drift", () => {
   assert.throws(() => buildAdmissionPlan(unsafeHarnessGate), /not Admission-safe/);
 });
 
+test("Admission Plan rejects a Reviewer bound to another exact input", () => {
+  const forged = readyInput();
+  forged.review.inputBinding.inputDigest = `sha256:${"f".repeat(64)}`;
+  assert.throws(() => buildAdmissionPlan(forged), /exact review input/);
+
+  const plan = buildAdmissionPlan(readyInput());
+  plan.reviewed.reviewBinding.inputDigest = `sha256:${"e".repeat(64)}`;
+  const checked = validateAdmissionPlan(plan);
+  assert.equal(checked.ok, false);
+  assert.equal(checked.problems.some(({ code }) => ["REVIEWED_FINGERPRINT_MISMATCH", "REVIEW_INPUT_BINDING_MISMATCH"].includes(code)), true);
+});
+
 test("Admission Plan requires the exact activation checkpoint", () => {
   const wrongVerdict = readyInput();
   wrongVerdict.currentCheckpoint.verdict = "BLOCKED";
@@ -237,6 +250,7 @@ test("standalone HUMAN work does not require a Harness execution receipt", () =>
   const human = standaloneInput();
   human.review.candidates[0].executionLane = "HUMAN";
   delete human.harness;
+  attachReviewBinding(human);
   const plan = buildStandaloneAdmissionPlan(human);
 
   assert.equal(plan.reviewed.harness, null);

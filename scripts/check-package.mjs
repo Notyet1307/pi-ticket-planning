@@ -58,6 +58,7 @@ const REQUIRED_FILES = [
   "admission/github-adapter.mjs",
   "admission/plan.mjs",
   "admission/recovery.mjs",
+  "admission/review-transport.mjs",
   "admission/validate.mjs",
   "scripts/delivery-gate.mjs",
   "scripts/check-admission-state.mjs",
@@ -180,6 +181,10 @@ export function validatePackage(root) {
   if (JSON.stringify(profile.skills) !== JSON.stringify(["!**"])) errors.push("profile must suppress ambient user skills");
   if (profile.subagents?.agentOverrides?.scout?.model !== SCOUT_MODEL) errors.push(`profile scout model must be ${SCOUT_MODEL}`);
   if (profile.subagents?.agentOverrides?.scout?.thinking !== SCOUT_THINKING) errors.push(`profile scout thinking must be ${SCOUT_THINKING}`);
+  if (JSON.stringify(profile.subagents?.agentOverrides?.["ticket-readiness-reviewer"]?.subagentOnlyExtensions)
+    !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
+    errors.push("profile reviewer must bind the package-private read guard placeholder");
+  }
   for (const skill of lock.overriddenSkills) {
     if (!upstreamProfile?.skills?.includes(`!skills/engineering/${skill}/**`)) {
       errors.push(`profile does not exclude upstream override ${skill}`);
@@ -312,6 +317,8 @@ export function validatePackage(root) {
     "Context anchors:",
     "Context economy:",
     "Harness readiness projection",
+    "pi-ticket-planning:admission-review-binding:v1",
+    "inputBinding",
   ]);
   requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
     "herdr-harness:project-readiness:v1",
@@ -319,6 +326,8 @@ export function validatePackage(root) {
     "--harness-cli",
     "--harness-config",
     "stable Harness readiness projection",
+    "admit review-input",
+    "--review-binding",
   ]);
   requireTokens(errors, "skills/triage/AGENT-BRIEF.md", triageBrief, [
     "## Starting state",
@@ -365,6 +374,11 @@ export function validatePackage(root) {
   if (frontmatterValue(reviewer, "skillPath") !== "../skills") errors.push("reviewer does not pin its package-private skill path");
   if (frontmatterValue(reviewer, "tools") !== "read") errors.push("reviewer must permit only read for its configured skill");
   if (!/^extensions:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable ambient extensions");
+  requireTokens(errors, "agents/ticket-readiness-reviewer.md", reviewer, [
+    "pi-ticket-planning:admission-review-binding:v1",
+    "inputBinding",
+    "through EOF",
+  ]);
 
   const launcher = fs.readFileSync(path.join(root, "profile", "pi-ticket-plan"), "utf8");
   requireTokens(errors, "profile/pi-ticket-plan", launcher, [
@@ -443,6 +457,15 @@ export function validatePackage(root) {
   const admissionCli = fs.readFileSync(path.join(root, "admission", "cli.mjs"), "utf8");
   requireTokens(errors, "admission/cli.mjs", admissionCli, [
     "runHarnessReadiness",
+    "review-input",
+    "review-binding",
+  ]);
+  const reviewTransport = fs.readFileSync(path.join(root, "admission", "review-transport.mjs"), "utf8");
+  requireTokens(errors, "admission/review-transport.mjs", reviewTransport, [
+    "pi-ticket-planning:admission-review-input:v1",
+    "pi-ticket-planning:admission-review-binding:v1",
+    "O_NOFOLLOW",
+    "nlink !== 1",
   ]);
 
   const readinessReceiptScript = fs.readFileSync(path.join(root, "scripts", "readiness-receipt.mjs"), "utf8");
@@ -495,8 +518,9 @@ export function validatePackage(root) {
   for (const relative of [
     "README.md",
     "README.zh-CN.md",
-    "profile/pi-ticket-plan",
-    "profile/settings.template.json",
+  "profile/pi-ticket-plan",
+  "profile/settings.template.json",
+  "extensions/ticket-readiness-read-guard.mjs",
     "scripts/check-profile.mjs",
     "scripts/check-admission-state.mjs",
     "scripts/admit.mjs",

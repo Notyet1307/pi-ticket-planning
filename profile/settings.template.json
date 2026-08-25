@@ -5,6 +5,11 @@
         "model": "openai-codex/gpt-5.6-luna",
         "thinking": "max",
         "description": "Bounded multi-file fact retrieval with exact references; escalate ambiguity and leave decisions to the parent."
+      },
+      "ticket-readiness-reviewer": {
+        "subagentOnlyExtensions": [
+          "__REVIEWER_READ_GUARD__"
+        ]
       }
     }
   },

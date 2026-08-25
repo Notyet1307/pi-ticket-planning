@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const UPSTREAM_SOURCE = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const SUBAGENTS_SOURCE = "npm:pi-subagents@0.42.1";
+const REVIEWER_READ_GUARD = path.join("extensions", "ticket-readiness-read-guard.mjs");
 
 function timestamp() {
   return new Date().toISOString().replace(/[-:.]/g, "");
@@ -46,6 +47,11 @@ function mergedSettings(packageRoot, existing) {
   const packageEntry = template.packages.find((entry) => entry.source === "__PACKAGE_ROOT__");
   if (!packageEntry) throw new Error("profile template has no package-root placeholder");
   packageEntry.source = packageRoot;
+  const reviewer = template.subagents?.agentOverrides?.["ticket-readiness-reviewer"];
+  if (JSON.stringify(reviewer?.subagentOnlyExtensions) !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
+    throw new Error("profile template has no reviewer read guard placeholder");
+  }
+  reviewer.subagentOnlyExtensions = [path.join(packageRoot, REVIEWER_READ_GUARD)];
 
   return {
     ...existing,
@@ -90,6 +96,9 @@ export function writeInstallation({
   const resolvedProfileDir = path.resolve(profileDir);
   const resolvedBinDir = path.resolve(binDir);
   const backups = [];
+  const reviewerReadGuard = path.join(resolvedPackageRoot, REVIEWER_READ_GUARD);
+  const guardStat = lstatSafe(reviewerReadGuard);
+  if (!guardStat?.isFile() || guardStat.isSymbolicLink()) throw new Error("reviewer read guard is unavailable");
 
   mkdirSync(resolvedProfileDir, { recursive: true, mode: 0o700 });
   mkdirSync(resolvedBinDir, { recursive: true });

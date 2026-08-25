@@ -270,6 +270,8 @@ async function defaultActiveProbe(observed, { env }) {
     if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 10 * 60 * 1000) throw new Error("active probe timeout is invalid");
     const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-capability-workspace-"));
     const sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-capability-session-"));
+    const reviewDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-capability-review-"));
+    fs.chmodSync(reviewDirectory, 0o700);
     const token = `TOOL_OK_${createHash("sha256").update(`${process.pid}:${Date.now()}`).digest("hex").slice(0, 12)}`;
     fs.writeFileSync(path.join(workspace, "capability-probe.txt"), `${token}\n`, { mode: 0o600 });
     let toolSession;
@@ -298,21 +300,42 @@ async function defaultActiveProbe(observed, { env }) {
         ? { name: "tool-calling", status: "SUPPORTED", reasonCode: "READ_TOOL_PROBE_PASS", evidence: activeEvidence(observed, "tool-calling", token) }
         : { name: "tool-calling", status: "BLOCKED", reasonCode: "READ_TOOL_PROBE_FAIL", evidence: [] });
 
+      const { createAdmissionReviewInput, materializeAdmissionReviewInput } = await import("../admission/review-transport.mjs");
+      const reviewedAt = new Date().toISOString();
+      const reviewInput = createAdmissionReviewInput({
+        repo: observed.target.startsWith("github:") ? observed.target.slice("github:".length) : "capability/probe",
+        source: { identity: "capability-probe", revision: observed.baseSha, baseSha: observed.baseSha },
+        policy: { accepted: true, identity: "capability-probe-policy", digest: hash({ policy: "read-only" }) },
+        candidate: {
+          id: "CAPABILITY-1",
+          title: "Read-only Reviewer capability probe",
+          body: "# Capability probe\n\nThe required Context check is intentionally absent.",
+          blockedBy: [],
+          labels: ["needs-triage"],
+          state: "open",
+          updatedAt: reviewedAt,
+        },
+        contextChecks: [],
+        harness: null,
+        reviewedAt,
+      });
+      const descriptor = materializeAdmissionReviewInput(reviewInput, reviewDirectory);
       reviewerSession = await createPiRpcSession({
-        cwd: workspace,
+        cwd: reviewDirectory,
         launcher: observed.pi.path,
         model: `${observed.provider}/${observed.model}`,
         thinking: env.PI_TICKET_PLAN_THINKING,
         timeoutMs,
-        skill: "ticket-readiness",
-        tools: ["read"],
+        skill: "admit-ticket",
+        tools: ["read", "subagent"],
         persisted: false,
         sessionDir: "",
         sessionName: "capability-reviewer",
       });
-      const reviewerResult = await reviewerSession.prompt(`/skill:ticket-readiness This is a read-only capability probe. Review standalone candidate CAPABILITY-1. Its required Context check is intentionally absent, so return NEEDS_INFO, preserve the HUMAN execution lane, and include the required pi-ticket-planning:admission-review:v1 JSON projection.`);
+      const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, fresh context, no artifacts, no mission, and acceptance disabled. Give the child only this transport descriptor and ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
       const fresh = reviewerSession.identity.id !== toolSession.identity.id;
-      const hasSchema = reviewerResult.text.includes("pi-ticket-planning:admission-review:v1");
+      const hasSchema = reviewerResult.text.includes("pi-ticket-planning:admission-review:v1")
+        && reviewerResult.text.includes(descriptor.binding.inputDigest);
       results.set("reviewer.fresh-context", fresh
         ? { name: "reviewer.fresh-context", status: "SUPPORTED", reasonCode: "DISTINCT_FRESH_SESSION", evidence: activeEvidence(observed, "reviewer.fresh-context", reviewerSession.identity.id) }
         : { name: "reviewer.fresh-context", status: "BLOCKED", reasonCode: "SESSION_ID_REUSED", evidence: [] });
@@ -360,6 +383,7 @@ async function defaultActiveProbe(observed, { env }) {
       }
       fs.rmSync(workspace, { recursive: true, force: true });
       fs.rmSync(sessionDir, { recursive: true, force: true });
+      fs.rmSync(reviewDirectory, { recursive: true, force: true });
     }
   }
 

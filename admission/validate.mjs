@@ -1,5 +1,6 @@
 import { issue, PLAN_SCHEMA, PLAN_KINDS, SHA256, fingerprint, approvalProjection, harnessStateProblems, sameValues, reviewComment } from "./domain.mjs";
 import { controlledLabels } from "./recovery.mjs";
+import { validateAdmissionReviewBinding } from "./review-transport.mjs";
 
 export function validateAdmissionPlan(plan) {
   const problems = [];
@@ -10,6 +11,20 @@ export function validateAdmissionPlan(plan) {
     problems.push(issue("PLAN_FINGERPRINT_MISMATCH"));
   }
   if (fingerprint(plan.reviewed) !== plan.reviewedFingerprint) problems.push(issue("REVIEWED_FINGERPRINT_MISMATCH"));
+  try {
+    validateAdmissionReviewBinding(plan.reviewed?.reviewBinding);
+    validateAdmissionReviewBinding(plan.reviewed?.review?.inputBinding);
+    if (fingerprint(plan.reviewed.reviewBinding) !== fingerprint(plan.reviewed.review.inputBinding)) {
+      problems.push(issue("REVIEW_INPUT_BINDING_MISMATCH"));
+    }
+    if (plan.reviewed.reviewBinding.subject.target !== `github:${plan.repo}`
+      || plan.reviewed.reviewBinding.subject.id !== plan.target
+      || plan.reviewed.reviewBinding.subject.revision !== plan.reviewed.source?.revision) {
+      problems.push(issue("REVIEW_INPUT_SUBJECT_MISMATCH"));
+    }
+  } catch {
+    problems.push(issue("INVALID_REVIEW_INPUT_BINDING"));
+  }
   if (plan.kind === "DELIVERY_GRAPH" && fingerprint(plan.reviewed?.graph) !== plan.graphFingerprint) {
     problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
   }
