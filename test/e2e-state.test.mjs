@@ -16,6 +16,21 @@ import {
   persistE2EState,
   validateE2ECleanupTarget,
 } from "../integration/e2e-state.mjs";
+import { verifyDisposableGitHubAppAuth, writeGitHubAppCredentialBinding } from "../integration/github-app-auth.mjs";
+
+function cleanupAuth(t, repo = "acme/disposable") {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-cleanup-auth-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const file = path.join(directory, "binding.json");
+  writeGitHubAppCredentialBinding({ file, token: "installation-token", appSlug: "ptp-e2e", installationId: "123", targetRepo: repo });
+  const auth = verifyDisposableGitHubAppAuth({
+    env: { GH_TOKEN: "installation-token", PTP_E2E_GITHUB_APP_BINDING: file, GITHUB_REPOSITORY: "acme/source" },
+    repo,
+    sourceRepo: "acme/source",
+    api: () => [{ repositories: [{ full_name: repo }] }],
+  });
+  return { githubAppAuthorization: auth.authorization, githubAppEvidence: auth.evidence };
+}
 
 function resource(runId, id) {
   return { marker: `<!-- ptp-e2e:${runId}:scenario:${id} -->`, title: `[ptp-e2e:${runId}] scenario:${id}` };
@@ -63,12 +78,13 @@ test("persisted E2E cleanup recovers an ambiguous create and is idempotent", (t)
   persistE2EState(state, file);
   const issues = [first, second].map((item, index) => ({ number: index + 1, title: item.title, body: `${item.marker}\nbody`, user: { login: "tester" }, created_at: `2026-08-26T00:00:0${index + 1}Z`, state: "open" }));
   const github = fakeApi(issues);
-  const result = cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api, now: "2026-08-26T00:01:00Z" });
+  const auth = cleanupAuth(t);
+  const result = cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api, now: "2026-08-26T00:01:00Z", ...auth });
   assert.equal(result.status, "PASS");
   assert.equal(issues.every(({ state: value }) => value === "closed"), true);
   assert.equal(github.label, false);
   assert.equal(loadE2EState(file).status, "COMPLETE");
-  assert.equal(cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api }).status, "PASS");
+  assert.equal(cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api, ...auth }).status, "PASS");
 });
 
 test("cleanup refuses an untracked issue without mutating it", (t) => {
@@ -80,7 +96,9 @@ test("cleanup refuses an untracked issue without mutating it", (t) => {
   persistE2EState(createE2EState({ repo: "acme/disposable", runId, actor: "tester", startedAt: "2026-08-26T00:00:00Z" }), file);
   const issues = [{ number: 99, title: "foreign", body: "foreign", user: { login: "tester" }, created_at: "2026-08-26T00:00:01Z", state: "open" }];
   const github = fakeApi(issues);
-  const result = cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api });
+  assert.throws(() => cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api }), /L3_DISPOSABLE_AUTH_REQUIRED/);
+  assert.equal(github.mutations, 0);
+  const result = cleanupPersistedE2E({ file, repo: "acme/disposable", runId, api: github.api, ...cleanupAuth(t) });
   assert.equal(result.status, "FAIL");
   assert.equal(github.mutations, 0);
   assert.equal(issues[0].state, "open");
@@ -105,7 +123,7 @@ test("remote control issue recovers cleanup after the runner state file is lost"
   ];
   const github = fakeApi(issues);
   const recoveredFile = path.join(directory, "recovered.json");
-  const result = cleanupPersistedE2E({ file: recoveredFile, repo: "acme/disposable", runId, api: github.api, now: "2026-08-26T00:01:00Z" });
+  const result = cleanupPersistedE2E({ file: recoveredFile, repo: "acme/disposable", runId, api: github.api, now: "2026-08-26T00:01:00Z", ...cleanupAuth(t) });
   assert.equal(result.status, "PASS");
   assert.equal(loadE2EState(recoveredFile).status, "COMPLETE");
   assert.equal(issues.every(({ state: value }) => value === "closed"), true);

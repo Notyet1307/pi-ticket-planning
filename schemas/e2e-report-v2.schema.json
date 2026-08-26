@@ -4,7 +4,7 @@
   "allOf": [{ "$ref": "report-metadata-v1.schema.json" }],
   "type": "object",
   "unevaluatedProperties": false,
-  "required": ["schema", "runId", "repo", "resourceTag", "status", "reasonCode", "scenarios", "metrics", "setup", "harnessEvidence", "providerEvidence", "cleanup", "recoveryCommand"],
+  "required": ["schema", "runId", "repo", "resourceTag", "status", "reasonCode", "scenarios", "metrics", "setup", "harnessEvidence", "providerEvidence", "githubAppEvidence", "cleanup", "recoveryCommand"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:e2e-report:v2" },
     "tier": { "const": "L3_REAL_DISPOSABLE_INTEGRATION" },
@@ -18,7 +18,8 @@
     "setup": { "type": "object", "additionalProperties": false, "required": ["status", "externalWrites", "evidenceDigests"], "properties": { "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] }, "externalWrites": { "type": "integer", "minimum": 0 }, "evidenceDigests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } } } },
     "harnessEvidence": { "$ref": "#/$defs/harnessEvidence" },
     "providerEvidence": { "$ref": "#/$defs/providerEvidence" },
-    "cleanup": { "type": "object", "additionalProperties": false, "required": ["status", "deleted", "remaining"], "properties": { "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] }, "deleted": { "type": "integer", "minimum": 0 }, "remaining": { "type": "integer", "minimum": 0 }, "recoveryCommand": { "type": ["string", "null"] } } },
+    "githubAppEvidence": { "$ref": "#/$defs/githubAppEvidence" },
+    "cleanup": { "type": "object", "additionalProperties": false, "required": ["status", "deleted", "remaining"], "properties": { "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] }, "deleted": { "type": "integer", "minimum": 0 }, "remaining": { "type": "integer", "minimum": 0 }, "recoveryCommand": { "type": ["string", "null"] }, "recoveredByAnotherProcess": { "type": "boolean" } } },
     "recoveryCommand": { "type": ["string", "null"] }
   },
   "$defs": {
@@ -54,19 +55,37 @@
     },
     "harnessEvidence": {
       "type": "object", "additionalProperties": false,
-      "required": ["status", "exactTarget", "readiness", "validation", "deliveryGate", "noBypass", "claimDetection", "terminalOutcome", "evidenceDigests"],
+      "required": ["status", "preflight", "final", "evidenceDigests"],
       "properties": {
         "status": { "enum": ["PASS", "PARTIAL", "BLOCKED", "UNTESTED"] },
-        "exactTarget": { "type": "boolean" }, "readiness": { "type": "boolean" }, "validation": { "type": "boolean" }, "deliveryGate": { "type": "boolean" }, "noBypass": { "type": "boolean" }, "claimDetection": { "type": "boolean" }, "terminalOutcome": { "type": "boolean" },
+        "preflight": { "type": "object", "additionalProperties": false, "required": ["exactTarget", "readiness", "validation", "deliveryGate", "noBypass"], "properties": { "exactTarget": { "type": "boolean" }, "readiness": { "type": "boolean" }, "validation": { "type": "boolean" }, "deliveryGate": { "type": "boolean" }, "noBypass": { "type": "boolean" } } },
+        "final": { "type": "object", "additionalProperties": false, "required": ["claimDetection", "terminalOutcome"], "properties": { "claimDetection": { "type": "boolean" }, "terminalOutcome": { "type": "boolean" } } },
         "evidenceDigests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } }
       }
     },
     "providerEvidence": {
       "type": "object", "additionalProperties": false,
-      "required": ["status", "childResult", "freshContext", "strictSchema", "namedSession", "persistedSession", "timeoutCancellation", "evidenceDigests"],
+      "required": ["status", "childResult", "freshContext", "strictSchema", "namedSession", "persistedSession", "exactIdFileResume", "sessionResume", "timeoutCancellation", "evidenceDigests"],
       "properties": {
         "status": { "enum": ["PASS", "PARTIAL", "BLOCKED", "UNTESTED"] },
-        "childResult": { "type": "boolean" }, "freshContext": { "type": "boolean" }, "strictSchema": { "type": "boolean" }, "namedSession": { "type": "boolean" }, "persistedSession": { "type": "boolean" }, "timeoutCancellation": { "type": "boolean" },
+        "childResult": { "type": "boolean" }, "freshContext": { "type": "boolean" }, "strictSchema": { "type": "boolean" }, "namedSession": { "type": "boolean" }, "persistedSession": { "type": "boolean" }, "exactIdFileResume": { "type": "boolean" }, "sessionResume": { "type": "boolean" }, "timeoutCancellation": { "type": "boolean" },
+        "evidenceDigests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } }
+      }
+    },
+    "githubAppEvidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "appSlug", "installationIdentityDigest", "targetRepo", "permissions", "writeActorReadback", "evidenceDigests"],
+      "properties": {
+        "status": { "enum": ["PASS", "BLOCKED", "UNTESTED"] },
+        "appSlug": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_.-]{1,100}$" },
+        "installationIdentityDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+        "targetRepo": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "permissions": {
+          "type": "object", "additionalProperties": false,
+          "required": ["metadata", "issues", "contents", "administration"],
+          "properties": { "metadata": { "enum": ["read", "none"] }, "issues": { "enum": ["write", "none"] }, "contents": { "const": "none" }, "administration": { "const": "none" } }
+        },
+        "writeActorReadback": { "type": "boolean" },
         "evidenceDigests": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } }
       }
     }

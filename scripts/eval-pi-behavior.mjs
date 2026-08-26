@@ -540,6 +540,9 @@ export async function runLivePiEval({
         persisted: isMultiturn,
         sessionDir: sessionRoot,
         sessionName: `eval-${item.id}-${round}`,
+        extensions: item.skill === "admit-ticket" && (item.tools ?? []).includes("subagent")
+          ? [path.join(ROOT, "extensions", "reviewer-one-shot-gate.mjs")]
+          : [],
       });
       sessionIdentity = redactSessionIdentity(session.identity);
 

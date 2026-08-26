@@ -37,6 +37,7 @@ export function buildOutcomeReceipt(value) {
     schema: "pi-ticket-planning:outcome-receipt:v1",
     id: value.id,
     subject: structuredClone(value.subject),
+    baseSha: value.baseSha,
     source: structuredClone(value.source),
     observedAt: value.observedAt,
     status: value.status,
@@ -56,7 +57,7 @@ export function validateOutcomeReceipt(receipt, { expectedSubject } = {}) {
   if (receipt.schema !== "pi-ticket-planning:outcome-receipt:v1" || !/^OR-[A-Za-z0-9._:-]{1,125}$/.test(receipt.id ?? "")
     || !STATUSES.has(receipt.status) || !Number.isFinite(Date.parse(receipt.observedAt))) problems.push(problem("INVALID_OUTCOME_RECEIPT"));
   if (expectedSubject && !same(receipt.subject, expectedSubject)) problems.push(problem("OUTCOME_SUBJECT_MISMATCH"));
-  if (!receipt.subject?.target || !DIGEST.test(receipt.subject?.digest ?? "")) problems.push(problem("INVALID_OUTCOME_SUBJECT"));
+  if (!receipt.subject?.target || !DIGEST.test(receipt.subject?.digest ?? "") || !/^[a-f0-9]{40,64}$/.test(receipt.baseSha ?? "")) problems.push(problem("INVALID_OUTCOME_SUBJECT"));
   const allowed = PRODUCERS[receipt.source?.kind];
   if (!allowed?.has(receipt.source?.producer)) problems.push(problem("OUTCOME_PRODUCER_NOT_ALLOWED"));
   if (!DIGEST.test(receipt.source?.producerDigest ?? "") || typeof receipt.source?.producerVersion !== "string") problems.push(problem("INVALID_OUTCOME_SOURCE"));

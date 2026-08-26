@@ -135,6 +135,7 @@ test("pi-ticket-planctl records domain inputs and Outcome decisions", (t) => {
   const outcome = buildOutcomeReceipt({
     id: "OR-domain",
     subject,
+    baseSha: "a".repeat(40),
     source: { kind: "git", producer: "git", producerVersion: "test", producerDigest: `sha256:${"c".repeat(64)}` },
     observedAt: new Date().toISOString(),
     status: "ACHIEVED",

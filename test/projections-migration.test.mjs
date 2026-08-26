@@ -165,7 +165,15 @@ test("legacy evidence reports require explicit provenance before migration", () 
   };
   const scenarios = Array.from({ length: 18 }, (_, index) => ({ id: `S${index + 1}` }));
 
-  const e2e = migrateE2EReportV1({ schema: "pi-ticket-planning:e2e-report:v1", status: "UNTESTED" }, { ...context, scenarios });
+  const e2e = migrateE2EReportV1({ schema: "pi-ticket-planning:e2e-report:v1", status: "UNTESTED" }, {
+    ...context,
+    scenarios,
+    setup: { status: "NOT_RUN" },
+    harnessEvidence: { status: "UNTESTED" },
+    providerEvidence: { status: "UNTESTED" },
+    githubAppEvidence: { status: "UNTESTED" },
+    cleanup: { status: "NOT_RUN" },
+  });
   assert.equal(e2e.schema, "pi-ticket-planning:e2e-report:v2");
   assert.match(e2e.reportDigest, /^sha256:/);
   assert.equal(migrateLiveEvalV3({ schema: "pi-ticket-planning:live-eval:v3", summary: {} }, context).schema, "pi-ticket-planning:live-eval:v4");

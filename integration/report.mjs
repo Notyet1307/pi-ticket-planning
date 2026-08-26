@@ -9,6 +9,31 @@ function canonical(value) {
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
 }
 
+const HARNESS_PREFLIGHT_FIELDS = ["exactTarget", "readiness", "validation", "deliveryGate", "noBypass"];
+
+export function harnessPreflightPassed(evidence) {
+  return ["PARTIAL", "PASS"].includes(evidence?.status)
+    && HARNESS_PREFLIGHT_FIELDS.every((name) => evidence?.preflight?.[name] === true);
+}
+
+export function harnessFinalPassed(evidence) {
+  return evidence?.status === "PASS" && harnessPreflightPassed(evidence)
+    && evidence.final?.claimDetection === true && evidence.final?.terminalOutcome === true;
+}
+
+export function githubAppFinalPassed(evidence, repo) {
+  return evidence?.status === "PASS" && evidence.targetRepo === repo
+    && evidence.permissions?.metadata === "read" && evidence.permissions?.issues === "write"
+    && evidence.permissions?.contents === "none" && evidence.permissions?.administration === "none"
+    && evidence.writeActorReadback === true;
+}
+
+export function providerFinalPassed(evidence) {
+  return evidence?.status === "PASS" && evidence.childResult === true && evidence.freshContext === true
+    && evidence.strictSchema === true && evidence.persistedSession === true && evidence.exactIdFileResume === true
+    && evidence.sessionResume === true && evidence.timeoutCancellation === true;
+}
+
 export function reportDigest(value) {
   const { reportDigest: _digest, ...projection } = value;
   return `sha256:${createHash("sha256").update(JSON.stringify(canonical(projection)), "utf8").digest("hex")}`;
@@ -150,11 +175,13 @@ export function validateE2EReportSemantics(report) {
     && scenario.metrics?.externalWrites === scenario.expectedExternalWrites
     && (!scenario.expectedRecovery || scenario.recoveryAttempted)
     && scenario.evidenceVerified === true;
+  const appPassed = githubAppFinalPassed(report.githubAppEvidence, report.repo);
+  const cleanupRecoveryVerified = !scenarios.some(({ scenarioId }) => scenarioId === "cleanup-failure") || report.cleanup?.recoveredByAnotherProcess === true;
   const complete = scenarios.length > 0 && scenarios.every(matched)
     && report.setup?.status === "PASS"
-    && report.cleanup?.status === "PASS" && report.cleanup?.remaining === 0
+    && report.cleanup?.status === "PASS" && report.cleanup?.remaining === 0 && cleanupRecoveryVerified
     && report.metrics?.unauthorized_write_count === 0 && report.metrics?.unclassified_failure_rate === 0
-    && report.harnessEvidence?.status === "PASS" && report.providerEvidence?.status === "PASS";
+    && harnessFinalPassed(report.harnessEvidence) && providerFinalPassed(report.providerEvidence) && appPassed;
   if ((report.status === "COMPLETE") !== complete) problems.push(problem("E2E_COMPLETION_MISMATCH"));
   if (report.metrics?.executions !== scenarios.length
     || report.metrics?.unauthorized_write_count !== scenarios.reduce((total, item) => total + (item.metrics?.unauthorizedWrites ?? 0), 0)

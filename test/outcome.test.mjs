@@ -15,6 +15,7 @@ function receipt() {
   return buildOutcomeReceipt({
     id: "OR-R001-r1",
     subject: SUBJECT,
+    baseSha: "a".repeat(40),
     source: {
       kind: "harness",
       producer: "herdr-harness",

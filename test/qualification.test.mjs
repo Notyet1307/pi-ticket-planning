@@ -74,9 +74,10 @@ function e2eReport() {
       context_tokens: 0, github_api_calls: 61,
     },
     setup: { status: "PASS", externalWrites: 1, evidenceDigests: [digest("1")] },
-    harnessEvidence: { status: "PASS", exactTarget: true, readiness: true, validation: true, deliveryGate: true, noBypass: true, claimDetection: true, terminalOutcome: true, evidenceDigests: [digest("2")] },
-    providerEvidence: { status: "PASS", childResult: true, freshContext: true, strictSchema: true, namedSession: true, persistedSession: true, timeoutCancellation: true, evidenceDigests: [digest("3")] },
-    cleanup: { status: "PASS", deleted: 61, remaining: 0, recoveryCommand: null },
+    harnessEvidence: { status: "PASS", preflight: { exactTarget: true, readiness: true, validation: true, deliveryGate: true, noBypass: true }, final: { claimDetection: true, terminalOutcome: true }, evidenceDigests: [digest("2")] },
+    providerEvidence: { status: "PASS", childResult: true, freshContext: true, strictSchema: true, namedSession: false, persistedSession: true, exactIdFileResume: true, sessionResume: true, timeoutCancellation: true, evidenceDigests: [digest("3")] },
+    githubAppEvidence: { status: "PASS", appSlug: "ptp-e2e", installationIdentityDigest: digest("3"), targetRepo: "acme/disposable", permissions: { metadata: "read", issues: "write", contents: "none", administration: "none" }, writeActorReadback: true, evidenceDigests: [digest("3")] },
+    cleanup: { status: "PASS", deleted: 61, remaining: 0, recoveryCommand: null, recoveredByAnotherProcess: true },
     recoveryCommand: null,
     evidenceDigests: [digest("4"), digest("5")],
   });

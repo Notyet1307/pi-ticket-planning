@@ -23,6 +23,7 @@ import { attachReviewBinding } from "./review-binding-fixture.mjs";
 import { qualifiedCapability } from "./capability-fixture.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+import { verifyDisposableGitHubAppAuth, writeGitHubAppCredentialBinding } from "../integration/github-app-auth.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -341,6 +342,41 @@ test("Agent Admission cannot bypass the qualified Capability fact", () => {
   assert.equal(result.status, "CONFLICT");
   assert.equal(result.problems[0].code, "CAPABILITY_RECEIPT_REQUIRED");
   assert.deepEqual(adapter.mutations, []);
+});
+
+test("L3 disposable Admission requires opaque App authorization and no persisted SUPPORTED Matrix", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-l3-admission-auth-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const authFile = path.join(directory, "binding.json");
+  writeGitHubAppCredentialBinding({ file: authFile, token: "installation-token", appSlug: "ptp-e2e", installationId: "123", targetRepo: "acme/product" });
+  const auth = verifyDisposableGitHubAppAuth({
+    env: { GH_TOKEN: "installation-token", PTP_E2E_GITHUB_APP_BINDING: authFile, GITHUB_REPOSITORY: "acme/source" },
+    repo: "acme/product",
+    sourceRepo: "acme/source",
+    api: () => [{ repositories: [{ full_name: "acme/product" }] }],
+  });
+  const admissionInput = input();
+  const plan = buildAdmissionPlan(admissionInput);
+  const baseOptions = {
+    expectedFingerprint: plan.planFingerprint,
+    caseId: "PC-admission",
+    approvalId: "F-human-activation",
+    now: NOW,
+    evidenceTier: "L3_REAL_DISPOSABLE_INTEGRATION",
+    githubAppEvidence: { ...auth.evidence, writeActorReadback: true },
+  };
+  const rejectedAdapter = new MemoryAdapter(admissionInput);
+  const rejected = applyAdmissionPlan(plan, rejectedAdapter, { ...baseOptions, planningCaseStore: memoryCaseStore(plan), githubAppAuthorization: {} });
+  assert.equal(rejected.status, "CONFLICT");
+  assert.equal(rejected.problems[0].code, "L3_DISPOSABLE_AUTH_REQUIRED");
+  assert.deepEqual(rejectedAdapter.mutations, []);
+
+  const admitted = applyAdmissionPlan(plan, new MemoryAdapter(admissionInput), {
+    ...baseOptions,
+    planningCaseStore: memoryCaseStore(plan),
+    githubAppAuthorization: auth.authorization,
+  });
+  assert.equal(admitted.status, "COMPLETE", JSON.stringify(admitted));
 });
 
 test("Admission apply recovers a lost response after the server completed the write", () => {

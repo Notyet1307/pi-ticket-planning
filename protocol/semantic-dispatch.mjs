@@ -7,6 +7,7 @@ import {
   validateAdmissionReviewInput,
 } from "../admission/review-transport.mjs";
 import { validateCapabilityReceipt } from "../capabilities/doctor.mjs";
+import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
 import { validateE2EReportSemantics, validateModelReportSemantics, validateQualificationSemantics } from "../integration/report.mjs";
 import { validateE2EState } from "../integration/e2e-state.mjs";
@@ -79,6 +80,7 @@ export async function validateRegisteredArtifactSemantics(value, identity) {
   if (name === "capability-receipt") return { problems: validateCapabilityReceipt(value).problems };
   if (name === "admission-review-input") return { problems: caught(() => validateAdmissionReviewInput(value), "ADMISSION_REVIEW_INPUT_INVALID") };
   if (name === "admission-review-binding") return { problems: caught(() => validateAdmissionReviewBinding(value), "ADMISSION_REVIEW_BINDING_INVALID") };
+  if (name === "reviewer-dispatch-binding") return { problems: caught(() => validateReviewerDispatchBinding(value), "REVIEWER_DISPATCH_BINDING_INVALID") };
   if (name === "compatibility-matrix") return { problems: validateCompatibilityMatrix(value).problems };
   if (name === "e2e-report") return { problems: validateE2EReportSemantics(value) };
   if (name === "e2e-state") return { problems: caught(() => validateE2EState(value), "E2E_STATE_INVALID") };

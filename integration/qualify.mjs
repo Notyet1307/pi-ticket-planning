@@ -175,7 +175,8 @@ export async function qualifyRelease({
   if (!scenarios.some(({ evidenceClass, evidenceVerified }) => evidenceClass === "REAL_EXTERNAL" && evidenceVerified)) problems.push(issue("REAL_GITHUB_EVIDENCE_MISSING"));
   if (!scenarios.some(({ evidenceClass, evidenceVerified }) => evidenceClass === "REAL_PROVIDER" && evidenceVerified)) problems.push(issue("REAL_PROVIDER_EVIDENCE_MISSING"));
   if (!e2e.some(({ report }) => report.harnessEvidence?.status === "PASS"
-    && ["exactTarget", "readiness", "validation", "deliveryGate", "noBypass", "claimDetection", "terminalOutcome"].every((name) => report.harnessEvidence[name] === true))) problems.push(issue("REAL_HARNESS_EVIDENCE_MISSING"));
+    && ["exactTarget", "readiness", "validation", "deliveryGate", "noBypass"].every((name) => report.harnessEvidence.preflight?.[name] === true)
+    && ["claimDetection", "terminalOutcome"].every((name) => report.harnessEvidence.final?.[name] === true))) problems.push(issue("REAL_HARNESS_EVIDENCE_MISSING"));
   if (metrics.firstAttempts < 60) problems.push(issue("INSUFFICIENT_FIRST_ATTEMPTS"));
   if (metrics.firstPassSuccessRate < 0.95) problems.push(issue("FIRST_PASS_THRESHOLD_NOT_MET"));
   if (metrics.eventualSuccessRate !== 1) problems.push(issue("EVENTUAL_THRESHOLD_NOT_MET"));

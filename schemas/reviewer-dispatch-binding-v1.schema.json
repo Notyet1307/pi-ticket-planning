@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/reviewer-dispatch-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "parentSessionId", "childRunId", "childSessionId", "childFileDigest", "inputDigest", "outputDigest", "dispatchOrdinal", "totalDispatches", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:reviewer-dispatch-binding:v1" },
+    "parentSessionId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "childRunId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "childSessionId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "childFileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "inputDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "outputDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "dispatchOrdinal": { "const": 1 },
+    "totalDispatches": { "const": 1 },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

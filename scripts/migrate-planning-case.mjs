@@ -67,7 +67,7 @@ export function migratePlanningCaseV1(value) {
     assumptions: [],
     evidenceMethod: null,
     evidence: [],
-    bindings: structuredClone(value.bindings),
+    bindings: { ...structuredClone(value.bindings), session: null, reviewer: null },
     approvals: structuredClone(value.approvals),
     admissionTransaction: null,
     learningDecisions: [],

@@ -771,9 +771,9 @@ export function verifyProtocol({ protocol = loadProtocol() } = {}) {
   const factsWithoutDeclaredSource = facts.filter(([, rule]) => !Array.isArray(rule.sources) || rule.sources.length === 0).map(([name]) => name);
   const coverage = contextCoverage(protocol, states);
   const report = {
-    legalStates: states.length,
-    reachableLegalStates: reachable.size,
-    unreachableLegalStates: states.filter(({ id }) => !reachable.has(id)).map(({ id }) => id),
+    legalStructuralStates: states.length,
+    reachableStructuralStates: reachable.size,
+    unreachableStructuralStates: states.filter(({ id }) => !reachable.has(id)).map(({ id }) => id),
     invalidCombinations,
     blockedWithoutRecovery,
     factsWithoutExecutableProducer: [...factsWithoutDeclaredSource, ...producers.problems.filter(({ code }) => code === "MISSING_FACT_PRODUCER").map(({ subject }) => subject)],

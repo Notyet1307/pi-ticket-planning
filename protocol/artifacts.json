@@ -333,6 +333,18 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "reviewer-dispatch-binding",
+      "schemaIdentity": "pi-ticket-planning:reviewer-dispatch-binding:v1",
+      "schemaPath": "schemas/reviewer-dispatch-binding-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "reviewer-one-shot-gate",
+      "readers": ["doctor", "admission-validate", "integration-e2e"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "installation-manifest",
       "schemaIdentity": "pi-ticket-planning:installation-manifest:v1",
       "schemaPath": "schemas/installation-manifest-v1.schema.json",
@@ -494,6 +506,18 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "planning-session-binding",
+      "schemaIdentity": "pi-ticket-planning:planning-session-binding:v1",
+      "schemaPath": "schemas/planning-session-binding-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "planning-case-store",
+      "readers": ["planning-case-resume", "admission-validate"],
+      "fingerprintAlgorithm": "sha256-exact-source-bytes",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "build-metadata",
       "schemaIdentity": "pi-ticket-planning:build-metadata:v1",
       "schemaPath": "schemas/build-metadata-v1.schema.json",
@@ -526,6 +550,18 @@
       "writer": "integration-e2e",
       "readers": ["e2e-cleanup"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "github-app-credential-binding",
+      "schemaIdentity": "pi-ticket-planning:github-app-credential-binding:v1",
+      "schemaPath": "schemas/github-app-credential-binding-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "github-app-auth",
+      "readers": ["integration-e2e", "e2e-cleanup"],
+      "fingerprintAlgorithm": "hmac-sha256-token-bound-private-v1",
       "migrationPath": null
     }
   ]

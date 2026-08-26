@@ -3,11 +3,12 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/planning-case-binding-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "target", "revision", "digest", "producer", "observedAt", "expiresAt", "verification"],
+  "required": ["schema", "target", "revision", "baseSha", "digest", "producer", "observedAt", "expiresAt", "verification"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:planning-case-binding:v1" },
     "target": { "$ref": "common-v1.schema.json#/$defs/target" },
     "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
     "digest": { "$ref": "common-v1.schema.json#/$defs/digest" },
     "producer": { "$ref": "common-v1.schema.json#/$defs/safeText" },
     "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },

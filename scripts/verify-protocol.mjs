@@ -16,7 +16,7 @@ for (const item of problems) {
   process.stderr.write(`ERROR ${item.code}${item.subject ? ` ${item.subject}` : ""}\n`);
 }
 const critical = [
-  report.unreachableLegalStates,
+  report.unreachableStructuralStates,
   report.invalidCombinations,
   report.blockedWithoutRecovery,
   report.factsWithoutExecutableProducer,

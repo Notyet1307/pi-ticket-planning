@@ -6,7 +6,15 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { validatePlanningCaseBinding, verifyPlanningCaseBindings } from "../planning-case/bindings.mjs";
+import {
+  buildPlanningSessionBinding,
+  githubBindingDigest,
+  validatePlanningCaseBinding,
+  verifyPlanningCaseBindings,
+} from "../planning-case/bindings.mjs";
+import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
+import { qualifiedCapability } from "./capability-fixture.mjs";
+import { harnessReadiness } from "./readiness-fixture.mjs";
 
 const TARGET = "github:acme/product";
 const NOW = new Date().toISOString();
@@ -18,6 +26,7 @@ function binding(verification, overrides = {}) {
     schema: "pi-ticket-planning:planning-case-binding:v1",
     target: TARGET,
     revision: "r1",
+    baseSha: "a".repeat(40),
     digest: hash("artifact"),
     producer: "test",
     observedAt: NOW,
@@ -66,4 +75,66 @@ test("Binding verifiers cover file, Git, offline, and unsafe readback", (t) => {
   fs.symlinkSync(file, link);
   const unsafeFile = binding({ kind: "HARNESS", ref: link, digest: hash("drift\n") });
   assert.equal(verifyPlanningCaseBindings({ source: unsafeFile }, snapshot, { now: NOW }).some(({ code }) => code === "UNSAFE_BINDING_SOURCE"), true);
+});
+
+test("GitHub Binding hashes a validated stable projection", () => {
+  const ref = "repos/acme/product/git/ref/heads/main";
+  const response = { url: "volatile", ref: "refs/heads/main", node_id: "extra", object: { url: "volatile", sha: "a".repeat(40), type: "commit" } };
+  const expected = githubBindingDigest(ref, response);
+  assert.equal(githubBindingDigest(ref, { object: { type: "commit", sha: "a".repeat(40) }, ref: "refs/heads/main", extra: true }), expected);
+  const github = binding({ kind: "GITHUB", ref, digest: expected });
+  const execute = () => ({ status: 0, stdout: JSON.stringify(response), stderr: "" });
+  assert.deepEqual(verifyPlanningCaseBindings({ source: github }, snapshot, { now: NOW, execute }), []);
+  assert.equal(verifyPlanningCaseBindings({ source: github }, snapshot, { now: NOW, execute: () => ({ status: 0, stdout: "{}", stderr: "" }) })[0].code, "GITHUB_BINDING_RESPONSE_INVALID");
+});
+
+test("Planning Case session Binding preserves exact ID, file digest, provider, model, and profile", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-session-binding-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const file = path.join(directory, "session.jsonl");
+  fs.writeFileSync(file, `${JSON.stringify({ id: "session-1", cwd: directory })}\n`, { mode: 0o600 });
+  const session = buildPlanningSessionBinding({
+    target: TARGET,
+    revision: "r1",
+    baseSha: "a".repeat(40),
+    sessionId: "session-1",
+    sessionFile: file,
+    provider: "openai-codex",
+    model: "gpt-test",
+    profileDigest: hash("profile"),
+    observedAt: NOW,
+  });
+  assert.deepEqual(validatePlanningCaseBinding("session", session, TARGET, { now: NOW }), []);
+  assert.deepEqual(verifyPlanningCaseBindings({ session }, snapshot, { now: NOW }), []);
+  fs.appendFileSync(file, "drift\n");
+  assert.equal(verifyPlanningCaseBindings({ session }, snapshot, { now: NOW })[0].code, "BINDING_READBACK_DRIFT");
+});
+
+test("cross-Binding target, revision, and base relationships fail closed", () => {
+  const source = binding({ kind: "GITHUB", ref: "repos/acme/product/git/ref/heads/main", digest: hash("source") });
+  const release = binding({ kind: "GITHUB", ref: "repos/acme/product/git/ref/heads/main", digest: hash("release") });
+  assert.deepEqual(verifyPlanningCaseBindings({ source, release }, snapshot, { offline: true, now: NOW }), []);
+  const drift = { ...release, revision: "r2" };
+  assert.equal(verifyPlanningCaseBindings({ source, release: drift }, snapshot, { offline: true, now: NOW })[0].code, "CROSS_BINDING_REVISION_MISMATCH");
+  assert.equal(verifyPlanningCaseBindings({ source, release: { ...release, baseSha: "b".repeat(40) } }, snapshot, { offline: true, now: NOW })[0].code, "CROSS_BINDING_BASE_MISMATCH");
+  assert.equal(verifyPlanningCaseBindings({ source, release: { ...release, target: "github:acme/other" } }, snapshot, { offline: true, now: NOW })[0].code, "CROSS_BINDING_TARGET_MISMATCH");
+});
+
+test("all release/source/spec/graph/policy/harness/capability/outcome Bindings share one target, revision, and base", () => {
+  const baseSha = "a".repeat(40);
+  const generic = binding({ kind: "GITHUB", ref: "repos/acme/product/git/ref/heads/main", digest: hash("stable") }, { revision: baseSha, baseSha });
+  const harness = harnessReadiness("acme/product", baseSha, { observedAt: NOW });
+  const capability = qualifiedCapability("acme/product", baseSha, harness, NOW).receipt;
+  const outcome = buildOutcomeReceipt({
+    id: "OR-binding-relation",
+    subject: { target: TARGET, kind: "ticket", id: "42", revision: baseSha, digest: hash("subject") },
+    baseSha,
+    source: { kind: "harness", producer: "herdr-harness", producerVersion: "test", producerDigest: hash("harness") },
+    observedAt: NOW,
+    status: "ACHIEVED",
+    evidence: [{ kind: "terminal", ref: "job:42", digest: hash("terminal") }],
+  });
+  const bindings = { source: generic, release: generic, spec: generic, graph: generic, policy: generic, harness, capability, outcome };
+  assert.deepEqual(verifyPlanningCaseBindings(bindings, snapshot, { offline: true, now: NOW }), []);
+  assert.equal(verifyPlanningCaseBindings({ ...bindings, outcome: { ...outcome, baseSha: "b".repeat(40) } }, snapshot, { offline: true, now: NOW })[0].code, "CROSS_BINDING_BASE_MISMATCH");
 });

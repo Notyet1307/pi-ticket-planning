@@ -7,8 +7,19 @@ function metadata(context, tier) {
 }
 
 export function migrateE2EReportV1(value, context) {
-  if (value?.schema !== "pi-ticket-planning:e2e-report:v1" || !Array.isArray(context?.scenarios)) throw new Error("LEGACY_PROVENANCE_UNAVAILABLE");
-  return finalizeReport({ ...value, schema: "pi-ticket-planning:e2e-report:v2", ...metadata(context, "L3_REAL_DISPOSABLE_INTEGRATION"), scenarios: context.scenarios });
+  if (value?.schema !== "pi-ticket-planning:e2e-report:v1" || !Array.isArray(context?.scenarios)
+    || !context.setup || !context.harnessEvidence || !context.providerEvidence || !context.githubAppEvidence || !context.cleanup) throw new Error("LEGACY_PROVENANCE_UNAVAILABLE");
+  return finalizeReport({
+    ...value,
+    schema: "pi-ticket-planning:e2e-report:v2",
+    ...metadata(context, "L3_REAL_DISPOSABLE_INTEGRATION"),
+    scenarios: context.scenarios,
+    setup: context.setup,
+    harnessEvidence: context.harnessEvidence,
+    providerEvidence: context.providerEvidence,
+    githubAppEvidence: context.githubAppEvidence,
+    cleanup: context.cleanup,
+  });
 }
 
 export function migrateLiveEvalV3(value, context) {

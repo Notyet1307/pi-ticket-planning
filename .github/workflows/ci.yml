@@ -25,6 +25,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run verify:ci
   whole-repository-coverage:
+    name: observed whole-repository coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

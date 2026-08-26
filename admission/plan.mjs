@@ -3,6 +3,7 @@ import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mj
 import { verifyCandidateContextChecks } from "../scripts/check-ticket-context.mjs";
 import { issue, nonEmpty, planError, validatePolicy, requireHarnessReadiness, validateReview, validateActivationCheckpoint, fingerprint, sameValues, buildResource, finalizePlan, PLAN_SCHEMA } from "./domain.mjs";
 import { requireExactAdmissionReviewBinding } from "./review-transport.mjs";
+import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 
 function activationFacts(input, subject, reviewBinding, mutationId, observedAt) {
@@ -79,6 +80,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   } catch (error) {
     throw planError(error instanceof Error ? error.message : String(error));
   }
+  try { validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw planError("Reviewer dispatch Binding is invalid"); }
   const mutationId = `admission-plan:${fingerprint({ repo: input.repo, target: String(input.parent.id), revision: input.source?.revision, review: reviewBinding.inputDigest })}`;
   const observedAt = new Date(clock()).toISOString();
   const checkpointFacts = activationFacts(input, input.currentCheckpoint?.subject, reviewBinding, mutationId, observedAt);
@@ -115,6 +117,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: input.harness,
     review: input.review,
     reviewBinding,
+    reviewDispatchBinding: input.reviewDispatchBinding,
     capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };
@@ -194,6 +197,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
   } catch (error) {
     throw planError(error instanceof Error ? error.message : String(error));
   }
+  try { validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw planError("Reviewer dispatch Binding is invalid"); }
 
   const mutationId = `admission-plan:${fingerprint({ repo: input.repo, target: String(candidate.id), revision: input.source?.revision, review: reviewBinding.inputDigest })}`;
   const observedAt = new Date(clock()).toISOString();
@@ -226,6 +230,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: reviewedCandidate.executionLane === "AGENT" ? input.harness : null,
     review: input.review,
     reviewBinding,
+    reviewDispatchBinding: input.reviewDispatchBinding,
     capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };

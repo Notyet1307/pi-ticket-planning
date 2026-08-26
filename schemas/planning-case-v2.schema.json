@@ -23,7 +23,7 @@
     "bindings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"],
+      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"],
       "properties": {
         "source": { "oneOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
         "release": { "oneOf": [{ "$ref": "release-projection-v1.schema.json" }, { "$ref": "#/$defs/binding" }, { "type": "null" }] },
@@ -32,7 +32,9 @@
         "policy": { "oneOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
         "harness": { "oneOf": [{ "$ref": "harness-readiness-v1.schema.json" }, { "$ref": "#/$defs/binding" }, { "type": "null" }] },
         "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
-        "outcome": { "oneOf": [{ "$ref": "outcome-receipt-v1.schema.json" }, { "type": "null" }] }
+        "outcome": { "oneOf": [{ "$ref": "outcome-receipt-v1.schema.json" }, { "type": "null" }] },
+        "session": { "oneOf": [{ "$ref": "planning-session-binding-v1.schema.json" }, { "type": "null" }] },
+        "reviewer": { "oneOf": [{ "$ref": "reviewer-dispatch-binding-v1.schema.json" }, { "type": "null" }] }
       }
     },
     "approvals": {

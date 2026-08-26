@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { assertDisposableGitHubAppAuthorization } from "./github-app-auth.mjs";
 
 const MAX_STATE_BYTES = 64 * 1024;
 
@@ -186,8 +187,9 @@ function defaultApi(args, input, { notFound = false } = {}) {
   return run.stdout.trim() ? JSON.parse(run.stdout) : null;
 }
 
-export function cleanupPersistedE2E({ file, repo, runId, api = defaultApi, now = new Date().toISOString() }) {
-  const actor = api(["api", "user"]).login;
+export function cleanupPersistedE2E({ file, repo, runId, actor, api = defaultApi, now = new Date().toISOString(), githubAppAuthorization, githubAppEvidence }) {
+  assertDisposableGitHubAppAuthorization(githubAppAuthorization, githubAppEvidence, repo);
+  actor ??= api(["api", "user"]).login;
   let state = fs.existsSync(file) ? loadE2EState(file) : null;
   if (state && (state.repo !== repo || state.runId !== runId || state.actor !== actor)) throw new Error("E2E_CLEANUP_IDENTITY_MISMATCH");
   if (!state || state.controlIssue === null) {

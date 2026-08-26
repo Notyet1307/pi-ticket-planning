@@ -93,7 +93,7 @@ function readJsonInput(file, code = "INVALID_INPUT") {
   }
 }
 
-function approvalFor({ plan, caseId, correlationId, observedAt }) {
+export function createPlanningCaseApproval({ plan, caseId, correlationId, observedAt }) {
   const subject = {
     target: `github:${plan.repo}`,
     kind: "admission-plan",
@@ -203,7 +203,7 @@ export function runPlanningCaseCli(argv, {
       }
       const target = `github:${plan.repo}`;
       if (store.get({ caseId, target }).target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
-      const approval = approvalFor({ plan, caseId, correlationId, observedAt: clock() });
+      const approval = createPlanningCaseApproval({ plan, caseId, correlationId, observedAt: clock() });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "resume") {

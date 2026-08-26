@@ -34,6 +34,7 @@ function fileBinding(file, content = "binding\n") {
     schema: "pi-ticket-planning:planning-case-binding:v1",
     target: TARGET,
     revision: "main",
+    baseSha: "a".repeat(40),
     digest: contentDigest,
     producer: "test",
     observedAt: NOW,

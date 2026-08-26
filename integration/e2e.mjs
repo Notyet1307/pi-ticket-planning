@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 
-import { finalizeReport, reportMetadata } from "./report.mjs";
+import { finalizeReport, githubAppFinalPassed, harnessFinalPassed, harnessPreflightPassed, providerFinalPassed, reportMetadata } from "./report.mjs";
 import { recoveryCommand as cleanupRecoveryCommand } from "./e2e-state.mjs";
 
 const scenario = (id, evidenceClass, expectedStatus, expectedReasonCode, expectedExternalWrites, expectedRecovery = false) => ({
@@ -9,24 +9,24 @@ const scenario = (id, evidenceClass, expectedStatus, expectedReasonCode, expecte
 });
 
 export const LIVE_SCENARIOS = [
-  scenario("success", "REAL_EXTERNAL", "PASS", "SUCCESS", 7),
-  scenario("rate-limit", "FAULT_INJECTED", "RECOVERED", "RATE_LIMIT_RECOVERED", 0, true),
-  scenario("timeout", "FAULT_INJECTED", "RECOVERED", "TIMEOUT_RECOVERED", 0, true),
-  scenario("write-succeeded-response-lost", "REAL_EXTERNAL", "RECOVERED", "AMBIGUOUS_WRITE_RECOVERED", 4, true),
-  scenario("comment-succeeded-label-failed", "REAL_EXTERNAL", "RECOVERED", "PARTIAL_WRITE_RECOVERED", 5, true),
+  scenario("success", "REAL_EXTERNAL", "PASS", "SUCCESS", 6),
+  scenario("rate-limit", "FAULT_INJECTED", "RECOVERED", "RATE_LIMIT_RECOVERED", 6, true),
+  scenario("timeout", "FAULT_INJECTED", "RECOVERED", "TIMEOUT_RECOVERED", 6, true),
+  scenario("write-succeeded-response-lost", "REAL_EXTERNAL", "RECOVERED", "AMBIGUOUS_WRITE_RECOVERED", 6, true),
+  scenario("comment-succeeded-label-failed", "REAL_EXTERNAL", "RECOVERED", "PARTIAL_WRITE_RECOVERED", 6, true),
   scenario("source-drift-before-activation", "REAL_EXTERNAL", "EXPECTED_BLOCK", "SOURCE_DRIFT", 4),
   scenario("body-title-policy-graph-context-drift", "REAL_EXTERNAL", "EXPECTED_BLOCK", "RESOURCE_DRIFT", 5),
-  scenario("harness-claim-mid-apply", "REAL_EXTERNAL", "EXPECTED_BLOCK", "HARNESS_CLAIM_DETECTED", 5),
-  scenario("provider-timeout", "REAL_PROVIDER", "RECOVERED", "PROVIDER_TIMEOUT_RECOVERED", 0, true),
-  scenario("subagent-no-final-text", "FAULT_INJECTED", "EXPECTED_BLOCK", "SUBAGENT_FINAL_MISSING", 0),
-  scenario("reviewer-schema-error", "FAULT_INJECTED", "EXPECTED_BLOCK", "REVIEWER_SCHEMA_INVALID", 0),
-  scenario("reviewer-empty-axis", "FAULT_INJECTED", "EXPECTED_BLOCK", "REVIEWER_AXIS_EMPTY", 0),
-  scenario("named-session-missing", "REAL_PROVIDER", "EXPECTED_BLOCK", "SESSION_NAME_NOT_RESUMABLE_BY_RUNTIME", 0),
-  scenario("docker-environment-missing", "REAL_EXTERNAL", "EXPECTED_BLOCK", "DOCKER_ENVIRONMENT_MISSING", 0),
-  scenario("readiness-expired", "REAL_EXTERNAL", "EXPECTED_BLOCK", "READINESS_EXPIRED", 0),
-  scenario("receipt-forged", "DETERMINISTIC_ONLY", "EXPECTED_BLOCK", "RECEIPT_FORGED", 0),
-  scenario("network-interruption-resume", "REAL_EXTERNAL", "RECOVERED", "NETWORK_INTERRUPTION_RECOVERED", 4, true),
-  scenario("cleanup-failure", "FAULT_INJECTED", "RECOVERED", "CLEANUP_RECOVERED", 4, true),
+  scenario("harness-claim-mid-apply", "REAL_EXTERNAL", "EXPECTED_BLOCK", "HARNESS_CLAIM_DETECTED", 4),
+  scenario("provider-timeout", "REAL_PROVIDER", "RECOVERED", "PROVIDER_TIMEOUT_RECOVERED", 6, true),
+  scenario("subagent-no-final-text", "FAULT_INJECTED", "EXPECTED_BLOCK", "SUBAGENT_FINAL_MISSING", 3),
+  scenario("reviewer-schema-error", "FAULT_INJECTED", "EXPECTED_BLOCK", "REVIEWER_SCHEMA_INVALID", 3),
+  scenario("reviewer-empty-axis", "FAULT_INJECTED", "EXPECTED_BLOCK", "REVIEWER_AXIS_EMPTY", 3),
+  scenario("named-session-missing", "REAL_PROVIDER", "EXPECTED_BLOCK", "SESSION_NAME_NOT_RESUMABLE_BY_RUNTIME", 3),
+  scenario("docker-environment-missing", "REAL_EXTERNAL", "EXPECTED_BLOCK", "DOCKER_ENVIRONMENT_MISSING", 3),
+  scenario("readiness-expired", "REAL_EXTERNAL", "EXPECTED_BLOCK", "READINESS_EXPIRED", 3),
+  scenario("receipt-forged", "DETERMINISTIC_ONLY", "EXPECTED_BLOCK", "RECEIPT_FORGED", 3),
+  scenario("network-interruption-resume", "REAL_EXTERNAL", "RECOVERED", "NETWORK_INTERRUPTION_RECOVERED", 6, true),
+  scenario("cleanup-failure", "FAULT_INJECTED", "RECOVERED", "CLEANUP_RECOVERED", 6, true),
 ];
 
 export function expectedConfirmation({ repo, runId }) {
@@ -103,14 +103,18 @@ function matched(item) {
 }
 
 function emptyHarnessEvidence(reasonCode) {
-  return { status: "UNTESTED", exactTarget: false, readiness: false, validation: false, deliveryGate: false, noBypass: false, claimDetection: false, terminalOutcome: false, evidenceDigests: [evidenceDigest({ reasonCode, kind: "harness" })] };
+  return { status: "UNTESTED", preflight: { exactTarget: false, readiness: false, validation: false, deliveryGate: false, noBypass: false }, final: { claimDetection: false, terminalOutcome: false }, evidenceDigests: [evidenceDigest({ reasonCode, kind: "harness" })] };
 }
 
 function emptyProviderEvidence(reasonCode) {
-  return { status: "UNTESTED", childResult: false, freshContext: false, strictSchema: false, namedSession: false, persistedSession: false, timeoutCancellation: false, evidenceDigests: [evidenceDigest({ reasonCode, kind: "provider" })] };
+  return { status: "UNTESTED", childResult: false, freshContext: false, strictSchema: false, namedSession: false, persistedSession: false, exactIdFileResume: false, sessionResume: false, timeoutCancellation: false, evidenceDigests: [evidenceDigest({ reasonCode, kind: "provider" })] };
 }
 
-function untested({ runId, repo = null, reasonCode, env, harnessEvidence = emptyHarnessEvidence(reasonCode), providerEvidence = emptyProviderEvidence(reasonCode) }) {
+function emptyGitHubAppEvidence(reasonCode) {
+  return { status: "UNTESTED", appSlug: null, installationIdentityDigest: null, targetRepo: null, permissions: { metadata: "none", issues: "none", contents: "none", administration: "none" }, writeActorReadback: false, evidenceDigests: [evidenceDigest({ reasonCode, kind: "github-app" })] };
+}
+
+function untested({ runId, repo = null, reasonCode, env, harnessEvidence = emptyHarnessEvidence(reasonCode), providerEvidence = emptyProviderEvidence(reasonCode), githubAppEvidence = emptyGitHubAppEvidence(reasonCode) }) {
   const metadata = reportMetadata({ tier: "L3_REAL_DISPOSABLE_INTEGRATION", env });
   const scenarios = LIVE_SCENARIOS.map((contract, index) => scenarioProjection(contract, {
     status: "UNTESTED", reasonCode, metrics: {}, evidenceVerified: false, evidenceDigests: [evidenceDigest({ reasonCode, id: contract.id })],
@@ -128,6 +132,7 @@ function untested({ runId, repo = null, reasonCode, env, harnessEvidence = empty
     setup: { status: "NOT_RUN", externalWrites: 0, evidenceDigests: [evidenceDigest({ reasonCode, kind: "setup" })] },
     harnessEvidence,
     providerEvidence,
+    githubAppEvidence,
     cleanup: { status: "NOT_RUN", deleted: 0, remaining: 0, recoveryCommand: null },
     recoveryCommand: null,
     evidenceDigests: [...new Set(scenarios.flatMap((item) => item.evidenceDigests))],
@@ -158,19 +163,21 @@ export async function runIntegrationE2E({ env = process.env, runId = env.E2E_RUN
   }
   const harnessEvidence = preflight.harnessEvidence ?? emptyHarnessEvidence("REAL_HARNESS_PREFLIGHT_MISSING");
   const providerEvidence = preflight.providerEvidence ?? emptyProviderEvidence("REAL_PROVIDER_PREFLIGHT_MISSING");
-  const harnessPreflight = harnessEvidence.status === "PASS" && harnessEvidence.exactTarget && harnessEvidence.readiness && harnessEvidence.validation && harnessEvidence.deliveryGate && harnessEvidence.noBypass;
-  if (!harnessPreflight || providerEvidence.status !== "PASS") {
+  const githubAppEvidence = preflight.githubAppEvidence ?? emptyGitHubAppEvidence("GITHUB_APP_PREFLIGHT_MISSING");
+  const harnessPreflight = harnessPreflightPassed(harnessEvidence);
+  if (!harnessPreflight || providerEvidence.status !== "PASS" || githubAppEvidence.status !== "PASS") {
     return untested({
       runId,
       repo,
-      reasonCode: !harnessPreflight ? "REAL_HARNESS_PREFLIGHT_FAILED" : "REAL_PROVIDER_PREFLIGHT_FAILED",
+      reasonCode: !harnessPreflight ? "REAL_HARNESS_PREFLIGHT_FAILED" : providerEvidence.status !== "PASS" ? "REAL_PROVIDER_PREFLIGHT_FAILED" : "GITHUB_APP_PREFLIGHT_FAILED",
       env,
       harnessEvidence,
       providerEvidence,
+      githubAppEvidence,
     });
   }
   const setup = preflight.setup ?? { status: "NOT_RUN", externalWrites: 0, evidenceDigests: [evidenceDigest({ runId, kind: "setup-missing" })] };
-  if (setup.status !== "PASS") return untested({ runId, repo, reasonCode: "LIVE_ADAPTER_SETUP_FAILED", env, harnessEvidence, providerEvidence });
+  if (setup.status !== "PASS") return untested({ runId, repo, reasonCode: "LIVE_ADAPTER_SETUP_FAILED", env, harnessEvidence, providerEvidence, githubAppEvidence });
 
   const executions = [];
   for (const contract of LIVE_SCENARIOS) {
@@ -210,9 +217,10 @@ export async function runIntegrationE2E({ env = process.env, runId = env.E2E_RUN
     context_tokens: executions.reduce((total, item) => total + item.metrics.contextTokens, 0),
     github_api_calls: executions.reduce((total, item) => total + item.metrics.githubApiCalls, 0),
   };
+  const cleanupRecoveryVerified = !executions.some(({ scenarioId }) => scenarioId === "cleanup-failure") || cleanup.recoveredByAnotherProcess === true;
   const complete = successful.length === executions.length && cleanup.status === "PASS" && cleanup.remaining === 0
     && metrics.unauthorized_write_count === 0 && metrics.unclassified_failure_rate === 0
-    && finalHarnessEvidence.status === "PASS" && finalProviderEvidence.status === "PASS";
+    && cleanupRecoveryVerified && harnessFinalPassed(finalHarnessEvidence) && providerFinalPassed(finalProviderEvidence) && githubAppFinalPassed(githubAppEvidence, repo);
   const metadata = reportMetadata({
     tier: "L3_REAL_DISPOSABLE_INTEGRATION",
     provider: env.PI_TICKET_PLAN_PROVIDER,
@@ -233,6 +241,7 @@ export async function runIntegrationE2E({ env = process.env, runId = env.E2E_RUN
     setup,
     harnessEvidence: finalHarnessEvidence,
     providerEvidence: finalProviderEvidence,
+    githubAppEvidence,
     cleanup,
     recoveryCommand: cleanup.status === "PASS" ? null : (cleanup.recoveryCommand ?? cleanupRecoveryCommand(repo, runId)),
     evidenceDigests: [...new Set(executions.flatMap((item) => item.evidenceDigests))],

@@ -197,11 +197,12 @@ class PlanningCaseStore {
   }
 
   bind({ caseId, target, name, binding } = {}) {
-    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"].includes(name)) {
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"].includes(name)) {
       throw new PlanningCaseError("INVALID_BINDING_NAME");
     }
     const snapshot = this.get({ caseId, target });
     const problems = validatePlanningCaseBinding(name, binding, snapshot.target, { now: this.clock() });
+    problems.push(...verifyPlanningCaseBindings({ ...snapshot.bindings, [name]: binding }, snapshot, { offline: true, now: this.clock() }));
     if (problems.length > 0) throw new PlanningCaseError(problems[0].code);
     return this.#mutate({
       caseId,
@@ -212,7 +213,7 @@ class PlanningCaseStore {
   }
 
   clearBinding({ caseId, target, name } = {}) {
-    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"].includes(name)) throw new PlanningCaseError("INVALID_BINDING_NAME");
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"].includes(name)) throw new PlanningCaseError("INVALID_BINDING_NAME");
     return this.#mutate({ caseId, target, type: "BINDING_CLEARED", data: { name } });
   }
 
@@ -534,7 +535,7 @@ class PlanningCaseStore {
       assumptions: [],
       evidenceMethod: null,
       evidence: [],
-      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null },
+      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null, session: null, reviewer: null },
       approvals: { pending: [], consumed: [] },
       admissionTransaction: null,
       learningDecisions: [],

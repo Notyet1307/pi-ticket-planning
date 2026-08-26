@@ -22,6 +22,12 @@ not change the release state.
 - controlled GitHub Admission with per-write readback;
 - observable Harness handoff and Outcome receipt ingestion.
 
+`session.resume` is `ANY_OF(pi.named-session, pi.exact-id-file-resume)`.
+Controlled Beta additionally requires the exact ID/file mechanism to pass across
+processes; a missing named alias is exercised only as a fault scenario. Every
+formal Reviewer dispatch uses the same parent one-shot gate and persists its
+parent/child/output Binding plus the exact resumable parent session Binding.
+
 ## Not allowed
 
 - unattended writes to production repositories or organization-wide rollout;
@@ -38,6 +44,19 @@ not change the release state.
 4. Bind every mutation to its Case ID, correlation ID, and Plan fingerprint.
 5. Stop for human handling on `PARTIAL` or `CONFLICT`; resume the same durable
    transaction after exact external readback.
+
+Disposable GitHub writes use a separate, single-repository GitHub App token.
+The source workflow token is reserved for checkout, Actions, Artifacts, and
+Attestations. The App token requests only Metadata read and Issues read/write;
+Contents and Administration are not granted. Its private token-bound identity
+file is never uploaded, and reports retain only App slug, installation identity
+digest, and target repository.
+
+The L3 disposable evidence collector has one narrower pre-qualification path:
+`applyAdmissionPlan` accepts an active supported Capability receipt only when an
+opaque authorization from that exact App/target preflight is present. It never
+writes or overlays the Compatibility Matrix and cannot authorize production;
+normal Admission still requires the exact persisted `SUPPORTED` tuple.
 
 Offline resume is `DEGRADED` and cannot authorize an external mutation.
 

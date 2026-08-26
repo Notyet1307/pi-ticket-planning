@@ -1,5 +1,6 @@
 import { createFactAttestation, evaluateMutation, producerAttestationSource } from "../protocol/kernel.mjs";
-import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
+import { requireAdmissionCapabilities, requireSupportedCapabilities } from "../capabilities/admission.mjs";
+import { assertDisposableGitHubAppAuthorization } from "../integration/github-app-auth.mjs";
 import { fingerprint, issue, safeError } from "./domain.mjs";
 import { validateAdmissionPlan } from "./validate.mjs";
 import { immutableStateProblems, preActivationProblems, operationState, resourceStateProblems, stateIssue } from "./recovery.mjs";
@@ -215,12 +216,22 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   let transaction = transactionState.transaction;
   if (agentPlan(plan)) {
     try {
-      requireAdmissionCapabilities(plan.reviewed.capabilityReceipt, {
-        repo: plan.repo,
-        baseSha: plan.reviewed.source.baseSha,
-        now,
-        matrix: options.compatibilityMatrix,
-      });
+      if (options.evidenceTier === "L3_REAL_DISPOSABLE_INTEGRATION") {
+        const app = options.githubAppEvidence;
+        assertDisposableGitHubAppAuthorization(options.githubAppAuthorization, app, plan.repo);
+        if (app.writeActorReadback !== true || app.permissions?.issues !== "write"
+          || app.permissions?.metadata !== "read" || app.permissions?.contents !== "none" || app.permissions?.administration !== "none") {
+          throw new Error("L3_DISPOSABLE_AUTH_REQUIRED");
+        }
+        requireSupportedCapabilities(plan.reviewed.capabilityReceipt, { repo: plan.repo, baseSha: plan.reviewed.source.baseSha, now });
+      } else {
+        requireAdmissionCapabilities(plan.reviewed.capabilityReceipt, {
+          repo: plan.repo,
+          baseSha: plan.reviewed.source.baseSha,
+          now,
+          matrix: options.compatibilityMatrix,
+        });
+      }
     } catch (error) {
       return applyResult("CONFLICT", plan, [], [], [issue(error instanceof Error ? error.message : "CAPABILITY_RECEIPT_REQUIRED")]);
     }

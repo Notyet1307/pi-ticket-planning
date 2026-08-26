@@ -68,7 +68,7 @@ test("Planning Case v2 reduces every domain event and replays identically", (t) 
   fs.writeFileSync(bindingFile, "bound\n", { mode: 0o600 });
   const bindingDigest = digest("bound\n");
   store.bind({ caseId: "PC-events", name: "source", binding: {
-    schema: "pi-ticket-planning:planning-case-binding:v1", target: TARGET, revision: "r1", digest: bindingDigest,
+    schema: "pi-ticket-planning:planning-case-binding:v1", target: TARGET, revision: "r1", baseSha: "a".repeat(40), digest: bindingDigest,
     producer: "test", observedAt: NOW, expiresAt: null, verification: { kind: "FILE", ref: bindingFile, digest: bindingDigest },
   } });
   store.clearBinding({ caseId: "PC-events", name: "source" });
@@ -95,7 +95,7 @@ test("Planning Case v2 reduces every domain event and replays identically", (t) 
   store.changeAdmissionTransaction({ caseId: "PC-events", transaction });
 
   const outcome = buildOutcomeReceipt({
-    id: "OR-R1", subject, source: { kind: "git", producer: "git", producerVersion: "test", producerDigest: digest("git") },
+    id: "OR-R1", subject, baseSha: "a".repeat(40), source: { kind: "git", producer: "git", producerVersion: "test", producerDigest: digest("git") },
     observedAt: NOW, status: "ACHIEVED", evidence: [{ kind: "git", ref: "commit", digest: digest("commit") }],
   });
   store.ingestOutcome({ caseId: "PC-events", receipt: outcome });

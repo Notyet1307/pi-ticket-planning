@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   cleanup:
@@ -20,10 +19,38 @@ jobs:
     environment: ptp-disposable-e2e
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22.16.0
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Resolve exact disposable repository
+        id: target
+        env:
+          TARGET_REPO: ${{ inputs.repo }}
+        run: |
+          case "$TARGET_REPO" in */*) ;; *) exit 1 ;; esac
+          echo "owner=${TARGET_REPO%%/*}" >> "$GITHUB_OUTPUT"
+          echo "repository=${TARGET_REPO#*/}" >> "$GITHUB_OUTPUT"
+      - name: Create disposable repository App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.PTP_E2E_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PTP_E2E_APP_PRIVATE_KEY }}
+          owner: ${{ steps.target.outputs.owner }}
+          repositories: ${{ steps.target.outputs.repository }}
+          permission-metadata: read
+          permission-issues: write
+      - name: Bind disposable App identity to the exact token
+        run: node integration/github-app-auth.mjs bind --out '${{ runner.temp }}/ptp-private/app-binding.json'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PTP_E2E_GITHUB_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          PTP_E2E_GITHUB_APP_INSTALLATION_ID: ${{ steps.app-token.outputs.installation-id }}
+          PTP_E2E_GITHUB_APP_TARGET_REPO: ${{ inputs.repo }}
+          PTP_E2E_GITHUB_APP_PERMISSIONS: metadata:read,issues:write
       - name: Recover remote run manifest and clean exact resources
         run: |
           mkdir -p '${{ runner.temp }}/ptp-cleanup'
@@ -37,4 +64,5 @@ jobs:
           E2E_REPO_TOPIC: ${{ vars.PTP_E2E_REPO_TOPIC }}
           E2E_DEFAULT_BRANCH: ${{ vars.PTP_E2E_DEFAULT_BRANCH }}
           E2E_NO_PRODUCTION_REMOTE: "1"
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PTP_E2E_GITHUB_APP_BINDING: ${{ runner.temp }}/ptp-private/app-binding.json

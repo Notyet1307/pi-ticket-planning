@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { validateArtifact, validateArtifactRuntime, validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
 import { runtimeMetadata } from "../installation/build-metadata.mjs";
+import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -17,7 +18,9 @@ const RUNTIME_ONLY = new Set([
   "pi.session",
   "pi.named-session",
   "pi.persisted-session",
+  "pi.exact-id-file-resume",
   "subagent.final-result",
+  "reviewer.one-shot-dispatch",
   "reviewer.fresh-context",
   "reviewer.schema",
   "tool-calling",
@@ -294,7 +297,7 @@ async function defaultActiveProbe(observed, { env }) {
 
   if (observed.provider === "UNCONFIGURED" || observed.model === "UNCONFIGURED" || !env.PI_TICKET_PLAN_THINKING) {
     const reasonCode = !env.PI_TICKET_PLAN_THINKING ? "THINKING_CONFIG_REQUIRED" : "PROVIDER_MODEL_CONFIG_REQUIRED";
-    for (const name of ["pi.session", "pi.named-session", "pi.persisted-session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "tool-calling", "timeout-cancellation", "provider.reviewer"]) {
+    for (const name of ["pi.session", "pi.named-session", "pi.persisted-session", "pi.exact-id-file-resume", "subagent.final-result", "reviewer.one-shot-dispatch", "reviewer.fresh-context", "reviewer.schema", "tool-calling", "timeout-cancellation", "provider.reviewer"]) {
       results.set(name, { name, status: "BLOCKED", reasonCode, evidence: [] });
     }
   } else {
@@ -363,6 +366,7 @@ async function defaultActiveProbe(observed, { env }) {
         persisted: false,
         sessionDir: "",
         sessionName: "capability-reviewer",
+        extensions: [path.join(ROOT, "extensions", "reviewer-one-shot-gate.mjs")],
       });
       const expectedAxes = { candidateReadiness: "NEEDS_INFO", contextQuality: "NEEDS_INFO", deliveryGraph: "NEEDS_INFO", scenarioCoverage: "NEEDS_INFO", walkingSkeleton: "NEEDS_INFO", strictFrontier: "NEEDS_INFO", executionLane: "PASS", inputBinding: "PASS" };
       const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, context fresh, artifacts false, mission false, and omitted acceptance. Give the child only this transport descriptor as the end of its task, ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, echo the exact source and all eight axes ${JSON.stringify(expectedAxes)}, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
@@ -375,9 +379,25 @@ async function defaultActiveProbe(observed, { env }) {
       const finalEvent = Boolean(childTool && !childTool.isError && childTool.details.runId
         && isSuccessfulReviewerChild(child) && finalResult && childHeader?.id
         && fs.realpathSync(childHeader.cwd) === fs.realpathSync(reviewDirectory));
+      let dispatchBinding = null;
+      if (finalEvent) {
+        dispatchBinding = buildReviewerDispatchBinding({
+          parentSessionId: reviewerSession.identity.id,
+          childRunId: childTool.details.runId,
+          childSessionId: childHeader.id,
+          childFileDigest: childHeader.digest,
+          inputDigest: descriptor.binding.inputDigest,
+          outputDigest: hash(finalResult),
+          dispatchOrdinal: 1,
+          totalDispatches: 1,
+        });
+      }
       results.set("subagent.final-result", finalEvent
         ? { name: "subagent.final-result", status: "SUPPORTED", reasonCode: "CHILD_FINAL_EVENT_PASS", evidence: activeEvidence(observed, "subagent.final-result", `${childTool.details.runId}:${childHeader.id}`) }
         : { name: "subagent.final-result", status: "BLOCKED", reasonCode: "CHILD_FINAL_EVENT_MISSING", evidence: [] });
+      results.set("reviewer.one-shot-dispatch", dispatchBinding
+        ? { name: "reviewer.one-shot-dispatch", status: "SUPPORTED", reasonCode: "REVIEWER_ONE_SHOT_GATE_PASS", evidence: activeEvidence(observed, "reviewer.one-shot-dispatch", dispatchBinding.digest) }
+        : { name: "reviewer.one-shot-dispatch", status: "BLOCKED", reasonCode: "REVIEWER_ONE_SHOT_GATE_UNPROVEN", evidence: [] });
       let review = null;
       try { review = uniqueJsonBlock(finalResult); } catch { /* Project to BLOCKED below. */ }
       const reviewStructure = review ? await validateArtifactRuntime(review) : { ok: false };
@@ -467,6 +487,9 @@ async function defaultActiveProbe(observed, { env }) {
       results.set("pi.persisted-session", namedOk
         ? { name: "pi.persisted-session", status: "SUPPORTED", reasonCode: "CROSS_PROCESS_SESSION_RESUME_PASS", evidence: activeEvidence(observed, "pi.persisted-session", `${persistedIdentity.id}:${persistedIdentity.file}`) }
         : { name: "pi.persisted-session", status: "BLOCKED", reasonCode: "CROSS_PROCESS_SESSION_RESUME_FAIL", evidence: [] });
+      results.set("pi.exact-id-file-resume", namedOk
+        ? { name: "pi.exact-id-file-resume", status: "SUPPORTED", reasonCode: "EXACT_ID_FILE_RESUME_PASS", evidence: activeEvidence(observed, "pi.exact-id-file-resume", `${persistedIdentity.id}:${persistedIdentity.file}`) }
+        : { name: "pi.exact-id-file-resume", status: "BLOCKED", reasonCode: "EXACT_ID_FILE_RESUME_FAIL", evidence: [] });
       results.set("pi.named-session", {
         name: "pi.named-session",
         status: "BLOCKED",
@@ -529,7 +552,7 @@ async function defaultActiveProbe(observed, { env }) {
       timeoutSession = null;
     } catch (error) {
       const failureDigest = hash({ error: error instanceof Error ? error.message : String(error) });
-      for (const name of ["pi.session", "pi.named-session", "pi.persisted-session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "tool-calling", "timeout-cancellation", "provider.reviewer"]) {
+      for (const name of ["pi.session", "pi.named-session", "pi.persisted-session", "pi.exact-id-file-resume", "subagent.final-result", "reviewer.one-shot-dispatch", "reviewer.fresh-context", "reviewer.schema", "tool-calling", "timeout-cancellation", "provider.reviewer"]) {
         if (results.get(name).status === "UNTESTED") results.set(name, { name, status: "BLOCKED", reasonCode: "ACTIVE_PROBE_FAILED", evidence: [{ kind: "active-probe", digest: failureDigest }] });
       }
     } finally {
