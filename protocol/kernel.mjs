@@ -166,11 +166,12 @@ export function validateCodeSchemaCoverage({ protocol = loadProtocol() } = {}) {
   const declared = new Set(protocol.registry.artifacts.flatMap((entry) =>
     entry.readableMajors.map((major) => `${entry.namespace}:${entry.name}:v${major}`)));
   const observed = new Map();
-  const assignment = /(?:\b[A-Z][A-Z0-9_]*SCHEMA[A-Z0-9_]*\s*=\s*|\bschema\s*:\s*)["'`]((?:pi-ticket-planning|herdr-harness):[a-z0-9-]+:v[1-9][0-9]*)["'`]/g;
+  const assignment = /(?:\b[A-Z][A-Z0-9_]*SCHEMA[A-Z0-9_]*\s*=\s*|\bschema\s*:\s*)["'`]((?:pi-ticket-planning|herdr-harness|herdr-codex-controller):[a-z0-9-]+:v[1-9][0-9]*)["'`]/g;
   for (const relative of [
     "scripts",
     "protocol",
     "admission",
+    "execution-plan",
     "planning-case",
     "capabilities",
     "installation",

@@ -553,6 +553,42 @@
       "migrationPath": null
     },
     {
+      "namespace": "herdr-codex-controller",
+      "name": "release-plan",
+      "schemaIdentity": "herdr-codex-controller:release-plan:v2",
+      "schemaPath": "schemas/herdr-codex-release-plan-v2.schema.json",
+      "currentMajor": 2,
+      "readableMajors": [2],
+      "writer": "execution-plan-compiler",
+      "readers": ["herdr-codex-controller", "execution-plan-apply"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "execution-handoff-plan",
+      "schemaIdentity": "pi-ticket-planning:execution-handoff-plan:v1",
+      "schemaPath": "schemas/execution-handoff-plan-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "execution-plan-compiler",
+      "readers": ["execution-plan-apply", "planning-case-cli"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "execution-handoff-receipt",
+      "schemaIdentity": "pi-ticket-planning:execution-handoff-receipt:v1",
+      "schemaPath": "schemas/execution-handoff-receipt-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "execution-plan-apply",
+      "readers": ["operator", "planning-case-store"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
       "namespace": "pi-ticket-planning",
       "name": "github-app-credential-binding",
       "schemaIdentity": "pi-ticket-planning:github-app-credential-binding:v1",
