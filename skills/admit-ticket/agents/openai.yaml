@@ -1,6 +1,6 @@
 interface:
-  display_name: "Admit Ticket"
-  short_description: "Review candidate issues before agent activation"
-  default_prompt: "Use $admit-ticket after ask-yet persists an approved candidate graph; stop before ready-label activation."
+  display_name: "Legacy Herdr Admission"
+  short_description: "Activate ready labels only when Legacy Herdr is explicit"
+  default_prompt: "Use $admit-ticket only after the operator explicitly selects Legacy Herdr per-ticket activation; stop before the exact ready-label approval."
 policy:
   allow_implicit_invocation: true

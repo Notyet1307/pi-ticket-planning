@@ -10,7 +10,10 @@ import {
 
 export function validateBehaviorFixtures(root) {
   const observedFile = path.join(root, "fixtures", "pi-behavior-cases.json");
-  const errors = validateObservedBehaviorCases(observedFile);
+  const errors = [
+    ...validateObservedBehaviorCases(observedFile),
+    ...validateExecutionPlanBehaviorCases(path.join(root, "fixtures", "execution-plan-cases.json")),
+  ];
   const live = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
   const multi = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
   const suites = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-eval-suites.json"), "utf8"));
@@ -66,6 +69,30 @@ export function validateBehaviorFixtures(root) {
     ...validateMultiTurnEvalFixture(multi, singleIds).map((error) => `multiturn: ${error}`),
     ...validateEvalSuiteManifest(suites, combineLiveEvalFixtures(live, multi)).map((error) => `suites: ${error}`),
   ];
+}
+
+function validateExecutionPlanBehaviorCases(file) {
+  const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
+  const errors = [];
+  if (fixture.version !== 1 || fixture.evidenceTier !== "DETERMINISTIC_CONTRACT_FIXTURE" || !Array.isArray(fixture.cases)) {
+    return ["invalid execution-plan deterministic fixture"];
+  }
+  const expectedIds = ["agent-only-default-handoff", "human-child-stops-handoff", "external-blocker-stops-handoff"];
+  if (fixture.cases.map(({ id }) => id).join("\n") !== expectedIds.join("\n")) errors.push("execution-plan deterministic fixture case set drifted");
+  for (const item of fixture.cases) {
+    const executable = item.executionLanes?.length > 0
+      && item.executionLanes.every((lane) => lane === "AGENT")
+      && Array.isArray(item.externalBlockers)
+      && item.externalBlockers.length === 0;
+    const actual = {
+      status: executable ? "READY" : "CODEX_RELEASE_NOT_EXECUTABLE",
+      route: executable ? "prepare-codex-release" : null,
+      labelWrites: 0,
+      controllerStarts: 0,
+    };
+    if (JSON.stringify(actual) !== JSON.stringify(item.expected)) errors.push(`${item.id}: execution-plan route projection drifted`);
+  }
+  return errors;
 }
 
 function validateObservedBehaviorCases(file) {

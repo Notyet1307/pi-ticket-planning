@@ -6,7 +6,7 @@
     "skills/ticket-readiness/SKILL.md"
   ],
   "optional": [],
-  "maxBytes": 14000,
-  "maxEstimatedTokens": 3500,
+  "maxBytes": 16000,
+  "maxEstimatedTokens": 4000,
   "maxDocuments": 2
 }

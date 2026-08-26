@@ -43,6 +43,7 @@
   "packageSkills": [
     "admit-ticket",
     "ask-yet",
+    "prepare-codex-release",
     "setup-delivery-repository",
     "ticket-readiness"
   ]

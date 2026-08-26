@@ -17,12 +17,12 @@ Before reconstructing or changing state, read [the Planning Case runtime](../pla
 ## Non-negotiable boundaries
 
 - Plan only the next evidence-producing Release, never a complete product backlog. A decision-complete local change may use one `QUICK` Ticket.
-- Treat conversation and summaries as leads, not facts. Verify live repository, tracker, and Harness state when they control the next gate.
+- Treat conversation and summaries as leads, not facts. Verify live repository, tracker, and the selected executor's public state when they control the next gate.
 - Keep product evidence, delivery progress, release state, and outcome separate. Never promote assumptions, model memory, or simulated customer evidence into facts.
 - Treat mutation approval as scoped. Reuse standing approval only for the exact reversible planning scope it covers; require approval again on target, source, scope, policy, risk, or publication drift.
 - An existing-Git Release is authoritative only when its exact blob is reachable from the accepted remote delivery base. A human-approved draft ref may preserve a candidate during `FRAME` or `EVIDENCE`, but cannot feed `to-spec`.
 - Never enter `SPEC` before a human commits an exact Release revision, and never let downstream delivery choose a missing load-bearing architecture, data owner, shared interface, or verification boundary.
-- Never route formal delivery to `/skill:implement`; admitted Tickets go to the configured Harness.
+- Never route formal delivery to `/skill:implement`; accepted Delivery Graphs default to one Codex Controller Release Handoff. Route to the configured Harness only when the operator explicitly selects Legacy Herdr admission.
 - Run only when invoked. Reconstruct current facts on demand; do not poll or duplicate Harness state.
 - Continue through discoverable, reversible mechanics. Stop at a non-delegable decision, required approval, interview answer, forbidden operation, authoritative conflict, or material drift/failure.
 
@@ -42,7 +42,7 @@ Read only facts that can change `planning_depth`, `control_mode`, `lane`, `stage
 1. Human-supplied target and material.
 2. Target identity, exact Git state, effective root policy, root README, and authoritative product entry points.
 3. The active `docs/product/releases/` file, when one exists.
-4. Only the tracker, Evidence, ADR, Release, or Harness facts required by the current gate.
+4. Only the tracker, Evidence, ADR, Release, Controller-public, or explicit Legacy Harness facts required by the current gate.
 5. One undiscoverable human input that would change the next gate.
 
 An empty directory, non-Git directory, or unborn repository is a valid `PRODUCT / ORIENT` start. Record absent code, Git, policy, and tracker facts as absent, not blocking. Before an exact Release is `COMMITTED`, do not bootstrap Git, tracker, stack, architecture, or application code.
@@ -85,7 +85,9 @@ Load each named owner in full only when its gate applies:
 | A `QUICK` source, incoming issue, or confirmed regression needs one candidate | `triage` |
 | An accepted product source is ready for scenario compilation | `to-spec` |
 | An accepted Delivery Spec is ready for candidate Tickets | `to-tickets` |
-| Approved candidates need fresh review and transactional activation | `admit-ticket` |
+| Approved Delivery Graph needs fresh review and one release handoff | `prepare-codex-release` |
+| Explicit Legacy Herdr per-ticket activation | `admit-ticket` |
+| An exact executor-neutral handoff exists | [Handoff-ready routing](references/handoff-ready.md) |
 | Admission, Harness, Git/PR, enablement, release, or post-window facts exist | [Execution and closeout](references/execution-closeout.md) |
 
 For `RISK`, load the Release loop and retain every applicable control. For `INCIDENT`, stop ordinary planning and follow the repository's incident and recovery policy. Use Wayfinder only when interdependent decisions cannot be reduced to one decision-changing action; use `to-questionnaire` only when an asynchronous questionnaire is the selected next human interaction. Print the exact command and stop when either separate interaction is required.

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prepare Codex Release"
+  short_description: "Build one exact Controller release handoff"
+  default_prompt: "Use $prepare-codex-release after an accepted Delivery Graph; run one fresh graph review, compile and display the exact Release Plan, wait for fingerprint approval, then materialize without starting the Controller."
+policy:
+  allow_implicit_invocation: true

@@ -160,14 +160,14 @@ export function validateDocs(root) {
     }
     for (const match of text.matchAll(/pi-ticket-plan\s+([^\s`]+)/g)) {
       const command = match[1];
-      if (!command.startsWith("-") && !["doctor", "admit", "delivery-gate"].includes(command)) {
+      if (!command.startsWith("-") && !["doctor", "admit", "execution-plan", "delivery-gate"].includes(command)) {
         errors.push(`${file}: documents unsupported launcher command ${command}`);
       }
     }
   }
 
   const launcher = read(root, "profile/pi-ticket-plan");
-  for (const command of ["doctor", "admit", "delivery-gate"]) {
+  for (const command of ["doctor", "admit", "execution-plan", "delivery-gate"]) {
     if (!launcher.includes(`= "${command}"`)) errors.push(`profile/pi-ticket-plan: missing documented command ${command}`);
   }
 

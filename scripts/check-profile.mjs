@@ -34,6 +34,7 @@ const REQUIRED_MODEL_INVOKED = new Set([
   "domain-modeling",
   "grilling",
   "prototype",
+  "prepare-codex-release",
   "research",
   "setup-delivery-repository",
   "ticket-readiness",

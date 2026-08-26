@@ -11,6 +11,7 @@ const SCOUT_THINKING = "max";
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
   "ask-yet",
+  "prepare-codex-release",
   "setup-delivery-repository",
   "ticket-readiness",
   "to-spec",
@@ -20,6 +21,7 @@ const REQUIRED_PACKAGE_SKILLS = [
 const HUMAN_INVOKED_SKILLS = new Set(["ask-yet"]);
 const MODEL_INVOKED_PACKAGE_SKILLS = new Set([
   "admit-ticket",
+  "prepare-codex-release",
   "setup-delivery-repository",
   "to-spec",
   "to-tickets",
@@ -31,6 +33,7 @@ const ASK_YET_REFERENCES = [
   "interview-session.md",
   "solution-shaping.md",
   "human-interface.md",
+  "handoff-ready.md",
   "execution-closeout.md",
 ];
 const REQUIRED_FILES = [
@@ -54,6 +57,7 @@ const REQUIRED_FILES = [
   "docs/security/trust-boundaries.md",
   "docs/security/secure-operations.md",
   "fixtures/admission-cases.json",
+  "fixtures/execution-plan-cases.json",
   "fixtures/README.md",
   "install.sh",
   "package.json",
@@ -62,6 +66,17 @@ const REQUIRED_FILES = [
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
   "schemas/project-readiness-v1.schema.json",
+  "schemas/herdr-codex-release-plan-v2.schema.json",
+  "schemas/execution-handoff-plan-v1.schema.json",
+  "schemas/execution-handoff-receipt-v1.schema.json",
+  "execution-plan/contract.md",
+  "execution-plan/domain.mjs",
+  "execution-plan/markdown.mjs",
+  "execution-plan/compiler.mjs",
+  "execution-plan/controller-adapter.mjs",
+  "execution-plan/validate.mjs",
+  "execution-plan/handoff-apply.mjs",
+  "execution-plan/cli.mjs",
   "scripts/admit.mjs",
   "admission/apply.mjs",
   "admission/cli.mjs",
@@ -78,6 +93,8 @@ const REQUIRED_FILES = [
   "scripts/check-profile.mjs",
   "scripts/check-ticket-context.mjs",
   "scripts/canary-execution-readiness.mjs",
+  "scripts/canary-codex-controller-contract.mjs",
+  "scripts/execution-plan.mjs",
   "scripts/install-profile.mjs",
   "scripts/planctl.mjs",
   "scripts/readiness-receipt.mjs",
@@ -128,6 +145,8 @@ const REQUIRED_FILES = [
   "skills/setup-delivery-repository/issue-tracker-gitlab.md",
   "skills/setup-delivery-repository/issue-tracker-local.md",
   "skills/ticket-readiness/SKILL.md",
+  "skills/prepare-codex-release/SKILL.md",
+  "skills/prepare-codex-release/agents/openai.yaml",
   "skills/to-spec/SKILL.md",
   "skills/to-tickets/SKILL.md",
   "skills/triage/AGENT-BRIEF.md",
@@ -179,9 +198,11 @@ export function validatePackage(root) {
     admit: "node scripts/admit.mjs",
     benchmark: "node benchmark/benchmark.mjs",
     "canary:execution-readiness": "node scripts/canary-execution-readiness.mjs",
+    "canary:codex-controller-contract": "node scripts/canary-codex-controller-contract.mjs",
     check: "node scripts/check-package.mjs",
     "check:admission-state": "node scripts/check-admission-state.mjs",
     "check:behavior-fixtures": "node scripts/check-behavior-fixtures.mjs",
+    "check:codex-controller-contract": "node --test test/codex-controller-contract.test.mjs test/execution-plan.test.mjs test/execution-plan-protocol.test.mjs",
     "check:delivery-graph": "node scripts/check-delivery-graph.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:frontier": "node scripts/check-frontier-order.mjs",
@@ -189,6 +210,7 @@ export function validatePackage(root) {
     "check:workflow": "node scripts/workflow-contract.mjs",
     doctor: "node scripts/doctor.mjs",
     "delivery-gate": "node scripts/delivery-gate.mjs",
+    "execution-plan": "node scripts/execution-plan.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "e2e:cleanup": "node integration/cleanup.mjs",
@@ -298,7 +320,7 @@ export function validatePackage(root) {
   if (skillTexts.some((text) => /\/skill:to-release\b/.test(text))) errors.push("active Skill recommends obsolete /skill:to-release");
 
   const askYet = fs.readFileSync(path.join(skillRoot, "ask-yet", "SKILL.md"), "utf8");
-  for (const name of ["ask-yet", "to-spec", "to-tickets", "admit-ticket", "triage", "setup-delivery-repository"]) {
+  for (const name of ["ask-yet", "to-spec", "to-tickets", "prepare-codex-release", "admit-ticket", "triage", "setup-delivery-repository"]) {
     const text = fs.readFileSync(path.join(skillRoot, name, "SKILL.md"), "utf8");
     if (!text.includes("planning-case-runtime.md")) errors.push(`${name} does not enter the Planning Case runtime`);
   }
@@ -352,6 +374,7 @@ export function validatePackage(root) {
 
   const toSpec = fs.readFileSync(path.join(skillRoot, "to-spec", "SKILL.md"), "utf8");
   const toTickets = fs.readFileSync(path.join(skillRoot, "to-tickets", "SKILL.md"), "utf8");
+  const prepareCodexRelease = fs.readFileSync(path.join(skillRoot, "prepare-codex-release", "SKILL.md"), "utf8");
   const triage = fs.readFileSync(path.join(skillRoot, "triage", "SKILL.md"), "utf8");
   const triageBrief = fs.readFileSync(path.join(skillRoot, "triage", "AGENT-BRIEF.md"), "utf8");
   const readiness = fs.readFileSync(path.join(skillRoot, "ticket-readiness", "SKILL.md"), "utf8");
@@ -376,7 +399,7 @@ export function validatePackage(root) {
     "Context conflicts:",
     "Context anchors:",
     "Context economy:",
-    "Harness readiness projection",
+    "Controller-owned commit boundary",
     "pi-ticket-planning:admission-review-binding:v1",
     "inputBinding",
   ]);
@@ -414,6 +437,14 @@ export function validatePackage(root) {
     "check-admission-state.mjs",
     "## Context anchors",
   ]);
+  requireTokens(errors, "skills/prepare-codex-release/SKILL.md", prepareCodexRelease, [
+    "CODEX_RELEASE_NOT_EXECUTABLE",
+    "case approve-handoff",
+    "execution-plan build",
+    "execution-plan apply",
+    "needs-triage",
+    "do not execute it",
+  ]);
   requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
     "pi-ticket-planning:admission-review:v1",
     "pi-ticket-planning:delivery-graph:v2",
@@ -448,6 +479,8 @@ export function validatePackage(root) {
     "scripts/doctor.mjs",
     '= "admit"',
     "scripts/admit.mjs",
+    '= "execution-plan"',
+    "scripts/execution-plan.mjs",
     '= "delivery-gate"',
     "scripts/delivery-gate.mjs",
     '= "case"',
