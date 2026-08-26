@@ -7,12 +7,13 @@ import {
 const observedAt = new Date().toISOString();
 
 export function harnessReadiness(repo, baseSha, overrides = {}) {
+  const { observedAt: receiptObservedAt = observedAt, ...projectionOverrides } = overrides;
   return {
     identity: `HerdrHarness ${HARNESS_READINESS_SCHEMA}`,
     digest: `sha256:${HARNESS_READINESS_SCHEMA_SHA256}`,
     readiness: {
       schema: ADMISSION_READINESS_SCHEMA,
-      observedAt,
+      observedAt: receiptObservedAt,
       receiptDigest: `sha256:${"f".repeat(64)}`,
       projection: {
         schema: HARNESS_READINESS_SCHEMA,
@@ -43,7 +44,7 @@ export function harnessReadiness(repo, baseSha, overrides = {}) {
             mergeMethodAllowed: true,
           },
         },
-        ...overrides,
+        ...projectionOverrides,
       },
     },
   };

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { runtimeMetadata } from "../installation/build-metadata.mjs";
 import { fileURLToPath } from "node:url";
 import { inspectGitHubDeliveryGate } from "./delivery-gate.mjs";
 
@@ -94,8 +95,7 @@ export function diagnose({
   if (pin.ok) add("Installation", "PASS", "Pinned upstream Skill commit", pin.commit);
   else add("Installation", profile.settings ? "FAIL" : "SKIP", "Pinned upstream Skill commit", pin.detail, profile.settings ? `Run: ${shellQuote(path.join(packageRoot, "install.sh"))}` : "");
 
-  const packageHead = invoke("git", ["-C", packageRoot, "rev-parse", "HEAD"]);
-  const localHead = succeeded(packageHead) ? packageHead.stdout.trim() : null;
+  const localHead = runtimeMetadata({ root: packageRoot }).sourceCommit;
   const dirty = invoke("git", ["-C", packageRoot, "status", "--porcelain"]);
   if (!succeeded(dirty)) {
     add("Version", "WARN", "Package checkout state", failureDetail(dirty));

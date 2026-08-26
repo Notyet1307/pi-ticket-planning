@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/planning-case-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "caseId", "checkpoint", "blocker", "nextAction", "selectedCandidate", "excludedCandidates", "facts", "consumedFactIds", "decisions", "unknowns", "assumptions", "evidenceMethod", "evidence", "bindings", "approvals", "admissionTransaction", "learningDecisions", "lastCheckpoint", "lastEvent", "createdAt", "updatedAt"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:planning-case:v2" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "checkpoint": { "$ref": "checkpoint-v2.schema.json" },
+    "blocker": { "oneOf": [{ "$ref": "#/$defs/blocker" }, { "type": "null" }] },
+    "nextAction": { "$ref": "#/$defs/nextAction" },
+    "selectedCandidate": { "oneOf": [{ "$ref": "#/$defs/candidate" }, { "type": "null" }] },
+    "excludedCandidates": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/$defs/candidate" } },
+    "facts": { "type": "array", "maxItems": 10000, "items": { "$ref": "fact-attestation-v1.schema.json" } },
+    "consumedFactIds": { "type": "array", "maxItems": 10000, "uniqueItems": true, "items": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" } },
+    "decisions": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/decision" } },
+    "unknowns": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/unknown" } },
+    "assumptions": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/assumption" } },
+    "evidenceMethod": { "oneOf": [{ "$ref": "#/$defs/evidenceMethod" }, { "type": "null" }] },
+    "evidence": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/evidence" } },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"],
+      "properties": {
+        "source": { "oneOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "release": { "oneOf": [{ "$ref": "release-projection-v1.schema.json" }, { "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "spec": { "oneOf": [{ "$ref": "spec-projection-v1.schema.json" }, { "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "graph": { "oneOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "policy": { "oneOf": [{ "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "harness": { "oneOf": [{ "$ref": "harness-readiness-v1.schema.json" }, { "$ref": "#/$defs/binding" }, { "type": "null" }] },
+        "capability": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
+        "outcome": { "oneOf": [{ "$ref": "outcome-receipt-v1.schema.json" }, { "type": "null" }] },
+        "session": { "oneOf": [{ "$ref": "planning-session-binding-v1.schema.json" }, { "type": "null" }] },
+        "reviewer": { "oneOf": [{ "$ref": "reviewer-dispatch-binding-v1.schema.json" }, { "type": "null" }] }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pending", "consumed"],
+      "properties": {
+        "pending": { "type": "array", "maxItems": 1000, "items": { "$ref": "fact-attestation-v1.schema.json" } },
+        "consumed": { "type": "array", "maxItems": 10000, "items": { "$ref": "fact-attestation-v1.schema.json" } }
+      }
+    },
+    "admissionTransaction": { "oneOf": [{ "$ref": "admission-transaction-v1.schema.json" }, { "type": "null" }] },
+    "learningDecisions": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/learning" } },
+    "lastCheckpoint": { "$ref": "checkpoint-v2.schema.json" },
+    "lastEvent": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "createdAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "updatedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object", "additionalProperties": false, "required": ["id", "revision", "digest", "title"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "title": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" } }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false, "required": ["id", "subject", "decision", "rationaleRef", "observedAt"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "subject": { "$ref": "common-v1.schema.json#/$defs/subject" }, "decision": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" }, "rationaleRef": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" } }
+    },
+    "unknown": {
+      "type": "object", "additionalProperties": false, "required": ["id", "question", "truthOwner", "status", "resolution", "evidenceDigest"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "question": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" }, "truthOwner": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "status": { "enum": ["OPEN", "RESOLVED"] }, "resolution": { "type": ["string", "null"], "maxLength": 65536 }, "evidenceDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] } }
+    },
+    "assumption": {
+      "type": "object", "additionalProperties": false, "required": ["id", "statement", "status", "evidenceDigest"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "statement": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" }, "status": { "enum": ["ACTIVE", "REVISED"] }, "evidenceDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] } }
+    },
+    "evidenceMethod": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "truthOwner", "cost", "stoppingRule", "reasonCode"],
+      "properties": { "kind": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "truthOwner": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "cost": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "stoppingRule": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" }, "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" } }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "ref", "digest", "observedAt"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "kind": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "ref": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" } }
+    },
+    "blocker": {
+      "type": "object", "additionalProperties": false, "required": ["id", "code", "reason", "requiredFacts"],
+      "properties": { "id": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" }, "reason": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" }, "requiredFacts": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*(?:\\.[a-z][A-Za-z0-9]*)+$" } } }
+    },
+    "nextAction": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "command", "skill", "requiredInputs", "blockingFacts", "contextRoute", "reasonCode"],
+      "properties": { "kind": { "enum": ["COMMAND", "SKILL", "NONE"] }, "command": { "type": ["string", "null"], "maxLength": 4096 }, "skill": { "type": ["string", "null"], "maxLength": 256 }, "requiredInputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } }, "blockingFacts": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*(?:\\.[a-z][A-Za-z0-9]*)+$" } }, "contextRoute": { "type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*(?:/[A-Z][A-Z0-9_]*){2}$" }, "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" } }
+    },
+    "binding": { "$ref": "planning-case-binding-v1.schema.json" },
+    "learning": {
+      "type": "object", "additionalProperties": false, "required": ["decision", "subject", "outcomeReceiptDigest", "operatorApproval", "affectedRuleIds", "rationaleRef", "observedAt"],
+      "properties": { "decision": { "enum": ["PROMOTE", "REVISE", "REJECT", "NO_CHANGE"] }, "subject": { "$ref": "common-v1.schema.json#/$defs/subject" }, "outcomeReceiptDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }, "operatorApproval": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" }, "affectedRuleIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^PTP-[A-Z]+-[0-9]{3}$" } }, "rationaleRef": { "$ref": "common-v1.schema.json#/$defs/safeText" }, "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" } }
+    }
+  }
+}

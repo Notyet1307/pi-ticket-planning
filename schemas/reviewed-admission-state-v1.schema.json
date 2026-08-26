@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/reviewed-admission-state-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "kind", "repo", "target", "source", "contextChecks", "policy", "harness", "review", "reviewBinding", "capabilityReceipt", "currentCheckpoint"],
+  "required": ["schema", "kind", "repo", "target", "source", "contextChecks", "policy", "harness", "review", "reviewBinding", "reviewDispatchBinding", "capabilityReceipt", "currentCheckpoint"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:reviewed-admission-state:v1" },
     "kind": { "enum": ["DELIVERY_GRAPH", "STANDALONE"] },
@@ -21,7 +21,8 @@
     "harness": { "type": ["object", "null"] },
     "review": { "$ref": "admission-review-v1.schema.json" },
     "reviewBinding": { "$ref": "admission-review-binding-v1.schema.json" },
+    "reviewDispatchBinding": { "$ref": "reviewer-dispatch-binding-v1.schema.json" },
     "capabilityReceipt": { "oneOf": [{ "$ref": "capability-receipt-v1.schema.json" }, { "type": "null" }] },
-    "currentCheckpoint": { "type": "object" }
+    "currentCheckpoint": { "$ref": "checkpoint-v2.schema.json" }
   }
 }

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/compatibility-proposal-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "matrixDigest", "qualificationDigest", "capabilityDigest", "qualificationProvenance", "entry", "proposalDigest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:compatibility-proposal:v1" },
+    "matrixDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "qualificationDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "capabilityDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "qualificationProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "workflowRunId", "workflowRunAttempt", "workflowRunUrl", "signerWorkflow", "sourceDigest"],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "workflowRunId": { "type": "string", "minLength": 1 },
+        "workflowRunAttempt": { "type": "integer", "minimum": 1 },
+        "workflowRunUrl": { "type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[0-9]+$" },
+        "signerWorkflow": { "type": "string", "pattern": "^github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/\\.github/workflows/release-qualification\\.yml$" },
+        "sourceDigest": { "$ref": "common-v1.schema.json#/$defs/gitSha" }
+      }
+    },
+    "entry": { "$ref": "compatibility-matrix-v2.schema.json#/properties/entries/items" },
+    "proposalDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

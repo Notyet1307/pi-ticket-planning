@@ -74,6 +74,12 @@
   ],
   "rebindTransitions": [
     {
+      "sourceStage": "ORIENT",
+      "targetStage": "FRAME",
+      "requiredFacts": ["human.targetSelected"],
+      "changes": ["subject.kind", "subject.id", "subject.revision"]
+    },
+    {
       "sourceStage": "OUTCOME",
       "targetStage": "ORIENT",
       "requiredFacts": ["human.identityRebind"],

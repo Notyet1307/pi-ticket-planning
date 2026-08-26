@@ -15,9 +15,15 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cases = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "admission-cases.json"), "utf8")).graphCases;
 
+function graph(item) {
+  const { id: _id, expectedGraphVerdict: _verdict, expectedProblemCodes: _codes, ...snapshot } = structuredClone(item);
+  for (const child of snapshot.children ?? []) child.externalBlockers ??= [];
+  return snapshot;
+}
+
 test("delivery graph fixtures keep coverage, handoff, skeleton, and frontier fail-closed", () => {
   for (const item of cases) {
-    const checked = validateDeliveryGraph(item);
+    const checked = validateDeliveryGraph(graph(item));
     assert.equal(checked.verdict, item.expectedGraphVerdict, item.id);
     for (const code of item.expectedProblemCodes ?? []) {
       assert.equal(checked.problems.some((problem) => problem.code === code), true, `${item.id}: ${code}`);
@@ -33,7 +39,7 @@ test("delivery graph parser accepts raw JSON and one marked Markdown snapshot", 
 });
 
 test("delivery graph rejects malformed smallest-loop declarations", () => {
-  const ready = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const ready = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   for (const scenario of ready.scenarios) delete scenario.smallestLoop;
   let checked = validateDeliveryGraph(ready);
   assert.equal(checked.ok, false);
@@ -46,7 +52,7 @@ test("delivery graph rejects malformed smallest-loop declarations", () => {
 });
 
 test("delivery graph rejects duplicate internal references and unresolved external blockers", () => {
-  const ready = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const ready = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   ready.children[1].sourceScenarios.push("S2");
   ready.children[1].blockedBy.push("T1");
   ready.children[1].externalBlockers = ["security approval"];
@@ -70,7 +76,7 @@ test("delivery graph rejects duplicate internal references and unresolved extern
 });
 
 test("delivery graph reports dependency cycles explicitly", () => {
-  const ready = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const ready = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   ready.children[0].blockedBy = ["T2"];
   const checked = validateDeliveryGraph(ready);
   assert.equal(checked.ok, false);
@@ -78,7 +84,7 @@ test("delivery graph reports dependency cycles explicitly", () => {
 });
 
 test("walking skeleton rejects a structurally redundant child", () => {
-  const ready = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const ready = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   ready.children.splice(1, 0, {
     id: "T3",
     title: "Accept comparison inputs again",
@@ -96,7 +102,7 @@ test("walking skeleton rejects a structurally redundant child", () => {
 });
 
 test("delivery graph v2 requires stable Spec and child body identities", () => {
-  const ready = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const ready = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   ready.version = 2;
   delete ready.source.specContentHash;
   delete ready.children[0].bodyHash;
@@ -109,7 +115,7 @@ test("delivery graph v2 requires stable Spec and child body identities", () => {
 });
 
 test("delivery graph v1 remains readable but cannot pass Admission", () => {
-  const legacy = structuredClone(cases.find((item) => item.expectedGraphVerdict === "READY"));
+  const legacy = graph(cases.find((item) => item.expectedGraphVerdict === "READY"));
   legacy.version = 1;
   const parsed = parseDeliveryGraph(`${DELIVERY_GRAPH_MARKER_V1}\n\n\`\`\`json\n${JSON.stringify(legacy)}\n\`\`\``);
   assert.equal(parsed.version, 1);

@@ -3,11 +3,37 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/admission-review-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "reviewer", "reviewedAt", "graphVerdict", "candidates", "inputBinding"],
+  "required": ["schema", "reviewer", "reviewedAt", "source", "axes", "graphVerdict", "candidates", "inputBinding"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:admission-review:v1" },
     "reviewer": { "const": "ticket-readiness-reviewer" },
     "reviewedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "revision", "baseSha"],
+      "properties": {
+        "identity": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "specContentHash": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"],
+      "properties": {
+        "candidateReadiness": { "$ref": "#/$defs/axis" },
+        "contextQuality": { "$ref": "#/$defs/axis" },
+        "deliveryGraph": { "$ref": "#/$defs/axis" },
+        "scenarioCoverage": { "$ref": "#/$defs/axis" },
+        "walkingSkeleton": { "$ref": "#/$defs/axis" },
+        "strictFrontier": { "$ref": "#/$defs/axis" },
+        "executionLane": { "$ref": "#/$defs/axis" },
+        "inputBinding": { "$ref": "#/$defs/axis" }
+      }
+    },
     "graphVerdict": { "enum": ["READY", "NEEDS_INFO"] },
     "candidates": {
       "type": "array",
@@ -25,5 +51,8 @@
       }
     },
     "inputBinding": { "$ref": "admission-review-binding-v1.schema.json" }
+  },
+  "$defs": {
+    "axis": { "enum": ["PASS", "FAIL", "NEEDS_INFO"] }
   }
 }

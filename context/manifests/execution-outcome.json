@@ -1,0 +1,12 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "DELIVERY/EXECUTION/HANDOFF_READY",
+  "required": [
+    "skills/ask-yet/SKILL.md",
+    "skills/ask-yet/references/execution-closeout.md"
+  ],
+  "optional": [],
+  "maxBytes": 18000,
+  "maxEstimatedTokens": 4500,
+  "maxDocuments": 2
+}

@@ -21,7 +21,8 @@
           "sources": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
           "freshness": { "type": "object" },
           "crossRevision": { "type": "boolean" },
-          "reusable": { "type": "boolean" }
+          "reusable": { "type": "boolean" },
+          "archivePolicy": { "type": "string", "minLength": 1 }
         }
       }
     },

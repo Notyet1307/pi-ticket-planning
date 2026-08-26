@@ -1,26 +1,24 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
-import { createFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+import { runtimeMetadata } from "../installation/build-metadata.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
 export function controlMetadata({ clock, correlationId }) {
-  const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const git = spawnSync("git", ["-C", ROOT, "rev-parse", "HEAD"], { encoding: "utf8" });
-  if (git.status !== 0 || !/^[a-f0-9]{40}$/.test(git.stdout.trim())) throw new PlanningCaseError("SOURCE_COMMIT_UNAVAILABLE");
+  const metadata = runtimeMetadata({ root: ROOT });
   return {
     producer: "pi-ticket-planning",
-    producerVersion: packageJson.version,
-    commit: git.stdout.trim(),
+    producerVersion: metadata.packageVersion,
+    commit: metadata.sourceCommit,
     observedAt: clock(),
     correlationId,
   };
@@ -28,7 +26,7 @@ export function controlMetadata({ clock, correlationId }) {
 
 function parse(argv) {
   const [scope, command, ...rest] = argv;
-  if (scope !== "case" || !command) throw new PlanningCaseError("INVALID_COMMAND");
+  if (!["case", "outcome"].includes(scope) || !command) throw new PlanningCaseError("INVALID_COMMAND");
   const options = new Map();
   const positionals = [];
   for (let index = 0; index < rest.length; index += 1) {
@@ -39,7 +37,7 @@ function parse(argv) {
     }
     const name = token.slice(2);
     if (options.has(name)) throw new PlanningCaseError("DUPLICATE_OPTION");
-    if (["json", "dry-run"].includes(name)) options.set(name, true);
+    if (["json", "dry-run", "offline", "rebind"].includes(name)) options.set(name, true);
     else {
       const value = rest[index + 1];
       if (value === undefined || value.startsWith("--")) throw new PlanningCaseError("MISSING_OPTION_VALUE");
@@ -47,7 +45,7 @@ function parse(argv) {
       index += 1;
     }
   }
-  return { command, options, positionals };
+  return { scope, command, options, positionals };
 }
 
 function requireShape(parsed, { allowed = [], required = [], positionals = 0 }) {
@@ -85,7 +83,17 @@ function readAdmissionPlan(file) {
   }
 }
 
-function approvalFor({ plan, caseId, correlationId, observedAt }) {
+function readJsonInput(file, code = "INVALID_INPUT") {
+  try {
+    const value = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid");
+    return value;
+  } catch {
+    throw new PlanningCaseError(code);
+  }
+}
+
+export function createPlanningCaseApproval({ plan, caseId, correlationId, observedAt }) {
   const subject = {
     target: `github:${plan.repo}`,
     kind: "admission-plan",
@@ -98,17 +106,25 @@ function approvalFor({ plan, caseId, correlationId, observedAt }) {
     fact: "human.activation",
     value: true,
     subject,
-    source: {
-      kind: "operator-asserted",
-      producer: "pi-ticket-planctl",
-      producerVersion: "0.5.0-alpha.0",
-      producerDigest: fingerprint({ component: "planning-case/cli.mjs", command: "case.approve", schema: 1 }),
-    },
+    source: producerAttestationSource("operator-asserted", "pi-ticket-planctl"),
     observedAt,
     expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
     evidence: { kind: "operator", ref: `case:${caseId}:admission.apply`, digest: plan.planFingerprint },
   });
 }
+
+const INPUT_EVENTS = {
+  "select-candidate": ["CANDIDATE_SELECTED", "candidate"],
+  "exclude-candidate": ["CANDIDATE_EXCLUDED", "candidate"],
+  "record-decision": ["DECISION_RECORDED", "decision"],
+  "record-unknown": ["UNKNOWN_RECORDED", "unknown"],
+  "record-assumption": ["ASSUMPTION_RECORDED", "assumption"],
+  "set-evidence-method": ["EVIDENCE_METHOD_SET", "method"],
+  "record-evidence": ["EVIDENCE_RECORDED", "evidence"],
+  "attach-fact": ["FACT_ATTACHED", "fact"],
+  "set-blocker": ["BLOCKER_SET", "blocker"],
+  "set-next-action": ["NEXT_ACTION_SET", "nextAction"],
+};
 
 export function runPlanningCaseCli(argv, {
   env = process.env,
@@ -120,7 +136,7 @@ export function runPlanningCaseCli(argv, {
   let caseId = null;
   try {
     const parsed = parse(argv);
-    command = `case.${parsed.command}`;
+    command = `${parsed.scope}.${parsed.command}`;
     const store = createPlanningCaseStore({
       stateDir: env.PI_TICKET_PLAN_STATE_DIR,
       clock,
@@ -131,7 +147,42 @@ export function runPlanningCaseCli(argv, {
     let problems = [];
     let recovery = null;
 
-    if (parsed.command === "create") {
+    if (parsed.scope === "outcome" && parsed.command === "ingest") {
+      requireShape(parsed, { allowed: ["case-id", "receipt"], required: ["case-id", "receipt"] });
+      caseId = parsed.options.get("case-id");
+      const receipt = readJsonInput(parsed.options.get("receipt"), "INVALID_OUTCOME_RECEIPT");
+      data = { case: store.ingestOutcome({ caseId, target: receipt.subject?.target, receipt }) };
+    } else if (parsed.scope === "outcome" && parsed.command === "decide") {
+      requireShape(parsed, { allowed: ["case-id", "receipt", "decision"], required: ["case-id", "receipt", "decision"] });
+      caseId = parsed.options.get("case-id");
+      const receipt = readJsonInput(parsed.options.get("receipt"), "INVALID_OUTCOME_RECEIPT");
+      const decision = parsed.options.get("decision");
+      if (!["PROMOTE", "REVISE", "REJECT", "NO_CHANGE"].includes(decision)) throw new PlanningCaseError("INVALID_OUTCOME_DECISION");
+      const approval = createFactAttestation({
+        id: `F-outcome-learning-${correlationId.slice(2)}`,
+        fact: "human.outcomeLearningDecision",
+        value: decision,
+        subject: receipt.subject,
+        source: producerAttestationSource("operator-asserted", "pi-ticket-planctl"),
+        observedAt: clock(),
+        expiresAt: null,
+        evidence: { kind: "operator", ref: `case:${caseId}:outcome.decide`, digest: receipt.digest },
+      });
+      store.addApproval({ caseId, target: receipt.subject.target, approval });
+      store.consumeApproval({ caseId, target: receipt.subject.target, approvalId: approval.id });
+      const learning = {
+        decision,
+        subject: receipt.subject,
+        outcomeReceiptDigest: receipt.digest,
+        operatorApproval: approval.id,
+        affectedRuleIds: [],
+        rationaleRef: `operator:${correlationId}`,
+        observedAt: approval.observedAt,
+      };
+      data = { case: store.record({ caseId, target: receipt.subject.target, type: "LEARNING_DECISION_RECORDED", data: { learning } }) };
+    } else if (parsed.scope !== "case") {
+      throw new PlanningCaseError("INVALID_COMMAND");
+    } else if (parsed.command === "create") {
       requireShape(parsed, { allowed: ["target", "case-id"], required: ["target"] });
       const created = store.create({ target: parsed.options.get("target"), caseId: parsed.options.get("case-id") });
       caseId = created.caseId;
@@ -152,21 +203,25 @@ export function runPlanningCaseCli(argv, {
       }
       const target = `github:${plan.repo}`;
       if (store.get({ caseId, target }).target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
-      const approval = approvalFor({ plan, caseId, correlationId, observedAt: clock() });
+      const approval = createPlanningCaseApproval({ plan, caseId, correlationId, observedAt: clock() });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "resume") {
-      requireShape(parsed, { allowed: ["target"], positionals: 1 });
+      requireShape(parsed, { allowed: ["target", "offline"], positionals: 1 });
       [caseId] = parsed.positionals;
-      data = store.resume({ caseId, target: parsed.options.get("target") });
+      data = store.resume({ caseId, target: parsed.options.get("target"), offline: parsed.options.has("offline") });
+      if (parsed.options.has("offline")) {
+        status = "DEGRADED";
+        problems = [{ code: "OFFLINE_BINDINGS_UNVERIFIED" }];
+      }
     } else if (parsed.command === "abandon") {
       requireShape(parsed, { allowed: ["target", "reason"], required: ["reason"], positionals: 1 });
       [caseId] = parsed.positionals;
       data = { case: store.abandon({ caseId, target: parsed.options.get("target"), reason: parsed.options.get("reason") }) };
     } else if (parsed.command === "verify") {
-      requireShape(parsed, { allowed: ["target"], positionals: 1 });
+      requireShape(parsed, { allowed: ["target", "offline"], positionals: 1 });
       [caseId] = parsed.positionals;
-      const verification = store.verify({ caseId, target: parsed.options.get("target") });
+      const verification = store.verify({ caseId, target: parsed.options.get("target"), offline: parsed.options.has("offline") });
       data = { verification };
       if (verification.status !== "COMPLETE") {
         status = "CONFLICT";
@@ -187,6 +242,50 @@ export function runPlanningCaseCli(argv, {
         problems = recovered.problems;
         recovery = recoveryFor(caseId);
       }
+    } else if (parsed.command === "transition") {
+      requireShape(parsed, { allowed: ["target", "checkpoint", "facts", "next-action", "mutation-id", "rebind"], required: ["checkpoint", "facts", "next-action"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      const facts = JSON.parse(fs.readFileSync(path.resolve(parsed.options.get("facts")), "utf8"));
+      if (!Array.isArray(facts)) throw new PlanningCaseError("INVALID_FACTS_INPUT");
+      data = { case: store.transition({
+        caseId,
+        target: parsed.options.get("target"),
+        checkpoint: readJsonInput(parsed.options.get("checkpoint"), "INVALID_CHECKPOINT_INPUT"),
+        facts,
+        nextAction: readJsonInput(parsed.options.get("next-action"), "INVALID_NEXT_ACTION"),
+        mutationId: parsed.options.get("mutation-id") ?? null,
+        rebind: parsed.options.has("rebind"),
+      }) };
+    } else if (INPUT_EVENTS[parsed.command]) {
+      requireShape(parsed, { allowed: ["target", "input"], required: ["input"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      const [type, key] = INPUT_EVENTS[parsed.command];
+      data = { case: store.record({ caseId, target: parsed.options.get("target"), type, data: { [key]: readJsonInput(parsed.options.get("input")) } }) };
+    } else if (parsed.command === "resolve-unknown") {
+      requireShape(parsed, { allowed: ["target", "unknown-id", "resolution"], required: ["unknown-id", "resolution"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      const resolution = readJsonInput(parsed.options.get("resolution"));
+      data = { case: store.record({ caseId, target: parsed.options.get("target"), type: "UNKNOWN_RESOLVED", data: { unknownId: parsed.options.get("unknown-id"), ...resolution } }) };
+    } else if (parsed.command === "revise-assumption") {
+      requireShape(parsed, { allowed: ["target", "assumption-id", "input"], required: ["assumption-id", "input"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      data = { case: store.record({ caseId, target: parsed.options.get("target"), type: "ASSUMPTION_REVISED", data: { assumptionId: parsed.options.get("assumption-id"), ...readJsonInput(parsed.options.get("input")) } }) };
+    } else if (parsed.command === "consume-fact") {
+      requireShape(parsed, { allowed: ["target", "fact-id", "mutation-id"], required: ["fact-id", "mutation-id"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      data = { case: store.record({ caseId, target: parsed.options.get("target"), type: "FACT_CONSUMED", data: { factId: parsed.options.get("fact-id"), mutationId: parsed.options.get("mutation-id") } }) };
+    } else if (parsed.command === "clear-blocker") {
+      requireShape(parsed, { allowed: ["target", "blocker-id"], required: ["blocker-id"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      data = { case: store.record({ caseId, target: parsed.options.get("target"), type: "BLOCKER_CLEARED", data: { id: parsed.options.get("blocker-id") } }) };
+    } else if (parsed.command === "bind") {
+      requireShape(parsed, { allowed: ["target", "name", "input"], required: ["name", "input"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      data = { case: store.bind({ caseId, target: parsed.options.get("target"), name: parsed.options.get("name"), binding: readJsonInput(parsed.options.get("input")) }) };
+    } else if (parsed.command === "clear-binding") {
+      requireShape(parsed, { allowed: ["target", "name"], required: ["name"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      data = { case: store.clearBinding({ caseId, target: parsed.options.get("target"), name: parsed.options.get("name") }) };
     } else if (parsed.command === "migrate") {
       requireShape(parsed, { allowed: ["dry-run"] });
       data = { dryRun: parsed.options.has("dry-run"), migrations: [] };

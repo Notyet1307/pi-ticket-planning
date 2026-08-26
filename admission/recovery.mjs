@@ -69,7 +69,7 @@ export function immutableStateProblems(plan, state) {
     problems.push(issue("CONTEXT_CHECK_DRIFT"));
   }
   if (plan.reviewed.capabilityReceipt
-    && fingerprint(state.capabilityReceipt) !== fingerprint(plan.reviewed.capabilityReceipt)) {
+    && (!state.capabilityReceipt || fingerprint(state.capabilityReceipt) !== fingerprint(plan.reviewed.capabilityReceipt))) {
     problems.push(issue("CAPABILITY_RECEIPT_DRIFT"));
   }
 

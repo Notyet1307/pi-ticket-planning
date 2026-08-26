@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 This is the single human entry point for product shaping and formal delivery. Route each gate to its owner; do not copy the owner's contract here.
 
+Before reconstructing or changing state, read [the Planning Case runtime](../planning-case-runtime.md). Record Candidate, Decision, Unknown, Assumption, Evidence Method, Evidence, blocker, next action, and every legal Checkpoint through its owning Case command. A final text Checkpoint is a projection of the successfully replayed Case, never its source.
+
 ```text
 /skill:ask-yet [optional idea, issue, release artifact, or current goal]
 ```
@@ -94,13 +96,13 @@ The human needs to remember only `/skill:ask-yet`. The named package helpers are
 
 Before every user-visible response, read [the human interface contract](references/human-interface.md) in full and apply its form-selection, direct-action, and first-use explanation rules. Use `STATUS` only when the human explicitly asks for state or recovery orientation; a completed read or closeout judgment uses `RESULT`. Preserve every identity, approval subject, limitation, safety control, and recovery boundary owned by the active gate.
 
-The machine source for lanes, stages, verdicts, legal transitions, required facts, and provenance is `contracts/workflow.json` plus `contracts/authority.json`. Before a state-bearing write or final Checkpoint, read both from `$PI_TICKET_PLANNING_ROOT` and validate the current state, proposed state, and provenance-bearing facts with:
+The machine source for lanes, stages, verdicts, legal transitions, required facts, and provenance is `contracts/workflow.json` plus `contracts/authority.json`. Before a state-bearing response, write the proposed v2 Checkpoint, exact Fact Attestations, and one next action to private inputs and run:
 
 ```sh
-node "$PI_TICKET_PLANNING_ROOT/scripts/workflow-contract.mjs" --input -
+pi-ticket-planctl case transition <case-id> --checkpoint <file> --facts <file> --next-action <file> --json
 ```
 
-Only `allowed: true` legalizes the proposal. On missing or conflicting authoritative facts, fail closed and report the conflict.
+Only a `COMPLETE` event followed by successful `case verify` and new-process `case resume` legalizes the projection. On missing or conflicting authoritative facts, fail closed and report the conflict.
 
 End every response with exactly one unfenced final non-empty line. The identity is `NONE`, `<release-id>/<revision>`, or `<ticket-or-map-id>@<reviewed-revision>`.
 

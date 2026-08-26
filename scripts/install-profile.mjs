@@ -16,11 +16,13 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { digest } from "../installation/manager.mjs";
+import { configuredSubagentVersion, runtimeMetadata } from "../installation/build-metadata.mjs";
 import { loadProtocol } from "../protocol/kernel.mjs";
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const UPSTREAM_SOURCE = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
-const SUBAGENTS_SOURCE = "npm:pi-subagents@0.42.1";
+const PACKAGE_METADATA = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8"));
+const UPSTREAM_SOURCE = `git:github.com/mattpocock/skills@${PACKAGE_METADATA.mattpocockUpstream.commit}`;
+const SUBAGENTS_SOURCE = `npm:pi-subagents@${configuredSubagentVersion(PACKAGE_ROOT)}`;
 const REVIEWER_READ_GUARD = path.join("extensions", "ticket-readiness-read-guard.mjs");
 
 function timestamp() {
@@ -106,6 +108,7 @@ export function writeInstallation({
   defaultProfileDir,
   clock = () => new Date(),
   sourceMetadata = {},
+  writeManifest = true,
 }) {
   const resolvedPackageRoot = path.resolve(packageRoot);
   const resolvedProfileDir = path.resolve(profileDir);
@@ -145,10 +148,7 @@ export function writeInstallation({
   }
 
   const packageMetadata = JSON.parse(readFileSync(path.join(resolvedPackageRoot, "package.json"), "utf8"));
-  let sourceCommit = sourceMetadata.sourceCommit;
-  if (sourceCommit === undefined) {
-    try { sourceCommit = run("git", ["-C", resolvedPackageRoot, "rev-parse", "HEAD"]); } catch { sourceCommit = "UNTESTED"; }
-  }
+  const buildMetadata = runtimeMetadata({ root: resolvedPackageRoot });
   const installedFiles = [settingsFile, path.join(resolvedProfileDir, "AGENTS.md")].map((file) => ({
     path: path.relative(resolvedProfileDir, file),
     digest: digest(readFileSync(file)),
@@ -158,11 +158,11 @@ export function writeInstallation({
     schema: "pi-ticket-planning:installation-manifest:v1",
     installationId: sourceMetadata.installationId ?? `I-${clock().toISOString().replace(/[-:.TZ]/g, "")}`,
     packageVersion: sourceMetadata.packageVersion ?? packageMetadata.version,
-    sourceCommit: sourceCommit || "UNTESTED",
+    sourceCommit: sourceMetadata.sourceCommit ?? buildMetadata.sourceCommit,
     installedAt: clock().toISOString(),
     nodeVersion: sourceMetadata.nodeVersion ?? process.versions.node,
     piVersion: sourceMetadata.piVersion ?? "UNTESTED",
-    subagentVersion: sourceMetadata.subagentVersion ?? "UNTESTED",
+    subagentVersion: sourceMetadata.subagentVersion ?? buildMetadata.subagentVersion,
     upstreamSkillCommit: sourceMetadata.upstreamSkillCommit ?? packageMetadata.mattpocockUpstream?.commit ?? "UNTESTED",
     profileDigest: digest(JSON.stringify(installedFiles)),
     protocolVersions: sourceMetadata.protocolVersions
@@ -177,9 +177,22 @@ export function writeInstallation({
       };
     }),
   };
-  atomicWrite(path.join(resolvedProfileDir, "installation.json"), `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+  if (writeManifest) finalizeInstallation({ profileDir: resolvedProfileDir, manifest });
 
   return { profileDir: resolvedProfileDir, launcher, controlLauncher, backups, manifest };
+}
+
+export function finalizeInstallation({ profileDir, manifest }) {
+  const resolvedProfileDir = path.resolve(profileDir);
+  for (const record of manifest.installedFiles) {
+    const file = path.join(resolvedProfileDir, record.path);
+    const metadata = lstatSync(file);
+    if (!metadata.isFile() || metadata.isSymbolicLink() || digest(readFileSync(file)) !== record.digest || (metadata.mode & 0o777) !== record.mode) {
+      throw new Error(`installed file verification failed: ${record.path}`);
+    }
+  }
+  atomicWrite(path.join(resolvedProfileDir, "installation.json"), `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+  return manifest;
 }
 
 function run(command, args, env = process.env) {
@@ -202,18 +215,19 @@ function main(argv) {
   const piVersion = run(piBin, ["--version"]);
   run("git", ["--version"]);
   run("gh", ["--version"]);
-  const sourceCommit = run("git", ["-C", PACKAGE_ROOT, "rev-parse", "HEAD"]);
+  const buildMetadata = runtimeMetadata({ root: PACKAGE_ROOT });
 
   const installed = writeInstallation({
     profileDir,
     binDir,
     defaultProfileDir,
     sourceMetadata: {
-      sourceCommit,
+      sourceCommit: buildMetadata.sourceCommit,
       nodeVersion: process.version,
       piVersion,
-      subagentVersion: "0.42.1",
+      subagentVersion: buildMetadata.subagentVersion,
     },
+    writeManifest: false,
   });
   const runtimeEnv = {
     ...process.env,
@@ -227,6 +241,7 @@ function main(argv) {
   run(piBin, ["update", "--extensions"], runtimeEnv);
   chmodSync(path.join(installed.profileDir, "settings.json"), 0o600);
   const verification = run(process.execPath, [path.join(PACKAGE_ROOT, "scripts", "check-profile.mjs")], runtimeEnv);
+  finalizeInstallation({ profileDir: installed.profileDir, manifest: installed.manifest });
 
   console.log(`profile installed: ${installed.profileDir}`);
   console.log(`launcher installed: ${installed.launcher}`);

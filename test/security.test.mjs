@@ -9,7 +9,7 @@ import { operationState } from "../admission/recovery.mjs";
 import { safeError } from "../admission/domain.mjs";
 import { createAdmissionReviewInput, materializeAdmissionReviewInput } from "../admission/review-transport.mjs";
 import { createReviewerReadTool } from "../extensions/ticket-readiness-read-guard.mjs";
-import { createFactAttestation, validateFactAttestation } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource, validateFactAttestation } from "../protocol/kernel.mjs";
 
 const TARGET = "github:acme/product";
 const SUBJECT = { target: TARGET, kind: "admission-plan", id: `sha256:${"a".repeat(64)}`, revision: "v1", digest: `sha256:${"a".repeat(64)}` };
@@ -85,7 +85,7 @@ test("expired human approval fails closed", () => {
     fact: "human.activation",
     value: true,
     subject: SUBJECT,
-    source: { kind: "operator-asserted", producer: "operator", producerVersion: "human", producerDigest: `sha256:${"e".repeat(64)}` },
+    source: producerAttestationSource("operator-asserted", "operator", { producerVersion: "human" }),
     observedAt: "2026-08-25T00:00:00Z",
     expiresAt: "2026-08-25T00:01:00Z",
     evidence: { kind: "operator", ref: "approval", digest: `sha256:${"f".repeat(64)}` },

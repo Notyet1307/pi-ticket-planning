@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateArtifact } from "../protocol/kernel.mjs";
 
 export const TICKET_CONTEXT_SCHEMA = "pi-ticket-planning:ticket-context-check:v1";
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
@@ -188,6 +189,11 @@ export function checkTicketContext({ repo, base, body }) {
 export function validateTicketContextResult(result) {
   const problems = [];
   if (!result || typeof result !== "object" || Array.isArray(result)) return [issue("INVALID_CONTEXT_CHECK_RESULT")];
+  try {
+    problems.push(...validateArtifact(result).problems);
+  } catch {
+    problems.push(issue("INVALID_CONTEXT_CHECK_RESULT"));
+  }
   if (result.schema !== TICKET_CONTEXT_SCHEMA) problems.push(issue("INVALID_CONTEXT_CHECK_SCHEMA"));
   if (!EXACT_GIT_SHA.test(result.baseSha ?? "")) problems.push(issue("INVALID_CONTEXT_CHECK_BASE_SHA"));
   if (!SHA256.test(result.bodyHash ?? "")) problems.push(issue("INVALID_CONTEXT_CHECK_BODY_HASH"));

@@ -1,0 +1,23 @@
+{
+  "schema": "pi-ticket-planning:producer-registry:v1",
+  "sources": {
+    "git": { "kind": "command", "command": "git", "producers": ["git"] },
+    "provided-artifact": { "kind": "skill", "path": "skills/ask-yet/SKILL.md", "producers": ["ask-yet"] },
+    "release-readiness-check": { "kind": "skill", "path": "skills/ask-yet/SKILL.md", "producers": ["ask-yet"] },
+    "operator-asserted": { "kind": "module", "path": "planning-case/cli.mjs", "export": "runPlanningCaseCli", "producers": ["pi-ticket-planctl", "operator"] },
+    "capability-receipt": { "kind": "module", "path": "capabilities/doctor.mjs", "export": "buildCapabilityReceipt", "producers": ["doctor"] },
+    "approved-local-artifact": { "kind": "module", "path": "protocol/projections.mjs", "export": "projectRelease", "producers": ["release-projector"] },
+    "reopen-condition-check": { "kind": "skill", "path": "skills/ask-yet/SKILL.md", "producers": ["ask-yet"] },
+    "accepted-artifact": { "kind": "module", "path": "protocol/projections.mjs", "export": "projectRelease", "producers": ["release-projector"] },
+    "tracker-api": { "kind": "module", "path": "admission/github-adapter.mjs", "export": "createGitHubAdapter", "producers": ["github-adapter"] },
+    "check-admission-state": { "kind": "module", "path": "scripts/check-admission-state.mjs", "export": "validateAdmissionState", "producers": ["check-admission-state", "admission-plan"] },
+    "admission-cli": { "kind": "module", "path": "admission/cli.mjs", "export": "runAdmissionCli", "producers": ["admission-cli", "admission-plan"] },
+    "git-policy-check": { "kind": "module", "path": "admission/domain.mjs", "export": "validatePolicy", "producers": ["git-policy-check", "admission-plan"] },
+    "ticket-readiness-reviewer": { "kind": "skill", "path": "agents/ticket-readiness-reviewer.md", "producers": ["ticket-readiness-reviewer", "admission-plan"] },
+    "harness-ledger": { "kind": "module", "path": "scripts/readiness-receipt.mjs", "export": "runHarnessReadiness", "producers": ["herdr-harness"] },
+    "release-record": { "kind": "module", "path": "outcome/ingest.mjs", "export": "buildOutcomeReceipt", "producers": ["outcome-ingestion"] },
+    "deployment-fact": { "kind": "module", "path": "outcome/ingest.mjs", "export": "ingestOutcomeReceipt", "producers": ["outcome-ingestion"] },
+    "outcome-evaluator": { "kind": "module", "path": "outcome/ingest.mjs", "export": "validateOutcomeReceipt", "producers": ["outcome-ingestion"] },
+    "signal-evidence": { "kind": "module", "path": "outcome/ingest.mjs", "export": "buildOutcomeReceipt", "producers": ["outcome-ingestion"] }
+  }
+}

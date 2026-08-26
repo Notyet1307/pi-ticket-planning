@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/planning-session-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "target", "revision", "baseSha", "sessionId", "sessionFile", "sessionFileDigest", "provider", "model", "profileDigest", "observedAt"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:planning-session-binding:v1" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "revision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "sessionId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "sessionFile": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "sessionFileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "provider": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "model": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "profileDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+  }
+}

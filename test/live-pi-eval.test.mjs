@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { validateArtifact } from "../protocol/kernel.mjs";
 import {
   hashText,
   parseDeliveryGraph,
@@ -112,9 +113,9 @@ test("release suite is manifest-pinned and accepts a recovered flaky case", () =
   assert.throws(() => selectLiveEvalCases(fixture, { suite: "missing" }), /unknown suite/);
 
   const gate = evaluateCaseGate([
-    { caseId: "frame", status: "SEMANTIC_FAIL" },
-    { caseId: "frame", status: "PASS" },
-    { caseId: "admission", status: "PASS" },
+    { caseId: "frame", attempt: 1, status: "SEMANTIC_FAIL" },
+    { caseId: "frame", attempt: 2, retryOf: 1, status: "PASS" },
+    { caseId: "admission", attempt: 1, status: "PASS" },
   ], ["frame", "admission"]);
   assert.deepEqual(gate, { passed: true, failed: [], flaky: ["frame"] });
   assert.deepEqual(evaluateCaseGate([{ caseId: "frame", status: "INFRA_FAIL" }], ["frame"]), {
@@ -512,7 +513,8 @@ test("multiturn runner preserves order and session isolation while separating ob
     },
   });
 
-  assert.equal(report.schema, "pi-ticket-planning:live-eval:v3");
+  assert.equal(report.schema, "pi-ticket-planning:live-eval:v4");
+  assert.equal(validateArtifact(report).ok, true);
   assert.deepEqual(report.fixtureCaseIds, ["case-a", "case-b"]);
   assert.equal(report.caseCount, 2);
   assert.equal(report.modelTurns, 4);
@@ -584,6 +586,7 @@ test("multiturn retry restarts at turn one in a new session and stops after the 
   ]);
   assert.notEqual(report.attempts[0].sessionIdentity, report.attempts[1].sessionIdentity);
   assert.match(report.attempts[1].retryReason, /^SEMANTIC_FAIL:/u);
+  assert.equal(report.attempts[1].retryOf, 1);
   assert.deepEqual(report.gate, { passed: true, failed: [], flaky: ["retry-case"] });
 });
 
@@ -722,7 +725,7 @@ test("multiturn runner rejects forbidden writes and strings and reports cleanup 
   );
   assert.equal(report.attempts.every(({ turns }) => turns.length === 1), true);
   assert.match(report.attempts[0].errors.join("\n"), /unauthorized workspace mutation/u);
-  assert.match(report.attempts[1].errors.join("\n"), /workspace contains forbidden string/u);
+  assert.match(report.attempts[1].errors.join("\n"), /contains forbidden string/u);
   assert.match(report.attempts[2].errors.join("\n"), /unauthorized remote ref mutation/u);
   assert.match(report.attempts[3].errors.join("\n"), /unauthorized remote artifact path: extra.txt/u);
   assert.match(report.attempts[4].errors.join("\n"), /remote artifact contains forbidden string/u);

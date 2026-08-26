@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/admission-transaction-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "caseId", "target", "planFingerprint", "reviewedFingerprint", "graphFingerprint", "sourceRevision", "approvalId", "mutationId", "state", "startedAt", "updatedAt", "externalProjectionDigest", "completedOperations"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:admission-transaction:v1" },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "target": { "$ref": "common-v1.schema.json#/$defs/target" },
+    "planFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "reviewedFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "graphFingerprint": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "sourceRevision": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "approvalId": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" },
+    "mutationId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "state": { "enum": ["ADMISSION_PLANNED", "ADMISSION_AUTHORIZED", "ADMISSION_APPLYING", "ADMISSION_EXTERNAL_COMPLETE", "ADMISSION_APPROVAL_CONSUMED", "ADMISSION_COMMITTED", "ADMISSION_CONFLICT"] },
+    "startedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "updatedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "externalProjectionDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+    "completedOperations": { "type": "array", "maxItems": 10000, "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } }
+  }
+}

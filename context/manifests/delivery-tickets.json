@@ -1,0 +1,9 @@
+{
+  "schema": "pi-ticket-planning:context-manifest:v1",
+  "route": "DELIVERY/TICKETS/TICKET_GRAPH_CANDIDATE",
+  "required": ["skills/to-tickets/SKILL.md"],
+  "optional": [],
+  "maxBytes": 16000,
+  "maxEstimatedTokens": 4000,
+  "maxDocuments": 1
+}

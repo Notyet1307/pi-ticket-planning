@@ -1,29 +1,21 @@
-import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { controlMetadata } from "../planning-case/cli.mjs";
 import { resultEnvelope } from "../planning-case/result.mjs";
-import { loadProtocol } from "../protocol/kernel.mjs";
 import { managedProfileFiles } from "../scripts/install-profile.mjs";
 import { applyInstallation, applyRollback, planMigrate, planRollback, planUpdate } from "./manager.mjs";
+import { runtimeMetadata } from "./build-metadata.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function sourceMetadata() {
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const git = spawnSync("git", ["-C", ROOT, "rev-parse", "HEAD"], { encoding: "utf8" });
-  const protocol = loadProtocol();
+  const metadata = runtimeMetadata({ root: ROOT });
   return {
-    packageVersion: pkg.version,
-    sourceCommit: git.status === 0 ? git.stdout.trim() : "UNTESTED",
+    ...metadata,
     nodeVersion: process.version,
     piVersion: "UNTESTED",
-    subagentVersion: "0.42.1",
-    upstreamSkillCommit: pkg.mattpocockUpstream.commit,
-    protocolVersions: Object.fromEntries(protocol.registry.artifacts.map((artifact) => [artifact.name, artifact.currentMajor])),
   };
 }
 

@@ -15,3 +15,8 @@
 - **Outcome Learning Gate:** Outcome ingestion is read-only. Global learning
   requires a single-consume human attestation and still does not edit Kernel
   automatically.
+- **Local JSON Schema runtime:** `ajv@8.20.0` and `ajv-formats@3.0.1` are exact
+  runtime pins because Node has no Draft 2020-12 validator. The dispatcher loads
+  only repository schemas, has no asynchronous/remote loader, and compiles every
+  local `$id` under strict mode. Lockfile drift is therefore reviewable and no
+  network-fetched Schema can influence a runtime decision.

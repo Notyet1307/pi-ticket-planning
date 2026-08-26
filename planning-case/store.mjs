@@ -6,7 +6,9 @@ import path from "node:path";
 import { compatibilityFor } from "../capabilities/compatibility.mjs";
 import { validateCapabilityReceipt } from "../capabilities/doctor.mjs";
 import { loadContextManifest } from "../context/manifest.mjs";
-import { loadProtocol, validateFactAttestation } from "../protocol/kernel.mjs";
+import { loadProtocol, validateArtifact, validateFactAttestation } from "../protocol/kernel.mjs";
+import { reducePlanningCaseEvent } from "./events.mjs";
+import { validatePlanningCaseBinding, verifyPlanningCaseBindings } from "./bindings.mjs";
 
 const CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
 const TARGET = /^[a-z][a-z0-9+.-]*:[^\u0000\r\n]+$/;
@@ -63,7 +65,7 @@ class PlanningCaseStore {
     pid = process.pid,
     io = fs,
     failpoint = () => {},
-    bindingVerifier = () => [],
+    bindingVerifier = verifyPlanningCaseBindings,
     contextManifestLoader = loadContextManifest,
   } = {}) {
     this.io = io;
@@ -137,8 +139,8 @@ class PlanningCaseStore {
     }).sort((left, right) => left.caseId.localeCompare(right.caseId));
   }
 
-  resume({ caseId, target } = {}) {
-    const verified = this.verify({ caseId, target });
+  resume({ caseId, target, offline = false } = {}) {
+    const verified = this.verify({ caseId, target, offline });
     if (verified.status !== "COMPLETE") throw new PlanningCaseError(verified.problems[0]?.code ?? "RECOVERY_REQUIRED");
     const snapshot = this.get({ caseId, target });
     const capability = snapshot.bindings.capability
@@ -150,7 +152,9 @@ class PlanningCaseStore {
       nextAction: snapshot.nextAction,
       contextManifest: this.contextManifestLoader(`${snapshot.checkpoint.lane}/${snapshot.checkpoint.stage}/${snapshot.checkpoint.verdict}`),
       bindings: clone(snapshot.bindings),
-      compatibility: { protocol: "SUPPORTED", capabilities: capability.status, capabilityReason: capability.reasonCode },
+      compatibility: { protocol: offline ? "DEGRADED" : "SUPPORTED", capabilities: capability.status, capabilityReason: capability.reasonCode },
+      mutationAllowed: !offline && capability.status === "SUPPORTED",
+      mode: offline ? "DEGRADED" : "ONLINE",
       recoveryCommand: `pi-ticket-planctl case recover ${snapshot.caseId} --dry-run --json`,
     };
   }
@@ -164,10 +168,6 @@ class PlanningCaseStore {
       target,
       type: "CASE_ABANDONED",
       data: { reason },
-      update(snapshot) {
-        snapshot.blocker = { code: "CASE_ABANDONED", reason };
-        snapshot.nextAction = { kind: "NONE" };
-      },
     });
   }
 
@@ -183,12 +183,6 @@ class PlanningCaseStore {
       target,
       type: "APPROVAL_ADDED",
       data: { approval: clone(approval) },
-      update(current) {
-        if ([...current.approvals.pending, ...current.approvals.consumed].some(({ id }) => id === approval.id)) {
-          throw new PlanningCaseError("DUPLICATE_APPROVAL", approval.id);
-        }
-        current.approvals.pending.push(clone(approval));
-      },
     });
   }
 
@@ -199,39 +193,58 @@ class PlanningCaseStore {
       target,
       type: "APPROVAL_CONSUMED",
       data: { id: approvalId },
-      update(snapshot) {
-        if (snapshot.approvals.consumed.some(({ id }) => id === approvalId)) {
-          throw new PlanningCaseError("APPROVAL_ALREADY_CONSUMED", approvalId);
-        }
-        const index = snapshot.approvals.pending.findIndex(({ id }) => id === approvalId);
-        if (index === -1) throw new PlanningCaseError("APPROVAL_NOT_FOUND", approvalId);
-        snapshot.approvals.consumed.push(snapshot.approvals.pending.splice(index, 1)[0]);
-      },
     });
   }
 
   bind({ caseId, target, name, binding } = {}) {
-    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome"].includes(name)) {
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"].includes(name)) {
       throw new PlanningCaseError("INVALID_BINDING_NAME");
     }
-    if (!binding || typeof binding !== "object" || Array.isArray(binding)
-      || !TARGET.test(binding.target ?? binding.subject?.target ?? "")
-      || (binding.target ?? binding.subject?.target) !== this.get({ caseId, target }).target
-      || !/^sha256:[a-f0-9]{64}$/.test(binding.digest ?? "")) {
-      throw new PlanningCaseError("INVALID_BINDING");
-    }
+    const snapshot = this.get({ caseId, target });
+    const problems = validatePlanningCaseBinding(name, binding, snapshot.target, { now: this.clock() });
+    problems.push(...verifyPlanningCaseBindings({ ...snapshot.bindings, [name]: binding }, snapshot, { offline: true, now: this.clock() }));
+    if (problems.length > 0) throw new PlanningCaseError(problems[0].code);
     return this.#mutate({
       caseId,
       target,
       type: "BINDING_SET",
       data: { name, binding: clone(binding) },
-      update(snapshot) {
-        snapshot.bindings[name] = clone(binding);
-      },
     });
   }
 
-  verify({ caseId, target } = {}) {
+  clearBinding({ caseId, target, name } = {}) {
+    if (!["source", "release", "spec", "graph", "policy", "harness", "capability", "outcome", "session", "reviewer"].includes(name)) throw new PlanningCaseError("INVALID_BINDING_NAME");
+    return this.#mutate({ caseId, target, type: "BINDING_CLEARED", data: { name } });
+  }
+
+  transition({ caseId, target, checkpoint, facts = [], rebind = false, mutationId = null, nextAction } = {}) {
+    return this.#mutate({
+      caseId,
+      target,
+      type: "CHECKPOINT_TRANSITIONED",
+      data: { checkpoint: clone(checkpoint), facts: clone(facts), rebind, mutationId, nextAction: clone(nextAction) },
+    });
+  }
+
+  record({ caseId, target, type, data } = {}) {
+    const allowed = new Set([
+      "CANDIDATE_SELECTED", "CANDIDATE_EXCLUDED", "DECISION_RECORDED", "UNKNOWN_RECORDED", "UNKNOWN_RESOLVED",
+      "ASSUMPTION_RECORDED", "ASSUMPTION_REVISED", "EVIDENCE_METHOD_SET", "EVIDENCE_RECORDED", "FACT_ATTACHED",
+      "FACT_CONSUMED", "BLOCKER_SET", "BLOCKER_CLEARED", "NEXT_ACTION_SET", "LEARNING_DECISION_RECORDED",
+    ]);
+    if (!allowed.has(type)) throw new PlanningCaseError("INVALID_CASE_EVENT_TYPE");
+    return this.#mutate({ caseId, target, type, data: clone(data) });
+  }
+
+  changeAdmissionTransaction({ caseId, target, transaction } = {}) {
+    return this.#mutate({ caseId, target, type: "ADMISSION_TRANSACTION_CHANGED", data: { transaction: clone(transaction) } });
+  }
+
+  ingestOutcome({ caseId, target, receipt } = {}) {
+    return this.#mutate({ caseId, target, type: "OUTCOME_INGESTED", data: { receipt: clone(receipt) } });
+  }
+
+  verify({ caseId, target, offline = false } = {}) {
     try {
       const directory = this.#resolveCaseDirectory(caseId, target);
       const snapshot = this.#readSnapshot(directory, target);
@@ -246,7 +259,7 @@ class PlanningCaseStore {
       }
       if (pending.length > 0) problems.push({ code: "PENDING_TRANSACTION" });
       if (this.#orphanTemporaryFiles(directory).length > 0) problems.push({ code: "ORPHAN_TEMPORARY_FILE" });
-      const bindingProblems = this.bindingVerifier(clone(snapshot.bindings), clone(snapshot));
+      const bindingProblems = this.bindingVerifier(clone(snapshot.bindings), clone(snapshot), { offline, now: this.clock() });
       if (!Array.isArray(bindingProblems)) throw new PlanningCaseError("BINDING_VERIFY_FAILED");
       for (const item of bindingProblems) {
         if (!item || !/^[A-Z][A-Z0-9_]{0,127}$/.test(item.code ?? "")) throw new PlanningCaseError("BINDING_VERIFY_FAILED");
@@ -471,7 +484,8 @@ class PlanningCaseStore {
 
   #readSnapshot(directory, expectedTarget) {
     const snapshot = this.#readJson(path.join(directory, "case.json"));
-    if (snapshot?.schema !== "pi-ticket-planning:planning-case:v1" || !CASE_ID.test(snapshot.caseId ?? "") || !TARGET.test(snapshot.target ?? "")) {
+    const structural = snapshot?.schema === "pi-ticket-planning:planning-case:v2" ? validateArtifact(snapshot) : { ok: false };
+    if (!structural.ok || !CASE_ID.test(snapshot.caseId ?? "") || !TARGET.test(snapshot.target ?? "")) {
       throw new PlanningCaseError("INVALID_CASE_SNAPSHOT");
     }
     const parentHash = path.basename(path.dirname(directory));
@@ -498,24 +512,33 @@ class PlanningCaseStore {
       subject,
     };
     return {
-      schema: "pi-ticket-planning:planning-case:v1",
+      schema: "pi-ticket-planning:planning-case:v2",
       target,
       caseId,
       checkpoint,
       blocker: null,
-      nextAction: { kind: "ROUTE", command: `pi-ticket-planctl case resume ${caseId} --json` },
+      nextAction: {
+        kind: "COMMAND",
+        command: `pi-ticket-planctl case resume ${caseId} --json`,
+        skill: null,
+        requiredInputs: [],
+        blockingFacts: [],
+        contextRoute: "PRODUCT/ORIENT/NEEDS_TARGET",
+        reasonCode: "CASE_CREATED",
+      },
       selectedCandidate: null,
       excludedCandidates: [],
       facts: [],
+      consumedFactIds: [],
       decisions: [],
       unknowns: [],
       assumptions: [],
       evidenceMethod: null,
-      truthOwner: null,
-      cost: null,
-      stoppingRule: null,
-      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null },
+      evidence: [],
+      bindings: { source: null, release: null, spec: null, graph: null, policy: null, harness: null, capability: null, outcome: null, session: null, reviewer: null },
       approvals: { pending: [], consumed: [] },
+      admissionTransaction: null,
+      learningDecisions: [],
       lastCheckpoint: clone(checkpoint),
       lastEvent: null,
       createdAt: now,
@@ -525,7 +548,7 @@ class PlanningCaseStore {
 
   #event({ caseId, target, type, data, at, sequence, previousDigest, transactionId }) {
     const event = {
-      schema: "pi-ticket-planning:planning-case-event:v1",
+      schema: "pi-ticket-planning:planning-case-event:v2",
       id: `E-${this.nonceGenerator()}`,
       sequence,
       caseId,
@@ -536,7 +559,10 @@ class PlanningCaseStore {
       transactionId,
       previousDigest,
     };
-    return { ...event, digest: digest(event) };
+    const complete = { ...event, digest: digest(event) };
+    const checked = validateArtifact(complete);
+    if (!checked.ok) throw new PlanningCaseError("INVALID_CASE_EVENT", checked.problems[0]?.code);
+    return complete;
   }
 
   #readEvents(directory, caseId, target) {
@@ -553,7 +579,8 @@ class PlanningCaseStore {
       }
       const { digest: recordedDigest, ...projection } = event;
       const previous = events.at(-1)?.digest ?? null;
-      if (event.schema !== "pi-ticket-planning:planning-case-event:v1"
+      const structural = event.schema === "pi-ticket-planning:planning-case-event:v2" ? validateArtifact(event) : { ok: false };
+      if (!structural.ok
         || event.sequence !== index + 1
         || event.caseId !== caseId
         || event.target !== target
@@ -569,29 +596,12 @@ class PlanningCaseStore {
   #rebuildFromEvents(events) {
     let snapshot = null;
     for (const event of events) {
-      if (event.type === "CASE_CREATED") {
-        if (snapshot || !event.data?.snapshot) throw new PlanningCaseError("INVALID_CASE_EVENT", event.id);
-        snapshot = clone(event.data.snapshot);
-      } else {
-        if (!snapshot) throw new PlanningCaseError("INVALID_CASE_EVENT", event.id);
-        if (event.type === "CASE_ABANDONED") {
-          snapshot.blocker = { code: "CASE_ABANDONED", reason: event.data.reason };
-          snapshot.nextAction = { kind: "NONE" };
-        } else if (event.type === "APPROVAL_ADDED") {
-          snapshot.approvals.pending.push(clone(event.data.approval));
-        } else if (event.type === "APPROVAL_CONSUMED") {
-          const index = snapshot.approvals.pending.findIndex(({ id }) => id === event.data.id);
-          if (index === -1) throw new PlanningCaseError("INVALID_CASE_EVENT", event.id);
-          snapshot.approvals.consumed.push(snapshot.approvals.pending.splice(index, 1)[0]);
-        } else if (event.type === "BINDING_SET") {
-          if (!(event.data.name in snapshot.bindings)) throw new PlanningCaseError("INVALID_CASE_EVENT", event.id);
-          snapshot.bindings[event.data.name] = clone(event.data.binding);
-        } else {
-          throw new PlanningCaseError("UNKNOWN_CASE_EVENT", event.type);
-        }
+      try {
+        snapshot = reducePlanningCaseEvent(snapshot, event, { protocol: this.protocol, now: event.at });
+      } catch (error) {
+        throw new PlanningCaseError(error?.code ?? "INVALID_CASE_EVENT", event.id);
       }
       snapshot.updatedAt = event.at;
-      snapshot.lastCheckpoint = clone(snapshot.checkpoint);
       snapshot.lastEvent = event.digest;
     }
     if (!snapshot) throw new PlanningCaseError("EVENT_LOG_EMPTY");
@@ -621,7 +631,8 @@ class PlanningCaseStore {
         throw new PlanningCaseError("UNEXPECTED_TRANSACTION_FILE", entry.name);
       }
       const transaction = this.#readJson(path.join(transactionDir, entry.name), "CORRUPT_TRANSACTION");
-      if (transaction?.schema !== "pi-ticket-planning:case-transaction:v1"
+      const structural = transaction?.schema === "pi-ticket-planning:case-transaction:v2" ? validateArtifact(transaction) : { ok: false };
+      if (!structural.ok
         || transaction.id !== entry.name.slice(0, -5)
         || !["INTENT", "COMMITTED"].includes(transaction.status)) {
         throw new PlanningCaseError("CORRUPT_TRANSACTION", entry.name);
@@ -643,7 +654,7 @@ class PlanningCaseStore {
 
   #commitTransaction(directory, beforeSnapshot, nextSnapshot, event) {
     const transaction = {
-      schema: "pi-ticket-planning:case-transaction:v1",
+      schema: "pi-ticket-planning:case-transaction:v2",
       id: event.transactionId,
       caseId: nextSnapshot.caseId,
       target: nextSnapshot.target,
@@ -665,7 +676,7 @@ class PlanningCaseStore {
     return nextSnapshot;
   }
 
-  #mutate({ caseId, target, type, data, update }) {
+  #mutate({ caseId, target, type, data }) {
     const directory = this.#resolveCaseDirectory(caseId, target);
     return this.#withLock(directory, () => {
       const snapshot = this.#readSnapshot(directory, target);
@@ -673,21 +684,25 @@ class PlanningCaseStore {
       if (this.#readTransactions(directory).some(({ status }) => status === "INTENT")) throw new PlanningCaseError("RECOVERY_REQUIRED");
       const last = events.at(-1);
       if (!last || snapshot.lastEvent !== last.digest) throw new PlanningCaseError("RECOVERY_REQUIRED");
-      const next = clone(snapshot);
-      update(next);
-      next.updatedAt = this.clock();
-      next.lastCheckpoint = clone(next.checkpoint);
+      const updatedAt = this.clock();
       const transactionId = `TX-${this.nonceGenerator()}`;
       const event = this.#event({
-        caseId: next.caseId,
-        target: next.target,
+        caseId: snapshot.caseId,
+        target: snapshot.target,
         type,
         data,
-        at: next.updatedAt,
+        at: updatedAt,
         sequence: last.sequence + 1,
         previousDigest: last.digest,
         transactionId,
       });
+      let next;
+      try {
+        next = reducePlanningCaseEvent(snapshot, event, { protocol: this.protocol, now: updatedAt });
+      } catch (error) {
+        throw new PlanningCaseError(error?.code ?? "INVALID_CASE_EVENT");
+      }
+      next.updatedAt = updatedAt;
       next.lastEvent = event.digest;
       return clone(this.#commitTransaction(directory, snapshot, next, event));
     });

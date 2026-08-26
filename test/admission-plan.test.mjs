@@ -24,11 +24,23 @@ import { attachReviewBinding } from "./review-binding-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
+const READY_AXES = Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((name) => [name, "PASS"]));
 const graphFixture = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "admission-cases.json"), "utf8"))
   .graphCases.find(({ expectedGraphVerdict }) => expectedGraphVerdict === "READY");
 
+function checkpoint(lane, id, revision) {
+  return {
+    schema: "pi-ticket-planning:checkpoint:v2",
+    lane,
+    stage: "ADMISSION",
+    verdict: "ACTIVATION_AWAITING_CONFIRMATION",
+    subject: { target: "github:acme/product", kind: "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
+  };
+}
+
 function readyInput() {
-  const snapshot = structuredClone(graphFixture);
+  const { id: _id, expectedGraphVerdict: _verdict, expectedProblemCodes: _codes, ...snapshot } = structuredClone(graphFixture);
+  for (const child of snapshot.children) child.externalBlockers ??= [];
   snapshot.source.baseSha = baseSha;
   snapshot.children[0].id = "101";
   snapshot.children[1].id = "102";
@@ -96,18 +108,15 @@ function readyInput() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T10:03:00Z",
+      source: structuredClone(snapshot.source),
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
         { id: "101", verdict: "READY", executionLane: "AGENT" },
         { id: "102", verdict: "READY", executionLane: "HUMAN" },
       ],
     },
-    currentCheckpoint: {
-      lane: "DELIVERY",
-      stage: "ADMISSION",
-      identity: `100@${snapshot.source.revision}`,
-      verdict: "ACTIVATION_AWAITING_CONFIRMATION",
-    },
+    currentCheckpoint: checkpoint("DELIVERY", "100", snapshot.source.revision),
   });
 }
 
@@ -144,15 +153,12 @@ function standaloneInput() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T10:03:00Z",
+      source,
+      axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
     },
-    currentCheckpoint: {
-      lane: "TRIAGE",
-      stage: "ADMISSION",
-      identity: "42@r1",
-      verdict: "ACTIVATION_AWAITING_CONFIRMATION",
-    },
+    currentCheckpoint: checkpoint("TRIAGE", "42", "r1"),
   });
 }
 
@@ -231,7 +237,7 @@ test("Admission Plan requires the exact activation checkpoint", () => {
   assert.throws(() => buildAdmissionPlan(wrongVerdict), /ACTIVATION_AWAITING_CONFIRMATION/);
 
   const wrongIdentity = readyInput();
-  wrongIdentity.currentCheckpoint.identity = "999@r2";
+  wrongIdentity.currentCheckpoint.subject.id = "999";
   assert.throws(() => buildAdmissionPlan(wrongIdentity), /CHECKPOINT_IDENTITY_MISMATCH/);
 });
 

@@ -14,8 +14,10 @@
     "human.releaseDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.releaseReopened": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.identityRebind": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "human.targetSelected": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "human.outcomeLearningDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"], "archivePolicy": "planning-case-decision" },
     "capability.admissionReady": { "kind": "CAPABILITY_FACT", "owner": "doctor", "sources": ["capability-receipt"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 }, "archivePolicy": "capability-receipt" },
+    "harness.readinessPassed": { "kind": "HARNESS_FACT", "owner": "harness", "sources": ["harness-ledger"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
@@ -48,11 +50,23 @@
       "targetStage": "ADMISSION",
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
-      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "human.activation"],
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
       "producesFacts": ["tracker.ready"],
-      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan"]
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
-    "admission.applyStandalone": {
+    "admission.applyStandaloneAgent": {
+      "strict": true,
+      "actor": "admission-cli",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "ADMISSION",
+      "targetVerdict": "ADMITTED",
+      "approvalFact": "human.activation",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
+      "producesFacts": ["tracker.ready"],
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
+    },
+    "admission.applyStandaloneHuman": {
       "strict": true,
       "actor": "admission-cli",
       "sourceStage": "ADMISSION",
@@ -62,7 +76,7 @@
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "human.activation"],
       "producesFacts": ["tracker.ready"],
-      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan"]
+      "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     }
   }
 }

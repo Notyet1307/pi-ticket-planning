@@ -23,6 +23,7 @@
     },
     "observedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
     "expiresAt": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/time" }, { "type": "null" }] },
+    "mutationId": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000\\r\\n]+$" },
     "evidence": {
       "type": "object",
       "additionalProperties": false,

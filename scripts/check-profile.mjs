@@ -12,7 +12,9 @@ const LAUNCHER = path.resolve(
   process.env.PI_TICKET_PLAN_LAUNCHER ?? path.join(os.homedir(), ".local", "bin", "pi-ticket-plan"),
 );
 const SCOUT_MODEL = "openai-codex/gpt-5.6-luna:max";
-const UPSTREAM = "git:github.com/mattpocock/skills@84fdeffd12f2ee307994d1eb6feb48173b6e0502";
+const UPSTREAM = `git:github.com/mattpocock/skills@${JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).mattpocockUpstream.commit}`;
+const TEMPLATE = JSON.parse(readFileSync(new URL("../profile/settings.template.json", import.meta.url), "utf8"));
+const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^npm:pi-subagents@/.test(entry?.source ?? ""))?.source;
 const REVIEWER_READ_GUARD = realpathSync(path.join(PACKAGE_ROOT, "extensions", "ticket-readiness-read-guard.mjs"));
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));
 const SUPPRESSED_SKILLS = new Set(lock.suppressedSkills ?? []);
@@ -97,7 +99,7 @@ for (const name of REQUIRED_MODEL_INVOKED) {
 }
 
 const subagents = commands.find((command) => command.name === "subagents" && command.source === "extension");
-if (subagents?.sourceInfo?.source !== "npm:pi-subagents@0.42.1") failures.push("pi-subagents extension is missing or unpinned");
+if (!SUBAGENTS_SOURCE || subagents?.sourceInfo?.source !== SUBAGENTS_SOURCE) failures.push("pi-subagents extension is missing or unpinned");
 
 if (readFileSync(path.join(PROFILE_ROOT, "AGENTS.md"), "utf8") !== readFileSync(path.join(PACKAGE_ROOT, "profile", "AGENTS.md"), "utf8")) {
   failures.push("deployed profile AGENTS.md drifted from the package template");

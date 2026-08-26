@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { validateFactAttestation } from "../protocol/kernel.mjs";
+import { validateArtifact, validateFactAttestation } from "../protocol/kernel.mjs";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const STATUSES = new Set(["ACHIEVED", "PARTIAL", "NOT_ACHIEVED", "UNEVALUABLE"]);
@@ -37,6 +37,7 @@ export function buildOutcomeReceipt(value) {
     schema: "pi-ticket-planning:outcome-receipt:v1",
     id: value.id,
     subject: structuredClone(value.subject),
+    baseSha: value.baseSha,
     source: structuredClone(value.source),
     observedAt: value.observedAt,
     status: value.status,
@@ -48,10 +49,15 @@ export function buildOutcomeReceipt(value) {
 export function validateOutcomeReceipt(receipt, { expectedSubject } = {}) {
   const problems = [];
   if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return { ok: false, problems: [problem("INVALID_OUTCOME_RECEIPT")] };
+  try {
+    problems.push(...validateArtifact(receipt).problems);
+  } catch {
+    problems.push(problem("INVALID_OUTCOME_RECEIPT"));
+  }
   if (receipt.schema !== "pi-ticket-planning:outcome-receipt:v1" || !/^OR-[A-Za-z0-9._:-]{1,125}$/.test(receipt.id ?? "")
     || !STATUSES.has(receipt.status) || !Number.isFinite(Date.parse(receipt.observedAt))) problems.push(problem("INVALID_OUTCOME_RECEIPT"));
   if (expectedSubject && !same(receipt.subject, expectedSubject)) problems.push(problem("OUTCOME_SUBJECT_MISMATCH"));
-  if (!receipt.subject?.target || !DIGEST.test(receipt.subject?.digest ?? "")) problems.push(problem("INVALID_OUTCOME_SUBJECT"));
+  if (!receipt.subject?.target || !DIGEST.test(receipt.subject?.digest ?? "") || !/^[a-f0-9]{40,64}$/.test(receipt.baseSha ?? "")) problems.push(problem("INVALID_OUTCOME_SUBJECT"));
   const allowed = PRODUCERS[receipt.source?.kind];
   if (!allowed?.has(receipt.source?.producer)) problems.push(problem("OUTCOME_PRODUCER_NOT_ALLOWED"));
   if (!DIGEST.test(receipt.source?.producerDigest ?? "") || typeof receipt.source?.producerVersion !== "string") problems.push(problem("INVALID_OUTCOME_SOURCE"));
@@ -66,7 +72,7 @@ export function validateOutcomeReceipt(receipt, { expectedSubject } = {}) {
 export function ingestOutcomeReceipt(receipt, { expectedSubject, store, caseId } = {}) {
   const checked = validateOutcomeReceipt(receipt, { expectedSubject });
   if (!checked.ok) throw new Error(checked.problems.map(({ code }) => code).join(","));
-  if (store) store.bind({ caseId, name: "outcome", binding: receipt });
+  if (store) store.ingestOutcome({ caseId, target: receipt.subject.target, receipt });
   return {
     status: "COMPLETE",
     allowedLearning: [...LEARNING],
@@ -84,6 +90,15 @@ export function confirmOutcomeLearning(receipt, decisionAttestation, { store, ca
   if (store) {
     store.addApproval({ caseId, approval: decisionAttestation });
     store.consumeApproval({ caseId, approvalId: decisionAttestation.id });
+    store.record({ caseId, type: "LEARNING_DECISION_RECORDED", data: { learning: {
+      decision: decisionAttestation.value,
+      subject: receipt.subject,
+      outcomeReceiptDigest: receipt.digest,
+      operatorApproval: decisionAttestation.id,
+      affectedRuleIds: [],
+      rationaleRef: decisionAttestation.evidence.ref,
+      observedAt: decisionAttestation.observedAt,
+    } } });
   }
   return { status: "COMPLETE", decision: decisionAttestation.value, kernelMutation: false };
 }

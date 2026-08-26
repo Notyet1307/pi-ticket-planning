@@ -1,0 +1,59 @@
+name: Compatibility proposal
+
+on:
+  workflow_dispatch:
+    inputs:
+      qualification_run_id:
+        description: Exact successful Release qualification workflow run ID
+        required: true
+      capability_run_id:
+        description: Exact successful Disposable E2E workflow run ID containing the matched active receipt
+        required: true
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    environment: ptp-release-qualification
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Download exact qualification and capability
+        run: |
+          mkdir -p '${{ runner.temp }}/ptp-proposal/qualification' '${{ runner.temp }}/ptp-proposal/capability' '${{ runner.temp }}/ptp-proposal/output'
+          gh run download '${{ inputs.qualification_run_id }}' --repo '${{ github.repository }}' --dir '${{ runner.temp }}/ptp-proposal/qualification'
+          gh run download '${{ inputs.capability_run_id }}' --repo '${{ github.repository }}' --dir '${{ runner.temp }}/ptp-proposal/capability'
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Generate provenance-verified proposal
+        run: |
+          qualification="$(find '${{ runner.temp }}/ptp-proposal/qualification' -name release-qualification.json -type f)"
+          capability="$(find '${{ runner.temp }}/ptp-proposal/capability' -name capability-receipt.json -type f)"
+          test "$(printf '%s\n' "$qualification" | grep -c .)" -eq 1
+          test "$(printf '%s\n' "$capability" | grep -c .)" -eq 1
+          node scripts/planctl.mjs compatibility propose \
+            --qualification "$qualification" \
+            --capability "$capability" \
+            --out '${{ runner.temp }}/ptp-proposal/output/compatibility-proposal.json'
+          cp "$qualification" '${{ runner.temp }}/ptp-proposal/output/release-qualification.json'
+          cp "$capability" '${{ runner.temp }}/ptp-proposal/output/capability-receipt.json'
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/ptp-proposal/output/compatibility-proposal.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ptp-proposal/output/*.json

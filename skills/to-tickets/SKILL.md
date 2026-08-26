@@ -7,6 +7,8 @@ description: Draft and publish a traceable candidate graph when ask-yet has an a
 
 Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; `admit-ticket` alone owns ready labels.
 
+Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, verify its Spec binding, record each Candidate and the approved graph decision, transition through `TICKETS`, and bind the exact published graph before reporting completion.
+
 The issue tracker and triage labels must be configured by `setup-delivery-repository`. Load `/ticket-readiness` before drafting.
 
 ## Process

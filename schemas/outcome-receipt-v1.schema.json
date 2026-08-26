@@ -3,11 +3,12 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/outcome-receipt-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "id", "subject", "source", "observedAt", "status", "evidence", "digest"],
+  "required": ["schema", "id", "subject", "baseSha", "source", "observedAt", "status", "evidence", "digest"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:outcome-receipt:v1" },
     "id": { "type": "string", "pattern": "^OR-[A-Za-z0-9._:-]{1,125}$" },
     "subject": { "$ref": "common-v1.schema.json#/$defs/subject" },
+    "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
     "source": {
       "type": "object",
       "additionalProperties": false,

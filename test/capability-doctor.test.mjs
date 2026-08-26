@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import {
   buildCapabilityReceipt,
   inspectCapabilities,
+  isSuccessfulReviewerChild,
+  selectReviewerChildTool,
   validateCapabilityReceipt,
 } from "../capabilities/doctor.mjs";
 import { compatibilityFor, loadCompatibilityMatrix, validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
-import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
+import { REQUIRED_ADMISSION_CAPABILITIES, requireAdmissionCapabilities } from "../capabilities/admission.mjs";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -28,9 +30,9 @@ function input(capabilities) {
     expiresAt: "2026-08-25T02:00:00.000Z",
     pi: { path: "/usr/local/bin/pi", version: "0.84.2", digest: DIGEST },
     subagent: { version: "0.42.1" },
-    provider: { name: "openai-codex", model: "gpt-5.6-sol" },
+    provider: { name: "openai-codex", model: "gpt-5.6-sol", thinking: "high" },
     profileDigest: DIGEST,
-    harness: null,
+    harness: { version: "1.0.0", configDigest: DIGEST },
     repo: { target: SUBJECT.target, baseSha: SUBJECT.revision },
     capabilities,
   };
@@ -55,6 +57,17 @@ test("Capability Receipt is deterministic and requires evidence per status", () 
   assert.match(receipt.digest, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(buildCapabilityReceipt(input(receipt.capabilities)), receipt);
   assert.deepEqual(validateCapabilityReceipt(receipt), { ok: true, problems: [] });
+});
+
+test("successful child receipts may omit optional false lifecycle fields", () => {
+  assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}" }), true);
+  assert.equal(isSuccessfulReviewerChild({ index: 0, agent: "ticket-readiness-reviewer", exitCode: 0, finalOutput: "{}", timedOut: true }), false);
+});
+
+test("reviewer execution selection ignores read-only subagent management calls", () => {
+  const execution = { toolCall: { arguments: { agent: "ticket-readiness-reviewer" } }, details: { mode: "single", results: [{}] } };
+  assert.equal(selectReviewerChildTool([{ toolCall: { arguments: { action: "get" } }, details: { mode: "management" } }, execution]), execution);
+  assert.equal(selectReviewerChildTool([execution, structuredClone(execution)]), null);
 });
 
 test("configuration alone cannot claim runtime support", () => {
@@ -150,15 +163,21 @@ test("compatibility requires one exact qualified tuple", () => {
   });
   assert.deepEqual(validateCompatibilityMatrix(loadCompatibilityMatrix()), { ok: true, problems: [] });
   const invalid = {
-    schema: "pi-ticket-planning:compatibility-matrix:v1",
+    schema: "pi-ticket-planning:compatibility-matrix:v2",
     defaultStatus: "UNTESTED",
     entries: [{
       piVersion: receipt.pi.version,
+      piDigest: receipt.pi.digest,
       subagentVersion: receipt.subagent.version,
       provider: receipt.provider.name,
       model: receipt.provider.model,
+      thinking: receipt.provider.thinking,
       profileDigest: receipt.profileDigest,
-      harnessDigest: null,
+      harnessVersion: receipt.harness.version,
+      harnessDigest: receipt.harness.configDigest,
+      packageCommit: receipt.subject.revision,
+      observedAt: receipt.observedAt,
+      expiresAt: receipt.expiresAt,
       status: "SUPPORTED",
       reasonCode: "CONFIG_PRESENT",
       evidence: [],
@@ -168,7 +187,7 @@ test("compatibility requires one exact qualified tuple", () => {
 });
 
 test("formal Admission requires active capabilities and an exact qualified tuple", () => {
-  const active = ["runtime.pi", "pi.session", "subagent.final-result", "reviewer.fresh-context", "reviewer.schema", "provider.reviewer"]
+  const active = REQUIRED_ADMISSION_CAPABILITIES
     .map((name) => ({ name, status: "SUPPORTED", reasonCode: "ACTIVE_PROBE_PASS", evidence: [{ kind: "active-probe", digest: DIGEST }] }));
   const receipt = buildCapabilityReceipt(input(active));
   assert.throws(
@@ -176,18 +195,24 @@ test("formal Admission requires active capabilities and an exact qualified tuple
     /CAPABILITY_TUPLE_UNTESTED/,
   );
   const matrix = {
-    schema: "pi-ticket-planning:compatibility-matrix:v1",
+    schema: "pi-ticket-planning:compatibility-matrix:v2",
     defaultStatus: "UNTESTED",
     entries: [{
       piVersion: receipt.pi.version,
+      piDigest: receipt.pi.digest,
       subagentVersion: receipt.subagent.version,
       provider: receipt.provider.name,
       model: receipt.provider.model,
+      thinking: receipt.provider.thinking,
       profileDigest: receipt.profileDigest,
-      harnessDigest: null,
+      harnessVersion: receipt.harness.version,
+      harnessDigest: receipt.harness.configDigest,
+      packageCommit: receipt.subject.revision,
+      observedAt: receipt.observedAt,
+      expiresAt: receipt.expiresAt,
       status: "SUPPORTED",
       reasonCode: "QUALIFIED",
-      evidence: [{ kind: "active-probe", digest: DIGEST }, { kind: "release-qualification", digest: DIGEST }],
+      evidence: ["active-capability", "l2-model", "l3-e2e", "l4-qualification"].map((kind) => ({ kind, digest: DIGEST })),
     }],
   };
   assert.doesNotThrow(() => requireAdmissionCapabilities(receipt, {

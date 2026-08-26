@@ -1,10 +1,17 @@
 import { issue, PLAN_SCHEMA, PLAN_KINDS, SHA256, fingerprint, approvalProjection, harnessStateProblems, sameValues, reviewComment } from "./domain.mjs";
 import { controlledLabels } from "./recovery.mjs";
 import { validateAdmissionReviewBinding } from "./review-transport.mjs";
+import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
+import { validateArtifact } from "../protocol/kernel.mjs";
 
 export function validateAdmissionPlan(plan) {
   const problems = [];
   if (!plan || typeof plan !== "object" || Array.isArray(plan)) return { ok: false, problems: [issue("INVALID_ADMISSION_PLAN")] };
+  try {
+    problems.push(...validateArtifact(plan).problems);
+  } catch {
+    problems.push(issue("INVALID_ADMISSION_PLAN"));
+  }
   if (plan.schema !== PLAN_SCHEMA) problems.push(issue("UNSUPPORTED_ADMISSION_PLAN"));
   if (!PLAN_KINDS.includes(plan.kind)) problems.push(issue("INVALID_ADMISSION_PLAN_KIND", plan.kind));
   if (!SHA256.test(plan.planFingerprint ?? "") || fingerprint(approvalProjection(plan)) !== plan.planFingerprint) {
@@ -13,6 +20,7 @@ export function validateAdmissionPlan(plan) {
   if (fingerprint(plan.reviewed) !== plan.reviewedFingerprint) problems.push(issue("REVIEWED_FINGERPRINT_MISMATCH"));
   try {
     validateAdmissionReviewBinding(plan.reviewed?.reviewBinding);
+    validateReviewerDispatchBinding(plan.reviewed?.reviewDispatchBinding);
     validateAdmissionReviewBinding(plan.reviewed?.review?.inputBinding);
     if (fingerprint(plan.reviewed.reviewBinding) !== fingerprint(plan.reviewed.review.inputBinding)) {
       problems.push(issue("REVIEW_INPUT_BINDING_MISMATCH"));

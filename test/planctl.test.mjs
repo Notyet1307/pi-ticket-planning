@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -6,6 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
+import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TARGET = "github:Notyet1307/example";
@@ -47,6 +49,11 @@ test("pi-ticket-planctl persists and resumes one case across processes", (t) => 
   assert.equal(resumed.json.data.currentState.stage, "ORIENT");
   assert.equal(resumed.json.data.compatibility.capabilities, "UNTESTED");
   assert.match(resumed.json.data.recoveryCommand, new RegExp(`${caseId} --dry-run --json$`));
+
+  const offline = run(stateDir, ["case", "resume", caseId, "--offline", "--json"]);
+  assert.equal(offline.status, 1);
+  assert.equal(offline.json.status, "DEGRADED");
+  assert.equal(offline.json.data.mutationAllowed, false);
 
   const abandoned = run(stateDir, ["case", "abandon", caseId, "--reason", "superseded", "--json"]);
   assert.equal(abandoned.status, 0, abandoned.stderr);
@@ -111,4 +118,33 @@ test("pi-ticket-planctl records one operator approval bound to an exact Admissio
   });
   const status = run(stateDir, ["case", "status", "PC-approve", "--json"]);
   assert.deepEqual(status.json.data.case.approvals.pending.map(({ id }) => id), [approved.json.data.approval.id]);
+});
+
+test("pi-ticket-planctl records domain inputs and Outcome decisions", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-planctl-domain-"));
+  const stateDir = path.join(parent, "state");
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  assert.equal(run(stateDir, ["case", "create", "--target", TARGET, "--case-id", "PC-domain", "--json"]).status, 0);
+  const candidateFile = path.join(parent, "candidate.json");
+  fs.writeFileSync(candidateFile, JSON.stringify({ id: "C1", revision: "r1", digest: `sha256:${"a".repeat(64)}`, title: "Candidate" }), { mode: 0o600 });
+  const selected = run(stateDir, ["case", "select-candidate", "PC-domain", "--input", candidateFile, "--json"]);
+  assert.equal(selected.status, 0, selected.stderr);
+  assert.equal(selected.json.data.case.selectedCandidate.id, "C1");
+
+  const subject = { target: TARGET, kind: "release", id: "R1", revision: "r1", digest: `sha256:${"b".repeat(64)}` };
+  const outcome = buildOutcomeReceipt({
+    id: "OR-domain",
+    subject,
+    baseSha: "a".repeat(40),
+    source: { kind: "git", producer: "git", producerVersion: "test", producerDigest: `sha256:${"c".repeat(64)}` },
+    observedAt: new Date().toISOString(),
+    status: "ACHIEVED",
+    evidence: [{ kind: "git", ref: "commit", digest: `sha256:${createHash("sha256").update("commit").digest("hex")}` }],
+  });
+  const receiptFile = path.join(parent, "outcome.json");
+  fs.writeFileSync(receiptFile, JSON.stringify(outcome), { mode: 0o600 });
+  assert.equal(run(stateDir, ["outcome", "ingest", "--case-id", "PC-domain", "--receipt", receiptFile, "--json"]).status, 0);
+  const decided = run(stateDir, ["outcome", "decide", "--case-id", "PC-domain", "--receipt", receiptFile, "--decision", "NO_CHANGE", "--json"]);
+  assert.equal(decided.status, 0, decided.stderr);
+  assert.equal(decided.json.data.case.learningDecisions[0].decision, "NO_CHANGE");
 });

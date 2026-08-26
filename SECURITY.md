@@ -17,6 +17,12 @@ security fixes; older tags are historical snapshots.
   recoverable from an append-only event chain.
 - `PTP-SEC-001`: unknown protocol versions, unsafe paths, stale approvals,
   missing capabilities, and unverifiable receipts fail closed.
+- `PTP-EVIDENCE-001`: L2/L3 reports authorize no status by themselves. Beta
+  Qualification accepts only current-commit, unexpired GitHub Actions artifacts
+  whose attestation and successful workflow run are verified independently.
+- `PTP-E2E-001`: live writes require the enable flag, exact repository
+  allowlist, run-bound confirmation, actor/topic/default-branch checks, and a
+  proof that the target is not the package or production remote.
 
 The machine owners are `protocol/rules.json`, `contracts/authority.json`, and
 `contracts/workflow.json`. This policy references them; it does not redefine

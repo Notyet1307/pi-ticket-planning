@@ -3,6 +3,31 @@ import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mj
 import { verifyCandidateContextChecks } from "../scripts/check-ticket-context.mjs";
 import { issue, nonEmpty, planError, validatePolicy, requireHarnessReadiness, validateReview, validateActivationCheckpoint, fingerprint, sameValues, buildResource, finalizePlan, PLAN_SCHEMA } from "./domain.mjs";
 import { requireExactAdmissionReviewBinding } from "./review-transport.mjs";
+import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+
+function activationFacts(input, subject, reviewBinding, mutationId, observedAt) {
+  const build = (fact, kind, evidence, sameMutation = false) => createFactAttestation({
+    id: `F-${fact.replaceAll(".", "-")}-${mutationId.slice(-12)}`,
+    fact,
+    value: true,
+    subject,
+    source: producerAttestationSource(kind, "admission-plan"),
+    observedAt,
+    expiresAt: null,
+    ...(sameMutation ? { mutationId } : {}),
+    evidence,
+  });
+  return [
+    build("source.unchanged", input.kind === "STANDALONE" ? "admission-cli" : "check-admission-state", {
+      kind: "tracker", ref: `${subject.target}#${subject.id}@${subject.revision}`, digest: fingerprint(input.source),
+    }, true),
+    build("policy.accepted", "git-policy-check", { kind: "artifact", ref: input.policy.identity, digest: input.policy.digest }),
+    build("review.ready", "ticket-readiness-reviewer", {
+      kind: "artifact", ref: reviewBinding.schema, digest: reviewBinding.inputDigest,
+    }, true),
+  ];
+}
 
 export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw planError("invalid Admission input");
@@ -31,6 +56,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   if (!validateReview(input.review)) {
     throw planError("review is not READY or does not use the fresh reviewer contract");
   }
+  if (fingerprint(input.review.source) !== fingerprint(input.source)) throw planError("review source does not match the exact Admission source");
 
   const snapshot = parseDeliveryGraph(input.parent.body);
   const reviewById = new Map((input.review.candidates ?? []).map((candidate) => [String(candidate.id), candidate]));
@@ -54,16 +80,15 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   } catch (error) {
     throw planError(error instanceof Error ? error.message : String(error));
   }
-  const checkpointFacts = {
-    "source.unchanged": { value: true, source: "check-admission-state" },
-    "policy.accepted": { value: true, source: "git-policy-check" },
-    "review.ready": { value: true, source: "ticket-readiness-reviewer" },
-  };
+  try { validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw planError("Reviewer dispatch Binding is invalid"); }
+  const mutationId = `admission-plan:${fingerprint({ repo: input.repo, target: String(input.parent.id), revision: input.source?.revision, review: reviewBinding.inputDigest })}`;
+  const observedAt = new Date(clock()).toISOString();
+  const checkpointFacts = activationFacts(input, input.currentCheckpoint?.subject, reviewBinding, mutationId, observedAt);
   const checkpointProblems = validateActivationCheckpoint(
     input.currentCheckpoint,
-    String(input.parent.id),
-    input.source?.revision,
+    { target: `github:${input.repo}`, id: String(input.parent.id), revision: input.source?.revision },
     checkpointFacts,
+    { now: observedAt, mutationId },
   );
   if (checkpointProblems.length > 0) {
     throw planError("current Checkpoint must be exact ACTIVATION_AWAITING_CONFIRMATION", checkpointProblems);
@@ -92,6 +117,7 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: input.harness,
     review: input.review,
     reviewBinding,
+    reviewDispatchBinding: input.reviewDispatchBinding,
     capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };
@@ -158,6 +184,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
   if (contextCheckProblems.length > 0) throw planError("Ticket context check is not PASS", contextCheckProblems);
   if (!validatePolicy(input.policy)) throw planError("accepted policy identity and sha256 digest are required");
   if (!validateReview(input.review)) throw planError("review is not READY or does not use the fresh reviewer contract");
+  if (fingerprint(input.review.source) !== fingerprint(input.source)) throw planError("review source does not match the exact Admission source");
   const candidates = input.review.candidates ?? [];
   const reviewedCandidate = candidates.length === 1 && String(candidates[0].id) === String(candidate.id) ? candidates[0] : null;
   if (reviewedCandidate?.verdict !== "READY" || !["AGENT", "HUMAN"].includes(reviewedCandidate.executionLane)) {
@@ -170,17 +197,16 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
   } catch (error) {
     throw planError(error instanceof Error ? error.message : String(error));
   }
+  try { validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw planError("Reviewer dispatch Binding is invalid"); }
 
-  const checkpointFacts = {
-    "source.unchanged": { value: true, source: "admission-cli" },
-    "policy.accepted": { value: true, source: "git-policy-check" },
-    "review.ready": { value: true, source: "ticket-readiness-reviewer" },
-  };
+  const mutationId = `admission-plan:${fingerprint({ repo: input.repo, target: String(candidate.id), revision: input.source?.revision, review: reviewBinding.inputDigest })}`;
+  const observedAt = new Date(clock()).toISOString();
+  const checkpointFacts = activationFacts({ ...input, kind: "STANDALONE" }, input.currentCheckpoint?.subject, reviewBinding, mutationId, observedAt);
   const checkpointProblems = validateActivationCheckpoint(
     input.currentCheckpoint,
-    String(candidate.id),
-    input.source.revision,
+    { target: `github:${input.repo}`, id: String(candidate.id), revision: input.source.revision },
     checkpointFacts,
+    { now: observedAt, mutationId },
   );
   if (checkpointProblems.length > 0) {
     throw planError("current Checkpoint must be exact ACTIVATION_AWAITING_CONFIRMATION", checkpointProblems);
@@ -204,6 +230,7 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
     harness: reviewedCandidate.executionLane === "AGENT" ? input.harness : null,
     review: input.review,
     reviewBinding,
+    reviewDispatchBinding: input.reviewDispatchBinding,
     capabilityReceipt: input.capabilityReceipt ?? null,
     currentCheckpoint: input.currentCheckpoint,
   };

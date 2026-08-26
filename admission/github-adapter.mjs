@@ -13,7 +13,7 @@ function runGhJson(args, input) {
   return run.stdout.trim() ? JSON.parse(run.stdout) : undefined;
 }
 
-export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, context, runJson = runGhJson }) {
+export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, context, runJson = runGhJson, authenticatedActor }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo ?? "")) throw new Error("repo must be OWNER/REPO");
   if (!PLAN_KINDS.includes(kind)) throw new Error(`unsupported Admission kind ${kind}`);
   const targetId = String(target);
@@ -21,6 +21,7 @@ export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, con
   let actorLogin;
 
   function authenticatedLogin() {
+    if (authenticatedActor) return authenticatedActor;
     if (actorLogin !== undefined) return actorLogin;
     try { actorLogin = runJson(["api", "user"])?.login ?? null; } catch { actorLogin = null; }
     return actorLogin;
