@@ -99,7 +99,7 @@
     "REVIEW_IN_PROGRESS": ["tickets.persisted", "graph.passed"],
     "ACTIVATION_AWAITING_CONFIRMATION": ["source.unchanged", "policy.accepted", "review.ready"],
     "ADMITTED": ["source.unchanged", "policy.accepted", "review.ready", "human.activation", "tracker.ready"],
-    "HANDOFF_READY": ["tracker.ready"],
+    "HANDOFF_READY": ["execution.handoffReady"],
     "IN_PROGRESS": ["harness.active"],
     "DELIVERED": ["harness.terminalSuccess", "git.acceptedSource"],
     "AWAITING_EVIDENCE": ["release.recorded", "release.enabled", "release.smokePassed"],

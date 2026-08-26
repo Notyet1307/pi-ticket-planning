@@ -439,5 +439,19 @@ export function applyAdmissionPlan(plan, adapter, options = {}) {
   } catch (error) {
     return applyResult("CONFLICT", plan, changed, recovered, [issue(error?.code ?? "POSTCONDITION_READBACK_FAILED")]);
   }
+  try {
+    const snapshot = options.planningCaseStore.get({ caseId: options.caseId, target: `github:${plan.repo}` });
+    if (snapshot.checkpoint?.stage === "ADMISSION" && snapshot.checkpoint.verdict === "ACTIVATION_AWAITING_CONFIRMATION") {
+      const handoff = createFactAttestation({
+        id: `F-execution-handoff-ready-${plan.planFingerprint.slice(-12)}`,
+        fact: "execution.handoffReady", value: true, subject: snapshot.checkpoint.subject,
+        source: producerAttestationSource("admission-cli", "admission-cli"), observedAt: now, expiresAt: null,
+        evidence: { kind: "tracker", ref: `github:${plan.repo}#${plan.target}`, digest: plan.planFingerprint },
+      });
+      options.planningCaseStore.transition({ caseId: options.caseId, target: `github:${plan.repo}`, checkpoint: { ...snapshot.checkpoint, stage: "EXECUTION", verdict: "HANDOFF_READY" }, facts: [handoff], mutationId: null, nextAction: { kind: "NONE", command: null, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "LEGACY_HANDOFF_READY" } });
+    }
+  } catch (error) {
+    return applyResult("CONFLICT", plan, changed, recovered, [issue(error?.code ?? "LEGACY_HANDOFF_TRANSITION_FAILED")]);
+  }
   return applyResult("COMPLETE", plan, changed, recovered);
 }

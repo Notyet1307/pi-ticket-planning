@@ -34,7 +34,7 @@ function checkpoint(lane, id, revision) {
     lane,
     stage: "ADMISSION",
     verdict: "ACTIVATION_AWAITING_CONFIRMATION",
-    subject: { target: "github:acme/product", kind: "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
+    subject: { target: "github:acme/product", kind: lane === "DELIVERY" ? "release" : "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
   };
 }
 

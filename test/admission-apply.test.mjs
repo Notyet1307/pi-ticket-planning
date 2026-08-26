@@ -21,6 +21,7 @@ import {
 import { harnessReadiness } from "./readiness-fixture.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
 import { qualifiedCapability } from "./capability-fixture.mjs";
+import { advanceCaseToActivation } from "./execution-handoff-fixture.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { verifyDisposableGitHubAppAuth, writeGitHubAppCredentialBinding } from "../integration/github-app-auth.mjs";
@@ -35,7 +36,7 @@ function checkpoint(lane, id, revision) {
     lane,
     stage: "ADMISSION",
     verdict: "ACTIVATION_AWAITING_CONFIRMATION",
-    subject: { target: "github:acme/product", kind: "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
+    subject: { target: "github:acme/product", kind: lane === "DELIVERY" ? "release" : "ticket", id, revision, digest: `sha256:${"d".repeat(64)}` },
   };
 }
 
@@ -179,7 +180,13 @@ function approval(plan, id = "F-human-activation") {
 }
 
 function memoryCaseStore(plan, value = approval(plan)) {
-  const snapshot = { target: `github:${plan.repo}`, approvals: { pending: [value], consumed: [] }, admissionTransaction: null };
+  const snapshot = {
+    target: `github:${plan.repo}`,
+    checkpoint: structuredClone(plan.reviewed.currentCheckpoint),
+    facts: [],
+    approvals: { pending: [value], consumed: [] },
+    admissionTransaction: null,
+  };
   return {
     get({ target }) {
       assert.equal(target, snapshot.target);
@@ -192,6 +199,10 @@ function memoryCaseStore(plan, value = approval(plan)) {
     },
     changeAdmissionTransaction({ transaction }) {
       snapshot.admissionTransaction = structuredClone(transaction);
+    },
+    transition({ checkpoint, facts }) {
+      snapshot.checkpoint = structuredClone(checkpoint);
+      snapshot.facts.push(...structuredClone(facts));
     },
     snapshot,
   };
@@ -222,6 +233,9 @@ test("Admission apply converges once and resumes the committed transaction idemp
   assert.deepEqual(adapter.state.children[0].labels.sort(), ["bug", "ready-for-agent"]);
   assert.deepEqual(adapter.state.children[1].labels, ["ready-for-human"]);
   assert.deepEqual(adapter.state.parent.labels.sort(), ["ready-for-agent", "release"]);
+  assert.equal(adapter.caseStore.snapshot.checkpoint.stage, "EXECUTION");
+  assert.equal(adapter.caseStore.snapshot.checkpoint.verdict, "HANDOFF_READY");
+  assert.equal(adapter.caseStore.snapshot.facts.some(({ fact }) => fact === "execution.handoffReady"), true);
 
   const mutationCount = adapter.mutations.length;
   const second = apply(plan, adapter);
@@ -239,6 +253,13 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
     idGenerator: () => "PC-admission",
   });
   store.create({ target: `github:${plan.repo}`, caseId: "PC-admission" });
+  advanceCaseToActivation({
+    store,
+    caseId: "PC-admission",
+    target: `github:${plan.repo}`,
+    subject: plan.reviewed.currentCheckpoint.subject,
+    now: NOW,
+  });
   store.addApproval({ caseId: "PC-admission", approval: approval(plan) });
   const adapter = new MemoryAdapter(input());
 
@@ -254,6 +275,8 @@ test("Admission apply authorizes and consumes an exact approval in a persistent 
   assert.equal(result.status, "COMPLETE");
   assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.pending, []);
   assert.deepEqual(store.get({ caseId: "PC-admission" }).approvals.consumed.map(({ id }) => id), ["F-human-activation"]);
+  assert.equal(store.get({ caseId: "PC-admission" }).checkpoint.verdict, "HANDOFF_READY");
+  assert.equal(store.get({ caseId: "PC-admission" }).facts.some(({ fact }) => fact === "execution.handoffReady"), true);
   assert.equal(applyAdmissionPlan(plan, adapter, {
     expectedFingerprint: plan.planFingerprint,
     planningCaseStore: store,

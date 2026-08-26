@@ -71,7 +71,7 @@ test("every core stage resumes in a new process without chat history", (t) => {
     ["DELIVERY", "ADMISSION", "REVIEW_IN_PROGRESS", ["tickets.persisted", "graph.passed"], "M-review"],
     ["DELIVERY", "ADMISSION", "ACTIVATION_AWAITING_CONFIRMATION", ["source.unchanged", "policy.accepted", "review.ready"], "M-activation"],
     ["DELIVERY", "ADMISSION", "ADMITTED", ["source.unchanged", "policy.accepted", "review.ready", "human.activation", "tracker.ready"], "M-admitted"],
-    ["DELIVERY", "EXECUTION", "HANDOFF_READY", ["tracker.ready"]],
+    ["DELIVERY", "EXECUTION", "HANDOFF_READY", ["execution.handoffReady"]],
     ["DELIVERY", "EXECUTION", "IN_PROGRESS", ["harness.active"]],
     ["DELIVERY", "EXECUTION", "DELIVERED", ["harness.terminalSuccess", "git.acceptedSource"]],
     ["PRODUCT", "OUTCOME", "AWAITING_EVIDENCE", ["release.recorded", "release.enabled", "release.smokePassed"]],
