@@ -4,13 +4,16 @@
 
 PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求或一个 Issue，逐步整理成决定完整且执行 lane 明确的 Ticket：`AGENT` 工作可由 AI 独立执行和验证，不可委托的工作仍保留为 `HUMAN`。它适合希望系统主动核对仓库事实、保留证据和决定、准备交付任务，同时不把人的关键决定偷渡给 Agent 的产品和工程负责人。
 
-输入可以只是一句自然语言或一个 Issue 引用；持久输出是经过准入的独立 Ticket，或与已接受产品目标、技术决定和验证方式相连的 Ticket 图。不能一开始就让 Agent 开发，因为未关闭的产品、架构、依赖和风险取舍会被悄悄埋进实现。
+输入可以只是一句自然语言或一个 Issue 引用；持久规划输出是决定完整的独立 Ticket，或与已接受产品目标、技术决定和验证方式相连的 Delivery Graph。不能一开始就让 Agent 开发，因为未关闭的产品、架构、依赖和风险取舍会被悄悄埋进实现。
 
-> 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 Admission 激活仍由人负责。没有经过相应 Gate 和批准，它不会创建实现任务，也不会写 GitHub ready label。
+> 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 exact execution handoff 授权仍由人负责。它不会启动 Controller；GitHub ready label 只属于显式选择的 Legacy Herdr Admission。
+
+对已接受的 Delivery Graph，推荐出口是一次 **Codex Controller Release Handoff**：确定性编译精确的 Release Plan v2、一次批准该 fingerprint、物化三个私有输入文件，再由 operator 启动 Controller。旧 `admit` 仍保留为显式选择的 Herdr 按 Ticket ready-label 路径。
 
 > **v0.5 alpha：** `main` 已使用版本化协议内核和可恢复 Planning Case；
-> 但兼容矩阵还没有 qualified runtime tuple，也没有真实 L3 报告，因此正式
-> Admission 会 fail closed。最新稳定版仍是 `v0.4.0`。
+> 但兼容矩阵还没有 qualified runtime tuple，也没有真实 L3 报告，因此 Legacy
+> Herdr Admission 会 fail closed；Controller 路径独立要求其公开 validation 与 live
+> `doctor`。最新稳定版仍是 `v0.4.0`。
 
 机器控制与恢复统一使用 `pi-ticket-planctl`：
 
@@ -140,7 +143,7 @@ pi-ticket-plan --name "my-product-planning"
 | 选择一个有界的 Evidence 方法，形成 Candidate Frame。 | 同意、访问权限、隐私边界，以及只能由真实参与者或环境给出的结果。 |
 | Commitment 后检查必要技术决定，编译 Delivery Spec。 | Commitment、承重架构取舍、数据所有权、共享接口和风险接受。 |
 | 生成场景覆盖、walking skeleton、候选 Ticket 和依赖图。 | 批准 exact Ticket 图。 |
-| 执行 fresh-context readiness review，准备 exact Admission Plan。 | 确认 exact Admission fingerprint 并激活。 |
+| 执行一次 fresh graph-readiness review，编译 exact Controller Release Plan v2。 | 确认 exact Release Handoff fingerprint。 |
 | 从已持久化权威状态恢复到第一道未关闭 Gate。 | 生产启用、回滚决定和最终 Outcome 判断。 |
 
 系统会推荐，但不会把不可委托的人类取舍伪装成自动化结论。
@@ -155,7 +158,8 @@ pi-ticket-plan --name "my-product-planning"
 → 关闭必要技术决定
 → 编译为可验证场景和 Ticket
 → 独立复核
-→ 人确认交给执行 Harness
+→ 人确认一次 exact Release Handoff
+→ operator 启动 Codex Controller
 → 执行、发布并观察真实结果
 ```
 
@@ -168,7 +172,7 @@ pi-ticket-plan --name "my-product-planning"
 | 关闭承重技术决定 | **Solution Shaping / ADR** |
 | 描述可验证行为 | **Delivery Spec** |
 | 定义任务及依赖 | **Delivery Graph** |
-| 交给 Agent 前的最终复核 | **Admission** |
+| 最终规划复核与精确执行授权 | **Execution Handoff** |
 | 记录真实启用和健康状态 | **Release Record** |
 | 判断发布后的实际结果 | **Outcome** |
 
@@ -180,7 +184,7 @@ pi-ticket-plan --name "my-product-planning"
 - 因为用户说“用 AI”，就在用户流程尚未明确时启动模型 Spike；
 - 在 Commitment 前选择完整技术栈或创建应用脚手架；
 - 一次规划完整长期 backlog，或让第一张 Ticket 同时创建整个系统；
-- 让未通过 Admission 的 Ticket 进入 Harness；
+- 未经 exact applicable approval 就启动 Controller Job 或激活 Legacy Herdr；
 - 没有相应范围和批准就写 GitHub；
 - 把 merged、released 和 Outcome achieved 当成同一事实；
 - 把 `ask-yet` 当作 daemon 常驻，或持续轮询 Harness。
@@ -195,8 +199,8 @@ pi-ticket-plan --name "my-product-planning"
 4. 正式 Evidence 只保存经批准的脱敏结果；原始回答留在仓库外。
 5. exact accepted Release 和必要的 accepted ADR 必须进入已接受的代码基线，Delivery Spec 才能成为权威产物。
 6. Candidate Ticket 先处于 `needs-triage`。
-7. Admission 激活前会展示 exact 文件或 Issue、revision、ref、fingerprint 和不变项；一般的“继续”不等于批准这次 exact mutation。
-8. 只有确认后的 Admission 才写入 `ready-for-agent` 或 `ready-for-human`。
+7. 推荐的 Codex 路径会在 handoff 前展示 exact source、graph、Controller Plan、config digest、fingerprint 和不变项；一般的“继续”不等于批准。
+8. 确认后的 Codex handoff 只原子写三个私有本地文件，所有 Ticket 继续保持 `needs-triage`，且不启动 Controller。ready-label 写入只存在于显式选择的 Legacy Herdr 路径。
 
 当前行为由 [`contracts/`](contracts/)、[`scripts/`](scripts/) 以及对应的 [`skills/`](skills/) 或 reference 负责；[`fixtures/`](fixtures/) 和 `test/` 只是回归证据，不是合同。README 和指南只负责解释。
 
@@ -250,7 +254,7 @@ PI_TICKET_PLAN_BIN_DIR=/absolute/bin \
 
 内部会由 `ask-yet` 推断 `QUICK`、`STANDARD` 或 `DISCOVERY` 规划深度；安全、隐私、凭据、破坏性迁移、生产切换、不可逆影响或广泛爆炸半径存在时，再叠加 `CONTROLLED` 风险 Gate。这些是内部实现细节，不是要求用户作出的选择。
 
-不同事实有不同权威来源：产品 Evidence 和决定来自 accepted product artifact；source identity 和 accepted baseline 来自 Git；Ticket 状态来自 Tracker；执行状态来自 Harness ledger；真实启用来自 Release Record；观察窗口后的结果来自 Outcome Evidence。对话和摘要只是线索，不是权威事实。
+不同事实有不同权威来源：产品 Evidence 和决定来自 accepted product artifact；source identity 和 accepted baseline 来自 Git；Ticket 状态来自 Tracker；Legacy 执行状态来自 Harness ledger。Controller 在提供公开 export/status contract 前不进入 Planner 状态。真实启用来自 Release Record；观察窗口后的结果来自 Outcome Evidence。对话和摘要只是线索，不是权威事实。
 
 已有 Git 的目标中，一条经人批准的远端 draft ref 可以在 Candidate Frame 和 Evidence revision 间保存 exact candidate blob，但不能进入 Delivery Spec。Commitment 后，exact Release blob 必须进入 accepted remote base。Greenfield 只有在 exact Commitment 和所需授权后才允许建立仓库；它只创建最小交付容器，不选择应用技术栈，也不创建实现脚手架。
 
@@ -260,15 +264,15 @@ exact committed Release 进入 accepted base 后，Solution Shaping 只关闭第
 
 Delivery Spec 用稳定 Scenario ID 和明确交接描述行为。拆票会覆盖这些场景、识别 walking skeleton、记录依赖，并先生成 `needs-triage` Candidate Issues。Wayfinder map 保存决定、研究、原型和人工输入，不进入实现队列。
 
-### Strict frontier 与 Admission
+### Strict frontier 与 execution handoff
 
 不同 Tracker 的能力边界并不相同：
 
 | Tracker | 支持边界 |
 | --- | --- |
-| GitHub | 规划、图与就绪复核、事务化 Admission `plan`/`apply`、ready label 激活，以及已配置的 HerdrHarness 交接。 |
-| GitLab | 仅规划和规划级/就绪复核；没有 package-backed 事务化 `admit apply`，也不能激活 HerdrHarness。 |
-| Local Markdown | 仅规划和复核；没有事务化 ready 激活，也不能激活 HerdrHarness。 |
+| GitHub | 规划、图与就绪复核、推荐的 Controller Release Handoff，以及显式 Legacy Herdr `admit` 兼容。 |
+| GitLab | 仅规划和规划级/就绪复核；没有 package-backed Controller 或 Legacy Herdr 激活。 |
+| Local Markdown | 仅规划和复核；没有事务化 execution handoff。 |
 
 Delivery Parent 在 `## Ticket coverage` 下保存一份规范化 Delivery Graph v2 snapshot，用 SHA-256 绑定 accepted Spec 和 exact child body。检查 snapshot：
 
@@ -276,13 +280,44 @@ Delivery Parent 在 `## Ticket coverage` 下保存一份规范化 Delivery Graph
 npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 ```
 
-更强的 Admission-state 检查会把它与 Parent Spec、当前 child body、原生顺序和 blocker graph 比对：
+更强的 state 检查会把它与 Parent Spec、当前 child body、原生顺序和 blocker graph 比对：
 
 ```sh
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-GitHub 图通过启动器准备和应用 exact Admission transaction：
+已接受、全部为 AGENT 且没有 external blocker 的 GitHub 图，默认准备一次 Release Handoff：
+
+```sh
+pi-ticket-plan execution-plan build \
+  --repo owner/repo --parent 90 \
+  --review /private/review.json \
+  --review-binding /private/review-binding.json \
+  --review-dispatch-binding /private/review-dispatch.json \
+  --context /private/context.json \
+  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
+  --controller-config /private/controller.json \
+  --out /private/execution-handoff-plan.json --json
+
+pi-ticket-planctl case approve-handoff PC-release-90 \
+  --plan /private/execution-handoff-plan.json \
+  --expected-fingerprint sha256:<已确认-handoff-hash> --json
+
+pi-ticket-plan execution-plan apply \
+  --plan /private/execution-handoff-plan.json \
+  --expected-fingerprint sha256:<已确认-handoff-hash> \
+  --case-id PC-release-90 --approval-id F-<approve-handoff返回的-id> \
+  --context /private/fresh-context.json \
+  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
+  --controller-config /private/controller.json \
+  --output-dir /private/codex-release-90 --json
+```
+
+Build 只调用 Controller `config validate` 与 `plan validate`。Apply 还会调用 `doctor`，精确物化 `release-plan.json`、`execution-handoff-plan.json` 和 `execution-handoff-receipt.json`，记录 `EXECUTION/HANDOFF_READY`，最后消费 approval。它只打印、不执行 exact Controller `start` 命令。source、graph、review、policy、Controller config 或 Plan 漂移都必须重建并重新批准。
+
+#### Legacy Herdr 按 Ticket 激活
+
+只有 operator 显式选择时，才使用旧 ready-label 路径：
 
 ```sh
 pi-ticket-plan admit readiness \
@@ -315,7 +350,9 @@ pi-ticket-plan admit apply \
 
 独立 Ticket 使用 `--issue 42` 替换 `--parent 90`；复核为 `HUMAN` lane 时不传 Harness 参数。`case approve` 会在私有 Planning Case 中记录一个一小时有效、绑定 exact Plan 的激活批准。`apply` 通过协议内核读取该 Attestation，并只在所有 postcondition 通过后消费它；`PARTIAL` 为同一 Plan 保留 pending，`COMPLETE` 后重放则冲突。`readiness` 和 `plan` 可能执行 disposable 项目验证，但不会修改 Tracker 或 Harness workflow state；私有 Harness config 必须是 `0600`。
 
-Harness claim、执行、review、merge、真实启用、健康和 Outcome 是不同事实。`ask-yet` 只在被调用时运行，并从权威来源恢复下一道 Gate；只有 Harness 可以常驻。
+Controller 执行、aggregate review、PR/CI/merge、真实启用、健康和 Outcome 是不同事实。Planner handoff 不轮询执行；Legacy Harness claim 语义只留在显式 `admit` 路径。
+
+Controller result ingest 会等到 Controller 提供公开、稳定的 export/status contract 后再实现；Planner 绝不读取私有 `job.json`。
 
 ## 开发和发布验证
 
@@ -340,7 +377,15 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 
 它使用临时 Git 仓库、bare origin、Harness config、Pi agent directory 和 fake GitHub/Docker/Pi 命令，覆盖一条通过 receipt，以及 gate、Docker、tracked validation environment 缺失，并继续运行 Harness exact-HEAD/auto-merge guard tests。它不会使用真实 Provider、GitHub 仓库、生产 Docker daemon、Issue、label、PR 或 Harness ledger。
 
-Profile 烟测的预期结果是 `profile isolation: ok (27 skills)`。
+存在匹配的 Codex Controller checkout 时，运行它的确定性公开合同 canary：
+
+```sh
+npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
+```
+
+该 canary 只调用 `config validate` 和 `plan validate`，绝不调用 `doctor`、`start`、Codex 或网络写入。缺少 Controller checkout 时结果是 `CONTROLLER_UNAVAILABLE`，不是 PASS。
+
+Profile 烟测会包含 package-owned `prepare-codex-release` skill；命令会报告当前精确 skill 数。
 
 运行一个 fresh-process live case：
 

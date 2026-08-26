@@ -82,16 +82,17 @@ Issue 需要产品塑形时，Candidate Frame、Release、accepted ADR、Deliver
 
 拆分时，系统先编译稳定 Spec scenarios，再证明每个场景都有直接覆盖，并找出最早 walking skeleton。exact child order、blockers、bodies 和 write set 会一起交给人批准。局部图或循环图不会被发布为 ready。
 
-## 8. 什么时候交给 Harness
+## 8. 什么时候进入执行
 
-Admission 不能绕过。它检查 exact source 和 policy、当前 Issue body、受控标签、blocker、适用的 graph、fresh readiness verdict，以及 `AGENT` 工作真实执行的 exact-base Harness readiness projection。Issue、graph、项目配置、validation source 或 delivery gate 变化后，必须重新 review 或生成 Plan。
+对于拆分后的 Delivery Graph，推荐路径检查 exact source 和 policy、当前 Issue body、blocker、graph、Context 结果与 fresh readiness verdict。全部为 AGENT 且没有 external blocker 的 graph 会形成一个 exact Controller Release Plan v2；source、body、graph、review、policy、Controller config 或 Plan 漂移后必须重建并重新批准。
 
-只有 `admit apply` 可以写 ready label。最终 ready label 加 Admission comment 才是已配置 Harness 的 handoff。下面含义彼此不同：
+确认后的 apply 会原子写三个私有文件并记录 `EXECUTION/HANDOFF_READY`；它不启动 Controller，也不写 ready label。决定完整的 standalone Ticket，或显式选择 Legacy Herdr 的用户，仍可使用旧 `admit` 路径。下面含义彼此不同：
 
 - `needs-triage`：候选，不可领取；
 - reviewer `READY`：review 通过，仍需人工确认；
-- `ready-for-agent`：Harness 可以领取；
-- Harness completed：执行生命周期结束，不代表一定被接受或发布；
+- `HANDOFF_READY`：exact Controller 输入已存在，执行尚未开始；
+- `ready-for-agent`：Legacy Herdr 可以领取；
+- Controller 或 Legacy Harness completed：执行生命周期结束，不代表一定被接受或发布；
 - merged：代码进入某个分支，不代表已经启用；
 - released：行为已经启用并记录，不代表产生预期效果；
 - Outcome achieved：发布后 Evidence 达到 accepted result rule。

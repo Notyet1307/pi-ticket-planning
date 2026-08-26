@@ -10,7 +10,7 @@ Greenfield 可能同时表示三件不同的事：
 - **仓库从 0：** 工作目录可以是空目录，也可以尚未使用 Git；
 - **技术实现从 0：** 还没有应用边界、技术栈或代码。
 
-一句产品意图足以开始塑形，空目录不是 blocker。产品 Frame 阶段不会初始化 Git、选择技术栈或创建应用代码。人 Commitment 一个 exact Release 后，仓库设置才可能建立最小交付容器。应用脚手架属于 admitted Ticket 和已配置 Harness，不属于产品塑形。
+一句产品意图足以开始塑形，空目录不是 blocker。产品 Frame 阶段不会初始化 Git、选择技术栈或创建应用代码。人 Commitment 一个 exact Release 后，仓库设置才可能建立最小交付容器。应用脚手架属于获得精确授权的 execution handoff，不属于产品塑形。
 
 ## 2. 你第一句话怎么说
 
@@ -85,11 +85,11 @@ accepted Release
 
 仓库设置只创建交付容器。Solution Shaping 关闭第一版承重决定，不创建实现代码。Delivery Spec 定义可验证场景；拆票覆盖这些场景，并识别从 trigger 到 result 的最小 walking skeleton。
 
-## 8. 什么时候交给 Harness
+## 8. 什么时候进入执行
 
-Candidate Tickets 先处于 `needs-triage`。fresh-context reviewer 会检查每张 Ticket，以及场景覆盖、交接、walking skeleton、依赖顺序、source revision 和 policy。Admission 随后准备 exact Plan，等待人确认其 fingerprint。
+Candidate Tickets 从始至终保持 `needs-triage`。一个 fresh-context reviewer 会检查所有 Ticket，以及场景覆盖、交接、walking skeleton、依赖顺序、source revision 和 policy。推荐路径随后编译一个 Controller Release Plan v2，等待人确认 exact Handoff fingerprint。
 
-只有确认后的 Admission transaction 才写 ready label。ready label 加 Admission record 才允许已配置的 Harness 领取。这晚于 Commitment，也晚于创建 Ticket。
+确认后的 apply 会原子物化三个私有 Controller 输入文件，记录 `EXECUTION/HANDOFF_READY`，并只打印、不运行 Controller `start` 命令。它不写 ready label。只有 operator 显式选择时才使用 Legacy Herdr 按 Ticket 标签路径。
 
 ## 9. 常见误区
 

@@ -84,11 +84,11 @@ It is skipped when accepted code, ADRs, interfaces, ownership, and tests already
 
 The Delivery Spec then defines stable scenarios. Ticket generation proves scenario coverage and the walking skeleton before proposing the exact split and dependency graph for human approval.
 
-## 8. When work reaches the Harness
+## 8. When work reaches execution
 
-Creating or reviewing an Issue does not activate it. Admission rereads the accepted source, effective policy, exact Ticket bodies, blockers, coverage, walking skeleton, and dependency order. A fresh reviewer returns `READY`, `SPLIT`, or `NEEDS_INFO`; even `READY` still waits for confirmation of the exact Admission Plan fingerprint.
+Creating or reviewing an Issue does not start execution. The recommended graph path rereads the accepted source, effective policy, exact Ticket bodies, blockers, coverage, walking skeleton, and dependency order. One fresh reviewer returns `READY`, `SPLIT`, or `NEEDS_INFO`; an all-AGENT, blocker-free READY graph is compiled into one exact Controller Release Plan v2.
 
-Only confirmed Admission writes the ready label used by the configured Harness. Harness completion, merge, Release Record, and Outcome are later and distinct facts.
+One human approval binds the Handoff fingerprint. Apply writes three private input files and prints—but does not run—the Controller `start` command; Tickets remain `needs-triage`. Legacy Herdr ready-label activation is an explicit compatibility choice. Controller completion, merge, Release Record, and Outcome are later and distinct facts.
 
 ## 9. Common mistakes
 

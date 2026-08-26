@@ -10,7 +10,7 @@ Greenfield can mean three different things:
 - **The repository starts from zero:** the working directory may be empty or not yet use Git.
 - **The implementation starts from zero:** no application boundary, stack, or code exists.
 
-One sentence of product intent is enough to start shaping. An empty directory is not a blocker. During product framing the system does not initialize Git, choose a stack, or create application code. After a person commits an exact Release, repository setup may create the minimum delivery container. Application scaffolding belongs to an admitted Ticket and a configured Harness, not to product framing.
+One sentence of product intent is enough to start shaping. An empty directory is not a blocker. During product framing the system does not initialize Git, choose a stack, or create application code. After a person commits an exact Release, repository setup may create the minimum delivery container. Application scaffolding belongs to an exactly authorized execution handoff, not to product framing.
 
 ## 2. What to say first
 
@@ -85,11 +85,11 @@ accepted Release
 
 Repository setup creates only the delivery container. Solution Shaping closes load-bearing first-version decisions and creates no implementation code. The Delivery Spec defines verifiable scenarios. Ticket generation covers those scenarios and identifies the smallest trigger-to-result walking skeleton.
 
-## 8. When work reaches the Harness
+## 8. When work reaches execution
 
-Candidate Tickets begin as `needs-triage`. A fresh-context reviewer checks each Ticket plus scenario coverage, handoffs, the walking skeleton, dependency order, source revision, and policy. Admission then prepares an exact Plan and waits for a person to confirm its fingerprint.
+Candidate Tickets begin and remain `needs-triage`. One fresh-context reviewer checks every Ticket plus scenario coverage, handoffs, the walking skeleton, dependency order, source revision, and policy. The recommended path then compiles one Controller Release Plan v2 and waits for a person to confirm the exact Handoff fingerprint.
 
-Only the confirmed Admission transaction writes ready labels. A ready label plus its Admission record lets a configured Harness claim work. This is later than Commitment and later than Ticket creation.
+Confirmed apply atomically materializes three private Controller input files, records `EXECUTION/HANDOFF_READY`, and prints the Controller `start` command without running it. It writes no ready label. Legacy Herdr per-ticket labels remain available only when the operator explicitly selects that path.
 
 ## 9. Common mistakes
 
