@@ -55,7 +55,7 @@ Read the full issue or PR, comments, labels, author, dates, linked decisions, an
 
 A `QUICK` request may arrive without a tracker identity. Require the exact human request, target repository and base, verified current behavior or reproduction, trusted decision sources, one primary outcome, one primary verification, and no open product, architecture, data, compatibility, rollout, or controlled-risk decision. Closed applicable controls may be carried by a `QUICK + CONTROLLED` standalone candidate. If these facts cannot support one `READY/STANDALONE` candidate, return to `ask-yet` for deeper planning before any tracker write.
 
-Explore the codebase using its domain glossary and ADRs. Perform two searches:
+Explore the smallest relevant codebase. When an applicable glossary exists or terminology can change the current decision, follow [Domain navigation](../setup-delivery-repository/domain.md); read only the accepted ADRs the request depends on. Perform two searches:
 
 - **Redundancy:** find existing behavior by domain concept, and report where you looked.
 - **Prior rejection:** inspect .out-of-scope for a matching decision.
@@ -76,7 +76,7 @@ Report confirmed, failed, or insufficient detail. Insufficient detail normally l
 
 ### 4. Resolve decisions
 
-When behavior or terminology remains undecided, use /grilling and /domain-modeling. Update the domain glossary and ADRs as decisions land. Preserve all resolved facts in triage notes.
+When behavior remains undecided, use /grilling. For decision-changing terminology, follow Domain navigation and use /domain-modeling inside the current gate only when accepted context cannot resolve a genuine domain choice. Do not add a glossary step for discoverable or non-decision-changing wording. Preserve all resolved facts in triage notes.
 
 ### 5. Apply the chosen path
 

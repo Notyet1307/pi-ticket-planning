@@ -42,7 +42,7 @@ READY additionally requires all of these findings:
 3. No same-concern conflict can change the outcome, primary verification, acceptance criteria, guardrails, or first correct action.
 4. Historical, example, fixture, draft, working-tree, and conversation-summary material is not used as authority.
 5. The Ticket body itself contains the required behavior, decisions, invariants, guardrails, blockers, and out-of-scope boundary.
-6. Optional Context anchors are exact reviewed-base regular files, relevant to the first action, purpose-labelled, unique, and limited to five; zero is valid.
+6. Optional Context anchors are exact reviewed-base regular files, relevant to the first action, unique, and limited to five; each description states the branch of work that makes the file relevant and the first-action purpose. Zero is valid.
 7. The Ticket never asks the executor to scan a repository or decide which source is true.
 8. The effective root policy contains only stable global rules and does not conflict with accepted code or ADRs through stale implementation detail.
 9. The deterministic `pi-ticket-planning:ticket-context-check:v1` result is PASS and matches the candidate identity, exact body hash, and exact base SHA.

@@ -39,13 +39,14 @@ Each candidate must satisfy `/ticket-readiness`:
 - stable source Scenario IDs, closed decisions, real blockers, decision sources, and explicit out-of-scope work;
 - an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
+- cheap deterministic repository and environment facts remain in their owning code, configuration, scripts, or tool output; copy only stable behavior, acceptance criteria, invariants, guardrails, decided handoffs, non-obvious first-action pointers, and exact decision authority into the Ticket.
 - when primary verification depends on Docker, Compose, a non-default runtime, or another configured tool, the stable requirement and canonical tracked validation entry are explicit. Live socket, daemon, credential, and machine availability stay out of the Ticket and are proven later by Admission readiness.
 
 Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
 
-    - `src/module/current-entry.ts` — Locate the current behavior entry point.
+    - `src/module/current-entry.ts` — When changing <branch or behavior>, locate the current behavior entry point.
 
-Each anchor is one exact repo-relative regular file at the reviewed base plus one non-empty purpose. Do not use directories, globs, absolute paths, `..`, working-tree/draft/historical/example/fixture sources, or instructions such as `read docs/`, `inspect the codebase`, or `read all ADRs`. Anchors navigate; they never replace behavior, acceptance criteria, decisions, or guardrails in the body. Omit the section when the entry is obvious. More than five means the Ticket is too broad, the necessary decision belongs in the body, or the list has not been reduced to first-action sources; it cannot proceed as READY.
+Each anchor is one exact repo-relative regular file at the reviewed base plus one short trigger and purpose: name the branch of work that makes the file relevant and what the executor should obtain from it. Do not use directories, globs, absolute paths, `..`, working-tree/draft/historical/example/fixture sources, or instructions such as `read docs/`, `inspect the codebase`, or `read all ADRs`. Anchors navigate; they never replace behavior, acceptance criteria, decisions, or guardrails in the body. Omit the section when the entry is obvious. More than five means the Ticket is too broad, the necessary decision belongs in the body, or the list has not been reduced to first-action sources; it cannot proceed as READY.
 
 Every `## Decision sources` item must name the concern it owns and an exact accepted identity. Discussions, summaries, examples, and navigation documents are not decision authorities.
 

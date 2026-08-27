@@ -22,7 +22,7 @@ Classify the source:
 
 Completed Wayfinder decisions, research, prototypes, and questionnaires may support either source. Fetch the exact linked artifacts needed to recover a decision. An open decision or conflicting authority that changes behavior is `NEEDS_INFO`.
 
-Restore only the authority set needed to compile this Spec: the exact task authority, accepted base, effective root policy, applicable accepted ADRs, minimum relevant implementation facts, and fresh tracker identity. README, CONTEXT files, examples, and fixtures may locate a source or explain terminology; they cannot supply missing product behavior or a load-bearing technical decision. Do not read every ADR: select only those the task source or current behavior depends on.
+Restore only the authority set needed to compile this Spec: the exact task authority, accepted base, effective root policy, applicable accepted ADRs, minimum relevant implementation facts, and fresh tracker identity. README, CONTEXT files, examples, and fixtures may locate a source or explain terminology; they cannot supply missing product behavior or a load-bearing technical decision. When an applicable accepted CONTEXT convention exists or terminology can change a Scenario or handoff, apply [Domain navigation](../setup-delivery-repository/domain.md). Do not read every ADR: select only those the task source or current behavior depends on.
 
 ### 2. Pin the delivery base
 
@@ -87,6 +87,8 @@ Use this structure:
     Empty when ticket planning can proceed; otherwise exact questions, owners, and the blocked scenarios.
 
 Avoid implementation task lists, transient file paths, and working code. Include a short prototype-derived state machine, schema, reducer, or type shape only when it is the clearest authoritative decision.
+
+Inline the durable behavior, invariants, handoffs, and decisions every downstream Ticket needs. Point to exact accepted sources for provenance instead of copying them. Leave cheap deterministic repository and environment facts in code, configuration, scripts, and tool output; include a fact only when downstream discovery is unreliable, its exact accepted identity is load-bearing, or the lookup is materially costly. The Spec must remain sufficient for `to-tickets` without duplicating the repository.
 
 ### 5. Verify and publish the draft
 
