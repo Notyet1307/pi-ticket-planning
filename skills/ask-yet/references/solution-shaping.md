@@ -117,12 +117,17 @@ Do not promote a deferred idea into a candidate. In particular, when the current
 
 Prefer, while preserving committed behavior:
 
-- the smaller boundary and fewer dependencies;
+- **Depth** — a small interface that hides meaningful current behavior and invariants instead of a shallow pass-through abstraction;
+- **Locality** — the module or seam that keeps related change, knowledge, failure handling, and verification together instead of spreading them across callers;
+- **Real seam** — an adapter seam only for a current variation, isolation, or verification need, never an imagined future implementation;
+- **Deletion test** — if deleting the proposed module makes its complexity disappear instead of reappear in callers, treat that as evidence the abstraction does not earn its interface;
+- **Interface as verification surface** — callers and the primary behavioral check use the same stable interface; routine private bypass is evidence that the seam is misplaced;
 - the more reversible choice;
-- the easier end-to-end verification seam;
 - consistency with accepted architecture;
 - lower operating burden; and
 - explicit failure and recovery behavior.
+
+These are evaluation heuristics inside Solution Shaping, not additional gates, artifacts, fields, or required interfaces. Existing accepted architecture remains authoritative unless the committed Release requires a change.
 
 Do not prefer novelty, distribution, services, events, plugins, AI, or theoretical extensibility by default. When a load-bearing human choice remains open, use the safe default: introduce no new persistence, external service, public interface, or production side effect; preserve the accepted behavior and fallback; remain `DELIVERY / SPEC` with `BLOCKED`.
 

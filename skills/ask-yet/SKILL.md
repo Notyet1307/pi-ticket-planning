@@ -71,6 +71,8 @@ Choose one lane:
 - `RISK`: maintenance, security, compliance, migration, or platform constraints drive the work.
 - `INCIDENT`: users, data, security, or production are currently at risk.
 
+When terminology ambiguity can change the current decision, Scenario, handoff, ownership or verification seam, or a fresh executor's first correct action, load [Domain navigation](../setup-delivery-repository/domain.md); otherwise proceed without a glossary step.
+
 ## Route the current gate
 
 Load each named owner in full only when its gate applies:
