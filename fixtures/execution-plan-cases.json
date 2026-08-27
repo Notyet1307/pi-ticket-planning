@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "evidenceTier": "DETERMINISTIC_CONTRACT_FIXTURE",
+  "cases": [
+    {
+      "id": "agent-only-default-handoff",
+      "executionLanes": ["AGENT", "AGENT"],
+      "externalBlockers": [],
+      "expected": {
+        "status": "READY",
+        "route": "prepare-codex-release",
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    },
+    {
+      "id": "human-child-stops-handoff",
+      "executionLanes": ["AGENT", "HUMAN"],
+      "externalBlockers": [],
+      "expected": {
+        "status": "CODEX_RELEASE_NOT_EXECUTABLE",
+        "route": null,
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    },
+    {
+      "id": "external-blocker-stops-handoff",
+      "executionLanes": ["AGENT"],
+      "externalBlockers": ["external:approval"],
+      "expected": {
+        "status": "CODEX_RELEASE_NOT_EXECUTABLE",
+        "route": null,
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    }
+  ]
+}

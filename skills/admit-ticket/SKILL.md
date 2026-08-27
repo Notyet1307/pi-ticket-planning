@@ -5,6 +5,8 @@ description: Run independent readiness and graph review when ask-yet has persist
 
 # Admit Ticket
 
+> Legacy Herdr ticket activation only. The default accepted Delivery Graph route is `/prepare-codex-release`; use this skill only when the operator explicitly selects per-ticket Herdr labels.
+
 Move candidate implementation issues through an independent fresh-context review, then activate only the unchanged READY result in its reviewed execution lane after human confirmation.
 
 Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume online, bind exact policy, Context, Capability, Harness, review, and graph inputs, and use package `plan/apply`; those commands alone advance the durable `ADMISSION_*` transaction and consume the exact approval. Completion requires a new-process Case replay showing `ADMISSION_COMMITTED`.

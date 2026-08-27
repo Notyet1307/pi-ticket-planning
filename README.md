@@ -4,14 +4,17 @@ English | [简体中文](README.zh-CN.md)
 
 PI Ticket Planning turns a rough product idea, a feature request for an existing project, or an Issue into a decision-complete Ticket with the correct execution lane: an AI agent can execute and verify `AGENT` work independently, while non-delegable work stays `HUMAN`. It is for product and engineering owners who want the system to gather repository facts, preserve evidence and decisions, and prepare delivery work without delegating the decisions that still belong to people.
 
-The input can be one natural-language sentence or an Issue reference. The durable output is an admitted standalone Ticket or an admitted Ticket graph linked to an accepted product goal, technical decisions, and verification. Starting an agent immediately would hide unresolved product, architecture, dependency, or risk choices inside implementation; this package closes those choices first.
+The input can be one natural-language sentence or an Issue reference. The durable planning output is a decision-complete standalone Ticket or accepted Delivery Graph linked to an accepted product goal, technical decisions, and verification. Starting an agent immediately would hide unresolved product, architecture, dependency, or risk choices inside implementation; this package closes those choices first.
 
-> The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and activate Admission. It does not create implementation work or write GitHub ready labels without the applicable gate and approval.
+For an accepted Delivery Graph, the recommended execution exit is one **Codex Controller Release Handoff**: compile an exact Release Plan v2, approve its fingerprint once, materialize three private input files, then let the operator start the Controller. Legacy `admit` remains the explicit Herdr per-ticket ready-label path.
+
+> The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and authorize the exact execution handoff. It never starts the Controller; GitHub ready labels belong only to explicit Legacy Herdr admission.
 
 > **v0.5 alpha:** `main` now uses a versioned protocol kernel and recoverable
 > Planning Cases. Deterministic checks are available, but the compatibility
-> matrix has no qualified runtime tuple and no live L3 report exists. Formal
-> Admission therefore fails closed; `v0.4.0` remains the latest stable release.
+> matrix has no qualified runtime tuple and no live L3 report exists. Legacy
+> Herdr Admission therefore fails closed; the Controller path separately requires
+> its public validation and live `doctor`. `v0.4.0` remains the latest stable release.
 
 Machine control and recovery use `pi-ticket-planctl`:
 
@@ -141,7 +144,7 @@ At this point the system does not initialize Git, select a stack, or create appl
 | Choose one bounded Evidence method and form a Candidate Frame. | Consent, access, privacy boundaries, and any result that only a real participant or environment can supply. |
 | After Commitment, check required technical decisions and compile a Delivery Spec. | Commitment, load-bearing architecture choices, data ownership, shared interfaces, and risk acceptance. |
 | Generate scenario coverage, a walking skeleton, candidate Tickets, and their dependency graph. | Approval of the exact Ticket graph. |
-| Run a fresh-context readiness review and prepare an exact Admission Plan. | Confirmation of the exact Admission fingerprint and activation. |
+| Run one fresh graph-readiness review and compile an exact Controller Release Plan v2. | Confirmation of the exact Release Handoff fingerprint. |
 | Reconstruct persisted authority and resume at the first open gate. | Production enablement, rollback decisions, and the final Outcome judgment. |
 
 The system recommends, but it never disguises a non-delegable human tradeoff as an automated conclusion.
@@ -156,7 +159,8 @@ one idea or Issue
 → close the required technical decisions
 → compile verifiable scenarios and Tickets
 → independent review
-→ a person confirms handoff to the execution Harness
+→ a person confirms one exact Release Handoff
+→ the operator starts the Codex Controller
 → execute, release, and observe the real result
 ```
 
@@ -169,7 +173,7 @@ The system may shorten this path when trusted facts already close a gate. A deci
 | Close load-bearing technical decisions | **Solution Shaping / ADR** |
 | Describe verifiable behavior | **Delivery Spec** |
 | Define tasks and dependencies | **Delivery Graph** |
-| Final review before an agent can claim work | **Admission** |
+| Final planning review and exact execution authorization | **Execution Handoff** |
 | Record real enablement and health | **Release Record** |
 | Judge the post-release result | **Outcome** |
 
@@ -181,7 +185,7 @@ These terms describe gates and durable artifacts; users do not need to learn the
 - treat “use AI” as permission to start a model Spike before the user workflow is known;
 - select a full stack or bootstrap an application before Commitment;
 - plan a complete long-term backlog or put the whole system in one first Ticket;
-- let a Ticket enter the Harness before Admission;
+- start a Controller Job or activate Legacy Herdr before the exact applicable approval;
 - write to GitHub without the applicable scope and approval;
 - treat merged, released, and Outcome achieved as the same fact;
 - run `ask-yet` as a daemon or continuously poll the Harness.
@@ -196,8 +200,8 @@ Conversation, durable artifacts, and activation are separate:
 4. Formal Evidence stores only an approved redacted result; raw answers stay outside the repository.
 5. An exact accepted Release and any required accepted ADR must reach the accepted code base before the Delivery Spec can become authoritative.
 6. Candidate Tickets begin as `needs-triage`.
-7. Admission shows the exact files or Issues, revision, ref, fingerprint, and invariants before activation. A general “continue” is not approval for that exact mutation.
-8. Only confirmed Admission writes `ready-for-agent` or `ready-for-human` labels.
+7. The recommended Codex path shows the exact source, graph, Controller Plan, config digest, fingerprint, and invariants before handoff. A general “continue” is not approval.
+8. Confirmed Codex handoff atomically writes three private local files and keeps every Ticket in `needs-triage`; it does not start the Controller. Ready-label writes exist only in the explicitly selected Legacy Herdr path.
 
 Current behavior is owned by [`contracts/`](contracts/), [`scripts/`](scripts/), and the owning [`skills/`](skills/) or reference. [`fixtures/`](fixtures/) and `test/` are regression evidence, not contracts. This README and the guides are explanatory.
 
@@ -251,7 +255,7 @@ Use the same `PI_TICKET_PLAN_PROFILE_DIR` when starting the launcher. Human user
 
 Internally, `ask-yet` infers `QUICK`, `STANDARD`, or `DISCOVERY` planning depth and adds `CONTROLLED` risk gates when security, privacy, credentials, destructive migration, production cutover, irreversible effects, or broad blast radius require them. These are implementation details, not choices the user must make.
 
-The source of truth depends on the fact: product Evidence and decisions live in accepted product artifacts; source identity and accepted baseline come from Git; ticket state comes from the tracker; execution comes from the Harness ledger; real enablement comes from the Release Record; the post-window result comes from Outcome Evidence. Conversation and summaries are leads, not authority.
+The source of truth depends on the fact: product Evidence and decisions live in accepted product artifacts; source identity and accepted baseline come from Git; ticket state comes from the tracker; Legacy execution comes from the Harness ledger. Controller execution remains outside Planner state until a public export/status contract exists. Real enablement comes from the Release Record; the post-window result comes from Outcome Evidence. Conversation and summaries are leads, not authority.
 
 In an existing Git target, one human-approved remote draft ref may preserve exact candidate blobs through Candidate Frame and Evidence revisions. It cannot feed the Delivery Spec. After Commitment, the exact Release blob must enter the accepted remote base. In Greenfield work, repository setup becomes eligible only after exact Commitment and the needed authorization; it creates the minimum delivery container, not an application stack or implementation scaffold.
 
@@ -261,15 +265,15 @@ After an exact committed Release is present on the accepted base, Solution Shapi
 
 The Delivery Spec binds behavior to stable Scenario IDs and explicit handoffs. Ticket generation covers those scenarios, identifies a walking skeleton, records dependencies, and produces candidate Issues under `needs-triage`. Wayfinder maps contain decisions, research, prototypes, and human input; they do not enter the implementation queue.
 
-### Strict frontier and Admission
+### Strict frontier and execution handoff
 
 Tracker capability is intentionally asymmetric:
 
 | Tracker | Supported boundary |
 | --- | --- |
-| GitHub | Planning, graph and readiness review, transactional Admission `plan`/`apply`, ready-label activation, and configured HerdrHarness handoff. |
-| GitLab | Planning and planning-level/readiness review only; no package-backed transactional `admit apply` or HerdrHarness activation. |
-| Local Markdown | Planning and review only; no transactional ready activation or HerdrHarness activation. |
+| GitHub | Planning, graph/readiness review, the recommended Controller Release Handoff, and explicit Legacy Herdr `admit` compatibility. |
+| GitLab | Planning and planning-level/readiness review only; no package-backed Controller or Legacy Herdr activation. |
+| Local Markdown | Planning and review only; no transactional execution handoff. |
 
 The delivery parent stores one normalized Delivery Graph v2 snapshot under `## Ticket coverage`. It binds accepted Spec content and exact child bodies by SHA-256. Check a snapshot with:
 
@@ -277,13 +281,44 @@ The delivery parent stores one normalized Delivery Graph v2 snapshot under `## T
 npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 ```
 
-The stronger Admission-state check compares that snapshot with the parent Spec, current child bodies, native order, and blocker graph:
+The stronger state check compares that snapshot with the parent Spec, current child bodies, native order, and blocker graph:
 
 ```sh
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For a GitHub map, prepare and apply an exact Admission transaction through the launcher:
+For an accepted AGENT-only GitHub map with no external blocker, the recommended path prepares one Release Handoff:
+
+```sh
+pi-ticket-plan execution-plan build \
+  --repo owner/repo --parent 90 \
+  --review /private/review.json \
+  --review-binding /private/review-binding.json \
+  --review-dispatch-binding /private/review-dispatch.json \
+  --context /private/context.json \
+  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
+  --controller-config /private/controller.json \
+  --out /private/execution-handoff-plan.json --json
+
+pi-ticket-planctl case approve-handoff PC-release-90 \
+  --plan /private/execution-handoff-plan.json \
+  --expected-fingerprint sha256:<confirmed-handoff-hash> --json
+
+pi-ticket-plan execution-plan apply \
+  --plan /private/execution-handoff-plan.json \
+  --expected-fingerprint sha256:<confirmed-handoff-hash> \
+  --case-id PC-release-90 --approval-id F-<id-from-approve-handoff> \
+  --context /private/fresh-context.json \
+  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
+  --controller-config /private/controller.json \
+  --output-dir /private/codex-release-90 --json
+```
+
+Build calls only Controller `config validate` and `plan validate`. Apply also calls `doctor`, materializes exactly `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`, records `EXECUTION/HANDOFF_READY`, and consumes approval last. It prints—without executing—the exact Controller `start` command. Source, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
+
+#### Legacy Herdr per-ticket activation
+
+The old ready-label path remains available only when the operator explicitly selects it:
 
 ```sh
 pi-ticket-plan admit readiness \
@@ -316,7 +351,9 @@ pi-ticket-plan admit apply \
 
 A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMAN` lane omits the Harness flags. `case approve` records a one-hour, exact-Plan activation approval in the private Planning Case. `apply` reads that attestation through the protocol kernel and consumes it only after every postcondition passes; `PARTIAL` keeps it pending for the same Plan, while replay after `COMPLETE` is a conflict. `readiness` and `plan` may run disposable project validation but do not mutate Tracker or Harness workflow state. The private Harness config must be mode `0600`.
 
-Harness claim, execution, review, merge, real enablement, health, and Outcome remain distinct. `ask-yet` runs only when invoked and reconstructs the next gate from authoritative sources; only the Harness may remain resident.
+Controller execution, aggregate review, PR/CI/merge, real enablement, health, and Outcome remain distinct. Planner handoff never polls execution. Legacy Harness claim semantics remain confined to the explicit `admit` path.
+
+Controller result ingestion remains deferred until the Controller exposes a public stable export/status contract. The Planner never reads private `job.json` state.
 
 ## Development and release verification
 
@@ -341,7 +378,15 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 
 It uses a temporary Git repository, bare origin, Harness config, Pi agent directory, and fake GitHub/Docker/Pi commands. It exercises one passing receipt plus missing gate, Docker, and tracked validation environment failures, then runs the Harness exact-HEAD/auto-merge guard tests. It does not use a real Provider, GitHub repository, production Docker daemon, Issue, label, PR, or Harness ledger.
 
-The expected Profile smoke result is `profile isolation: ok (27 skills)`.
+With the matching Codex Controller checkout available, run its deterministic public-contract canary:
+
+```sh
+npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
+```
+
+This canary calls only `config validate` and `plan validate`; it never calls `doctor`, `start`, Codex, or a network write. A missing Controller checkout is `CONTROLLER_UNAVAILABLE`, not a passing result.
+
+The expected Profile smoke result includes the package-owned `prepare-codex-release` skill; the command reports the exact current skill count.
 
 Run one fresh-process live case with:
 

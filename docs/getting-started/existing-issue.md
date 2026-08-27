@@ -82,16 +82,17 @@ A single Bug fix or wording correction stays one Ticket when it has one outcome,
 
 For a split, the system first compiles stable Spec scenarios, then proves every scenario has direct coverage and identifies the earliest walking skeleton. It presents the exact child order, blockers, bodies, and write set for human approval. A partial or cyclic graph is not published as ready.
 
-## 8. When work reaches the Harness
+## 8. When work reaches execution
 
-Admission cannot be bypassed. It checks the exact source and policy, current Issue body, controlled labels, blockers, graph when present, fresh readiness verdict, and an executed exact-base Harness readiness projection for `AGENT` work. A changed Issue, graph, project config, validation source, or delivery gate requires a new review or Plan.
+For a split Delivery Graph, the recommended path checks the exact source and policy, current Issue bodies, blockers, graph, Context results, and fresh readiness verdict. An all-AGENT graph with no external blocker becomes one exact Controller Release Plan v2; any source, body, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
 
-Only `admit apply` owns ready-label writes. The final ready label plus Admission comment is the configured Harness handoff. The meanings remain distinct:
+Confirmed apply atomically writes three private files and records `EXECUTION/HANDOFF_READY`; it does not start the Controller or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
 
 - `needs-triage`: candidate, not claimable;
 - reviewer `READY`: review passed, human confirmation still required;
-- `ready-for-agent`: the Harness may claim it;
-- Harness completed: execution lifecycle ended, not necessarily accepted or released;
+- `HANDOFF_READY`: exact Controller input exists; execution has not started;
+- `ready-for-agent`: Legacy Herdr may claim it;
+- Controller or Legacy Harness completed: execution lifecycle ended, not necessarily accepted or released;
 - merged: code entered a branch, not necessarily enabled;
 - released: behavior was enabled and recorded, not necessarily effective;
 - Outcome achieved: post-release Evidence met the accepted result rule.

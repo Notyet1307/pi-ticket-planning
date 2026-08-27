@@ -1,6 +1,6 @@
 {
   "schema": "pi-ticket-planning:context-manifest:v1",
-  "route": "DELIVERY/EXECUTION/HANDOFF_READY",
+  "route": "DELIVERY/EXECUTION/IN_PROGRESS",
   "required": [
     "skills/ask-yet/SKILL.md",
     "skills/ask-yet/references/execution-closeout.md"

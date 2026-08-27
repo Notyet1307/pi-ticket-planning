@@ -5,14 +5,15 @@ description: Judge candidate implementation issues before they enter an agent or
 
 # Ticket Readiness
 
-Use this as the single source of truth for implementation-ticket scope and admission. Evaluate and report; let /admit-ticket own tracker mutations.
+Use this as the single source of truth for implementation-ticket scope and readiness. Evaluate and report; `prepare-codex-release` owns the recommended read-only handoff path, while `admit-ticket` alone owns Legacy Herdr tracker mutations.
 
 ## Artifact roles
 
 - A **Wayfinder map** contains decision tickets. It produces decisions, research, prototypes, and human input. It never enters the implementation queue.
 - A **delivery spec** is a parent planning issue. Keep it in needs-triage while its implementation graph is incomplete.
 - A **candidate ticket** is a proposed implementation child in needs-triage.
-- An **admitted ticket** has passed an independent fresh-context review and human confirmation, then receives the ready label for its execution lane.
+- A **Release child** is a Controller-owned commit boundary inside one Release Plan: it is not an independent PR, publication, or runtime Reviewer job.
+- A Legacy **admitted ticket** has passed Herdr-specific confirmation and then receives the ready label for its execution lane.
 
 Create a delivery spec separate from any Wayfinder map. A closed decision ticket may be a source for an implementation ticket; it is not itself an implementation ticket.
 
@@ -22,7 +23,7 @@ Return READY only when every condition holds:
 
 1. **One primary outcome.** State one externally observable result in one sentence.
 2. **One primary verification.** Name one behavioral seam or scenario that proves the outcome: one API scenario, one state-machine suite, or one UI flow. Lint, typecheck, build, and full CI remain merge gates, not the primary verification.
-3. **Bounded assertions.** Use 3–6 acceptance criteria. Eight single-assertion criteria is the hard maximum.
+3. **Bounded assertions.** Use 3–8 single-assertion acceptance criteria.
 4. **Bounded delivery surface.** The ticket has no more than three independently useful delivery surfaces. A necessary schema, API, and UI path for one behavior may still be one vertical slice; layers are not automatically independent surfaces.
 5. **Decisions are closed.** Product behavior, architecture, data ownership, compatibility, and rollout choices needed to start are already decided and do not conflict with linked ADRs.
 6. **Dependencies are real.** Blocked by lists prerequisites without which the ticket cannot be completed and pass its primary verification independently. Preferred order is not a blocker when an available stable contract still permits independent completion.
@@ -37,7 +38,7 @@ Prefer a vertical slice through only the layers needed for the observable result
 READY additionally requires all of these findings:
 
 1. Product behavior, current implementation, load-bearing technical decisions, global policy, and live state each come from their owning authority.
-2. Every Git source is read from the reviewed base; tracker and Harness facts are fresh reads from their owning systems.
+2. Every Git source is read from the reviewed base and tracker facts are fresh reads from their owning system. Executor runtime readiness belongs to the selected execution path, not this content verdict.
 3. No same-concern conflict can change the outcome, primary verification, acceptance criteria, guardrails, or first correct action.
 4. Historical, example, fixture, draft, working-tree, and conversation-summary material is not used as authority.
 5. The Ticket body itself contains the required behavior, decisions, invariants, guardrails, blockers, and out-of-scope boundary.
@@ -46,7 +47,7 @@ READY additionally requires all of these findings:
 8. The effective root policy contains only stable global rules and does not conflict with accepted code or ADRs through stale implementation detail.
 9. The deterministic `pi-ticket-planning:ticket-context-check:v1` result is PASS and matches the candidate identity, exact body hash, and exact base SHA.
 10. A fresh executor can choose the first correct action directly from the Ticket, repository policy, and bounded anchors.
-11. Every `AGENT` candidate has a current passing Harness readiness projection bound to the reviewed repository/base/config: both Provider lanes, required local Docker, exact-base canonical validation, and the active strict no-bypass GitHub merge gate. A `HUMAN` lane does not borrow or fabricate this execution fact.
+11. Every Release-graph `AGENT` child is a bounded Controller-owned commit boundary: it has a first correct action, only earlier dependencies, and can remain buildable and verifiable after completion. Standalone lane classification remains independent. Controller, credential, Docker, Provider, and merge readiness are execution facts, not Ticket-quality facts.
 
 An older accepted ADR remains authoritative until a valid supersession, same-concern conflict, missing reviewed-base path, or explicit historical/deprecated status proves otherwise. A current implementation that differs from a COMMITTED target normally describes `current state -> target state`; it is not itself a conflict. Missing or conflicting Context Quality is NEEDS_INFO. Use SPLIT only when the same evidence also proves multiple independent outcomes.
 
@@ -66,6 +67,12 @@ Classify the execution lane independently from the verdict:
 - **HUMAN** — completion or primary verification requires intentionally human-held access, control of an external or isolated environment, physical access, or non-delegable judgment.
 
 A complete human-only ticket is READY with execution lane HUMAN. Human ownership alone is not missing information, and ready-for-human is an activation label rather than a fourth verdict. Use NEEDS_INFO only when a required decision or input is actually unavailable.
+
+## Activation boundary
+
+Recommended Codex Controller release handoff requires every graph child to be `AGENT`, have no external blocker, and remain `needs-triage`; one fresh graph review and one exact Release fingerprint authorization cover the whole Release. It does not write ready labels or create per-ticket runtime Reviewer work.
+
+Legacy Herdr Admission may separately activate ready labels and require Harness execution evidence. Do not project those runtime facts back into this READY content contract.
 
 ## Review output
 
@@ -135,9 +142,9 @@ Graph READY requires every intended candidate to be individually READY and the D
 
 Tie the verdict to the exact candidate bodies, parent spec, sources, graph, and updated timestamps supplied in the admission bundle. Any material drift requires a new review.
 
-## Activation invariant
+## Legacy Herdr activation invariant
 
-Activation follows this order:
+Only an operator's explicit Legacy Herdr selection follows this ready-label activation order:
 
 1. Publish the parent and all children as needs-triage.
 2. Create native parent-child and blocking relationships.

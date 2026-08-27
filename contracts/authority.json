@@ -18,6 +18,10 @@
     "human.outcomeLearningDecision": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"], "archivePolicy": "planning-case-decision" },
     "capability.admissionReady": { "kind": "CAPABILITY_FACT", "owner": "doctor", "sources": ["capability-receipt"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 }, "archivePolicy": "capability-receipt" },
     "harness.readinessPassed": { "kind": "HARNESS_FACT", "owner": "harness", "sources": ["harness-ledger"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "executionPlan.validated": { "kind": "LIVE_FACT", "owner": "execution-plan-compiler", "sources": ["execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
+    "controller.readinessPassed": { "kind": "LIVE_FACT", "owner": "codex-controller", "sources": ["codex-controller-cli"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
+    "human.executionHandoff": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "execution.handoffReady": { "kind": "IMMUTABLE_FACT", "owner": "execution-plan-apply", "sources": ["execution-plan-apply", "admission-cli"] },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
@@ -25,9 +29,9 @@
     "git.deliveryBase": { "kind": "IMMUTABLE_FACT", "owner": "git", "sources": ["git"] },
     "spec.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
     "tickets.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
-    "graph.passed": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state"], "freshness": { "mode": "same-mutation" } },
+    "graph.passed": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "human.graphApproval": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
-    "source.unchanged": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli"], "freshness": { "mode": "same-mutation" } },
+    "source.unchanged": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "policy.accepted": { "kind": "IMMUTABLE_FACT", "owner": "git-policy", "sources": ["git-policy-check"] },
     "review.ready": { "kind": "LIVE_FACT", "owner": "fresh-reviewer", "sources": ["ticket-readiness-reviewer"], "freshness": { "mode": "same-mutation" } },
     "human.activation": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
@@ -51,7 +55,7 @@
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
-      "producesFacts": ["tracker.ready"],
+      "producesFacts": ["tracker.ready", "execution.handoffReady"],
       "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
     "admission.applyStandaloneAgent": {
@@ -63,7 +67,7 @@
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
-      "producesFacts": ["tracker.ready"],
+      "producesFacts": ["tracker.ready", "execution.handoffReady"],
       "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
     "admission.applyStandaloneHuman": {
@@ -75,8 +79,20 @@
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
       "requiredFacts": ["source.unchanged", "policy.accepted", "review.ready", "human.activation"],
-      "producesFacts": ["tracker.ready"],
+      "producesFacts": ["tracker.ready", "execution.handoffReady"],
       "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
+    },
+    "executionPlan.apply": {
+      "strict": true,
+      "actor": "execution-plan-apply",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "EXECUTION",
+      "targetVerdict": "HANDOFF_READY",
+      "approvalFact": "human.executionHandoff",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "executionPlan.validated", "controller.readinessPassed", "human.executionHandoff"],
+      "producesFacts": ["execution.handoffReady"],
+      "postconditions": ["handoff.filesExactReadback", "approval.singleConsumed", "handoff.receiptExact"]
     }
   }
 }

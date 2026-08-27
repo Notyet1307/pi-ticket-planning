@@ -14,6 +14,21 @@ test("route Context Manifests stay bounded and keep Reviewer input isolated", ()
   assert.equal(result.ok, true, JSON.stringify(result.problems));
   assert.equal(result.manifests >= 4, true);
   assert.deepEqual(result.problems, []);
+  const activation = JSON.parse(fs.readFileSync(path.join(ROOT, "context", "manifests", "admission-activation.json"), "utf8"));
+  assert.deepEqual(activation.required, ["skills/prepare-codex-release/SKILL.md", "execution-plan/contract.md"]);
+  assert.equal(activation.required.some((file) => /admit-ticket|live-adapter|admission\/apply/.test(file)), false);
+  const routes = JSON.parse(fs.readFileSync(path.join(ROOT, "context", "routes.json"), "utf8"));
+  assert.equal(routes.rules.some((rule) => rule.manifest === "admission-activation.json"
+    && rule.stages?.includes("ADMISSION") && rule.verdicts?.includes("ACTIVATION_AWAITING_CONFIRMATION")), true);
+  assert.equal(routes.rules.some((rule) => rule.manifest === "handoff-ready.json"
+    && rule.stages?.includes("EXECUTION") && rule.verdicts?.includes("HANDOFF_READY")), true);
+  assert.equal(routes.rules.some((rule) => rule.stages?.includes("EXECUTION") && !rule.verdicts), false);
+  const handoffReady = JSON.parse(fs.readFileSync(path.join(ROOT, "context", "manifests", "handoff-ready.json"), "utf8"));
+  assert.equal(handoffReady.required.includes("skills/ask-yet/references/handoff-ready.md"), true);
+  const handoffContract = fs.readFileSync(path.join(ROOT, "skills", "ask-yet", "references", "handoff-ready.md"), "utf8");
+  assert.match(handoffContract, /source\.kind == execution-plan-apply/);
+  assert.match(handoffContract, /source\.kind == admission-cli/);
+  assert.match(handoffContract, /do not project Controller `IN_PROGRESS`|keep the Planning Case at `HANDOFF_READY`/);
 });
 
 test("Context verifier rejects missing, over-budget, and author-reasoning inputs", (t) => {

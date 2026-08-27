@@ -1,6 +1,6 @@
 # Execution and closeout contract
 
-Use this reference only after Admission or when downstream execution, merge, release, or outcome facts already exist. `ask-yet` is invoked on demand; it never runs a planning daemon or duplicates Harness state.
+Use this reference for explicit Legacy Herdr work after its handoff, or when later merge, release, or outcome facts already exist. A Controller-produced `execution.handoffReady` must first use the handoff-ready routing contract; without a public Controller export/status contract, do not project Controller `IN_PROGRESS` or `DELIVERED`. `ask-yet` is invoked on demand and never duplicates executor state.
 
 ## 1. Authority by fact
 
@@ -19,7 +19,7 @@ Read the smallest current slice needed from each applicable owner. A conversatio
 
 Use the first matching state whose required facts are established:
 
-- `HANDOFF_READY`: Admission activation is durably confirmed and the exact ready labels/relationships are present, but Harness has no active claim. Harness may be offline; that is not a blocker and does not require a planning monitor.
+- Legacy `HANDOFF_READY`: Admission activation is durably confirmed and the exact ready labels/relationships are present, but Harness has no active claim. Harness may be offline; that is not a blocker and does not require a planning monitor.
 - `IN_PROGRESS`: the Harness owner shows selected, claimed, running, or review-active work for the admitted ticket.
 - `BLOCKED`: Harness shows an active recovery hold or terminal failure/cancellation, or required authoritative facts conflict or cannot be obtained.
 - `DELIVERED`: Harness records successful terminal completion and the repository's required accepted Git/PR evidence identifies the delivered source. A merged PR without Harness terminal success is not enough; Harness terminal success without required accepted source evidence is not enough.

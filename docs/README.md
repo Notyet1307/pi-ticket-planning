@@ -7,6 +7,7 @@
 - Fact and mutation authority: `contracts/authority.json`.
 - Agent behavior: the owning `skills/*/SKILL.md` or its named reference.
 - Executable mechanics: `scripts/`.
+- Recommended Controller handoff contract: `execution-plan/contract.md`; Legacy Herdr activation remains under `admission/`.
 - Evaluation evidence: `test/` and `fixtures/`.
 
 Historical design evolution is available in Git history.

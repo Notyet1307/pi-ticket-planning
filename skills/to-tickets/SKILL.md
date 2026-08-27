@@ -1,11 +1,11 @@
 ---
 name: to-tickets
-description: Draft and publish a traceable candidate graph when ask-yet has an accepted Delivery Spec, stopping once for graph approval before independent admission.
+description: Draft and publish a traceable candidate graph when ask-yet has an accepted Delivery Spec, then route the accepted graph to one Codex Controller release handoff.
 ---
 
 # To Tickets
 
-Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; `admit-ticket` alone owns ready labels.
+Compile one accepted Delivery Spec into candidate tracer-bullet tickets. Publish candidates in `needs-triage`; the default next step is `/prepare-codex-release`. Use `/admit-ticket` only when the user explicitly chooses Legacy Herdr activation.
 
 Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, verify its Spec binding, record each Candidate and the approved graph decision, transition through `TICKETS`, and bind the exact published graph before reporting completion.
 
@@ -34,7 +34,7 @@ Create one candidate per observable behavior. Cross only the schema, API, UI, mi
 Each candidate must satisfy `/ticket-readiness`:
 
 - one primary outcome and one primary verification;
-- 3–6 single-assertion acceptance criteria, with eight as the hard maximum;
+- 3–8 single-assertion acceptance criteria;
 - no more than three independent delivery surfaces;
 - stable source Scenario IDs, closed decisions, real blockers, decision sources, and explicit out-of-scope work;
 - an explicit starting state matching its Scenario entry or blocker-produced artifact, plus the invariants and guardrails it must preserve;
@@ -175,6 +175,6 @@ Re-fetch the parent and build one Admission bundle containing the trusted source
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 
-### 6. Continue to Admission
+### 6. Prepare the recommended release handoff
 
-Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow the `admit-ticket` helper in the same run. Candidate publication is complete only when the tracker matches the approved coverage and graph snapshot; Admission still stops after fresh review for explicit activation confirmation.
+Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow `prepare-codex-release`. Keep children in `needs-triage`: the recommended path compiles one AGENT-only Release Plan and never writes ready labels. Only when the operator explicitly chooses Legacy Herdr per-ticket activation may this route continue to `admit-ticket`.

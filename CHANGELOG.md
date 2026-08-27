@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add the recommended Codex Controller Release Handoff: deterministic Release Plan v2 compilation, exact source/review/config binding, one-hour fingerprint approval, live Controller doctor gate, and atomic three-file materialization without starting execution or writing ready labels.
+- Keep per-ticket Herdr Admission as an explicit Legacy path while generalizing `HANDOFF_READY` to the executor-neutral `execution.handoffReady` fact.
 - Add the v0.5 versioned protocol kernel, Artifact Registry, Fact Attestation,
   Planning Case state, Result Envelope, Context Manifests, and model checker.
 - Split Admission into deep modules and bind fresh Reviewer input, Capability

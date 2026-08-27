@@ -9,6 +9,8 @@
     { "stages": ["ADMISSION"], "verdicts": ["REVIEW_IN_PROGRESS"], "manifest": "admission-review.json" },
     { "stages": ["ADMISSION"], "verdicts": ["ACTIVATION_AWAITING_CONFIRMATION"], "manifest": "admission-activation.json" },
     { "stages": ["ADMISSION"], "verdicts": ["ADMITTED", "BLOCKED"], "manifest": "product-status.json" },
-    { "stages": ["EXECUTION", "OUTCOME"], "manifest": "execution-outcome.json" }
+    { "stages": ["EXECUTION"], "verdicts": ["HANDOFF_READY"], "manifest": "handoff-ready.json" },
+    { "stages": ["EXECUTION"], "verdicts": ["IN_PROGRESS", "BLOCKED", "DELIVERED"], "manifest": "execution-outcome.json" },
+    { "stages": ["OUTCOME"], "manifest": "execution-outcome.json" }
   ]
 }
