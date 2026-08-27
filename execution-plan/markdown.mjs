@@ -12,6 +12,35 @@ function oneLine(value, code) {
   return text;
 }
 
+export function parseControlledLines(value) {
+  const entries = [];
+  let current = "";
+  let kind = null;
+  const flush = () => {
+    if (current) entries.push(current);
+    current = "";
+    kind = null;
+  };
+  for (const raw of String(value).replace(/\r\n?/g, "\n").split("\n")) {
+    const line = raw.trim();
+    const item = line.match(/^(?:[-*+]\s+|[1-9][0-9]*[.)]\s+)(.+)$/);
+    if (item) {
+      flush();
+      current = item[1].trim();
+      kind = "list";
+    } else if (!line) {
+      flush();
+    } else if (kind === "list" || kind === "paragraph") {
+      current += `\n${line}`;
+    } else {
+      current = line;
+      kind = "paragraph";
+    }
+  }
+  flush();
+  return entries;
+}
+
 export function parseParentDeliverySpec(body) {
   if (typeof body !== "string") throw new Error("INVALID_PARENT_BODY");
   const required = ["Delivery outcome", "Behavioral scenarios", "Release signal mapping", "Walking skeleton target", "Decisions", "Constraints and dependencies", "Out of scope"];

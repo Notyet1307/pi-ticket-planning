@@ -21,6 +21,10 @@ function writeJson(directory, name, value) {
   return file;
 }
 
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", `'"'"'`)}'`;
+}
+
 function controllerFiles(directory) {
   const cli = path.join(directory, "controller-cli.mjs");
   const config = path.join(directory, "controller.json");
@@ -30,7 +34,7 @@ const args = process.argv.slice(2);
 fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args) + "\\n");
 if (args[0] === "config") console.log(JSON.stringify({ok:true,config:{repo:"acme/product",baseRef:"main",policy:{maxIssues:2},review:{enabled:true}},configDigest:"${"a".repeat(64)}"}));
 else if (args[0] === "plan") console.log(JSON.stringify({ok:true,plan:JSON.parse(fs.readFileSync(args[args.indexOf("--plan") + 1], "utf8")),planDigest:"${"c".repeat(64)}"}));
-else if (args[0] === "doctor") console.log(JSON.stringify({ok:true}));
+else if (args[0] === "doctor") console.log(JSON.stringify({ok:true,configDigest:"${"a".repeat(64)}"}));
 else process.exit(9);
 `, { mode: 0o700, flag: "wx" });
   fs.writeFileSync(config, "{}\n", { mode: 0o600, flag: "wx" });
@@ -49,7 +53,9 @@ function run(args, env = {}) {
 test("execution-plan CLI builds, verifies, and applies through only the Controller public contract", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-cli-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const controller = controllerFiles(directory);
+  const controllerDirectory = path.join(directory, "controller'files");
+  fs.mkdirSync(controllerDirectory, { mode: 0o700 });
+  const controller = controllerFiles(controllerDirectory);
   const input = executionInput();
   const inputFile = writeJson(directory, "input.json", input);
   const planFile = path.join(directory, "handoff-plan.json");
@@ -93,15 +99,16 @@ test("execution-plan CLI builds, verifies, and applies through only the Controll
   assert.equal(applied.status, 0, applied.stderr);
   const result = JSON.parse(applied.stdout);
   assert.equal(result.status, "COMPLETE");
-  assert.match(result.nextCommand, new RegExp(controller.cli.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(result.nextCommand, new RegExp(controller.config.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal(result.nextCommand.includes(shellQuote(controller.cli)), true);
+  assert.equal(result.nextCommand.includes(shellQuote(controller.config)), true);
   assert.match(result.nextCommand, /release-plan\.json/);
+  assert.match(result.nextCommand, new RegExp(`--expected-config-digest '${"a".repeat(64)}'`));
 
   const calls = fs.readFileSync(controller.record, "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(calls.map(([first, second]) => `${first}:${second}`), [
-    "config:validate", "plan:validate",
-    "config:validate", "plan:validate", "doctor:--config",
-    "config:validate", "plan:validate", "doctor:--config",
+    "config:validate", "plan:validate", "config:validate",
+    "config:validate", "plan:validate", "config:validate", "doctor:--config",
+    "config:validate", "plan:validate", "config:validate", "doctor:--config",
   ]);
   assert.equal(calls.flat().some((value) => /^(start|run|step)$/.test(value)), false);
 
@@ -168,4 +175,44 @@ test("profile launcher dispatches execution-plan without starting PI", () => {
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /USAGE: execution-plan build\|verify\|apply/);
+});
+
+test("execution-plan CLI rejects build and apply output ancestor symlinks", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-cli-output-paths-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const controller = controllerFiles(directory);
+  const fixture = compiledFixture();
+  const inputFile = writeJson(directory, "input.json", fixture.input);
+  const planFile = writeJson(directory, "plan.json", fixture.plan);
+  const realParent = path.join(directory, "private-output");
+  const linkedParent = path.join(directory, "linked-output");
+  fs.mkdirSync(realParent, { mode: 0o700 });
+  fs.symlinkSync(realParent, linkedParent);
+
+  const built = run([
+    "build", "--input", inputFile,
+    "--controller-cli", controller.cli,
+    "--controller-config", controller.config,
+    "--out", path.join(linkedParent, "built.json"),
+    "--json",
+  ], { TEST_CONTROLLER_RECORD: controller.record });
+  assert.equal(built.status, 2);
+  assert.match(built.stderr, /OUTPUT_PARENT_PATH_CONTAINS_SYMLINK/);
+  assert.equal(fs.existsSync(path.join(realParent, "built.json")), false);
+
+  const stateDir = path.join(directory, "state");
+  const ready = createReadyCase({ stateDir, plan: fixture.plan, caseId: "PC-cli-output-path" });
+  const applied = run([
+    "apply", "--plan", planFile, "--input", inputFile,
+    "--expected-fingerprint", fixture.plan.planFingerprint,
+    "--case-id", ready.caseId,
+    "--approval-id", ready.approval.id,
+    "--controller-cli", controller.cli,
+    "--controller-config", controller.config,
+    "--output-dir", path.join(linkedParent, "handoff"),
+    "--json",
+  ], { TEST_CONTROLLER_RECORD: controller.record, PI_TICKET_PLAN_STATE_DIR: stateDir });
+  assert.equal(applied.status, 2);
+  assert.match(applied.stderr, /OUTPUT_PARENT_PATH_CONTAINS_SYMLINK/);
+  assert.equal(fs.existsSync(path.join(realParent, "handoff")), false);
 });

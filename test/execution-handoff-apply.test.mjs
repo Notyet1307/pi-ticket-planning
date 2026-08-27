@@ -49,6 +49,21 @@ function storeWith(store, overrides) {
   };
 }
 
+function publishBeforeCheckpoint(ready) {
+  let fail = true;
+  const faulted = storeWith(ready.store, {
+    transition(args) {
+      if (fail) {
+        fail = false;
+        throw new Error("CRASH_AFTER_PUBLISH");
+      }
+      return ready.store.transition(args);
+    },
+  });
+  assert.throws(() => applyExecutionPlan({ ...ready.base, store: faulted }), /CRASH_AFTER_PUBLISH/);
+  assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+}
+
 function assertExactOutput(outputDir, plan, approvalId) {
   assert.deepEqual(fs.readdirSync(outputDir).sort(), OUTPUT_FILES);
   assert.equal(fs.statSync(outputDir).mode & 0o777, 0o700);
@@ -102,28 +117,54 @@ test("execution handoff apply publishes exact private files, records the Case, a
   assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
 });
 
-test("execution handoff recovers a crash after publish and before the Case checkpoint", (t) => {
+test("execution handoff revalidates after publish and before the Case checkpoint", (t) => {
   const ready = setup(t, "execution-handoff-before-checkpoint");
-  let fail = true;
-  const faulted = storeWith(ready.store, {
-    transition(args) {
-      if (fail) {
-        fail = false;
-        throw new Error("CRASH_AFTER_PUBLISH");
-      }
-      return ready.store.transition(args);
-    },
-  });
-  assert.throws(() => applyExecutionPlan({ ...ready.base, store: faulted }), /CRASH_AFTER_PUBLISH/);
-  assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+  publishBeforeCheckpoint(ready);
   let snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
   assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
 
   ready.input.children[0].body += "\npost-publication drift";
-  assert.equal(applyExecutionPlan({ ...ready.base, clock: () => "2026-08-20T02:00:00.000Z" }).status, "COMPLETE");
-  assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);
-  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
+  const result = applyExecutionPlan({ ...ready.base, clock: () => "2026-08-20T02:00:00.000Z" });
+  assert.equal(result.status, "CONFLICT");
+  assert.deepEqual(result.problems, [{ code: "CHILD_DRIFT:101" }]);
+  snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
+  assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate"]);
+});
+
+test("execution handoff resumes exact pre-checkpoint output and blocks config or doctor drift", (t) => {
+  {
+    const ready = setup(t, "execution-handoff-pre-checkpoint-exact");
+    publishBeforeCheckpoint(ready);
+    assert.equal(applyExecutionPlan(ready.base).status, "COMPLETE");
+    assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);
+    assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate", "plan validate", "doctor"]);
+  }
+  {
+    const ready = setup(t, "execution-handoff-pre-checkpoint-config-drift");
+    publishBeforeCheckpoint(ready);
+    const drifted = { ...ready.controller, configDigest: "d".repeat(64) };
+    const result = applyExecutionPlan({ ...ready.base, adapter: controllerAdapter(drifted, ready.calls) });
+    assert.equal(result.status, "CONFLICT");
+    assert.equal(ready.store.get({ caseId: ready.caseId, target: ready.target }).approvals.pending.some(({ id }) => id === ready.approval.id), true);
+    assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+  }
+  {
+    const ready = setup(t, "execution-handoff-pre-checkpoint-doctor-failure");
+    publishBeforeCheckpoint(ready);
+    const adapter = controllerAdapter(ready.controller, ready.calls);
+    adapter.doctor = () => { ready.calls.push("doctor"); throw new Error("CONTROLLER_DOCTOR_FAILED"); };
+    const result = applyExecutionPlan({ ...ready.base, adapter });
+    assert.equal(result.status, "BLOCKED");
+    assert.deepEqual(result.problems, [{ code: "CONTROLLER_DOCTOR_FAILED" }]);
+    const snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
+    assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
+    assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
+    assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+  }
 });
 
 test("execution handoff recovers a crash after the checkpoint and before approval consumption", (t) => {
@@ -278,6 +319,16 @@ test("execution handoff rejects conflicting files, permissions, and self-signed 
     receipt.digest = fingerprint((({ digest, ...body }) => body)(receipt));
     fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
     assert.throws(() => applyExecutionPlan(ready.base), /HANDOFF_OUTPUT_CONFLICT/);
+  }
+  {
+    const ready = setup(t, "execution-handoff-existing-ancestor-symlink");
+    const realParent = path.join(ready.directory, "real");
+    const linkedParent = path.join(ready.directory, "linked");
+    fs.mkdirSync(realParent, { mode: 0o700 });
+    const realOutput = path.join(realParent, "handoff");
+    assert.equal(applyExecutionPlan({ ...ready.base, outputDir: realOutput }).status, "COMPLETE");
+    fs.symlinkSync(realParent, linkedParent);
+    assert.throws(() => applyExecutionPlan({ ...ready.base, outputDir: path.join(linkedParent, "handoff") }), /PATH_CONTAINS_SYMLINK/);
   }
 });
 

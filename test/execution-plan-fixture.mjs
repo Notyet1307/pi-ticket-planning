@@ -140,15 +140,17 @@ export function controllerAdapter(controller, calls = []) {
   return {
     config() {
       calls.push("config validate");
-      return { config: structuredClone(controller.config), configDigest: controller.configDigest };
+      return { config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "test-config-identity" };
     },
-    validatePlan(plan) {
+    validatePlan(plan, expectedConfigDigest, expectedConfigIdentity) {
       calls.push("plan validate");
+      if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_CONFIG_DRIFT");
       return { plan: structuredClone(plan), planDigest: controller.planDigest };
     },
-    doctor() {
+    doctor(expectedConfigDigest, expectedConfigIdentity) {
       calls.push("doctor");
-      return { ok: true };
+      if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
+      return { ok: true, configDigest: controller.configDigest };
     },
   };
 }

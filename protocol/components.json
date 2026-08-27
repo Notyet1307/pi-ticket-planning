@@ -13,6 +13,7 @@
     "build-metadata-generator": { "kind": "module", "path": "installation/build-metadata.mjs", "export": "generateBuildMetadata" },
     "ci": { "kind": "workflow", "path": ".github/workflows/ci.yml" },
     "command-runtime": { "kind": "module", "path": "planning-case/result.mjs", "export": "resultEnvelope" },
+    "codex-controller-contract-canary": { "kind": "command", "path": "scripts/canary-codex-controller-contract.mjs" },
     "compatibility-checker": { "kind": "module", "path": "capabilities/compatibility.mjs", "export": "validateCompatibilityMatrix" },
     "context-loader": { "kind": "module", "path": "context/manifest.mjs", "export": "loadContextManifest" },
     "delivery-gate-apply": { "kind": "module", "path": "scripts/delivery-gate.mjs", "export": "applyDeliveryGatePlan" },

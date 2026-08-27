@@ -8,15 +8,26 @@ import {
   validateFactAttestation,
 } from "../protocol/kernel.mjs";
 import { HANDOFF_RECEIPT_SCHEMA, fingerprint, hashText } from "./domain.mjs";
+import {
+  assertCanonicalAbsentChildPath,
+  assertCanonicalPrivateExistingDirectory,
+  assertCanonicalPrivateExistingFile,
+  assertCanonicalPrivateOutputParent,
+  assertSameFileSystem,
+} from "./private-paths.mjs";
 import { verifyExecutionPlan } from "./validate.mjs";
 
-function privateDirectory(directory) {
-  if (!path.isAbsolute(directory)) throw new Error("OUTPUT_DIR_MUST_BE_ABSOLUTE");
-  const stat = fs.lstatSync(directory);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0) throw new Error("OUTPUT_DIR_MUST_BE_PRIVATE_DIRECTORY");
+function outputDirectory(value) {
+  if (typeof value !== "string" || !path.isAbsolute(value)) throw new Error("OUTPUT_DIR_MUST_BE_ABSOLUTE");
+  const parent = assertCanonicalPrivateOutputParent(path.dirname(value), "OUTPUT_PARENT");
+  const target = path.join(parent, path.basename(value));
+  return fs.lstatSync(target, { throwIfNoEntry: false })
+    ? assertCanonicalPrivateExistingDirectory(target, "OUTPUT_DIR")
+    : assertCanonicalAbsentChildPath(value, "OUTPUT_DIR", "OUTPUT_PARENT");
 }
 
 function bytes(value) { return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8"); }
+function shellQuote(value) { return `'${String(value).replaceAll("'", `'"'"'`)}'`; }
 
 function receiptFor(plan, approvalId, configDigest, planDigest, now) {
   const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, approvalId, verifiedAt: now };
@@ -26,12 +37,12 @@ function receiptFor(plan, approvalId, configDigest, planDigest, now) {
 
 function exactExisting(outputDir, plan, approvalId) {
   const names = ["execution-handoff-plan.json", "execution-handoff-receipt.json", "release-plan.json"];
-  if (!fs.existsSync(outputDir)) return null;
-  privateDirectory(outputDir);
+  outputDir = outputDirectory(outputDir);
+  if (!fs.lstatSync(outputDir, { throwIfNoEntry: false })) return null;
   if (fs.readdirSync(outputDir).sort().join("\n") !== names.join("\n")) throw new Error("HANDOFF_OUTPUT_CONFLICT");
   const raw = Object.fromEntries(names.map((name) => {
-    const file = path.join(outputDir, name); const stat = fs.lstatSync(file);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || (stat.mode & 0o777) !== 0o600) throw new Error("HANDOFF_OUTPUT_CONFLICT");
+    const file = path.join(outputDir, name);
+    try { assertCanonicalPrivateExistingFile(file, "HANDOFF_OUTPUT", { mode: 0o600 }); } catch { throw new Error("HANDOFF_OUTPUT_CONFLICT"); }
     return [name, fs.readFileSync(file)];
   }));
   const read = Object.fromEntries(names.map((name) => [name, JSON.parse(raw[name].toString("utf8"))]));
@@ -66,10 +77,12 @@ export function verifyHandoffReceiptExact({ receipt, plan, approvalId }) {
 }
 
 function materialize(outputDir, plan, receipt) {
-  privateDirectory(path.dirname(outputDir));
+  outputDir = assertCanonicalAbsentChildPath(outputDir, "OUTPUT_DIR", "OUTPUT_PARENT");
+  const parent = assertCanonicalPrivateOutputParent(path.dirname(outputDir), "OUTPUT_PARENT");
   const staging = fs.mkdtempSync(path.join(path.dirname(outputDir), ".execution-handoff-"), { encoding: "utf8" });
   try {
     fs.chmodSync(staging, 0o700);
+    assertSameFileSystem(parent, staging);
     for (const [name, value] of [["release-plan.json", plan.releasePlan], ["execution-handoff-plan.json", plan], ["execution-handoff-receipt.json", receipt]]) {
       const file = path.join(staging, name);
       fs.writeFileSync(file, bytes(value), { mode: 0o600, flag: "wx" });
@@ -101,8 +114,9 @@ export function applyExecutionPlan({
   expectedFingerprint,
   outputDir,
   clock = () => new Date().toISOString(),
-  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${path.join(outputDir, "release-plan.json")} --json`,
+  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --expected-config-digest ${shellQuote(plan.controller.configDigest)} --json`,
 }) {
+  outputDir = outputDirectory(outputDir);
   if (expectedFingerprint !== plan?.planFingerprint) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
   const target = `github:${plan.repo}`;
   const snapshot = store.get({ caseId, target });
@@ -128,11 +142,9 @@ export function applyExecutionPlan({
     if (final.approvals.pending.some(({ id }) => id === approvalId) || !final.approvals.consumed.some(({ id }) => id === approvalId)) throw new Error("APPROVAL_NOT_SINGLE_CONSUMED");
     return { status: "COMPLETE", receipt: existing, nextCommand };
   }
-  const verified = existing
-    ? { status: "READY", controllerConfigDigest: existing.controllerConfigDigest, controllerPlanDigest: existing.controllerPlanDigest }
-    : verifyExecutionPlan(plan, input, adapter);
+  const verified = verifyExecutionPlan(plan, input, adapter);
   if (verified.status !== "READY") return verified;
-  const now = existing?.verifiedAt ?? clock();
+  const now = clock();
   const mutationId = `execution-plan-apply:${plan.planFingerprint}`;
   if (snapshot.checkpoint.stage !== "ADMISSION" || snapshot.checkpoint.verdict !== "ACTIVATION_AWAITING_CONFIRMATION"
     || snapshot.checkpoint.subject?.target !== target || snapshot.checkpoint.subject?.id !== plan.target || snapshot.checkpoint.subject?.revision !== plan.source.revision || !snapshot.checkpoint.subject?.digest) throw new Error("INVALID_HANDOFF_CHECKPOINT");

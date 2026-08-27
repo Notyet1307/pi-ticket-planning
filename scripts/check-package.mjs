@@ -44,6 +44,7 @@ const REQUIRED_FILES = [
   ".github/workflows/release-qualification.yml",
   ".github/workflows/compatibility-proposal.yml",
   ".github/workflows/release-artifacts.yml",
+  ".github/workflows/codex-controller-contract.yml",
   "AGENTS.md",
   "CHANGELOG.md",
   "README.md",
@@ -66,6 +67,7 @@ const REQUIRED_FILES = [
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
   "schemas/project-readiness-v1.schema.json",
+  "schemas/codex-controller-contract-v1.schema.json",
   "schemas/herdr-codex-release-plan-v2.schema.json",
   "schemas/execution-handoff-plan-v1.schema.json",
   "schemas/execution-handoff-receipt-v1.schema.json",
@@ -74,6 +76,7 @@ const REQUIRED_FILES = [
   "execution-plan/markdown.mjs",
   "execution-plan/compiler.mjs",
   "execution-plan/controller-adapter.mjs",
+  "execution-plan/private-paths.mjs",
   "execution-plan/validate.mjs",
   "execution-plan/handoff-apply.mjs",
   "execution-plan/cli.mjs",
@@ -118,6 +121,7 @@ const REQUIRED_FILES = [
   "capabilities/admission.mjs",
   "capabilities/required.mjs",
   "compatibility/matrix.json",
+  "compatibility/codex-controller-contract.json",
   "docs/operations/compatibility-matrix.md",
   "installation/cli.mjs",
   "installation/build-metadata.mjs",
@@ -248,6 +252,22 @@ export function validatePackage(root) {
     "npm run verify:ci",
     "npm run test:coverage:all",
   ]);
+  const controllerContractWorkflow = fs.readFileSync(path.join(root, ".github", "workflows", "codex-controller-contract.yml"), "utf8");
+  requireTokens(errors, ".github/workflows/codex-controller-contract.yml", controllerContractWorkflow, [
+    "repository: Notyet1307/herdr-codex-controller",
+    "ref: ${{ steps.lock.outputs.commit }}",
+    "node-version: 26.x",
+    "npm run verify",
+    "npm run check:codex-controller-contract",
+    "npm run canary:codex-controller-contract",
+  ]);
+  if (controllerContractWorkflow.includes("pull_request_target") || /\bsecrets\./.test(controllerContractWorkflow)) {
+    errors.push("Controller contract workflow must remain read-only and secret-free");
+  }
+  const controllerContractLock = readJson(path.join(root, "compatibility", "codex-controller-contract.json"));
+  const controllerSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-plan-v2.schema.json"));
+  if (controllerContractLock.commit?.startsWith("d450f6a6") || !/^[a-f0-9]{40}$/.test(controllerContractLock.commit ?? "")) errors.push("Controller contract commit is not exact");
+  if (controllerContractLock.schemaSha256 !== createHash("sha256").update(controllerSchema).digest("hex")) errors.push("Controller schema mirror drifted from its lock");
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);

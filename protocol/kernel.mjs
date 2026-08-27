@@ -13,6 +13,10 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const FACT_ID = /^F-[A-Za-z0-9._:-]{1,126}$/;
 const FACT_NAME = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
 const SAFE_TOKEN = /^[^\u0000\r\n]+$/;
+const EXTERNAL_SCHEMA_WITHOUT_ID = {
+  identity: "herdr-codex-controller:release-plan:v2",
+  path: "schemas/herdr-codex-release-plan-v2.schema.json",
+};
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -107,11 +111,12 @@ export function validateRegistry({ protocol = loadProtocol() } = {}) {
       }
       try {
         const schema = readJson(file);
-        if (typeof schema.$id !== "string" || schema.$id.length === 0) problems.push(problem("MISSING_JSON_SCHEMA_ID", relative));
+        const lockedExternal = entry.schemaIdentity === EXTERNAL_SCHEMA_WITHOUT_ID.identity && relative === EXTERNAL_SCHEMA_WITHOUT_ID.path;
+        if ((typeof schema.$id !== "string" || schema.$id.length === 0) && !lockedExternal) problems.push(problem("MISSING_JSON_SCHEMA_ID", relative));
         else {
-          if (schema.$id.split(/[?#]/u, 1)[0].split("/").at(-1) !== path.basename(relative)) problems.push(problem("JSON_SCHEMA_IDENTITY_MISMATCH", relative));
-          if (schemaIds.has(schema.$id)) problems.push(problem("DUPLICATE_JSON_SCHEMA_ID", schema.$id));
-          else schemaIds.add(schema.$id);
+          if (schema.$id && schema.$id.split(/[?#]/u, 1)[0].split("/").at(-1) !== path.basename(relative)) problems.push(problem("JSON_SCHEMA_IDENTITY_MISMATCH", relative));
+          if (schema.$id && schemaIds.has(schema.$id)) problems.push(problem("DUPLICATE_JSON_SCHEMA_ID", schema.$id));
+          else if (schema.$id) schemaIds.add(schema.$id);
         }
       } catch {
         problems.push(problem("INVALID_ARTIFACT_SCHEMA", relative));

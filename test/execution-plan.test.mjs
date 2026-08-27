@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { parseChildTicket, parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
+import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
 import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
@@ -46,6 +46,7 @@ test("execution-plan parser preserves only controlled parent fields", () => {
   assert.equal(parsed.objective, "Release a safe change");
   assert.deepEqual(parsed.scenarios.map(({ id }) => id), ["S1"]);
   assert.throws(() => parseParentDeliverySpec(parent.replace("## Out of scope", "## Decisions")), /DUPLICATE_SECTION/);
+  assert.deepEqual(parseControlledLines("First paragraph\ncontinues here.\n\n- First item\n2. Second item"), ["First paragraph\ncontinues here.", "First item", "Second item"]);
 });
 
 test("execution-plan child parser requires 3-8 pure checklist assertions", () => {
@@ -90,18 +91,64 @@ test("controller adapter uses only public validate and doctor argv", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-public-cli-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const cli = path.join(directory, "cli.js"); const config = path.join(directory, "config.json"); const record = path.join(directory, "argv.jsonl");
-  fs.writeFileSync(cli, `import fs from 'node:fs'; const args=process.argv.slice(2); fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args)+'\\n'); if(args[0]==='config') console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${"a".repeat(64)}'})); else if(args[0]==='plan') console.log(JSON.stringify({ok:true,plan:JSON.parse(fs.readFileSync(args[args.indexOf('--plan')+1],'utf8')),planDigest:'${"c".repeat(64)}'})); else if(args[0]==='doctor') console.log(JSON.stringify({ok:true})); else process.exit(9);`, { mode: 0o700 });
+  fs.writeFileSync(cli, `import fs from 'node:fs'; const args=process.argv.slice(2); fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args)+'\\n'); if(args[0]==='config') console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${"a".repeat(64)}'})); else if(args[0]==='plan') console.log(JSON.stringify({ok:true,plan:JSON.parse(fs.readFileSync(args[args.indexOf('--plan')+1],'utf8')),planDigest:'${"c".repeat(64)}'})); else if(args[0]==='doctor') console.log(JSON.stringify({ok:true,configDigest:'${"a".repeat(64)}'})); else process.exit(9);`, { mode: 0o700 });
   fs.writeFileSync(config, "{}", { mode: 0o600 });
   const prior = process.env.TEST_CONTROLLER_RECORD; process.env.TEST_CONTROLLER_RECORD = record;
   try {
     const adapter = createControllerAdapter({ cli, config });
-    assert.equal(adapter.config().configDigest, "a".repeat(64));
-    assert.equal(adapter.validatePlan({ version: 2 }).planDigest, "c".repeat(64));
-    assert.equal(adapter.doctor().ok, true);
+    const binding = adapter.config();
+    assert.equal(binding.configDigest, "a".repeat(64));
+    assert.equal(adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity).planDigest, "c".repeat(64));
+    assert.equal(adapter.doctor(binding.configDigest, binding.configIdentity).ok, true);
   } finally { if (prior === undefined) delete process.env.TEST_CONTROLLER_RECORD; else process.env.TEST_CONTROLLER_RECORD = prior; }
   const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);
-  assert.deepEqual(calls.map(([name, subcommand]) => `${name}:${subcommand}`), ["config:validate", "plan:validate", "doctor:--config"]);
+  assert.deepEqual(calls.map(([name, subcommand]) => `${name}:${subcommand}`), ["config:validate", "plan:validate", "config:validate", "doctor:--config"]);
   assert.equal(calls.flat().some((value) => /^(start|run|step)$/.test(value)), false);
+});
+
+test("controller adapter rejects doctor config digest drift", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-doctor-drift-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const cli = path.join(directory, "cli.mjs");
+  const config = path.join(directory, "config.json");
+  fs.writeFileSync(cli, `const args=process.argv.slice(2);console.log(JSON.stringify({ok:true,configDigest:args[0]==='doctor'?'${"b".repeat(64)}':'${"a".repeat(64)}'}));`, { mode: 0o700 });
+  fs.writeFileSync(config, "{}", { mode: 0o600 });
+  const adapter = createControllerAdapter({ cli, config });
+  const binding = adapter.config();
+  assert.throws(() => adapter.doctor(binding.configDigest, binding.configIdentity), /CONTROLLER_DOCTOR_CONFIG_DRIFT/);
+});
+
+test("controller adapter rejects an A-to-B-to-A config change during plan validation", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-config-aba-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const cli = path.join(directory, "cli.mjs");
+  const config = path.join(directory, "config.json");
+  fs.writeFileSync(cli, `import fs from 'node:fs';const a=process.argv.slice(2);const digest='${"a".repeat(64)}';if(a[0]==='config')console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:digest}));else if(a[0]==='plan'){const c=a[a.indexOf('--config')+1];const before=fs.readFileSync(c);fs.writeFileSync(c,'{"changed":true}');fs.writeFileSync(c,before);const plan=JSON.parse(fs.readFileSync(a[a.indexOf('--plan')+1]));console.log(JSON.stringify({ok:true,plan,planDigest:'${"c".repeat(64)}'}));}`, { mode: 0o700 });
+  fs.writeFileSync(config, "{}", { mode: 0o600 });
+  const adapter = createControllerAdapter({ cli, config });
+  const binding = adapter.config();
+  assert.throws(() => adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity), /CONTROLLER_CONFIG_DRIFT/);
+});
+
+test("controller adapter classifies public command failures without leaking stderr", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-adapter-errors-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const config = path.join(directory, "config.json");
+  fs.writeFileSync(config, "{}", { mode: 0o600 });
+  const make = (name, source) => {
+    const cli = path.join(directory, `${name}.mjs`);
+    fs.writeFileSync(cli, source, { mode: 0o700 });
+    return createControllerAdapter({ cli, config });
+  };
+  const digest = "a".repeat(64);
+  const configResult = `JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${digest}'})`;
+  assert.throws(() => make("config-failed", `console.error('secret-token');process.exit(1)`).config(), (error) => error.message === "CONTROLLER_CONFIG_INVALID" && !error.message.includes("secret-token"));
+  assert.throws(() => make("invalid-json", `console.log('not-json')`).config(), /CONTROLLER_INVALID_JSON/);
+  assert.throws(() => make("too-large", `process.stdout.write('x'.repeat(2*1024*1024))`).config(), /CONTROLLER_OUTPUT_TOO_LARGE/);
+  const staged = make("staged", `const a=process.argv.slice(2);if(a[0]==='config')console.log(${configResult});else {console.error('secret-token');process.exit(1)}`);
+  const binding = staged.config();
+  assert.throws(() => staged.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity), /CONTROLLER_PLAN_INVALID/);
+  assert.throws(() => staged.doctor(binding.configDigest, binding.configIdentity), /CONTROLLER_DOCTOR_FAILED/);
 });
 
 test("execution compiler maps one exact accepted graph and rejects non-executable drift", () => {
@@ -115,7 +162,7 @@ test("execution compiler maps one exact accepted graph and rejects non-executabl
   assert.equal(plan.releasePlan.source.baseRef, "main");
   assert.equal(plan.releasePlan.releaseAcceptanceCriteria[0], "S1: A user sees the completed change.");
   assert.equal(plan.releasePlan.releaseAcceptanceCriteria.includes(plan.releasePlan.issues[0].acceptanceCriteria[0]), false);
-  assert.match(plan.releasePlan.reviewFocus[0], /Walking skeleton handoff/);
+  assert.match(plan.releasePlan.reviewFocus[1], /Walking skeleton handoff/);
   assert.equal(plan.releasePlan.issues[0].order, 1);
   assert.deepEqual(plan.releasePlan.issues[0].dependsOn, []);
   const accepted = executionInput(); accepted.release = { accepted: true, id: "accepted-release_1" };
@@ -127,6 +174,89 @@ test("execution compiler maps one exact accepted graph and rejects non-executabl
   for (const [mutate, code] of [[(value) => { value.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].blockedBy = ["999"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
     const changed = executionInput(); mutate(changed); assert.throws(() => compileExecutionPlan(changed, { controller }), new RegExp(code));
   }
+});
+
+test("execution compiler preserves multilingual accepted review focus and fails closed above 20 entries", () => {
+  const input = executionInput();
+  input.parent.body = input.parent.body
+    .replace("Important failure behavior: A failed write leaves no partial state.", "Important failure behavior: 写入失败时不留下部分状态。")
+    .replace("- Preserve a compatibility guardrail.", "- 保留兼容边界。\n2. Keep the English release signal.")
+    .replace("- Preserve compatibility for legacy input.", "- 保留旧输入兼容性。")
+    .replace("- No partial writes.", "- 不允许部分写入。\n- 不允许部分写入。")
+    .replace("## Out of scope\nNone.", "## Out of scope\nDepth, Locality, Real seam, Deletion test, Interface as verification surface, and src/cache.js are not Release constraints.");
+  rewriteGraph(input, () => {});
+  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const reviewFocus = compileExecutionPlan(input, { controller }).releasePlan.reviewFocus;
+  assert.deepEqual(reviewFocus, [
+    "S1 failure path: 写入失败时不留下部分状态。",
+    "Walking skeleton handoff: The first path produces the release artifact.",
+    "Constraint: 不允许部分写入。",
+    "Release signal: 保留兼容边界。",
+    "Release signal: Keep the English release signal.",
+    "Decision: 保留旧输入兼容性。",
+  ]);
+  assert.equal(reviewFocus.some((line) => /Depth|Locality|Real seam|Deletion test|Interface as verification surface|src\/cache/.test(line)), false);
+
+  const tooMany = executionInput();
+  tooMany.parent.body = tooMany.parent.body.replace("- No partial writes.", Array.from({ length: 17 }, (_, index) => `- Constraint ${index + 1}`).join("\n"));
+  rewriteGraph(tooMany, () => {});
+  assert.throws(() => compileExecutionPlan(tooMany, { controller: { ...controller, config: { ...controller.config, repo: tooMany.repo } } }), /REVIEW_FOCUS_TOO_LARGE/);
+
+  const tooLarge = executionInput();
+  tooLarge.parent.body = tooLarge.parent.body.replace("- No partial writes.", `- ${"界".repeat(700)}`);
+  rewriteGraph(tooLarge, () => {});
+  assert.throws(() => compileExecutionPlan(tooLarge, { controller: { ...controller, config: { ...controller.config, repo: tooLarge.repo } } }), /REVIEW_FOCUS_TOO_LARGE/);
+});
+
+test("execution verification binds doctor to the validated config digest", () => {
+  const input = executionInput();
+  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const plan = compileExecutionPlan(input, { controller });
+  const adapter = {
+    config: () => ({ config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "stable" }),
+    validatePlan: (releasePlan) => ({ plan: structuredClone(releasePlan), planDigest: controller.planDigest }),
+    doctor(expectedConfigDigest, expectedConfigIdentity) {
+      assert.equal(expectedConfigDigest, controller.configDigest);
+      assert.equal(expectedConfigIdentity, "stable");
+      return { ok: true, configDigest: controller.configDigest };
+    },
+  };
+  assert.equal(verifyExecutionPlan(plan, input, adapter).status, "READY");
+
+  let currentDigest = controller.configDigest;
+  const changing = {
+    ...adapter,
+    validatePlan(releasePlan) {
+      currentDigest = "d".repeat(64);
+      return { plan: structuredClone(releasePlan), planDigest: controller.planDigest };
+    },
+    doctor(expectedConfigDigest) {
+      if (expectedConfigDigest !== currentDigest) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
+    },
+  };
+  const changed = verifyExecutionPlan(plan, input, changing);
+  assert.equal(changed.status, "CONFLICT");
+  assert.deepEqual(changed.problems, [{ code: "CONTROLLER_DOCTOR_CONFIG_DRIFT" }]);
+});
+
+test("PR #16 planning methodology remains navigation-only and trigger-aware", () => {
+  const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+  assert.match(read("skills/setup-delivery-repository/domain.md"), /Resolve only decision-changing ambiguity/);
+  assert.match(read("skills/ask-yet/references/solution-shaping.md"), /evaluation heuristics inside Solution Shaping, not additional gates, artifacts, fields, or required interfaces/);
+  assert.match(read("skills/to-spec/SKILL.md"), /Leave cheap deterministic repository and environment facts in code, configuration, scripts, and tool output/);
+  assert.match(read("skills/to-tickets/SKILL.md"), /one short trigger and purpose/);
+  assert.match(read("skills/ticket-readiness/SKILL.md"), /branch of work that makes the file relevant and the first-action purpose/);
+});
+
+test("private path checks allow the explicit system temporary-directory alias", (t) => {
+  const directory = fs.mkdtempSync("/tmp/execution-plan-system-alias-");
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.chmodSync(directory, 0o700);
+  const cli = path.join(directory, "cli.mjs");
+  const config = path.join(directory, "config.json");
+  fs.writeFileSync(cli, "", { mode: 0o700 });
+  fs.writeFileSync(config, "{}", { mode: 0o600 });
+  assert.doesNotThrow(() => createControllerAdapter({ cli, config }));
 });
 
 test("execution compiler preserves approved topological order, dependencies, and exact UTF-8 body identity", () => {

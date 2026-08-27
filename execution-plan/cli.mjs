@@ -5,6 +5,12 @@ import { createGitHubAdapter } from "../admission/github-adapter.mjs";
 import { compileExecutionPlan } from "./compiler.mjs";
 import { createControllerAdapter } from "./controller-adapter.mjs";
 import { applyExecutionPlan } from "./handoff-apply.mjs";
+import {
+  assertCanonicalAbsentChildPath,
+  assertCanonicalPrivateExistingDirectory,
+  assertCanonicalPrivateExistingFile,
+  assertCanonicalPrivateOutputParent,
+} from "./private-paths.mjs";
 import { verifyExecutionPlan } from "./validate.mjs";
 
 function options(argv) {
@@ -39,20 +45,19 @@ function liveInput(values, { plan } = {}) {
 function write(file, value) {
   const output = `${JSON.stringify(value, null, 2)}\n`;
   if (!file || file === "-") return process.stdout.write(output);
-  if (!path.isAbsolute(file)) throw new Error("OUTPUT_MUST_BE_ABSOLUTE");
-  const target = path.resolve(file);
-  const parent = path.dirname(target);
-  const parentStat = fs.lstatSync(parent);
-  if (!parentStat.isDirectory() || parentStat.isSymbolicLink() || (parentStat.mode & 0o077) !== 0) {
-    throw new Error("OUTPUT_PARENT_MUST_BE_PRIVATE");
-  }
-  if (fs.existsSync(target)) throw new Error("OUTPUT_ALREADY_EXISTS");
+  const target = assertCanonicalAbsentChildPath(file, "OUTPUT", "OUTPUT_PARENT");
   fs.writeFileSync(target, output, { encoding: "utf8", mode: 0o600, flag: "wx" });
   fs.chmodSync(target, 0o600);
-  const written = fs.lstatSync(target);
-  if (!written.isFile() || written.isSymbolicLink() || written.nlink !== 1 || (written.mode & 0o777) !== 0o600) {
-    throw new Error("OUTPUT_MUST_BE_PRIVATE_FILE");
-  }
+  assertCanonicalPrivateExistingFile(target, "OUTPUT", { mode: 0o600 });
+}
+
+function outputDirectory(value) {
+  if (typeof value !== "string" || !path.isAbsolute(value)) throw new Error("OUTPUT_DIR_MUST_BE_ABSOLUTE");
+  const parent = assertCanonicalPrivateOutputParent(path.dirname(value), "OUTPUT_PARENT");
+  const target = path.join(parent, path.basename(value));
+  return fs.lstatSync(target, { throwIfNoEntry: false })
+    ? assertCanonicalPrivateExistingDirectory(target, "OUTPUT_DIR")
+    : assertCanonicalAbsentChildPath(value, "OUTPUT_DIR", "OUTPUT_PARENT");
 }
 
 function shellQuote(value) {
@@ -70,7 +75,7 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       const input = values.has("input") ? json(values.get("input")) : liveInput(values); const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
       const config = adapter.config();
       const draft = compileExecutionPlan(input, { controller: config });
-      const validated = adapter.validatePlan(draft.releasePlan);
+      const validated = adapter.validatePlan(draft.releasePlan, config.configDigest, config.configIdentity);
       const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest } });
       write(values.get("out"), plan);
       return 0;
@@ -87,8 +92,7 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       requireOptions(values, ["plan", "input", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "expected-fingerprint", "case-id", "approval-id", "controller-cli", "controller-config", "output-dir", "json"], ["plan", "expected-fingerprint", "case-id", "approval-id", "controller-cli", "controller-config", "output-dir"]);
       const plan = json(values.get("plan"));
       if (values.has("input") === values.has("context")) throw new Error("APPLY_REQUIRES_ONE_SOURCE_INPUT");
-      if (!path.isAbsolute(values.get("output-dir"))) throw new Error("OUTPUT_DIR_MUST_BE_ABSOLUTE");
-      const outputDir = path.resolve(values.get("output-dir"));
+      const outputDir = outputDirectory(values.get("output-dir"));
       const nextCommand = [
         "node",
         shellQuote(values.get("controller-cli")),
@@ -97,6 +101,8 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
         shellQuote(values.get("controller-config")),
         "--plan",
         shellQuote(path.join(outputDir, "release-plan.json")),
+        "--expected-config-digest",
+        shellQuote(plan.controller.configDigest),
         "--json",
       ].join(" ");
       const result = applyExecutionPlan({ plan, input: values.has("input") ? json(values.get("input")) : liveInput(values, { plan }), adapter: createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
