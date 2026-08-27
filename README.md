@@ -314,7 +314,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build calls only Controller `config validate` and `plan validate`. Apply also calls `doctor`, materializes exactly `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`, records `EXECUTION/HANDOFF_READY`, and consumes approval last. It prints—without executing—the exact Controller `start` command. Source, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
+Build calls only Controller `config validate` and `plan validate`. Apply also calls `doctor` and requires its config digest to match the validated and approved digest, materializes exactly `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`, records `EXECUTION/HANDOFF_READY`, and consumes approval last. It prints—without executing—the exact Controller `start --expected-config-digest <approved-digest>` command. Recovery after publication but before the checkpoint repeats source/config/Plan/doctor validation; conflict or block preserves the files and pending approval. Source, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
 
 #### Legacy Herdr per-ticket activation
 
@@ -384,7 +384,7 @@ With the matching Codex Controller checkout available, run its deterministic pub
 npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
 ```
 
-This canary calls only `config validate` and `plan validate`; it never calls `doctor`, `start`, Codex, or a network write. A missing Controller checkout is `CONTROLLER_UNAVAILABLE`, not a passing result.
+This canary locks the exact Controller commit and owner-schema byte SHA-256, rejects a dirty tracked checkout, rebuilds an exported exact-source copy under Node 26 permission isolation with network denied, compares Planner/lock/Controller schema bytes, runs one positive Plan plus extra top-level, missing-required, extra-source, and extra-Issue negative vectors, and compares both Plan digests. It calls only `config validate` and `plan validate`; it never calls `doctor`, `start`, Codex, or a network write. PASS qualifies this read-only static contract, not live source revalidation or Codex/GitHub execution. A missing checkout is `CONTROLLER_UNAVAILABLE`, and missing build dependencies are `CONTROLLER_NOT_BUILT`, never PASS.
 
 The expected Profile smoke result includes the package-owned `prepare-codex-release` skill; the command reports the exact current skill count.
 

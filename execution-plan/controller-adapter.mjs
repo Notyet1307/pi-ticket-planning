@@ -3,32 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { HEX, canonical } from "./domain.mjs";
+import { assertCanonicalPrivateExistingFile } from "./private-paths.mjs";
 
 const MAX_OUTPUT = 1024 * 1024;
 
-function trustedLexicalPath(value) {
-  const requested = path.resolve(value);
-  const aliases = [...new Set([os.tmpdir(), "/tmp", "/var"].map((entry) => path.resolve(entry)))]
-    .filter((entry) => fs.existsSync(entry))
-    .sort((left, right) => right.length - left.length);
-  const alias = aliases.find((entry) => requested === entry || requested.startsWith(`${entry}${path.sep}`));
-  return alias ? path.join(fs.realpathSync(alias), path.relative(alias, requested)) : requested;
-}
-
-function privateRegularFile(value, name) {
-  if (!path.isAbsolute(value ?? "")) throw new Error(`${name}_MUST_BE_ABSOLUTE`);
-  const resolved = fs.realpathSync(value);
-  if (resolved !== trustedLexicalPath(value)) throw new Error(`${name}_PATH_CONTAINS_SYMLINK`);
-  const stat = fs.lstatSync(resolved);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) throw new Error(`${name}_MUST_BE_REGULAR_FILE`);
-  if (name === "CONTROLLER_CONFIG" && (stat.mode & 0o077) !== 0) throw new Error("CONTROLLER_CONFIG_MUST_BE_PRIVATE");
-  return resolved;
-}
-
-function invoke(cli, args, { timeout = 15_000, input } = {}) {
-  const run = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", input, timeout, maxBuffer: MAX_OUTPUT, shell: false });
-  if (run.error) throw new Error(`CONTROLLER_${run.error.code ?? "EXEC_ERROR"}`);
-  if (run.signal || run.status !== 0) throw new Error("CONTROLLER_COMMAND_FAILED");
+function invoke(cli, args, { timeout = 15_000, input, failureCode = "CONTROLLER_COMMAND_FAILED", nodeArgs = [] } = {}) {
+  const run = spawnSync(process.execPath, [...nodeArgs, cli, ...args], { encoding: "utf8", input, timeout, maxBuffer: MAX_OUTPUT, shell: false });
+  if (run.error?.code === "ETIMEDOUT") throw new Error("CONTROLLER_TIMEOUT");
+  if (run.error?.code === "ENOBUFS") throw new Error("CONTROLLER_OUTPUT_TOO_LARGE");
+  if (run.error || run.signal || run.status !== 0) throw new Error(failureCode);
   try { return JSON.parse(run.stdout); } catch { throw new Error("CONTROLLER_INVALID_JSON"); }
 }
 
@@ -37,32 +20,52 @@ function digest(value, name) {
   return value;
 }
 
-export function createControllerAdapter({ cli, config }) {
-  const controllerCli = privateRegularFile(cli, "CONTROLLER_CLI");
-  const controllerConfig = privateRegularFile(config, "CONTROLLER_CONFIG");
+function configIdentity(file) {
+  assertCanonicalPrivateExistingFile(file, "CONTROLLER_CONFIG", { mode: 0o600 });
+  const stat = fs.statSync(file, { bigint: true });
+  return [stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(":");
+}
+
+export function createControllerAdapter({ cli, config, nodeArgs = [] }) {
+  if (!Array.isArray(nodeArgs) || nodeArgs.some((value) => typeof value !== "string")) throw new Error("CONTROLLER_INVALID_NODE_ARGS");
+  const controllerCli = assertCanonicalPrivateExistingFile(cli, "CONTROLLER_CLI");
+  const controllerConfig = assertCanonicalPrivateExistingFile(config, "CONTROLLER_CONFIG", { mode: 0o600 });
+  const readConfig = () => {
+    const before = configIdentity(controllerConfig);
+    const result = invoke(controllerCli, ["config", "validate", "--config", controllerConfig, "--json"], { failureCode: "CONTROLLER_CONFIG_INVALID", nodeArgs });
+    if (result?.ok !== true) throw new Error("CONTROLLER_CONFIG_INVALID");
+    const after = configIdentity(controllerConfig);
+    if (before !== after) throw new Error("CONTROLLER_CONFIG_DRIFT");
+    return { config: result.config ?? result.value ?? result, configDigest: digest(result.configDigest, "CONFIG_DIGEST"), configIdentity: after };
+  };
   return {
-    config() {
-      const result = invoke(controllerCli, ["config", "validate", "--config", controllerConfig, "--json"]);
-      if (result?.ok !== true) throw new Error("CONTROLLER_CONFIG_INVALID");
-      return { config: result.config ?? result.value ?? result, configDigest: digest(result.configDigest, "CONFIG_DIGEST") };
-    },
-    validatePlan(plan) {
+    config: readConfig,
+    validatePlan(plan, expectedConfigDigest, expectedConfigIdentity) {
+      const expectedDigest = digest(expectedConfigDigest, "CONFIG_DIGEST");
+      if (typeof expectedConfigIdentity !== "string" || configIdentity(controllerConfig) !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
       const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pi-ticket-plan-"));
       const file = path.join(directory, "release-plan.json");
       try {
         fs.writeFileSync(file, `${JSON.stringify(plan)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
         fs.chmodSync(file, 0o600);
-        const result = invoke(controllerCli, ["plan", "validate", "--config", controllerConfig, "--plan", file, "--json"]);
+        const result = invoke(controllerCli, ["plan", "validate", "--config", controllerConfig, "--plan", file, "--json"], { failureCode: "CONTROLLER_PLAN_INVALID", nodeArgs });
+        if (configIdentity(controllerConfig) !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
+        const after = readConfig();
+        if (after.configDigest !== expectedDigest || after.configIdentity !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
         if (result?.ok !== true) throw new Error("CONTROLLER_PLAN_INVALID");
         if (!result.plan || JSON.stringify(canonical(result.plan)) !== JSON.stringify(canonical(plan))) throw new Error("CONTROLLER_PLAN_ECHO_MISMATCH");
-        return { planDigest: digest(result.planDigest, "PLAN_DIGEST"), plan: result.plan };
+        return { planDigest: digest(result.planDigest, "PLAN_DIGEST"), plan: result.plan, configDigest: after.configDigest };
       } finally {
         fs.rmSync(directory, { recursive: true, force: true });
       }
     },
-    doctor() {
-      const result = invoke(controllerCli, ["doctor", "--config", controllerConfig, "--json"]);
+    doctor(expectedConfigDigest, expectedConfigIdentity) {
+      const expected = digest(expectedConfigDigest, "CONFIG_DIGEST");
+      if (typeof expectedConfigIdentity !== "string" || configIdentity(controllerConfig) !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
+      const result = invoke(controllerCli, ["doctor", "--config", controllerConfig, "--json"], { failureCode: "CONTROLLER_DOCTOR_FAILED", nodeArgs });
+      if (configIdentity(controllerConfig) !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
       if (result?.ok !== true) throw new Error("CONTROLLER_DOCTOR_FAILED");
+      if (digest(result.configDigest, "CONFIG_DIGEST") !== expected) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
       return result;
     },
   };

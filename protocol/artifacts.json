@@ -553,6 +553,18 @@
       "migrationPath": null
     },
     {
+      "namespace": "pi-ticket-planning",
+      "name": "codex-controller-contract",
+      "schemaIdentity": "pi-ticket-planning:codex-controller-contract:v1",
+      "schemaPath": "schemas/codex-controller-contract-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "repository-maintainer",
+      "readers": ["codex-controller-contract-canary", "execution-plan-compiler"],
+      "fingerprintAlgorithm": "canonical-json-v1+sha256-hex",
+      "migrationPath": null
+    },
+    {
       "namespace": "herdr-codex-controller",
       "name": "release-plan",
       "schemaIdentity": "herdr-codex-controller:release-plan:v2",

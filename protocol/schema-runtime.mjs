@@ -14,6 +14,8 @@ function schemaFiles(root) {
     .map((name) => path.join(directory, name));
 }
 
+const EXTERNAL_SCHEMA_WITHOUT_ID = "herdr-codex-release-plan-v2.schema.json";
+
 function createRuntime(root) {
   const ajv = new Ajv2020({
     allErrors: true,
@@ -27,12 +29,15 @@ function createRuntime(root) {
   const schemas = new Map();
   for (const file of schemaFiles(root)) {
     const schema = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (typeof schema.$id !== "string" || !schema.$id) throw new Error(`MISSING_JSON_SCHEMA_ID: ${path.relative(root, file)}`);
-    if (schemas.has(schema.$id)) throw new Error(`DUPLICATE_JSON_SCHEMA_ID: ${schema.$id}`);
-    schemas.set(schema.$id, schema);
-    ajv.addSchema(schema);
+    if ((!schema.$id || typeof schema.$id !== "string") && path.basename(file) !== EXTERNAL_SCHEMA_WITHOUT_ID) {
+      throw new Error(`MISSING_JSON_SCHEMA_ID: ${path.relative(root, file)}`);
+    }
+    const id = schema.$id || `https://schemas.pi-ticket-planning.invalid/${EXTERNAL_SCHEMA_WITHOUT_ID}`;
+    if ([...schemas.values()].includes(id)) throw new Error(`DUPLICATE_JSON_SCHEMA_ID: ${id}`);
+    schemas.set(path.resolve(file), id);
+    ajv.addSchema(schema, id);
   }
-  for (const id of schemas.keys()) ajv.getSchema(id);
+  for (const id of schemas.values()) ajv.getSchema(id);
   return { ajv, schemas };
 }
 
@@ -44,10 +49,10 @@ export function localSchemaRuntime(root) {
 
 export function validateLocalSchema(value, schemaPath, { root }) {
   const runtime = localSchemaRuntime(root);
-  const schema = runtime.schemas.get(JSON.parse(fs.readFileSync(path.resolve(root, schemaPath), "utf8")).$id);
-  if (!schema) throw new Error(`UNREGISTERED_JSON_SCHEMA: ${schemaPath}`);
-  const validate = runtime.ajv.getSchema(schema.$id);
-  if (!validate) throw new Error(`UNCOMPILED_JSON_SCHEMA: ${schema.$id}`);
+  const id = runtime.schemas.get(path.resolve(root, schemaPath));
+  if (!id) throw new Error(`UNREGISTERED_JSON_SCHEMA: ${schemaPath}`);
+  const validate = runtime.ajv.getSchema(id);
+  if (!validate) throw new Error(`UNCOMPILED_JSON_SCHEMA: ${id}`);
   const ok = validate(value);
   return {
     ok,

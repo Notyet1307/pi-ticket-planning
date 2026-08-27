@@ -477,6 +477,17 @@ test("protocol links, schema files, code coverage, and explicit rebind are exerc
   badSchema.registry.artifacts = [structuredClone(badSchema.registry.artifacts[0])];
   badSchema.registry.artifacts[0].schemaPath = "schemas/bad.schema.json";
   assert.equal(validateRegistry({ protocol: badSchema }).problems.some(({ code }) => code === "INVALID_ARTIFACT_SCHEMA"), true);
+  const missingExternalId = loadProtocol();
+  missingExternalId.root = temporary;
+  fs.writeFileSync(path.join(temporary, "schemas", "foreign.schema.json"), '{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object"}');
+  missingExternalId.registry.artifacts = [{
+    ...structuredClone(missingExternalId.registry.artifacts[0]),
+    namespace: "foreign",
+    name: "external",
+    schemaIdentity: "foreign:external:v1",
+    schemaPath: "schemas/foreign.schema.json",
+  }];
+  assert.equal(validateRegistry({ protocol: missingExternalId }).problems.some(({ code }) => code === "MISSING_JSON_SCHEMA_ID"), true);
 
   const codeProtocol = loadProtocol();
   codeProtocol.root = temporary;

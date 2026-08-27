@@ -1,0 +1,9 @@
+{
+  "schema": "pi-ticket-planning:codex-controller-contract:v1",
+  "repository": "https://github.com/Notyet1307/herdr-codex-controller.git",
+  "commit": "38f7ad8431519b8fa467c54ba09a9f304c732676",
+  "releasePlanVersion": 2,
+  "schemaPath": "schemas/release-plan-v2.schema.json",
+  "schemaSha256": "1cba2c78cebabd88a9f086a470681e7024ce8b1ae472547041b9b2ac4f7ca412",
+  "digestAlgorithm": "canonical-json-v1+sha256-hex"
+}

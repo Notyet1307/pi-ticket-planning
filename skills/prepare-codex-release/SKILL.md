@@ -11,7 +11,7 @@ Read [the Planning Case runtime](../planning-case-runtime.md), the accepted Deli
 2. Dispatch exactly one fresh, read-only `ticket-readiness-reviewer` graph review using the held review input and exact dispatch binding. This reviews planning quality; it is not a per-Issue runtime code review.
 3. Run `pi-ticket-plan execution-plan build`; show the complete embedded Controller Release Plan v2, Controller digests, and exact Handoff fingerprint. Keep every Ticket in `needs-triage`.
 4. Stop for `pi-ticket-planctl case approve-handoff <case-id> --plan <file> --expected-fingerprint <exact sha256> --json`. A general “continue” is not approval.
-5. Run `pi-ticket-plan execution-plan apply` with a fresh Context. It revalidates source, review, policy, Controller config/Plan, and live Controller doctor readiness before atomically materializing the three private files.
-6. Report the exact `node <controller-cli> start ...` command printed by apply, but do not execute it.
+5. Run `pi-ticket-plan execution-plan apply` with a fresh Context. It revalidates source, review, policy, Controller config/Plan, and live Controller doctor readiness with the same config digest before atomically materializing the three private files. Pre-checkpoint recovery repeats that validation and preserves existing files plus the pending approval on conflict or block.
+6. Report the exact `node <controller-cli> start ... --expected-config-digest <approved-digest> --json` command printed by apply, but do not execute it.
 
 Never start the Controller, write ready labels, run Codex, or wait for execution results.

@@ -88,7 +88,7 @@ Delivery Spec 随后定义稳定场景；拆票必须先证明场景覆盖和 wa
 
 创建或 review Issue 不会启动执行。推荐的 graph 路径会重读 accepted source、effective policy、exact Ticket body、blocker、coverage、walking skeleton 和依赖顺序。一个 fresh reviewer 返回 `READY`、`SPLIT` 或 `NEEDS_INFO`；全部为 AGENT、无 blocker 的 READY graph 会编译成一个 exact Controller Release Plan v2。
 
-一次人工批准绑定 Handoff fingerprint。Apply 只写三个私有输入文件并打印、不运行 Controller `start` 命令；Ticket 保持 `needs-triage`。Legacy Herdr ready-label 激活是显式兼容选择。Controller 完成、merge、Release Record 和 Outcome 是后续不同事实。
+一次人工批准绑定 Handoff fingerprint。Apply 只写三个私有输入文件并打印、不运行 Controller `start --expected-config-digest <approved-digest>` 命令；Ticket 保持 `needs-triage`。Legacy Herdr ready-label 激活是显式兼容选择。Controller 完成、merge、Release Record 和 Outcome 是后续不同事实。
 
 ## 9. 常见误区
 

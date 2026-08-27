@@ -5,7 +5,7 @@ import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { validateReview } from "../admission/domain.mjs";
 import { HANDOFF_PLAN_SCHEMA, RELEASE_PLAN_SCHEMA, fingerprint, handoffProjection, hashText, releasePlanDigest } from "./domain.mjs";
-import { parseChildTicket, parseParentDeliverySpec } from "./markdown.mjs";
+import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "./markdown.mjs";
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA = /^[a-f0-9]{40}$/;
@@ -18,14 +18,18 @@ function safeId(input, parent, graph) {
 }
 
 function focus(spec) {
-  const lines = [];
-  for (const scenario of spec.scenarios) lines.push(`${scenario.id} failure path: ${scenario.failure}`);
-  for (const text of [spec.walkingSkeleton, spec.releaseSignals, spec.decisions, spec.constraints]) {
-    for (const line of String(text).split("\n").map((value) => value.replace(/^\s*[-*]\s*/, "").trim()).filter(Boolean)) {
-      if (/(failure|handoff|guardrail|compatib|permission|recover|concurr|migrat|constraint|depend)/i.test(line)) lines.push(line);
-    }
+  const lines = spec.scenarios.map((scenario) => `${scenario.id} failure path: ${scenario.failure}`);
+  lines.push(`Walking skeleton handoff: ${spec.walkingSkeleton}`);
+  for (const [prefix, text] of [
+    ["Constraint", spec.constraints],
+    ["Release signal", spec.releaseSignals],
+    ["Decision", spec.decisions],
+  ]) {
+    for (const line of parseControlledLines(text)) lines.push(`${prefix}: ${line}`);
   }
-  return [...new Set(lines)].slice(0, 20);
+  const result = [...new Set(lines)];
+  if (result.length > 20 || result.some((line) => Buffer.byteLength(line, "utf8") > 2000)) throw new Error("REVIEW_FOCUS_TOO_LARGE");
+  return result;
 }
 
 export function compileExecutionPlan(input, { controller = null } = {}) {
@@ -66,7 +70,7 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   const config = controller?.config ?? input.controller;
   const reviewEnabled = config?.review?.enabled ?? config?.reviewEnabled;
   if (!config || config.repo !== input.repo || config.baseRef !== input.source.baseRef || !Number.isInteger(config.policy?.maxIssues) || config.policy.maxIssues < children.length || reviewEnabled !== true) throw new Error("CONTROLLER_CONFIG_MISMATCH");
-  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.source.baseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph) }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: [...new Set([`Walking skeleton handoff: ${spec.walkingSkeleton}`, ...focus(spec)])].slice(0, 20) };
+  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.source.baseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph) }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: focus(spec) };
   if (releasePlan.releaseAcceptanceCriteria.length > 50 || releasePlan.releaseAcceptanceCriteria.some((value) => value.length > 2000)) throw new Error("RELEASE_PLAN_TOO_LARGE");
   const controllerPlanDigest = controller?.planDigest ?? releasePlanDigest(releasePlan);
   const plan = { schema: HANDOFF_PLAN_SCHEMA, kind: "CODEX_RELEASE", repo: input.repo, target: String(input.parent.id), source: { identity: graph.source.identity, revision: graph.source.revision, baseRef: input.source.baseRef, baseSha: graph.source.baseSha, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), parentBodyHash: hashText(input.parent.body) }, children: children.map(({ issue, title, bodyHash, executionLane, blockedBy }) => ({ issue, title, bodyHash, executionLane, blockedBy })), reviewedFingerprint: fingerprint({ source: reviewSource, review: input.review, reviewBinding, reviewDispatchBinding: input.reviewDispatchBinding }), policy: { identity: input.policy.identity, digest: input.policy.digest }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: controller?.configDigest ?? "", repo: config.repo, baseRef: config.baseRef, maxIssues: config.policy.maxIssues, reviewEnabled }, releasePlan, controllerPlanDigest, recovery: { strategy: "rebuild-on-source-drift", conflict: "Rebuild and re-approve on source, graph, policy, review, Controller config, or Plan drift." } };

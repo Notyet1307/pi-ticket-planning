@@ -89,7 +89,7 @@ Repository setup creates only the delivery container. Solution Shaping closes lo
 
 Candidate Tickets begin and remain `needs-triage`. One fresh-context reviewer checks every Ticket plus scenario coverage, handoffs, the walking skeleton, dependency order, source revision, and policy. The recommended path then compiles one Controller Release Plan v2 and waits for a person to confirm the exact Handoff fingerprint.
 
-Confirmed apply atomically materializes three private Controller input files, records `EXECUTION/HANDOFF_READY`, and prints the Controller `start` command without running it. It writes no ready label. Legacy Herdr per-ticket labels remain available only when the operator explicitly selects that path.
+Confirmed apply atomically materializes three private Controller input files, records `EXECUTION/HANDOFF_READY`, and prints the Controller `start --expected-config-digest <approved-digest>` command without running it. It writes no ready label. Legacy Herdr per-ticket labels remain available only when the operator explicitly selects that path.
 
 ## 9. Common mistakes
 
