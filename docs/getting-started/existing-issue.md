@@ -86,7 +86,7 @@ For a split, the system first compiles stable Spec scenarios, then proves every 
 
 For a split Delivery Graph, the recommended path checks the exact source and policy, current Issue bodies, blockers, graph, Context results, and fresh readiness verdict. An all-AGENT graph with no external blocker becomes one exact Controller Release Plan v2; any source, body, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
 
-Confirmed apply atomically writes three private files and records `EXECUTION/HANDOFF_READY`; it does not start the Controller or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
+Confirmed apply atomically writes three private files and records `EXECUTION/HANDOFF_READY`; it prints a Controller `start --expected-config-digest <approved-digest>` command but does not run it or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
 
 - `needs-triage`: candidate, not claimable;
 - reviewer `READY`: review passed, human confirmation still required;
