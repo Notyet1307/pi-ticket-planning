@@ -34,6 +34,19 @@ export function githubBindingDigest(ref, value) {
   return hash(JSON.stringify(canonical(stableGitHubProjection(ref, value))));
 }
 
+function stableGitHubIssueProjection(ref, value) {
+  if (!/^repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/issues\/[1-9][0-9]*$/.test(ref)
+    || !value || typeof value !== "object" || Array.isArray(value)
+    || String(value.number) !== ref.split("/").at(-1)) throw new Error("GITHUB_ISSUE_BINDING_RESPONSE_INVALID");
+  const labels = (value.labels ?? []).map((label) => typeof label === "string" ? label : label.name);
+  const controlled = labels.filter((label) => ["needs-triage", "needs-info", "ready-for-agent", "ready-for-human"].includes(label)).sort();
+  return { number: String(value.number), title: value.title ?? "", body: value.body ?? "", state: String(value.state ?? "").toLowerCase(), controlledLabels: controlled };
+}
+
+export function githubIssueBindingDigest(ref, value) {
+  return hash(JSON.stringify(canonical(stableGitHubIssueProjection(ref, value))));
+}
+
 function safeSessionFile(file, sessionId) {
   const requested = path.resolve(file);
   const requestedMetadata = fs.lstatSync(requested);
@@ -87,6 +100,14 @@ function currentDigest(verification, execute = spawnSync) {
     let response;
     try { response = JSON.parse(run.stdout); } catch { throw new Error("GITHUB_BINDING_RESPONSE_INVALID"); }
     return githubBindingDigest(verification.ref, response);
+  }
+  if (verification.kind === "GITHUB_ISSUE") {
+    if (!/^repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/issues\/[1-9][0-9]*$/.test(verification.ref)) throw new Error("UNSAFE_BINDING_SOURCE");
+    const run = execute("gh", ["api", verification.ref], { encoding: "utf8", timeout: 30_000 });
+    if (run.status !== 0) throw new Error("BINDING_READBACK_FAILED");
+    let response;
+    try { response = JSON.parse(run.stdout); } catch { throw new Error("GITHUB_ISSUE_BINDING_RESPONSE_INVALID"); }
+    return githubIssueBindingDigest(verification.ref, response);
   }
   throw new Error("UNKNOWN_BINDING_VERIFIER");
 }
@@ -154,6 +175,14 @@ export function verifyPlanningCaseBindings(bindings, snapshot, { offline = false
       continue;
     }
     if (name === "reviewer") continue;
+    if (name === "spec" && binding.schema === "pi-ticket-planning:spec-projection:v1" && binding.verification) {
+      try {
+        if (currentDigest(binding.verification, execute) !== binding.verification.digest) problems.push(problem("BINDING_READBACK_DRIFT", name));
+      } catch (error) {
+        problems.push(problem(error instanceof Error && /^[A-Z_]+$/.test(error.message) ? error.message : "BINDING_READBACK_FAILED", name));
+      }
+      continue;
+    }
     if (binding.schema !== "pi-ticket-planning:planning-case-binding:v1") continue;
     try {
       if (currentDigest(binding.verification, execute) !== binding.verification.digest) problems.push(problem("BINDING_READBACK_DRIFT", name));

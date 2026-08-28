@@ -51,6 +51,15 @@ if [ "${1-}" = "execution-plan" ]; then
   exec node "$package_root/scripts/execution-plan.mjs" "$@"
 fi
 
+if [ "${1-}" = "spec-publication" ]; then
+  shift
+  if ! command -v node >/dev/null 2>&1; then
+    echo "ERROR Node.js command not found" >&2
+    exit 1
+  fi
+  exec node "$package_root/scripts/spec-publication.mjs" "$@"
+fi
+
 if [ "${1-}" = "delivery-gate" ]; then
   shift
   if ! command -v node >/dev/null 2>&1; then

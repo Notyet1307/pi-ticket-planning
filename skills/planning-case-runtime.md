@@ -13,6 +13,15 @@ Conversation is an input; the Planning Case is the resumable state.
    state. `--offline` is diagnostic only: it returns `DEGRADED` and cannot
    authorize an external mutation.
 
+`resume.mutationScopes.planningPublication` covers reversible planning-artifact
+publication only. `resume.compatibility` and
+`resume.mutationScopes.legacyAdmission` are Legacy Herdr Admission diagnostics;
+they do not gate a Delivery Spec or candidate Issue created under
+`needs-triage`. The compatibility tuple becomes required only after the
+operator explicitly selects Legacy Herdr. The legacy `mutationAllowed` field
+retains its Admission-preflight meaning; planning publication must read the
+scoped field instead.
+
 ## Record
 
 Write each command input to a private temporary JSON file outside the target

@@ -9,6 +9,8 @@
     "approval.singleConsumed": { "path": "admission/postconditions.mjs", "export": "verifyApprovalSingleConsumed" },
     "transaction.committed": { "path": "admission/postconditions.mjs", "export": "verifyTransactionCommitted" },
     "handoff.filesExactReadback": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffFilesExactReadback" },
-    "handoff.receiptExact": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffReceiptExact" }
+    "handoff.receiptExact": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffReceiptExact" },
+    "spec.issueExactReadback": { "path": "spec-publication/publication.mjs", "export": "verifySpecIssueExactReadback" },
+    "spec.needsTriageOnly": { "path": "spec-publication/publication.mjs", "export": "verifySpecNeedsTriageOnly" }
   }
 }

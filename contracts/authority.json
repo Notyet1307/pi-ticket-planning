@@ -27,7 +27,9 @@
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.accepted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["accepted-artifact"] },
     "git.deliveryBase": { "kind": "IMMUTABLE_FACT", "owner": "git", "sources": ["git"] },
-    "spec.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
+    "spec.validated": { "kind": "LIVE_FACT", "owner": "spec-publication-plan", "sources": ["spec-publication-check"], "freshness": { "mode": "same-mutation" } },
+    "human.specPublication": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["spec-publication-operator"] },
+    "spec.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["spec-tracker-api", "tracker-api", "git"] },
     "tickets.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
     "graph.passed": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "human.graphApproval": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
@@ -46,6 +48,18 @@
     "outcome.evidence": { "kind": "IMMUTABLE_FACT", "owner": "signal-evidence", "sources": ["signal-evidence"] }
   },
   "mutations": {
+    "specPublication.apply": {
+      "strict": true,
+      "actor": "spec-publication-apply",
+      "sourceStage": "SPEC",
+      "sourceVerdict": "SPEC_IN_PROGRESS",
+      "targetStage": "SPEC",
+      "targetVerdict": "SPEC_ACCEPTED",
+      "approvalFact": "human.specPublication",
+      "requiredFacts": ["human.commitment", "release.persisted", "release.accepted", "git.deliveryBase", "policy.accepted", "spec.validated", "human.specPublication"],
+      "producesFacts": ["spec.persisted"],
+      "postconditions": ["spec.issueExactReadback", "spec.needsTriageOnly", "approval.singleConsumed"]
+    },
     "admission.apply": {
       "strict": true,
       "actor": "admission-cli",

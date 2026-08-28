@@ -177,6 +177,7 @@ export function validateCodeSchemaCoverage({ protocol = loadProtocol() } = {}) {
     "protocol",
     "admission",
     "execution-plan",
+    "spec-publication",
     "planning-case",
     "capabilities",
     "installation",

@@ -71,6 +71,7 @@ const REQUIRED_FILES = [
   "schemas/herdr-codex-release-plan-v2.schema.json",
   "schemas/execution-handoff-plan-v1.schema.json",
   "schemas/execution-handoff-receipt-v1.schema.json",
+  "schemas/spec-publication-plan-v1.schema.json",
   "execution-plan/contract.md",
   "execution-plan/domain.mjs",
   "execution-plan/markdown.mjs",
@@ -80,6 +81,9 @@ const REQUIRED_FILES = [
   "execution-plan/validate.mjs",
   "execution-plan/handoff-apply.mjs",
   "execution-plan/cli.mjs",
+  "spec-publication/publication.mjs",
+  "spec-publication/cli.mjs",
+  "scripts/spec-publication.mjs",
   "scripts/admit.mjs",
   "admission/apply.mjs",
   "admission/cli.mjs",
@@ -447,6 +451,9 @@ export function validatePackage(root) {
     "## Release signal mapping",
     "## Walking skeleton target",
     "git show <base>:<release-path>",
+    "spec-publication build",
+    "spec-publication approve",
+    "spec-publication apply",
   ]);
   requireTokens(errors, "skills/to-tickets/SKILL.md", toTickets, [
     "## Source scenarios",

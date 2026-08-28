@@ -1,11 +1,11 @@
 ---
 name: setup-delivery-repository
-description: Configure an existing or greenfield repository when ask-yet finds missing tracker, policy, delivery-gate, or Admission/Harness prerequisites.
+description: Configure an existing or greenfield repository when ask-yet finds missing planning tracker, policy, delivery base, or explicitly selected Legacy Admission prerequisites.
 ---
 
 # Setup Delivery Repository
 
-Establish the repository facts consumed by planning and admission. Explore, resolve authorization once, apply the smallest permitted setup, and verify the resulting delivery base.
+Establish the repository facts consumed by planning. Add Admission/Harness setup only when the operator explicitly selects Legacy Herdr. Explore, resolve authorization once, apply the smallest permitted setup, and verify the resulting delivery base.
 
 Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, record setup decisions, and bind the verified source, policy, tracker, and delivery base after readback. Repository setup is incomplete while any binding exists only in conversation or the working tree.
 
@@ -76,7 +76,9 @@ Create `CONTEXT.md` only for real terminology ambiguity and `CONTEXT-MAP.md` onl
 
 Write `docs/agents/delivery-gate.md` from the template. It must establish candidate state, Scenario coverage, walking-skeleton, strict-frontier, fresh review, human confirmation, and execution lanes. Include transactional ready activation and parent-last writes only for GitHub.
 
-### E. GitHub CI and merge gate
+### E. Optional Legacy Herdr CI and merge gate
+
+Only when the operator explicitly selects Legacy Herdr, configure this section and its Admission/Harness prerequisites. For the default Controller-direct route or a planning-artifact publication, skip the whole section; missing Harness, Provider, Reviewer, capability receipt, compatibility tuple, auto-merge, or ready labels does not make planning setup incomplete.
 
 For a GitHub repository that will use HerdrHarness, require one tracked, executable, Secret-free canonical validation script. It owns project-specific dependency setup, safe test environment creation, Docker/Compose profiles, validation, and cleanup. Do not infer a command from a package manager, copy an untracked `.env`, or create a language-specific script. If the script is missing, return an ENABLER or `NEEDS_INFO`; do not configure auto-merge.
 
@@ -131,6 +133,8 @@ For GitHub, create only missing triage and Wayfinder labels after the repository
 
 ## 6. Verify completion
 
+### Planning publication completion
+
 Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 
 - Git `HEAD` resolves and the exact COMMITTED Release artifact exists in that commit;
@@ -138,10 +142,18 @@ Re-read local and remote facts. `GREENFIELD` setup is complete only when:
 - the effective root policy path and content are known;
 - tracker identity and stored tracker configuration agree;
 - required labels and relationship capabilities exist, or an explicit planning-only fallback is recorded;
-- GitHub/Harness targets pass `pi-ticket-plan doctor --require admission`, including repository auto-merge, strict pinned required checks, zero human approvals, no relevant ruleset bypass, and merge-commit compatibility;
-- the private project Harness config and supported Harness CLI produce a passing exact-base `pi-ticket-plan admit readiness` binding without exposing their paths or raw output;
 - unrelated pre-existing files and changes remain untouched.
 
-For any repository, verify every policy pointer, the equivalent concern-owned Context authority boundary in the effective root policy, configured label, Scenario-coverage rule, and tracker operation. Confirm that no duplicate block, nested-policy assumption, current implementation detail, or accepted code/ADR conflict was introduced. For an existing GitHub/Harness target, setup is complete only when the accepted remote base contains every required configuration blob and the remote labels exist; a working-tree or unpublished commit is incomplete. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, capability fallbacks, untouched changes, and whether Harness activation is available.
+For any repository, verify every policy pointer, the equivalent concern-owned Context authority boundary in the effective root policy, configured label, Scenario-coverage rule, and tracker operation. Confirm that no duplicate block, nested-policy assumption, current implementation detail, or accepted code/ADR conflict was introduced. This completion is sufficient for `to-spec`; do not run `doctor --require admission`, Harness readiness, Reviewer probes, compatibility qualification, or Controller validation for a planning publication. Report the exact base SHA, effective policy, files changed, commit/remote/push state, labels, planning fallbacks, and untouched changes.
+
+### Optional Legacy Herdr completion
+
+Only when the operator explicitly selects Legacy Herdr, additionally require:
+
+- `pi-ticket-plan doctor --require admission`, including repository auto-merge, strict pinned required checks, zero human approvals, no relevant ruleset bypass, and merge-commit compatibility;
+- a passing exact-base `pi-ticket-plan admit readiness` binding from the private project Harness config and supported Harness CLI, without exposing private paths or raw output;
+- every required configuration blob in the accepted remote base and the remote ready-label vocabulary.
+
+A failed or missing Legacy check disables only Legacy activation. It does not invalidate the planning publication completion above.
 
 Return the verified base, effective policy, tracker, and exact Release facts to `ask-yet`. It checks whether first-Release Solution Shaping is required, accepts any load-bearing technical decision through the repository's ADR path, and continues to `to-spec` only when no technical or human gate remains. Setup still chooses no implementation behavior.

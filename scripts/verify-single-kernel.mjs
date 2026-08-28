@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE_DIRECTORIES = ["admission", "benchmark", "capabilities", "context", "installation", "integration", "outcome", "planning-case", "protocol", "scripts"];
+const SOURCE_DIRECTORIES = ["admission", "benchmark", "capabilities", "context", "installation", "integration", "outcome", "planning-case", "protocol", "scripts", "spec-publication"];
 const LEGACY_IMPORTERS = new Set(["scripts/workflow-contract.mjs", "scripts/migrate-artifacts.mjs"]);
 
 function files(directory) {

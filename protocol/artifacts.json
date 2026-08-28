@@ -602,6 +602,18 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "spec-publication-plan",
+      "schemaIdentity": "pi-ticket-planning:spec-publication-plan:v1",
+      "schemaPath": "schemas/spec-publication-plan-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "spec-publication-plan",
+      "readers": ["spec-publication-apply", "spec-publication-cli"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "github-app-credential-binding",
       "schemaIdentity": "pi-ticket-planning:github-app-credential-binding:v1",
       "schemaPath": "schemas/github-app-credential-binding-v1.schema.json",

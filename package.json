@@ -40,6 +40,7 @@
     "doctor": "node scripts/doctor.mjs",
     "delivery-gate": "node scripts/delivery-gate.mjs",
     "execution-plan": "node scripts/execution-plan.mjs",
+    "spec-publication": "node scripts/spec-publication.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "install:profile": "node scripts/install-profile.mjs",

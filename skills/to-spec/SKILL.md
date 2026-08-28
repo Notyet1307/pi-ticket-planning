@@ -9,7 +9,7 @@ Compile decided behavior into one durable parent Delivery Spec. Do not interview
 
 Read [the Planning Case runtime](../planning-case-runtime.md) before work. Resume the exact Case, bind the accepted Release/source and delivery base before compilation, transition through `SPEC` with Kernel facts, then bind the exact published Spec before reporting completion.
 
-The repository, issue tracker, triage labels, and exact Git base must already be configured by the `setup-delivery-repository` helper. Use `ticket-readiness` for artifact roles and activation invariants.
+The repository, issue tracker, `needs-triage` label, and exact Git base must already be configured by the `setup-delivery-repository` helper. A Delivery Spec is a planning parent, not an executable Ticket; later handoff and activation gates do not apply here.
 
 ## Process
 
@@ -94,9 +94,23 @@ Inline the durable behavior, invariants, handoffs, and decisions every downstrea
 
 Show the complete body, source identity, base SHA, Scenario IDs, and tracker mutation in the work log.
 
+This is the planning-artifact publication boundary. Re-read the exact accepted source and delivery base, every applicable accepted ADR and repository policy, tracker identity/configuration, and the draft bytes. Deterministically check the required sections, unique Scenario IDs, Release-signal mapping, walking-skeleton references, source references, and unresolved-decision state. Do not invoke Legacy Herdr Admission, Harness readiness, capability qualification, compatibility matrix, a Reviewer, or Controller checks. Those facts cannot block this publication.
+
 For an explicitly read-only invocation, compile and self-check the draft without persisting or publishing it. Return `SPEC_IN_PROGRESS` to `ask-yet`; the read-only boundary is not an unresolved product or technical decision and does not become `BLOCKED`. Stop this helper here; do not run the publication or completion steps below.
 
-For a mutation-enabled invocation, self-check and publish without a separate interruption when standing automation approval covers reversible draft planning issues. Otherwise obtain one approval for this publication. Publish the approved parent with `needs-triage`; keep both ready labels absent. If unresolved decisions block stable ticketing, use `needs-info` and stop before the `to-tickets` helper.
+For a mutation-enabled invocation, show and bind the exact Issue title, complete body bytes/body digest, and complete write set before using approval. Reuse standing approval only when all of those bytes and the target, source, base, policy, tracker, labels, and risk remain exact; otherwise obtain one new approval for this publication. The exact write set is one parent Issue with labels [`needs-triage`]. Do not add `ready-for-agent` or `ready-for-human`, create children, dispatch a Reviewer, run qualification, or start a Controller.
+
+Write the refreshed source/base, accepted policy and ADR projections, tracker projection, and all eight deterministic `PASS` checks to one private context file. Build the exact Plan from that context and the existing draft, then display the Plan's complete `issue.body` (including its deduplication marker), fingerprint, and write set:
+
+```text
+pi-ticket-plan spec-publication build --context <context.json> --draft <existing-draft.md> --repo-path <accepted-checkout> --out <spec-publication-plan.json> --json
+pi-ticket-plan spec-publication approve --plan <spec-publication-plan.json> --expected-fingerprint <exact sha256> --case-id <case-id> --json
+pi-ticket-plan spec-publication apply --plan <spec-publication-plan.json> --repo-path <same-accepted-checkout> --expected-fingerprint <exact sha256> --case-id <case-id> --approval-id <F-id from approve> --json
+```
+
+`build` records the private context, draft, and Plan paths plus exact digests in the same Planning Case. `apply` is the sole publication owner: it reloads those recorded artifacts, freshly rechecks Git source/base, policy, ADRs, tracker config and live `needs-triage`, searches the exact marker before create, creates at most one parent with `needs-triage`, rereads exact title/body/controlled labels, binds the Spec, transitions the same Case to `SPEC_ACCEPTED`, and consumes approval last. An unknown create result leaves approval pending; retry the same Plan so marker readback recovers instead of creating a duplicate.
+
+On recovery, resume the same Planning Case and locate the recorded draft and Plan evidence. Reuse the exact existing draft bytes; do not regenerate the Spec or create another Planning Case. Retry the same apply command: it must find one unique exact marker before any create and stop on duplicates, missing recorded artifacts, or drift. A previously recorded capability or compatibility blocker at `DELIVERY/SPEC` is not a publication prerequisite and must be cleared through the Case commands without deleting other facts, decisions, bindings, or approvals. Unresolved decisions remain a pre-publication block; this path publishes only `needs-triage`.
 
 ### 6. Complete
 
