@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 0
       - id: lock
-        run: node -e 'const fs=require("node:fs");const c=require("./compatibility/codex-controller-contract.json").commit;if(!/^[a-f0-9]{40}$/.test(c))process.exit(1);fs.appendFileSync(process.env.GITHUB_OUTPUT,`commit=${c}\n`)'
+        run: node -e 'const fs=require("node:fs");const c=require("./compatibility/codex-controller-contract.json");if(!/^[a-f0-9]{40}$/.test(c.commit)||c.integrationMode!=="release-plan-v2-direct"||c.dispatcherQualified!==false||c.operatorStartRequired!==true)process.exit(1);fs.appendFileSync(process.env.GITHUB_OUTPUT,`commit=${c.commit}\n`)'
       - uses: actions/checkout@v7
         with:
           repository: Notyet1307/herdr-codex-controller

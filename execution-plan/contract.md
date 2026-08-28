@@ -2,6 +2,22 @@
 
 Use the accepted Delivery Spec, exact Delivery Graph v2, Ticket Context PASS results, fresh review binding, and Planning Case handoff approval to compile one Controller Release Plan v2. `execution-plan` validates only Controller public `config validate`, `plan validate`, and `doctor` commands; it never starts a Controller Job.
 
+## Qualified Controller mainline
+
+`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision and integration scope. The currently qualified revision is `b1afa0127dd0b51e210757e9baf150d2d2851326`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
+
+This contract qualifies only the direct path:
+
+```text
+approved Delivery Graph
+→ Release Plan v2
+→ execution-plan apply
+→ operator executes the printed Controller start command
+→ Controller run
+```
+
+The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
+
 The release contains only AGENT children with no external blocker. Every live Parent/Child identity and body hash must match the Graph and review source. Approval binds the exact handoff-plan fingerprint. Apply atomically materializes the three Controller input files, records `EXECUTION/HANDOFF_READY`, then consumes that approval.
 
 Release Plan v2 binds:
@@ -19,7 +35,11 @@ Build may produce a candidate after `config validate` and `plan validate` even w
 
 The operator starts the Controller only with the command returned after COMPLETE. That command binds `--expected-config-digest` to the approved Handoff config digest. Planner code must not call `start`, create a Worktree/branch/commit/PR, write labels/comments, poll execution, or read Controller private state.
 
-`compatibility/codex-controller-contract.json` pins the exact Controller commit, owner schema path, byte SHA-256, and canonical digest algorithm. The Planner schema mirror is byte-identical to that commit. The cross-repository canary rejects a dirty tracked checkout, exports exact tracked source, and uses Node permission isolation to compile and run only `config validate` and `plan validate` with network denied. It proves the static schema/digest contract, not live Controller source revalidation or Codex/GitHub execution.
+The deployment checkout containing the supplied Controller CLI must be at the exact locked commit with a clean tracked worktree before handoff build or apply. The cross-repository workflow enforces this for CI. Until Controller exposes a stable public binary-provenance API, production operators must preserve the same exact-checkout rule when installing and invoking the CLI; a matching command surface alone is not proof of the qualified revision.
+
+This source check is a required Skill/operator preflight, not a provenance claim made by the `execution-plan` CLI. A build or apply without that readback is outside the qualified path.
+
+The lock also pins the owner schema path, byte SHA-256, and canonical digest algorithm. The Planner schema mirror is byte-identical to that commit. The cross-repository canary rejects a dirty tracked checkout, exports exact tracked source, and uses Node permission isolation to compile and run only `config validate` and `plan validate` with network denied. It proves the static schema/digest contract, not live Controller source revalidation or Codex/GitHub execution.
 
 Authority owners: `scripts/check-delivery-graph.mjs`, `scripts/check-ticket-context.mjs`, `admission/review-transport.mjs`, `planning-case/cli.mjs`, and `execution-plan/compiler.mjs`.
 

@@ -3,7 +3,18 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/codex-controller-contract-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "repository", "commit", "releasePlanVersion", "schemaPath", "schemaSha256", "digestAlgorithm"],
+  "required": [
+    "schema",
+    "repository",
+    "commit",
+    "releasePlanVersion",
+    "schemaPath",
+    "schemaSha256",
+    "digestAlgorithm",
+    "integrationMode",
+    "dispatcherQualified",
+    "operatorStartRequired"
+  ],
   "properties": {
     "schema": { "const": "pi-ticket-planning:codex-controller-contract:v1" },
     "repository": { "const": "https://github.com/Notyet1307/herdr-codex-controller.git" },
@@ -11,6 +22,9 @@
     "releasePlanVersion": { "const": 2 },
     "schemaPath": { "const": "schemas/release-plan-v2.schema.json" },
     "schemaSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "digestAlgorithm": { "const": "canonical-json-v1+sha256-hex" }
+    "digestAlgorithm": { "const": "canonical-json-v1+sha256-hex" },
+    "integrationMode": { "const": "release-plan-v2-direct" },
+    "dispatcherQualified": { "const": false },
+    "operatorStartRequired": { "const": true }
   }
 }
