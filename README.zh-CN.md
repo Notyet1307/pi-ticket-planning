@@ -313,7 +313,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build 只调用 Controller `config validate` 与 `plan validate`。Apply 还会调用 `doctor`，并要求其 config digest 与已验证、已批准的 digest 相同；随后精确物化 `release-plan.json`、`execution-handoff-plan.json` 和 `execution-handoff-receipt.json`，记录 `EXECUTION/HANDOFF_READY`，最后消费 approval。它只打印、不执行 exact Controller `start --expected-config-digest <approved-digest>` 命令。publish 后、checkpoint 前恢复会重新验证 source/config/Plan/doctor；冲突或阻断时保留文件和 pending approval。source、graph、review、policy、Controller config 或 Plan 漂移都必须重建并重新批准。
+Build 只调用 Controller `config validate` 与 `plan validate`，把 lock-qualified runtime identity 以及 config/Plan/provenance digest 绑定进 Handoff，并拒绝漂移。Apply 还会调用 `doctor`，要求 config digest 和 Controller identity 与已验证、已批准的值相同；随后精确物化 `release-plan.json`、`execution-handoff-plan.json` 和 `execution-handoff-receipt.json`，记录 `EXECUTION/HANDOFF_READY`，最后消费 approval。它只打印、不执行带 approved config digest、Controller revision 和 provenance digest 的 exact Controller `start` 命令。publish 后、checkpoint 前恢复会重新验证 source/config/Plan/provenance/doctor；冲突或阻断时保留文件和 pending approval。source、graph、review、policy、Controller config/provenance 或 Plan 漂移都必须重建并重新批准。
 
 #### Legacy Herdr 按 Ticket 激活
 
@@ -383,7 +383,7 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
 ```
 
-该 canary 锁定 Controller exact commit 与 owner schema 字节 SHA-256，拒绝 dirty tracked checkout，在 Node 26 permission isolation 中以禁止网络的方式构建 exact tracked-source 副本，比对 Planner/lock/Controller 三方 schema，执行一个正向 Plan 以及 top-level-extra、missing-required、source-extra、Issue-extra 四类负向向量，并比较两端 Plan digest。它只调用 `config validate` 和 `plan validate`，绝不调用 `doctor`、`start`、Codex 或网络写入。PASS 只代表该只读静态契约 qualified，不代表 live source revalidation 或 Codex/GitHub execution。缺少 checkout 是 `CONTROLLER_UNAVAILABLE`，缺少构建依赖是 `CONTROLLER_NOT_BUILT`，都不是 PASS。
+该 canary 锁定 Controller exact commit、source-manifest/build/identity digest 与 owner schema 字节 SHA-256，拒绝 dirty checkout，在 Node 26 permission isolation 中以禁止网络的方式构建 exact local clone，比对 Planner/lock/Controller 三方 schema 与 config/Plan/provenance digest，接受一个 v2 direct Plan，并拒绝 top-level-extra、missing-required、source-extra、Issue-extra 和 Release Plan v1 向量。Dispatcher 明确为 out of scope，且绝不调用。canary 只调用 `config validate` 和 `plan validate`，绝不调用 `doctor`、`start`、Codex 或网络写入。PASS 只代表该只读静态契约 qualified，不代表 live source revalidation 或 Codex/GitHub execution。缺少 checkout 是 `CONTROLLER_UNAVAILABLE`，缺少构建依赖是 `CONTROLLER_NOT_BUILT`，都不是 PASS。
 
 Profile 烟测会包含 package-owned `prepare-codex-release` skill；命令会报告当前精确 skill 数。
 

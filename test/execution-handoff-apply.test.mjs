@@ -86,6 +86,11 @@ function assertExactOutput(outputDir, plan, approvalId) {
   assert.equal(receipt.planFingerprint, plan.planFingerprint);
   assert.equal(receipt.controllerPlanDigest, plan.controllerPlanDigest);
   assert.equal(receipt.controllerConfigDigest, plan.controller.configDigest);
+  assert.equal(receipt.controllerRevision, plan.controller.provenance.controller.sourceRevision);
+  assert.equal(receipt.controllerSourceManifestDigest, plan.controller.provenance.controller.sourceManifestDigest);
+  assert.equal(receipt.controllerBuildDigest, plan.controller.provenance.controller.buildDigest);
+  assert.equal(receipt.controllerIdentityDigest, plan.controller.provenance.controller.digest);
+  assert.equal(receipt.controllerProvenanceDigest, plan.controller.provenance.digest);
   assert.equal(receipt.approvalId, approvalId);
   assert.equal(receipt.releasePlanDigest, fingerprint(plan.releasePlan));
   assert.equal(receipt.digest, fingerprint((({ digest, ...body }) => body)(receipt)));
@@ -106,6 +111,8 @@ test("execution handoff apply publishes exact private files, records the Case, a
   const result = applyExecutionPlan(ready.base);
   assert.equal(result.status, "COMPLETE");
   assert.match(result.nextCommand, / start /);
+  assert.match(result.nextCommand, /--expected-controller-revision/);
+  assert.match(result.nextCommand, /--expected-controller-provenance-digest/);
   assert.equal(result.nextCommand.includes("run"), false);
   assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
   assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);

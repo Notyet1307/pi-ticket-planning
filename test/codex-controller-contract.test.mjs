@@ -8,14 +8,18 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { runControllerContractCanary, runControllerContractVectors } from "../scripts/canary-codex-controller-contract.mjs";
+import { CONTROLLER_IDENTITY } from "./execution-plan-fixture.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 test("pinned latest Controller lock qualifies only the direct Release Plan v2 mainline", () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  assert.equal(lock.commit, "b1afa0127dd0b51e210757e9baf150d2d2851326");
+  assert.equal(lock.commit, "45bb61a2697ad518e97402ab9d921617739cbd92");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
+  assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
+  assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
+  assert.equal(lock.identityDigest, CONTROLLER_IDENTITY.digest);
   assert.equal(lock.schemaSha256, createHash("sha256").update(schema).digest("hex"));
   assert.equal(lock.digestAlgorithm, "canonical-json-v1+sha256-hex");
   assert.equal(lock.integrationMode, "release-plan-v2-direct");
@@ -35,16 +39,17 @@ test("fake Controller unit exercises all fixed vectors without execution command
   fs.mkdirSync(fixtures, { recursive: true });
   fs.mkdirSync(path.dirname(controllerSchema), { recursive: true });
   fs.copyFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"), controllerSchema);
-  fs.writeFileSync(path.join(fixtures, "config.json"), `${JSON.stringify({ repo: "acme/product", baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } })}\n`);
+  fs.writeFileSync(path.join(fixtures, "config.json"), `${JSON.stringify({ repo: "acme/product", baseRef: "main", executionMode: "release-plan-v2-direct", policy: { maxIssues: 2 }, review: { enabled: true } })}\n`);
   fs.writeFileSync(cli, `const crypto = require("node:crypto");
 const fs = require("node:fs");
 const args = process.argv.slice(2);
+const controller = ${JSON.stringify(CONTROLLER_IDENTITY)};
 fs.appendFileSync(process.env.TEST_CANARY_RECORD, JSON.stringify(args) + "\\n");
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
 const digest = (value) => crypto.createHash("sha256").update(JSON.stringify(canonical(value)), "utf8").digest("hex");
 if (args[0] === "config") {
   const config = JSON.parse(fs.readFileSync(args[args.indexOf("--config") + 1], "utf8"));
-  console.log(JSON.stringify({ok:true,config,configDigest:digest(config)}));
+  console.log(JSON.stringify({ok:true,config,configDigest:digest(config),controller}));
 } else if (args[0] === "plan") {
   const plan = JSON.parse(fs.readFileSync(args[args.indexOf("--plan") + 1], "utf8"));
   const top = ["id","issues","objective","parentIssue","releaseAcceptanceCriteria","reviewFocus","source","title","version"];
@@ -55,7 +60,7 @@ if (args[0] === "config") {
     || Object.keys(plan.issues?.[0] ?? {}).sort().join("\\n") !== issue.sort().join("\\n")) {
     console.log(JSON.stringify({ok:false,problems:[{code:"INVALID_PLAN_KEYS"}]}));
     process.exitCode = 1;
-  } else console.log(JSON.stringify({ok:true,plan,planDigest:digest(plan)}));
+  } else { const planDigest=digest(plan); const config=JSON.parse(fs.readFileSync(args[args.indexOf("--config") + 1], "utf8")); const body={version:1,controller,executionMode:config.executionMode,configDigest:digest(config),releasePlan:{version:2,digest:planDigest}}; console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}})); }
 } else process.exit(90);
 `, { mode: 0o700 });
 
@@ -65,7 +70,7 @@ if (args[0] === "config") {
   }
   const commit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const schemaSha256 = createHash("sha256").update(fs.readFileSync(controllerSchema)).digest("hex");
-  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
+  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, sourceManifestDigest: CONTROLLER_IDENTITY.sourceManifestDigest, buildDigest: CONTROLLER_IDENTITY.buildDigest, identityDigest: CONTROLLER_IDENTITY.digest, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
   const prior = process.env.TEST_CANARY_RECORD;
   process.env.TEST_CANARY_RECORD = record;
   let result;
@@ -73,11 +78,15 @@ if (args[0] === "config") {
   finally { if (prior === undefined) delete process.env.TEST_CANARY_RECORD; else process.env.TEST_CANARY_RECORD = prior; }
   assert.equal(result.status, "PASS");
   assert.equal(result.planDigest, result.plannerPlanDigest);
+  assert.equal(result.controllerRevision, CONTROLLER_IDENTITY.sourceRevision);
+  assert.equal(result.controllerIdentityDigest, CONTROLLER_IDENTITY.digest);
+  assert.equal(result.handoffScope.dispatch, "OUT_OF_SCOPE");
   const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(calls.map(([first, second]) => `${first}:${second}`), [
     "config:validate",
     "plan:validate",
     "config:validate",
+    "plan:validate",
     "plan:validate",
     "plan:validate",
     "plan:validate",

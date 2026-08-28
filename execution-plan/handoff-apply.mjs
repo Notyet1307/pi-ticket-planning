@@ -30,7 +30,8 @@ function bytes(value) { return Buffer.from(`${JSON.stringify(value, null, 2)}\n`
 function shellQuote(value) { return `'${String(value).replaceAll("'", `'"'"'`)}'`; }
 
 function receiptFor(plan, approvalId, configDigest, planDigest, now) {
-  const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, approvalId, verifiedAt: now };
+  const provenance = plan.controller.provenance;
+  const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, controllerRevision: provenance.controller.sourceRevision, controllerSourceManifestDigest: provenance.controller.sourceManifestDigest, controllerBuildDigest: provenance.controller.buildDigest, controllerIdentityDigest: provenance.controller.digest, controllerProvenanceDigest: provenance.digest, approvalId, verifiedAt: now };
   const complete = { ...body, releasePlanDigest: fingerprint(plan.releasePlan) };
   return { ...complete, digest: fingerprint(complete) };
 }
@@ -58,6 +59,11 @@ function exactExisting(outputDir, plan, approvalId) {
     || receipt.status !== "COMPLETE"
     || receipt.controllerPlanDigest !== plan.controllerPlanDigest
     || receipt.controllerConfigDigest !== plan.controller.configDigest
+    || receipt.controllerRevision !== plan.controller.provenance.controller.sourceRevision
+    || receipt.controllerSourceManifestDigest !== plan.controller.provenance.controller.sourceManifestDigest
+    || receipt.controllerBuildDigest !== plan.controller.provenance.controller.buildDigest
+    || receipt.controllerIdentityDigest !== plan.controller.provenance.controller.digest
+    || receipt.controllerProvenanceDigest !== plan.controller.provenance.digest
     || receipt.releasePlanDigest !== fingerprint(plan.releasePlan)
     || receipt.digest !== fingerprint((({ digest, ...body }) => body)(receipt))) throw new Error("HANDOFF_OUTPUT_CONFLICT");
   return receipt;
@@ -71,6 +77,11 @@ export function verifyHandoffReceiptExact({ receipt, plan, approvalId }) {
   if (!receipt || !validateArtifact(receipt).ok || receipt.digest !== fingerprint((({ digest, ...body }) => body)(receipt))
     || plan && (receipt.repo !== plan.repo || receipt.target !== plan.target || receipt.planFingerprint !== plan.planFingerprint
       || receipt.controllerPlanDigest !== plan.controllerPlanDigest || receipt.controllerConfigDigest !== plan.controller.configDigest
+      || receipt.controllerRevision !== plan.controller.provenance.controller.sourceRevision
+      || receipt.controllerSourceManifestDigest !== plan.controller.provenance.controller.sourceManifestDigest
+      || receipt.controllerBuildDigest !== plan.controller.provenance.controller.buildDigest
+      || receipt.controllerIdentityDigest !== plan.controller.provenance.controller.digest
+      || receipt.controllerProvenanceDigest !== plan.controller.provenance.digest
       || receipt.releasePlanDigest !== fingerprint(plan.releasePlan))
     || approvalId && receipt.approvalId !== approvalId) return [{ code: "HANDOFF_RECEIPT_MISMATCH" }];
   return [];
@@ -101,7 +112,7 @@ function materialize(outputDir, plan, receipt) {
 
 function facts(plan, approval, mutationId, now, subject) {
   const create = (fact, source, digest, sameMutation = true) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${mutationId.slice(-12)}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: fact === "controller.readinessPassed" ? new Date(Date.parse(now) + 3600000).toISOString() : null, ...(sameMutation ? { mutationId } : {}), evidence: { kind: "artifact", ref: plan.planFingerprint, digest } });
-  return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.configDigest)), approval];
+  return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.provenance.digest)), approval];
 }
 
 export function applyExecutionPlan({
@@ -114,7 +125,7 @@ export function applyExecutionPlan({
   expectedFingerprint,
   outputDir,
   clock = () => new Date().toISOString(),
-  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --expected-config-digest ${shellQuote(plan.controller.configDigest)} --json`,
+  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --expected-config-digest ${shellQuote(plan.controller.configDigest)} --expected-controller-revision ${shellQuote(plan.controller.provenance.controller.sourceRevision)} --expected-controller-provenance-digest ${shellQuote(plan.controller.provenance.digest)} --json`,
 }) {
   outputDir = outputDirectory(outputDir);
   if (expectedFingerprint !== plan?.planFingerprint) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");

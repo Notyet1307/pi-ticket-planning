@@ -16,8 +16,10 @@ pi-ticket-planning
 The exact qualified Controller revision is owned by `compatibility/codex-controller-contract.json`. At the time of this qualification it is:
 
 ```text
-b1afa0127dd0b51e210757e9baf150d2d2851326
+45bb61a2697ad518e97402ab9d921617739cbd92
 ```
+
+The same lock pins Controller source-manifest digest `64bd6d551dbea2cbe25ed878141714b278783be4036931c5ea2e1af9b6338733`, build digest `bfcef4acdc17e7ed705020754957a066429f66d4694d1db33ff821d376c3311f`, and identity digest `40cf05579fd6e8db1a36dd3f11fd9ea137aace2d06d9d9b68e2e009aedb1a0f4`.
 
 The machine scope is:
 
@@ -32,8 +34,8 @@ operatorStartRequired = true
 - Controller `config validate`;
 - Controller `plan validate`;
 - Planner-owned Release Plan v2 schema bytes and canonical digest;
-- the approved config digest passed to `start --expected-config-digest`;
-- live `doctor` during handoff apply;
+- the approved config digest, exact Controller revision, and complete provenance digest passed to the three v2 `start --expected-*` gates;
+- live `doctor` config and Controller identity readback during handoff apply;
 - operator-explicit creation of a Controller Job;
 - Controller-owned execution, validation, aggregate review, PR, CI, and merge after the operator starts the Job.
 
@@ -64,7 +66,7 @@ npm --prefix "$CONTROLLER_ROOT" ci --ignore-scripts --no-audit --no-fund
 npm --prefix "$CONTROLLER_ROOT" run verify
 ```
 
-These commands are the required operator preflight. The `execution-plan` CLI does not infer or attest the Controller checkout or built CLI provenance; without this exact clean readback, do not build or apply a handoff.
+These commands are the required operator Git preflight. `execution-plan` additionally validates the public Controller identity/provenance readback against the compatibility lock; neither check replaces the other.
 
 Then verify the cross-repository contract from the Planner checkout:
 
@@ -74,17 +76,17 @@ npm run check:codex-controller-contract
 npm run canary:codex-controller-contract -- --controller-root "$CONTROLLER_ROOT"
 ```
 
-A PASS proves the exact static schema and digest boundary. Handoff apply still performs the live `doctor` check with the approved config digest.
+A PASS proves exact commit/runtime-identity readback, dirty-checkout rejection, schema bytes, config/Plan/provenance digest agreement, the v2 direct positive vector, closed-shape negatives, and Release Plan v1 exclusion. Dispatcher is not invoked or qualified. Handoff apply still performs the live `doctor` check with the approved config and Controller identity.
 
 ## Runtime sequence
 
 `execution-plan apply` must only:
 
-1. revalidate source, graph, review, policy, Controller config, Plan, and doctor;
+1. revalidate source, graph, review, policy, Controller config, Plan, provenance, and doctor;
 2. materialize `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`;
 3. record `EXECUTION/HANDOFF_READY`;
 4. consume the exact approval;
-5. print the Controller `start --expected-config-digest ...` command.
+5. print the Controller `start --expected-config-digest ... --expected-controller-revision ... --expected-controller-provenance-digest ...` command.
 
 It must not execute that command. The operator executes it to create the durable Controller Job, receives the Job ID, and separately runs `controller run`.
 
@@ -94,7 +96,7 @@ A future Controller upgrade must be a new explicit compatibility change:
 
 1. select one exact Controller commit;
 2. verify the Release Plan v2 owner schema remains byte-identical or deliberately version the contract;
-3. update the lock and its regression assertion;
+3. update the exact commit plus source-manifest/build/identity digests in the lock and its regression assertion;
 4. run Controller `npm run verify`;
 5. run Planner deterministic checks and the exact-source cross-repository canary;
 6. keep Dispatcher excluded unless a separate admission authority, schema, tests, and evidence are introduced;

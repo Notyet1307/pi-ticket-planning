@@ -1,7 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.pi-ticket-planning.invalid/execution-handoff-receipt-v1.schema.json",
-  "type": "object", "additionalProperties": false,
-  "required": ["schema","status","repo","target","planFingerprint","controllerPlanDigest","controllerConfigDigest","approvalId","verifiedAt","releasePlanDigest","digest"],
-  "properties": {"schema":{"const":"pi-ticket-planning:execution-handoff-receipt:v1"},"status":{"const":"COMPLETE"},"repo":{"type":"string","pattern":"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},"target":{"type":"string","pattern":"^[1-9][0-9]*$"},"planFingerprint":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"controllerPlanDigest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"controllerConfigDigest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"approvalId":{"type":"string","pattern":"^F-[A-Za-z0-9._:-]{1,126}$"},"verifiedAt":{"type":"string","format":"date-time"},"releasePlanDigest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"digest":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"}}
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "repo",
+    "target",
+    "planFingerprint",
+    "controllerPlanDigest",
+    "controllerConfigDigest",
+    "controllerRevision",
+    "controllerSourceManifestDigest",
+    "controllerBuildDigest",
+    "controllerIdentityDigest",
+    "controllerProvenanceDigest",
+    "approvalId",
+    "verifiedAt",
+    "releasePlanDigest",
+    "digest"
+  ],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:execution-handoff-receipt:v1" },
+    "status": { "const": "COMPLETE" },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "target": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "planFingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "controllerPlanDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "controllerConfigDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "controllerRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "controllerSourceManifestDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "controllerBuildDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "controllerIdentityDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "controllerProvenanceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "approvalId": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" },
+    "verifiedAt": { "type": "string", "format": "date-time" },
+    "releasePlanDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
 }

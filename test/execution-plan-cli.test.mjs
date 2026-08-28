@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { validateArtifact } from "../protocol/kernel.mjs";
 import {
+  CONTROLLER_IDENTITY,
   compiledFixture,
   executionInput,
 } from "./execution-plan-fixture.mjs";
@@ -30,11 +31,16 @@ function controllerFiles(directory) {
   const config = path.join(directory, "controller.json");
   const record = path.join(directory, "controller-argv.jsonl");
   fs.writeFileSync(cli, `import fs from "node:fs";
+import { createHash } from "node:crypto";
 const args = process.argv.slice(2);
+const controller = ${JSON.stringify(CONTROLLER_IDENTITY)};
+const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
+const digest = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+const config = {repo:"acme/product",baseRef:"main",executionMode:"release-plan-v2-direct",policy:{maxIssues:2},review:{enabled:true}};
 fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args) + "\\n");
-if (args[0] === "config") console.log(JSON.stringify({ok:true,config:{repo:"acme/product",baseRef:"main",policy:{maxIssues:2},review:{enabled:true}},configDigest:"${"a".repeat(64)}"}));
-else if (args[0] === "plan") console.log(JSON.stringify({ok:true,plan:JSON.parse(fs.readFileSync(args[args.indexOf("--plan") + 1], "utf8")),planDigest:"${"c".repeat(64)}"}));
-else if (args[0] === "doctor") console.log(JSON.stringify({ok:true,configDigest:"${"a".repeat(64)}"}));
+if (args[0] === "config") console.log(JSON.stringify({ok:true,config,configDigest:"${"a".repeat(64)}",controller}));
+else if (args[0] === "plan") { const plan=JSON.parse(fs.readFileSync(args[args.indexOf("--plan") + 1], "utf8")); const planDigest=digest(plan); const body={version:1,controller,executionMode:config.executionMode,configDigest:"${"a".repeat(64)}",releasePlan:{version:2,digest:planDigest}}; console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}})); }
+else if (args[0] === "doctor") console.log(JSON.stringify({ok:true,configDigest:"${"a".repeat(64)}",controller}));
 else process.exit(9);
 `, { mode: 0o700, flag: "wx" });
   fs.writeFileSync(config, "{}\n", { mode: 0o600, flag: "wx" });
@@ -103,6 +109,8 @@ test("execution-plan CLI builds, verifies, and applies through only the Controll
   assert.equal(result.nextCommand.includes(shellQuote(controller.config)), true);
   assert.match(result.nextCommand, /release-plan\.json/);
   assert.match(result.nextCommand, new RegExp(`--expected-config-digest '${"a".repeat(64)}'`));
+  assert.match(result.nextCommand, new RegExp(`--expected-controller-revision '${CONTROLLER_IDENTITY.sourceRevision}'`));
+  assert.match(result.nextCommand, new RegExp(`--expected-controller-provenance-digest '${plan.controller.provenance.digest}'`));
 
   const calls = fs.readFileSync(controller.record, "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(calls.map(([first, second]) => `${first}:${second}`), [
