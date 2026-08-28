@@ -1,7 +1,10 @@
 {
   "schema": "pi-ticket-planning:codex-controller-contract:v1",
   "repository": "https://github.com/Notyet1307/herdr-codex-controller.git",
-  "commit": "b1afa0127dd0b51e210757e9baf150d2d2851326",
+  "commit": "45bb61a2697ad518e97402ab9d921617739cbd92",
+  "sourceManifestDigest": "64bd6d551dbea2cbe25ed878141714b278783be4036931c5ea2e1af9b6338733",
+  "buildDigest": "bfcef4acdc17e7ed705020754957a066429f66d4694d1db33ff821d376c3311f",
+  "identityDigest": "40cf05579fd6e8db1a36dd3f11fd9ea137aace2d06d9d9b68e2e009aedb1a0f4",
   "releasePlanVersion": 2,
   "schemaPath": "schemas/release-plan-v2.schema.json",
   "schemaSha256": "1cba2c78cebabd88a9f086a470681e7024ce8b1ae472547041b9b2ac4f7ca412",

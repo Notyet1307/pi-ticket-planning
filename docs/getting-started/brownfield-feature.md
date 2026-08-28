@@ -88,7 +88,7 @@ The Delivery Spec then defines stable scenarios. Ticket generation proves scenar
 
 Creating or reviewing an Issue does not start execution. The recommended graph path rereads the accepted source, effective policy, exact Ticket bodies, blockers, coverage, walking skeleton, and dependency order. One fresh reviewer returns `READY`, `SPLIT`, or `NEEDS_INFO`; an all-AGENT, blocker-free READY graph is compiled into one exact Controller Release Plan v2.
 
-One human approval binds the Handoff fingerprint. Apply writes three private input files and prints—but does not run—the Controller `start --expected-config-digest <approved-digest>` command; Tickets remain `needs-triage`. Legacy Herdr ready-label activation is an explicit compatibility choice. Controller completion, merge, Release Record, and Outcome are later and distinct facts.
+One human approval binds the Handoff fingerprint. Apply writes three private input files and prints—but does not run—the Controller `start` command with the approved config digest, Controller revision, and provenance digest; Tickets remain `needs-triage`. Legacy Herdr ready-label activation is an explicit compatibility choice. Controller completion, merge, Release Record, and Outcome are later and distinct facts.
 
 ## 9. Common mistakes
 

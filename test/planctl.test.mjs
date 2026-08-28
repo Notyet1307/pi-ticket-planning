@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 import { fingerprint as handoffFingerprint } from "../execution-plan/domain.mjs";
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
+import { CONTROLLER_IDENTITY, controllerProvenance } from "./execution-plan-fixture.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TARGET = "github:Notyet1307/example";
@@ -24,7 +25,7 @@ function run(stateDir, args) {
 
 function handoffPlan() {
   const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: "Notyet1307/example", baseRef: "main", baseSha: "a".repeat(40), parentBinding: { number: 90, expectedTitle: "Release", expectedBodyHash: `sha256:${"b".repeat(64)}` }, specContentHash: `sha256:${"c".repeat(64)}`, deliveryGraphDigest: `sha256:${"d".repeat(64)}` }, id: "release-90", title: "Release", objective: "Ship safely", parentIssue: 90, issues: [{ number: 91, order: 1, dependsOn: [], objective: "Build safely", acceptanceCriteria: ["One", "Two", "Three"], suggestedValidation: [], allowNoop: false, expectedTitle: "Child", expectedBodyHash: `sha256:${"e".repeat(64)}` }], releaseAcceptanceCriteria: ["S1: Done"], reviewFocus: [] };
-  const plan = { schema: "pi-ticket-planning:execution-handoff-plan:v1", kind: "CODEX_RELEASE", repo: "Notyet1307/example", target: "90", source: { identity: "accepted", revision: "r1", baseRef: "main", baseSha: "a".repeat(40), specContentHash: `sha256:${"c".repeat(64)}`, deliveryGraphDigest: `sha256:${"d".repeat(64)}`, parentBodyHash: `sha256:${"b".repeat(64)}` }, children: [{ issue: "91", title: "Child", bodyHash: `sha256:${"e".repeat(64)}`, executionLane: "AGENT", blockedBy: [] }], reviewedFingerprint: `sha256:${"f".repeat(64)}`, policy: { identity: "policy", digest: `sha256:${"1".repeat(64)}` }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: "2".repeat(64), repo: "Notyet1307/example", baseRef: "main", maxIssues: 1, reviewEnabled: true }, releasePlan, controllerPlanDigest: "3".repeat(64), recovery: { strategy: "rebuild-on-source-drift", conflict: "rebuild" } };
+  const plan = { schema: "pi-ticket-planning:execution-handoff-plan:v1", kind: "CODEX_RELEASE", repo: "Notyet1307/example", target: "90", source: { identity: "accepted", revision: "r1", baseRef: "main", baseSha: "a".repeat(40), specContentHash: `sha256:${"c".repeat(64)}`, deliveryGraphDigest: `sha256:${"d".repeat(64)}`, parentBodyHash: `sha256:${"b".repeat(64)}` }, children: [{ issue: "91", title: "Child", bodyHash: `sha256:${"e".repeat(64)}`, executionLane: "AGENT", blockedBy: [] }], reviewedFingerprint: `sha256:${"f".repeat(64)}`, policy: { identity: "policy", digest: `sha256:${"1".repeat(64)}` }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: "2".repeat(64), provenance: controllerProvenance("2".repeat(64), "3".repeat(64), CONTROLLER_IDENTITY), repo: "Notyet1307/example", baseRef: "main", maxIssues: 1, reviewEnabled: true }, releasePlan, controllerPlanDigest: "3".repeat(64), recovery: { strategy: "rebuild-on-source-drift", conflict: "rebuild" } };
   return { ...plan, planFingerprint: handoffFingerprint(plan) };
 }
 

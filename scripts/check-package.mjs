@@ -267,6 +267,9 @@ export function validatePackage(root) {
   const controllerContractLock = readJson(path.join(root, "compatibility", "codex-controller-contract.json"));
   const controllerSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-plan-v2.schema.json"));
   if (controllerContractLock.commit?.startsWith("d450f6a6") || !/^[a-f0-9]{40}$/.test(controllerContractLock.commit ?? "")) errors.push("Controller contract commit is not exact");
+  if (![controllerContractLock.sourceManifestDigest, controllerContractLock.buildDigest, controllerContractLock.identityDigest].every((value) => /^[a-f0-9]{64}$/.test(value ?? ""))) errors.push("Controller contract runtime identity is not exact");
+  const controllerIdentityDigest = createHash("sha256").update(JSON.stringify({ buildDigest: controllerContractLock.buildDigest, sourceManifestDigest: controllerContractLock.sourceManifestDigest, sourceRevision: controllerContractLock.commit, version: 1 })).digest("hex");
+  if (controllerContractLock.identityDigest !== controllerIdentityDigest) errors.push("Controller contract runtime identity digest drifted");
   if (controllerContractLock.schemaSha256 !== createHash("sha256").update(controllerSchema).digest("hex")) errors.push("Controller schema mirror drifted from its lock");
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;

@@ -76,7 +76,7 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       const config = adapter.config();
       const draft = compileExecutionPlan(input, { controller: config });
       const validated = adapter.validatePlan(draft.releasePlan, config.configDigest, config.configIdentity);
-      const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest } });
+      const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest, provenance: validated.provenance } });
       write(values.get("out"), plan);
       return 0;
     }
@@ -103,6 +103,10 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
         shellQuote(path.join(outputDir, "release-plan.json")),
         "--expected-config-digest",
         shellQuote(plan.controller.configDigest),
+        "--expected-controller-revision",
+        shellQuote(plan.controller.provenance.controller.sourceRevision),
+        "--expected-controller-provenance-digest",
+        shellQuote(plan.controller.provenance.digest),
         "--json",
       ].join(" ");
       const result = applyExecutionPlan({ plan, input: values.has("input") ? json(values.get("input")) : liveInput(values, { plan }), adapter: createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });

@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import {
   DELIVERY_GRAPH_MARKER,
   computeSpecContentHash,
@@ -15,6 +16,19 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const BASE_SHA = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
 export const NOW = "2026-08-20T00:30:00.000Z";
 export const digest = (letter) => `sha256:${letter.repeat(64)}`;
+
+export const CONTROLLER_IDENTITY = {
+  version: 1,
+  sourceRevision: "45bb61a2697ad518e97402ab9d921617739cbd92",
+  sourceManifestDigest: "64bd6d551dbea2cbe25ed878141714b278783be4036931c5ea2e1af9b6338733",
+  buildDigest: "bfcef4acdc17e7ed705020754957a066429f66d4694d1db33ff821d376c3311f",
+  digest: "40cf05579fd6e8db1a36dd3f11fd9ea137aace2d06d9d9b68e2e009aedb1a0f4",
+};
+
+export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY) {
+  const body = { version: 1, controller: controllerIdentity, executionMode: "release-plan-v2-direct", configDigest, releasePlan: { version: 2, digest: planDigest } };
+  return { ...body, digest: fingerprint(body).slice("sha256:".length) };
+}
 
 export const PARENT_SPEC = `## Delivery outcome
 Release a safe change
@@ -121,12 +135,14 @@ export function controllerBinding(input, overrides = {}) {
     config: {
       repo: input.repo,
       baseRef: input.source.baseRef,
+      executionMode: "release-plan-v2-direct",
       policy: { maxIssues: 2 },
       review: { enabled: true },
       ...overrides.config,
     },
     configDigest: overrides.configDigest ?? "a".repeat(64),
     planDigest: overrides.planDigest ?? "c".repeat(64),
+    controllerIdentity: overrides.controllerIdentity ?? CONTROLLER_IDENTITY,
   };
 }
 
@@ -140,17 +156,18 @@ export function controllerAdapter(controller, calls = []) {
   return {
     config() {
       calls.push("config validate");
-      return { config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "test-config-identity" };
+      return { config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "test-config-identity", controllerIdentity: structuredClone(controller.controllerIdentity) };
     },
     validatePlan(plan, expectedConfigDigest, expectedConfigIdentity) {
       calls.push("plan validate");
       if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_CONFIG_DRIFT");
-      return { plan: structuredClone(plan), planDigest: controller.planDigest };
+      return { plan: structuredClone(plan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) };
     },
-    doctor(expectedConfigDigest, expectedConfigIdentity) {
+    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity) {
       calls.push("doctor");
       if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
-      return { ok: true, configDigest: controller.configDigest };
+      if (JSON.stringify(expectedControllerIdentity) !== JSON.stringify(controller.controllerIdentity)) throw new Error("CONTROLLER_IDENTITY_DRIFT");
+      return { ok: true, configDigest: controller.configDigest, controller: structuredClone(controller.controllerIdentity) };
     },
   };
 }

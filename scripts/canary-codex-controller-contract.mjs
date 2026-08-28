@@ -23,6 +23,7 @@ const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
 const CONTRACT_LOCK = path.join(ROOT, "compatibility", "codex-controller-contract.json");
 const PLANNER_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json");
 const HEX = /^[a-f0-9]{64}$/;
+const REVISION = /^[a-f0-9]{40}$/;
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { encoding: "utf8", timeout: 30_000, maxBuffer: 1024 * 1024, shell: false, ...options });
@@ -153,15 +154,15 @@ function invalidPlanRejected(cli, config, file, plan, nodeArgs) {
   try { return JSON.parse(result.stdout).ok !== true; } catch { return true; }
 }
 
-function controllerCli(root, temporary) {
+function controllerCli(root, temporary, commit) {
   const nodeModules = path.join(root, "node_modules");
   const tsc = path.join(nodeModules, "typescript", "bin", "tsc");
   if (!fs.existsSync(nodeModules) || !fs.existsSync(tsc)) {
     throw new Error(`CONTROLLER_NOT_BUILT: run npm --prefix '${root.replaceAll("'", `'"'"'`)}' ci --ignore-scripts --no-audit --no-fund, then rerun the canary`);
   }
   const buildRoot = path.join(temporary, "controller-build");
-  fs.mkdirSync(buildRoot, { mode: 0o700 });
-  requireRun(run("git", ["-C", root, "checkout-index", "--all", `--prefix=${buildRoot}${path.sep}`]), "CONTROLLER_BUILD_EXPORT_FAILED");
+  requireRun(run("git", ["clone", "--quiet", "--no-checkout", "--no-hardlinks", root, buildRoot]), "CONTROLLER_BUILD_EXPORT_FAILED");
+  requireRun(run("git", ["-C", buildRoot, "checkout", "--quiet", "--detach", commit]), "CONTROLLER_BUILD_EXPORT_FAILED");
   fs.symlinkSync(nodeModules, path.join(buildRoot, "node_modules"), "dir");
   const cli = path.join(buildRoot, "dist", "src", "cli.js");
   const built = run(process.execPath, [
@@ -179,7 +180,7 @@ function controllerCli(root, temporary) {
   if (built.error?.code === "ENOBUFS") throw new Error("CONTROLLER_BUILD_OUTPUT_TOO_LARGE");
   if (built.error || built.signal || built.status !== 0 || !fs.existsSync(cli)) throw new Error("CONTROLLER_BUILD_FAILED");
   fs.chmodSync(cli, 0o700);
-  return assertCanonicalPrivateExistingFile(cli, "CONTROLLER_CLI");
+  return { buildRoot, cli: assertCanonicalPrivateExistingFile(cli, "CONTROLLER_CLI") };
 }
 
 function contractRoot(value) {
@@ -187,6 +188,26 @@ function contractRoot(value) {
     throw new Error("CONTROLLER_UNAVAILABLE: an absolute Controller checkout is required; no canary was run");
   }
   return assertCanonicalExistingDirectory(value, "CONTROLLER_ROOT");
+}
+
+function qualifiedCommit(root, expected) {
+  const commit = git(root, ["rev-parse", "HEAD"], "CONTROLLER_GIT_UNAVAILABLE");
+  if (commit !== expected) throw new Error("CONTROLLER_COMMIT_DRIFT");
+  if (git(root, ["status", "--porcelain=v1", "--untracked-files=all"], "CONTROLLER_GIT_UNAVAILABLE")) throw new Error("CONTROLLER_WORKTREE_DIRTY");
+  return commit;
+}
+
+function legacyPlanVector() {
+  return {
+    version: 1,
+    id: "legacy-plan-is-not-planner-handoff",
+    title: "Legacy compatibility vector",
+    objective: "Prove Release Plan v1 is outside the qualified Planner handoff.",
+    parentIssue: null,
+    issues: [{ number: 101, order: 1, dependsOn: [], objective: null, acceptanceCriteria: ["The vector is rejected."], suggestedValidation: [], allowNoop: false }],
+    releaseAcceptanceCriteria: ["The direct v2 config rejects this Plan."],
+    reviewFocus: [],
+  };
 }
 
 function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
@@ -218,7 +239,11 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   const validated = adapter.validatePlan(draft.releasePlan, controller.configDigest, controller.configIdentity);
   const plannerPlanDigest = releasePlanDigest(draft.releasePlan);
   if (!HEX.test(validated.planDigest) || validated.planDigest !== plannerPlanDigest
-    || JSON.stringify(canonical(validated.plan)) !== JSON.stringify(canonical(draft.releasePlan))) throw new Error("CONTROLLER_PLAN_VECTOR_MISMATCH");
+    || JSON.stringify(canonical(validated.plan)) !== JSON.stringify(canonical(draft.releasePlan))
+    || validated.provenance.configDigest !== controller.configDigest
+    || validated.provenance.releasePlan.version !== 2
+    || validated.provenance.releasePlan.digest !== validated.planDigest
+    || JSON.stringify(canonical(validated.provenance.controller)) !== JSON.stringify(canonical(controller.controllerIdentity))) throw new Error("CONTROLLER_PLAN_VECTOR_MISMATCH");
 
   const vectorFile = path.join(temporary, "release-plan-vector.json");
   const { parentIssue: _parentIssue, ...missingRequired } = draft.releasePlan;
@@ -227,6 +252,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     ["missingRequired", missingRequired],
     ["extraSource", { ...draft.releasePlan, source: { ...draft.releasePlan.source, unexpected: true } }],
     ["extraIssue", { ...draft.releasePlan, issues: draft.releasePlan.issues.map((issue, index) => index === 0 ? { ...issue, unexpected: true } : issue) }],
+    ["releasePlanV1", legacyPlanVector()],
   ];
   for (const [, vector] of vectors) {
     if (validateArtifact(vector, { identity: CONTROLLER_PLAN }).ok || !invalidPlanRejected(cli, config, vectorFile, vector, nodeArgs)) {
@@ -239,7 +265,13 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     configDigest: controller.configDigest,
     planDigest: validated.planDigest,
     plannerPlanDigest,
+    provenanceDigest: validated.provenance.digest,
+    controllerRevision: validated.provenance.controller.sourceRevision,
+    controllerSourceManifestDigest: validated.provenance.controller.sourceManifestDigest,
+    controllerBuildDigest: validated.provenance.controller.buildDigest,
+    controllerIdentityDigest: validated.provenance.controller.digest,
     releasePlanFingerprint: fingerprint(draft.releasePlan),
+    handoffScope: { releasePlanV2Direct: "ACCEPTED", releasePlanV1: "REJECTED", dispatch: "OUT_OF_SCOPE" },
     vectors: Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])),
   };
 }
@@ -257,9 +289,7 @@ export function runControllerContractVectors({ cli, sourceConfig }) {
 export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(fs.readFileSync(CONTRACT_LOCK, "utf8")) }) {
   const root = contractRoot(controllerRoot);
   if (!validateArtifact(lock).ok) throw new Error("CONTROLLER_CONTRACT_LOCK_INVALID");
-  const controllerCommit = git(root, ["rev-parse", "HEAD"], "CONTROLLER_GIT_UNAVAILABLE");
-  if (controllerCommit !== lock.commit) throw new Error("CONTROLLER_COMMIT_DRIFT");
-  if (git(root, ["status", "--porcelain=v1", "--untracked-files=all"], "CONTROLLER_GIT_UNAVAILABLE")) throw new Error("CONTROLLER_WORKTREE_DIRTY");
+  const controllerCommit = qualifiedCommit(root, lock.commit);
 
   const plannerSchema = assertCanonicalPrivateExistingFile(PLANNER_SCHEMA, "PLANNER_SCHEMA");
   const controllerSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.schemaPath), "CONTROLLER_SCHEMA");
@@ -277,12 +307,21 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "codex-controller-contract-"));
   try {
     fs.chmodSync(temporary, 0o700);
-    if (!process.allowedNodeEnvironmentFlags.has("--permission") || !process.allowedNodeEnvironmentFlags.has("--allow-net")) {
+    if (!process.allowedNodeEnvironmentFlags.has("--permission") || !process.allowedNodeEnvironmentFlags.has("--allow-net")
+      || !process.allowedNodeEnvironmentFlags.has("--allow-child-process")) {
       throw new Error("CONTROLLER_BUILD_ISOLATION_UNAVAILABLE");
     }
-    const nodeArgs = ["--permission", "--allow-fs-read=*"];
-    const vectors = contractVectors({ cli: controllerCli(root, temporary), sourceConfig, temporary: path.join(temporary, "vectors"), nodeArgs });
-    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, controllerSource: "exact-tracked-index", networkIsolation: "node-permission-deny-net" };
+    const nodeArgs = ["--permission", "--allow-fs-read=*", "--allow-child-process"];
+    const built = controllerCli(root, temporary, lock.commit);
+    const vectors = contractVectors({ cli: built.cli, sourceConfig, temporary: path.join(temporary, "vectors"), nodeArgs });
+    if (!REVISION.test(vectors.controllerRevision) || vectors.controllerRevision !== controllerCommit
+      || vectors.controllerSourceManifestDigest !== lock.sourceManifestDigest
+      || vectors.controllerBuildDigest !== lock.buildDigest
+      || vectors.controllerIdentityDigest !== lock.identityDigest) throw new Error("CONTROLLER_IDENTITY_READBACK_DRIFT");
+    fs.appendFileSync(path.join(built.buildRoot, "README.md"), "\n");
+    try { qualifiedCommit(built.buildRoot, lock.commit); throw new Error("CONTROLLER_DIRTY_CHECKOUT_ACCEPTED"); }
+    catch (error) { if (error.message !== "CONTROLLER_WORKTREE_DIRTY") throw error; }
+    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, controllerReadback: "MATCHED", dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }

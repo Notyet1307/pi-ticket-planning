@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
 import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
+import { releasePlanDigest } from "../execution-plan/domain.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
@@ -13,8 +14,11 @@ import { DELIVERY_GRAPH_MARKER, computeSpecContentHash, hashText, parseDeliveryG
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import {
   BASE_SHA as baseSha,
+  CONTROLLER_IDENTITY,
   PARENT_SPEC as parent,
   ROOT as root,
+  controllerBinding,
+  controllerProvenance,
   digest,
   executionInput,
 } from "./execution-plan-fixture.mjs";
@@ -91,15 +95,23 @@ test("controller adapter uses only public validate and doctor argv", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-public-cli-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const cli = path.join(directory, "cli.js"); const config = path.join(directory, "config.json"); const record = path.join(directory, "argv.jsonl");
-  fs.writeFileSync(cli, `import fs from 'node:fs'; const args=process.argv.slice(2); fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args)+'\\n'); if(args[0]==='config') console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${"a".repeat(64)}'})); else if(args[0]==='plan') console.log(JSON.stringify({ok:true,plan:JSON.parse(fs.readFileSync(args[args.indexOf('--plan')+1],'utf8')),planDigest:'${"c".repeat(64)}'})); else if(args[0]==='doctor') console.log(JSON.stringify({ok:true,configDigest:'${"a".repeat(64)}'})); else process.exit(9);`, { mode: 0o700 });
+  fs.writeFileSync(cli, `import fs from 'node:fs'; import {createHash} from 'node:crypto';
+const args=process.argv.slice(2); const controller=${JSON.stringify(CONTROLLER_IDENTITY)};
+const canonical=(value)=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])):value;
+const digest=(value)=>createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
+const config={repo:'acme/product',baseRef:'main',executionMode:'release-plan-v2-direct',policy:{maxIssues:2},review:{enabled:true}};
+fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args)+'\\n');
+if(args[0]==='config') console.log(JSON.stringify({ok:true,config,configDigest:'${"a".repeat(64)}',controller}));
+else if(args[0]==='plan'){const plan=JSON.parse(fs.readFileSync(args[args.indexOf('--plan')+1],'utf8'));const planDigest=digest(plan);const body={version:1,controller,executionMode:config.executionMode,configDigest:'${"a".repeat(64)}',releasePlan:{version:2,digest:planDigest}};console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}}));}
+else if(args[0]==='doctor') console.log(JSON.stringify({ok:true,configDigest:'${"a".repeat(64)}',controller})); else process.exit(9);`, { mode: 0o700 });
   fs.writeFileSync(config, "{}", { mode: 0o600 });
   const prior = process.env.TEST_CONTROLLER_RECORD; process.env.TEST_CONTROLLER_RECORD = record;
   try {
     const adapter = createControllerAdapter({ cli, config });
     const binding = adapter.config();
     assert.equal(binding.configDigest, "a".repeat(64));
-    assert.equal(adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity).planDigest, "c".repeat(64));
-    assert.equal(adapter.doctor(binding.configDigest, binding.configIdentity).ok, true);
+    assert.equal(adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity).planDigest, releasePlanDigest({ version: 2 }));
+    assert.equal(adapter.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity).ok, true);
   } finally { if (prior === undefined) delete process.env.TEST_CONTROLLER_RECORD; else process.env.TEST_CONTROLLER_RECORD = prior; }
   const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(calls.map(([name, subcommand]) => `${name}:${subcommand}`), ["config:validate", "plan:validate", "config:validate", "doctor:--config"]);
@@ -111,11 +123,11 @@ test("controller adapter rejects doctor config digest drift", (t) => {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const cli = path.join(directory, "cli.mjs");
   const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, `const args=process.argv.slice(2);console.log(JSON.stringify({ok:true,configDigest:args[0]==='doctor'?'${"b".repeat(64)}':'${"a".repeat(64)}'}));`, { mode: 0o700 });
+  fs.writeFileSync(cli, `const args=process.argv.slice(2);const controller=${JSON.stringify(CONTROLLER_IDENTITY)};const config={repo:'acme/product',baseRef:'main',executionMode:'release-plan-v2-direct',policy:{maxIssues:2},review:{enabled:true}};console.log(JSON.stringify({ok:true,config,...(args[0]==='config'?{config}:{}),configDigest:args[0]==='doctor'?'${"b".repeat(64)}':'${"a".repeat(64)}',controller}));`, { mode: 0o700 });
   fs.writeFileSync(config, "{}", { mode: 0o600 });
   const adapter = createControllerAdapter({ cli, config });
   const binding = adapter.config();
-  assert.throws(() => adapter.doctor(binding.configDigest, binding.configIdentity), /CONTROLLER_DOCTOR_CONFIG_DRIFT/);
+  assert.throws(() => adapter.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity), /CONTROLLER_DOCTOR_CONFIG_DRIFT/);
 });
 
 test("controller adapter rejects an A-to-B-to-A config change during plan validation", (t) => {
@@ -123,7 +135,7 @@ test("controller adapter rejects an A-to-B-to-A config change during plan valida
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const cli = path.join(directory, "cli.mjs");
   const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, `import fs from 'node:fs';const a=process.argv.slice(2);const digest='${"a".repeat(64)}';if(a[0]==='config')console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:digest}));else if(a[0]==='plan'){const c=a[a.indexOf('--config')+1];const before=fs.readFileSync(c);fs.writeFileSync(c,'{"changed":true}');fs.writeFileSync(c,before);const plan=JSON.parse(fs.readFileSync(a[a.indexOf('--plan')+1]));console.log(JSON.stringify({ok:true,plan,planDigest:'${"c".repeat(64)}'}));}`, { mode: 0o700 });
+  fs.writeFileSync(cli, `import fs from 'node:fs';const a=process.argv.slice(2);const digest='${"a".repeat(64)}';const controller=${JSON.stringify(CONTROLLER_IDENTITY)};if(a[0]==='config')console.log(JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',executionMode:'release-plan-v2-direct',policy:{maxIssues:2},review:{enabled:true}},configDigest:digest,controller}));else if(a[0]==='plan'){const c=a[a.indexOf('--config')+1];const before=fs.readFileSync(c);fs.writeFileSync(c,'{"changed":true}');fs.writeFileSync(c,before);const plan=JSON.parse(fs.readFileSync(a[a.indexOf('--plan')+1]));console.log(JSON.stringify({ok:true,plan,planDigest:'${"c".repeat(64)}'}));}`, { mode: 0o700 });
   fs.writeFileSync(config, "{}", { mode: 0o600 });
   const adapter = createControllerAdapter({ cli, config });
   const binding = adapter.config();
@@ -141,19 +153,19 @@ test("controller adapter classifies public command failures without leaking stde
     return createControllerAdapter({ cli, config });
   };
   const digest = "a".repeat(64);
-  const configResult = `JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${digest}'})`;
+  const configResult = `JSON.stringify({ok:true,config:{repo:'acme/product',baseRef:'main',executionMode:'release-plan-v2-direct',policy:{maxIssues:2},review:{enabled:true}},configDigest:'${digest}',controller:${JSON.stringify(CONTROLLER_IDENTITY)}})`;
   assert.throws(() => make("config-failed", `console.error('secret-token');process.exit(1)`).config(), (error) => error.message === "CONTROLLER_CONFIG_INVALID" && !error.message.includes("secret-token"));
   assert.throws(() => make("invalid-json", `console.log('not-json')`).config(), /CONTROLLER_INVALID_JSON/);
   assert.throws(() => make("too-large", `process.stdout.write('x'.repeat(2*1024*1024))`).config(), /CONTROLLER_OUTPUT_TOO_LARGE/);
   const staged = make("staged", `const a=process.argv.slice(2);if(a[0]==='config')console.log(${configResult});else {console.error('secret-token');process.exit(1)}`);
   const binding = staged.config();
   assert.throws(() => staged.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity), /CONTROLLER_PLAN_INVALID/);
-  assert.throws(() => staged.doctor(binding.configDigest, binding.configIdentity), /CONTROLLER_DOCTOR_FAILED/);
+  assert.throws(() => staged.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity), /CONTROLLER_DOCTOR_FAILED/);
 });
 
 test("execution compiler maps one exact accepted graph and rejects non-executable drift", () => {
   const input = executionInput();
-  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   assert.deepEqual(plan, compileExecutionPlan(executionInput(), { controller }));
   assert.equal(plan.releasePlan.id, "release-100-" + plan.source.deliveryGraphDigest.slice(7, 19));
@@ -185,7 +197,7 @@ test("execution compiler preserves multilingual accepted review focus and fails 
     .replace("- No partial writes.", "- 不允许部分写入。\n- 不允许部分写入。")
     .replace("## Out of scope\nNone.", "## Out of scope\nDepth, Locality, Real seam, Deletion test, Interface as verification surface, and src/cache.js are not Release constraints.");
   rewriteGraph(input, () => {});
-  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const controller = controllerBinding(input);
   const reviewFocus = compileExecutionPlan(input, { controller }).releasePlan.reviewFocus;
   assert.deepEqual(reviewFocus, [
     "S1 failure path: 写入失败时不留下部分状态。",
@@ -210,14 +222,15 @@ test("execution compiler preserves multilingual accepted review focus and fails 
 
 test("execution verification binds doctor to the validated config digest", () => {
   const input = executionInput();
-  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   const adapter = {
-    config: () => ({ config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "stable" }),
-    validatePlan: (releasePlan) => ({ plan: structuredClone(releasePlan), planDigest: controller.planDigest }),
-    doctor(expectedConfigDigest, expectedConfigIdentity) {
+    config: () => ({ config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "stable", controllerIdentity: structuredClone(controller.controllerIdentity) }),
+    validatePlan: (releasePlan) => ({ plan: structuredClone(releasePlan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) }),
+    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity) {
       assert.equal(expectedConfigDigest, controller.configDigest);
       assert.equal(expectedConfigIdentity, "stable");
+      assert.deepEqual(expectedControllerIdentity, controller.controllerIdentity);
       return { ok: true, configDigest: controller.configDigest };
     },
   };
@@ -228,7 +241,7 @@ test("execution verification binds doctor to the validated config digest", () =>
     ...adapter,
     validatePlan(releasePlan) {
       currentDigest = "d".repeat(64);
-      return { plan: structuredClone(releasePlan), planDigest: controller.planDigest };
+      return { plan: structuredClone(releasePlan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) };
     },
     doctor(expectedConfigDigest) {
       if (expectedConfigDigest !== currentDigest) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
@@ -295,11 +308,7 @@ No UI work.`,
     primaryVerification: "Run the artifact consumer scenario.",
     executionLane: "AGENT",
   }));
-  const controller = {
-    config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } },
-    configDigest: "a".repeat(64),
-    planDigest: "c".repeat(64),
-  };
+  const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   assert.deepEqual(plan.releasePlan.issues.map(({ number, order, dependsOn }) => ({ number, order, dependsOn })), [
     { number: 101, order: 1, dependsOn: [] },
@@ -311,7 +320,7 @@ No UI work.`,
 
 test("execution artifacts retain exact-key schemas", () => {
   const input = executionInput();
-  const controller = { config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) };
+  const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   assert.equal(validateArtifact(plan).ok, true);
   assert.equal(validateArtifact({ ...plan, unexpected: true }).ok, false);
@@ -319,7 +328,7 @@ test("execution artifacts retain exact-key schemas", () => {
 });
 
 test("execution compiler rejects policy and controller authority drift with stable codes", () => {
-  const controllerFor = (input, overrides = {}) => ({ config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true }, ...overrides }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input, overrides = {}) => controllerBinding(input, { config: overrides });
   for (const [mutate, code] of [
     [(input) => { input.policy.accepted = false; }, "POLICY_NOT_ACCEPTED"],
     [(input) => { input.policy.identity = ""; }, "POLICY_NOT_ACCEPTED"],
@@ -329,26 +338,26 @@ test("execution compiler rejects policy and controller authority drift with stab
 });
 
 test("execution compiler rejects rebuilt Graph HUMAN and external blockers before review binding", () => {
-  const controllerFor = (input) => ({ config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input) => controllerBinding(input);
   for (const [mutate, code] of [[(graph) => { graph.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(graph) => { graph.children[0].externalBlockers = ["external"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"]]) { const input = rewriteGraph(executionInput(), mutate); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
 });
 
 test("execution compiler rejects parent identity and state before review binding", () => {
-  const controllerFor = (input) => ({ config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input) => controllerBinding(input);
   for (const mutate of [(input) => { input.parent.id = "0"; }, (input) => { input.parent.state = "closed"; }]) {
     const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), /PARENT_NOT_OPEN/);
   }
 });
 
 test("execution compiler returns stable live child drift codes before stale review bindings", () => {
-  const controllerFor = (input) => ({ config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input) => controllerBinding(input);
   for (const [mutate, code] of [[(input) => { input.children[0].title = "drift"; }, "CHILD_DRIFT:101"], [(input) => { input.children[0].body = `${input.children[0].body}\nchanged`; }, "CHILD_DRIFT:101"], [(input) => { input.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
     const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code));
   }
 });
 
 test("execution compiler reports source, native order, and Context drift before review binding", () => {
-  const controllerFor = (input) => ({ config: { repo: input.repo, baseRef: input.source.baseRef, policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input) => controllerBinding(input, { config: { baseRef: input.source.baseRef } });
   for (const [mutate, code] of [
     [(input) => { input.source.identity = "other"; }, "ADMISSION_STATE_NOT_READY:SOURCE_IDENTITY_MISMATCH"],
     [(input) => { input.source.revision = "other"; }, "ADMISSION_STATE_NOT_READY:SOURCE_REVISION_MISMATCH"],
@@ -361,7 +370,7 @@ test("execution compiler reports source, native order, and Context drift before 
 });
 
 test("execution compiler rejects each freshly rebound review gate deterministically", () => {
-  const controllerFor = (input) => ({ config: { repo: input.repo, baseRef: "main", policy: { maxIssues: 2 }, review: { enabled: true } }, configDigest: "a".repeat(64), planDigest: "c".repeat(64) });
+  const controllerFor = (input) => controllerBinding(input);
   for (const axis of ["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"]) {
     const input = executionInput(); input.review.axes[axis] = "FAIL"; rebind(input);
     assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), /REVIEW_NOT_READY/);
