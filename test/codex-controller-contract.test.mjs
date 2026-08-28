@@ -11,13 +11,16 @@ import { runControllerContractCanary, runControllerContractVectors } from "../sc
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("pinned Controller lock matches the exact Planner schema bytes", () => {
+test("pinned latest Controller lock qualifies only the direct Release Plan v2 mainline", () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  assert.equal(lock.commit, "38f7ad8431519b8fa467c54ba09a9f304c732676");
-  assert.equal(lock.commit.startsWith("d450f6a6"), false);
+  assert.equal(lock.commit, "b1afa0127dd0b51e210757e9baf150d2d2851326");
+  assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.schemaSha256, createHash("sha256").update(schema).digest("hex"));
   assert.equal(lock.digestAlgorithm, "canonical-json-v1+sha256-hex");
+  assert.equal(lock.integrationMode, "release-plan-v2-direct");
+  assert.equal(lock.dispatcherQualified, false);
+  assert.equal(lock.operatorStartRequired, true);
 });
 
 test("fake Controller unit exercises all fixed vectors without execution commands", (t) => {
@@ -62,7 +65,7 @@ if (args[0] === "config") {
   }
   const commit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const schemaSha256 = createHash("sha256").update(fs.readFileSync(controllerSchema)).digest("hex");
-  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex" };
+  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
   const prior = process.env.TEST_CANARY_RECORD;
   process.env.TEST_CANARY_RECORD = record;
   let result;
@@ -80,7 +83,7 @@ if (args[0] === "config") {
     "plan:validate",
     "plan:validate",
   ]);
-  assert.equal(calls.flat().some((value) => /^(doctor|start|run|step)$/.test(value)), false);
+  assert.equal(calls.flat().some((value) => /^(doctor|start|run|step|dispatch)$/.test(value)), false);
 
   fs.appendFileSync(controllerSchema, "\n");
   assert.throws(() => runControllerContractCanary({ controllerRoot: controller, lock }), /CONTROLLER_WORKTREE_DIRTY/);
