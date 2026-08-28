@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/spec-publication-plan-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "caseId", "repo", "source", "policy", "adrs", "tracker", "checks", "draftDigest", "artifacts", "scenarioIds", "issue", "writeSet", "planFingerprint"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:spec-publication-plan:v1" },
+    "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+    "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "revision", "status", "baseRef", "baseSha", "path", "blobDigest", "digest"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "revision": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "status": { "const": "COMMITTED" },
+        "baseRef": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "blobDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "policy": { "$ref": "#/$defs/acceptedSource" },
+    "adrs": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/acceptedSource" } },
+    "tracker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "repo", "configured", "labels", "issueTracker", "triageLabels"],
+      "properties": {
+        "kind": { "const": "GITHUB" },
+        "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "configured": { "const": true },
+        "labels": { "type": "array", "const": ["needs-triage"] },
+        "issueTracker": { "$ref": "#/$defs/trackerSource" },
+        "triageLabels": { "$ref": "#/$defs/trackerSource" }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceReadback", "policyAndAdrs", "tracker", "structure", "scenarios", "releaseSignals", "walkingSkeleton", "unresolvedDecisions"],
+      "properties": {
+        "sourceReadback": { "const": "PASS" },
+        "policyAndAdrs": { "const": "PASS" },
+        "tracker": { "const": "PASS" },
+        "structure": { "const": "PASS" },
+        "scenarios": { "const": "PASS" },
+        "releaseSignals": { "const": "PASS" },
+        "walkingSkeleton": { "const": "PASS" },
+        "unresolvedDecisions": { "const": "PASS" }
+      }
+    },
+    "draftDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context", "draft", "plan"],
+      "properties": {
+        "context": { "$ref": "#/$defs/boundArtifact" },
+        "draft": { "$ref": "#/$defs/boundArtifact" },
+        "plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "evidenceId"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "evidenceId": { "type": "string", "minLength": 1, "maxLength": 256 }
+          }
+        }
+      }
+    },
+    "scenarioIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^S[1-9][0-9]*$" } },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body", "bodyDigest", "marker", "labels"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000\\r\\n]+$" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 131072, "pattern": "^[^\\u0000]*$" },
+        "bodyDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "marker": { "type": "string", "pattern": "^<!-- pi-ticket-planning:spec-publication:v1:[a-f0-9]{64} -->$" },
+        "labels": { "type": "array", "const": ["needs-triage"] }
+      }
+    },
+    "writeSet": {
+      "type": "array",
+      "const": [{ "operation": "CREATE_ISSUE", "resource": "DELIVERY_SPEC_PARENT", "labels": ["needs-triage"] }]
+    },
+    "planFingerprint": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  },
+  "$defs": {
+    "acceptedSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "path", "digest", "accepted"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "path": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "accepted": { "const": true }
+      }
+    },
+    "trackerSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "boundArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "evidenceId"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "evidenceId": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    }
+  }
+}

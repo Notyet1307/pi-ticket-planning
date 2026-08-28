@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 import { fingerprint as handoffFingerprint } from "../execution-plan/domain.mjs";
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
+import { buildSpecPublicationPlan, digestBytes, recordSpecPublicationArtifacts } from "../spec-publication/publication.mjs";
+import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { CONTROLLER_IDENTITY, controllerProvenance } from "./execution-plan-fixture.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -16,6 +18,15 @@ const TARGET = "github:Notyet1307/example";
 
 function run(stateDir, args) {
   const result = spawnSync(process.execPath, ["scripts/planctl.mjs", ...args], {
+    cwd: ROOT,
+    env: { ...process.env, PI_TICKET_PLAN_STATE_DIR: stateDir },
+    encoding: "utf8",
+  });
+  return { ...result, json: result.stdout.trim() ? JSON.parse(result.stdout) : null };
+}
+
+function runSpecPublication(stateDir, args) {
+  const result = spawnSync(process.execPath, ["scripts/spec-publication.mjs", ...args], {
     cwd: ROOT,
     env: { ...process.env, PI_TICKET_PLAN_STATE_DIR: stateDir },
     encoding: "utf8",
@@ -158,6 +169,62 @@ test("pi-ticket-planctl isolates exact execution handoff approvals from Admissio
   const replay = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoff.planFingerprint, "--json"]);
   assert.equal(replay.status, 1);
   assert.equal(replay.json.problems[0].code, "HANDOFF_APPROVAL_ALREADY_EXISTS");
+});
+
+test("spec-publication CLI records one exact Delivery Spec publication approval", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-planctl-spec-approval-"));
+  const stateDir = path.join(parent, "state");
+  const planFile = path.join(parent, "spec-publication-plan.json");
+  const contextFile = path.join(parent, "spec-publication-context.json");
+  const draftFile = path.join(parent, "r003-delivery-spec-draft.md");
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const context = {
+      caseId: "PC-spec-approval",
+      repo: "Notyet1307/example",
+      source: { identity: "R003", revision: "r1", status: "COMMITTED", baseRef: "refs/remotes/origin/main", baseSha: "a".repeat(40), path: "docs/product/releases/r003.md", blobDigest: `sha256:${"b".repeat(64)}`, digest: `sha256:${"c".repeat(64)}` },
+      policy: { identity: "AGENTS.md", path: "AGENTS.md", digest: `sha256:${"d".repeat(64)}`, accepted: true },
+      adrs: [],
+      tracker: { kind: "GITHUB", repo: "Notyet1307/example", configured: true, labels: ["needs-triage"], issueTracker: { path: "docs/agents/issue-tracker.md", digest: `sha256:${"e".repeat(64)}` }, triageLabels: { path: "docs/agents/triage-labels.md", digest: `sha256:${"f".repeat(64)}` } },
+  };
+  const draftBytes = Buffer.from(`# R003 Delivery Spec
+
+## Source
+R003/r1 at ${"a".repeat(40)}; policy AGENTS.md.
+## Problem statement
+Problem.
+## Delivery outcome
+Outcome.
+## Behavioral scenarios
+### S1: Ship one path
+Result.
+## Release signal mapping
+S1 maps to signal.
+## Walking skeleton target
+S1.
+## Decisions
+Decided.
+## Verification strategy
+Verify S1.
+## Constraints and dependencies
+None.
+## Out of scope
+Other work.
+## Unresolved decisions
+None.
+`);
+  const contextBytes = Buffer.from(`${JSON.stringify(context, null, 2)}\n`);
+  fs.writeFileSync(contextFile, contextBytes, { mode: 0o600 });
+  fs.writeFileSync(draftFile, draftBytes, { mode: 0o600 });
+  const plan = buildSpecPublicationPlan({ context, draftBytes, artifacts: { contextPath: contextFile, contextDigest: digestBytes(contextBytes), draftPath: draftFile, planPath: planFile } });
+  fs.writeFileSync(planFile, `${JSON.stringify(plan, null, 2)}\n`, { mode: 0o600 });
+  assert.equal(run(stateDir, ["case", "create", "--target", TARGET, "--case-id", plan.caseId, "--json"]).status, 0);
+  recordSpecPublicationArtifacts({ plan, store: createPlanningCaseStore({ stateDir }), clock: () => "2026-08-28T01:00:00.000Z" });
+  const approved = runSpecPublication(stateDir, ["approve", "--plan", planFile, "--expected-fingerprint", plan.planFingerprint, "--case-id", plan.caseId, "--json"]);
+  assert.equal(approved.status, 0, approved.stderr);
+  assert.equal(approved.json.approval.fact, "human.specPublication");
+  assert.deepEqual(approved.json.approval.subject, { target: TARGET, kind: "spec-publication-plan", id: plan.planFingerprint, revision: "r1", digest: plan.planFingerprint });
+  assert.equal(runSpecPublication(stateDir, ["approve", "--plan", planFile, "--expected-fingerprint", plan.planFingerprint, "--case-id", plan.caseId, "--json"]).json.problems[0].code, "SPEC_PUBLICATION_APPROVAL_ALREADY_EXISTS");
+  assert.equal(runSpecPublication(stateDir, ["approve", "--plan", planFile, "--expected-fingerprint", `sha256:${"0".repeat(64)}`, "--case-id", plan.caseId, "--json"]).json.problems[0].code, "EXPECTED_FINGERPRINT_MISMATCH");
 });
 
 test("pi-ticket-planctl records domain inputs and Outcome decisions", (t) => {

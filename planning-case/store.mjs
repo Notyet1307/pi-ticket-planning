@@ -146,14 +146,23 @@ class PlanningCaseStore {
     const capability = snapshot.bindings.capability
       ? compatibilityFor(snapshot.bindings.capability)
       : { status: "UNTESTED", reasonCode: "CAPABILITY_RECEIPT_MISSING", evidence: [] };
+    const planningPublication = {
+      allowed: !offline,
+      reasonCode: offline ? "OFFLINE_DIAGNOSTIC_ONLY" : "ONLINE_PLANNING",
+    };
+    const legacyAdmission = {
+      allowed: !offline && capability.status === "SUPPORTED",
+      reasonCode: offline ? "OFFLINE_DIAGNOSTIC_ONLY" : capability.reasonCode,
+    };
     return {
       currentState: snapshot.checkpoint,
       blocker: snapshot.blocker,
       nextAction: snapshot.nextAction,
       contextManifest: this.contextManifestLoader(`${snapshot.checkpoint.lane}/${snapshot.checkpoint.stage}/${snapshot.checkpoint.verdict}`),
       bindings: clone(snapshot.bindings),
-      compatibility: { protocol: offline ? "DEGRADED" : "SUPPORTED", capabilities: capability.status, capabilityReason: capability.reasonCode },
-      mutationAllowed: !offline && capability.status === "SUPPORTED",
+      compatibility: { scope: "LEGACY_ADMISSION", protocol: offline ? "DEGRADED" : "SUPPORTED", capabilities: capability.status, capabilityReason: capability.reasonCode },
+      mutationScopes: { planningPublication, legacyAdmission },
+      mutationAllowed: legacyAdmission.allowed,
       mode: offline ? "DEGRADED" : "ONLINE",
       recoveryCommand: `pi-ticket-planctl case recover ${snapshot.caseId} --dry-run --json`,
     };

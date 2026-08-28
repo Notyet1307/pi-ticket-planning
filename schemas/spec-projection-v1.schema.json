@@ -12,6 +12,16 @@
     "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
     "source": { "$ref": "common-v1.schema.json#/$defs/subject" },
     "scenarioIds": { "type": "array", "minItems": 1, "maxItems": 10000, "uniqueItems": true, "items": { "type": "string", "pattern": "^S[1-9][0-9]*$" } },
-    "contentDigest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+    "contentDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "digest"],
+      "properties": {
+        "kind": { "const": "GITHUB_ISSUE" },
+        "ref": { "type": "string", "pattern": "^repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$" },
+        "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    }
   }
 }
