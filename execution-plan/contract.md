@@ -18,7 +18,7 @@ approved Delivery Graph
 
 The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
 
-The release contains only AGENT children with no external blocker. Every live Parent/Child identity and body hash must match the Graph and review source. Approval binds the exact handoff-plan fingerprint. Apply atomically materializes the three Controller input files, records `EXECUTION/HANDOFF_READY`, then consumes that approval.
+The complete Graph has no external blocker and is read back and reviewed in full. The Controller Release Plan contains every AGENT child as one non-empty dependency-closed tranche; no AGENT may depend on a HUMAN child. Trailing or independent HUMAN children remain reviewed post-Controller obligations in the accepted Graph and never enter Controller input. Every live Parent/Child identity and body hash must match the Graph and review source. Approval binds the exact full-Graph digest, review fingerprint, projected Plan, and handoff-plan fingerprint. Apply atomically materializes the three Controller input files, records `EXECUTION/HANDOFF_READY`, then consumes that approval.
 
 Release Plan v2 binds:
 
@@ -29,7 +29,9 @@ Release Plan v2 binds:
 - scenario-observable Release acceptance plus the walking-skeleton target;
 - every Scenario failure, the walking-skeleton handoff, and controlled Constraints, Release signals, and Decisions in their accepted source language. Entries are deduplicated, limited to 20 and 2000 UTF-8 bytes each, and oversize input fails closed.
 
-Every Child fixes `suggestedValidation: []` and `allowNoop: false`; Controller config owns validation commands. Controller config must match repo/base ref, enable aggregate Release review, and permit the Issue count. A HUMAN Child or external blocker is `CODEX_RELEASE_NOT_EXECUTABLE`.
+Every projected AGENT Child fixes `suggestedValidation: []` and `allowNoop: false`; Controller config owns validation commands. Controller config must match repo/base ref, enable aggregate Release review, and permit the projected Issue count. An AGENT dependency on HUMAN fails as `CODEX_RELEASE_AGENT_DEPENDS_ON_HUMAN`; an all-HUMAN Graph fails as `CODEX_RELEASE_NO_AGENT_TRANCHE`; any external blocker remains `CODEX_RELEASE_NOT_EXECUTABLE`.
+
+HUMAN obligations remain in the Parent Graph, `deliveryGraphDigest`, exact Parent body hash, full review input, and `reviewedFingerprint`; they are not silently discarded or pre-authorized. This contract has no Controller completion ingestion and therefore does not claim that a HUMAN obligation ran or that the complete Release was delivered.
 
 Build may produce a candidate after `config validate` and `plan validate` even when live doctor readiness is temporarily unavailable. The handoff fingerprint binds the locked Controller revision, source manifest, executable build, runtime identity, execution mode, config digest, and Release Plan digest returned by those public commands. Verify and apply also require `doctor`, whose config digest and Controller identity must match the approved values. Apply writes only `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json` as exact `0600` files in one atomic private directory. If publication completed before the Case checkpoint, recovery revalidates live source, config, Plan, provenance, and doctor before advancing; conflict or blocked readiness preserves the files, checkpoint, and pending approval. A completed checkpoint with exact files may consume the pending approval, and a consumed approval is idempotently complete.
 

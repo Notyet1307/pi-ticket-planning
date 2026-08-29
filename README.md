@@ -289,7 +289,7 @@ The stronger state check compares that snapshot with the parent Spec, current ch
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted AGENT-only GitHub map with no external blocker, the recommended path prepares one Release Handoff:
+For an accepted GitHub map with no external blocker and a non-empty dependency-closed AGENT tranche, the recommended path reviews the complete Graph and prepares one Release Handoff for that tranche. Trailing HUMAN obligations stay in `needs-triage` and outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \

@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受、全部为 AGENT 且没有 external blocker 的 GitHub 图，默认准备一次 Release Handoff：
+已接受、没有 external blocker 且包含非空 dependency-closed AGENT tranche 的 GitHub 图，默认先 review 完整 Graph，再为该 tranche 准备一次 Release Handoff。后置 HUMAN obligation 保持 `needs-triage`，不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \

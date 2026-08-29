@@ -14,8 +14,33 @@
       }
     },
     {
-      "id": "human-child-stops-handoff",
+      "id": "terminal-human-projects-agent-tranche",
       "executionLanes": ["AGENT", "HUMAN"],
+      "blockedBy": [[], [0]],
+      "externalBlockers": [],
+      "expected": {
+        "status": "READY",
+        "route": "prepare-codex-release",
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    },
+    {
+      "id": "human-blocks-agent-stops-handoff",
+      "executionLanes": ["HUMAN", "AGENT"],
+      "blockedBy": [[], [0]],
+      "externalBlockers": [],
+      "expected": {
+        "status": "CODEX_RELEASE_NOT_EXECUTABLE",
+        "route": null,
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    },
+    {
+      "id": "all-human-stops-handoff",
+      "executionLanes": ["HUMAN"],
+      "blockedBy": [[]],
       "externalBlockers": [],
       "expected": {
         "status": "CODEX_RELEASE_NOT_EXECUTABLE",

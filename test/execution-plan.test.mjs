@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
 import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
-import { releasePlanDigest } from "../execution-plan/domain.mjs";
+import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
@@ -43,6 +43,60 @@ function rewriteGraph(input, mutate) {
   input.parent.body = `${before}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
   input.source = { ...graph.source, baseRef: input.source.baseRef };
   return rebind(input);
+}
+
+function mixedLaneInput({ agentBlockedByHuman = false, humanVerdict = "READY", humanReviewLane = "HUMAN" } = {}) {
+  const input = executionInput();
+  const human = {
+    id: "102",
+    title: "Run human acceptance",
+    state: "open",
+    labels: ["needs-triage"],
+    executionLane: "HUMAN",
+    blockedBy: agentBlockedByHuman ? [] : ["101"],
+    updatedAt: "2026-08-20T00:01:00Z",
+    body: `## What to build
+Run the human-controlled acceptance check.
+## Primary verification
+Complete the exact human acceptance checklist.
+## Acceptance criteria
+- [ ] The accepted build is exercised.
+- [ ] The human decision is recorded.
+- [ ] The evidence is retained.
+## Invariants and guardrails
+No Agent performs the human decision.
+## Out of scope
+No implementation work.`,
+  };
+  if (agentBlockedByHuman) {
+    input.children[0].blockedBy = [human.id];
+    input.children.unshift(human);
+  } else {
+    input.children.push(human);
+  }
+  input.review.candidates.push({ id: human.id, verdict: humanVerdict, executionLane: humanReviewLane });
+  return rewriteGraph(input, (graph) => {
+    const humanGraph = {
+      id: human.id,
+      title: human.title,
+      coverageRole: agentBlockedByHuman ? "ENABLER" : "DIRECT",
+      sourceScenarios: ["S1"],
+      blockedBy: human.blockedBy,
+      externalBlockers: [],
+      ...(agentBlockedByHuman ? { downstreamConsumers: ["101"], exitCondition: "Human acceptance produces the Agent starting state." } : {}),
+      bodyHash: hashText(human.body),
+      startingState: "accepted build",
+      primaryVerification: "Complete the exact human acceptance checklist.",
+      executionLane: "HUMAN",
+    };
+    if (agentBlockedByHuman) {
+      graph.children[0].blockedBy = [human.id];
+      graph.children.unshift(humanGraph);
+      graph.walkingSkeleton = [human.id, "101"];
+    } else {
+      graph.children.push(humanGraph);
+    }
+  });
 }
 
 test("execution-plan parser preserves only controlled parent fields", () => {
@@ -337,9 +391,45 @@ test("execution compiler rejects policy and controller authority drift with stab
   for (const [overrides, code] of [[{ repo: "other/repo" }, "CONTROLLER_CONFIG_MISMATCH"], [{ baseRef: "other" }, "CONTROLLER_CONFIG_MISMATCH"], [{ policy: { maxIssues: 0 } }, "CONTROLLER_CONFIG_MISMATCH"], [{ review: { enabled: false } }, "CONTROLLER_CONFIG_MISMATCH"]]) { const input = executionInput(); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input, overrides) }), new RegExp(code)); }
 });
 
-test("execution compiler rejects rebuilt Graph HUMAN and external blockers before review binding", () => {
-  const controllerFor = (input) => controllerBinding(input);
-  for (const [mutate, code] of [[(graph) => { graph.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(graph) => { graph.children[0].externalBlockers = ["external"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"]]) { const input = rewriteGraph(executionInput(), mutate); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
+test("execution compiler projects a reviewed trailing HUMAN obligation out of the Controller tranche", () => {
+  const input = mixedLaneInput();
+  const plan = compileExecutionPlan(input, { controller: controllerBinding(input) });
+  const graph = parseDeliveryGraph(input.parent.body);
+  assert.deepEqual(plan.children.map(({ issue }) => issue), ["101"]);
+  assert.deepEqual(plan.releasePlan.issues.map(({ number, order }) => ({ number, order })), [{ number: 101, order: 1 }]);
+  assert.equal(plan.source.deliveryGraphDigest, fingerprint(graph));
+  assert.notEqual(plan.reviewedFingerprint, compileExecutionPlan(executionInput(), { controller: controllerBinding(executionInput()) }).reviewedFingerprint);
+});
+
+test("execution compiler keeps mixed-lane projection fail-closed", () => {
+  {
+    const input = mixedLaneInput({ agentBlockedByHuman: true });
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_AGENT_DEPENDS_ON_HUMAN:101:102/);
+  }
+  {
+    const input = mixedLaneInput({ humanVerdict: "NEEDS_INFO" });
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /REVIEW_NOT_READY/);
+  }
+  {
+    const input = mixedLaneInput({ humanReviewLane: "AGENT" });
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
+  }
+  {
+    const input = mixedLaneInput();
+    input.children.find(({ id }) => id === "102").body += "\ndrift";
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CHILD_DRIFT:102/);
+  }
+  {
+    const input = mixedLaneInput();
+    input.children.find(({ id }) => id === "101").executionLane = "HUMAN";
+    input.review.candidates.find(({ id }) => id === "101").executionLane = "HUMAN";
+    rewriteGraph(input, (graph) => { graph.children.find(({ id }) => id === "101").executionLane = "HUMAN"; });
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NO_AGENT_TRANCHE/);
+  }
+  {
+    const input = rewriteGraph(executionInput(), (graph) => { graph.children[0].externalBlockers = ["external"]; });
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
+  }
 });
 
 test("execution compiler rejects parent identity and state before review binding", () => {

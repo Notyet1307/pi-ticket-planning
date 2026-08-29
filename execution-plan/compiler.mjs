@@ -46,7 +46,7 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   if (input.kind !== "DELIVERY_GRAPH" || !/^[1-9][0-9]*$/.test(String(input.parent?.id ?? "")) || input.parent.state !== "open" || typeof input.parent.body !== "string") throw new Error("PARENT_NOT_OPEN");
   let graph;
   try { graph = parseDeliveryGraph(input.parent.body); } catch { throw new Error("INVALID_DELIVERY_GRAPH_SOURCE"); }
-  if (graph.children?.some((child) => child.executionLane === "HUMAN" || (child.externalBlockers ?? []).length > 0)) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
+  if (graph.children?.some((child) => (child.externalBlockers ?? []).length > 0)) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
   const initialChildren = new Map((input.children ?? []).map((child) => [String(child.id), child]));
   for (const graphChild of graph.children ?? []) {
     const live = initialChildren.get(String(graphChild.id));
@@ -55,7 +55,7 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   }
   if (!SHA.test(graph.source?.baseSha ?? "") || typeof input.source?.baseRef !== "string" || !input.source.baseRef) throw new Error("INVALID_DELIVERY_GRAPH_SOURCE");
   if ((input.children ?? []).some((child) => !/^[1-9][0-9]*$/.test(String(child?.id ?? ""))
-    || child.executionLane === "HUMAN" || (child.blockedBy ?? []).some((id) => !(input.children ?? []).some((other) => String(other.id) === String(id))))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
+    || (child.blockedBy ?? []).some((id) => !(input.children ?? []).some((other) => String(other.id) === String(id))))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
   const admission = validateAdmissionState({ repositoryPath: input.repositoryPath, source: input.source, parentBody: input.parent.body, children: input.children, contextChecks: input.contextChecks });
   if (!admission.ok) throw new Error(`ADMISSION_STATE_NOT_READY:${admission.problems[0]?.code ?? "UNKNOWN"}`);
   if (!input.policy || input.policy.accepted !== true || typeof input.policy.identity !== "string" || !input.policy.identity || !/^sha256:[a-f0-9]{64}$/.test(input.policy.digest ?? "")) throw new Error("POLICY_NOT_ACCEPTED");
@@ -67,14 +67,22 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   if (!validateReview(input.review) || fingerprint(input.review.source) !== fingerprint(reviewSource) || Object.values(input.review.axes ?? {}).some((value) => value !== "PASS")) throw new Error("REVIEW_NOT_READY");
   const spec = parseParentDeliverySpec(input.parent.body);
   const live = new Map(input.children.map((child) => [String(child.id), child]));
-  const children = graph.children.map((child, index) => {
+  const reviewedChildren = graph.children.map((child) => {
     const current = live.get(String(child.id));
     const review = candidates.get(String(child.id));
     if (!current || current.state !== "open" || current.title !== child.title || hashText(current.body) !== child.bodyHash) throw new Error(`CHILD_DRIFT:${child.id}`);
-    if (review?.verdict !== "READY" || review.executionLane !== "AGENT" || child.executionLane !== "AGENT") throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
+    if (review?.verdict !== "READY" || review.executionLane !== child.executionLane
+      || current.executionLane !== undefined && current.executionLane !== child.executionLane) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
     if ((current.blockedBy ?? []).some((id) => !graph.children.some((item) => String(item.id) === String(id)))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
-    const parsed = parseChildTicket(current.body);
-    return { issue: String(child.id), title: current.title, bodyHash: child.bodyHash, executionLane: "AGENT", blockedBy: child.blockedBy.map(String), release: { number: Number(child.id), order: index + 1, dependsOn: child.blockedBy.map(Number), objective: parsed.objective, acceptanceCriteria: parsed.acceptanceCriteria, suggestedValidation: [], allowNoop: false, expectedTitle: current.title, expectedBodyHash: child.bodyHash } };
+    return { issue: String(child.id), title: current.title, bodyHash: child.bodyHash, executionLane: child.executionLane, blockedBy: child.blockedBy.map(String), body: current.body };
+  });
+  const agentIds = new Set(reviewedChildren.filter(({ executionLane }) => executionLane === "AGENT").map(({ issue }) => issue));
+  if (agentIds.size === 0) throw new Error("CODEX_RELEASE_NO_AGENT_TRANCHE");
+  const children = reviewedChildren.filter(({ executionLane }) => executionLane === "AGENT").map((child, index) => {
+    const humanBlocker = child.blockedBy.find((id) => !agentIds.has(id));
+    if (humanBlocker) throw new Error(`CODEX_RELEASE_AGENT_DEPENDS_ON_HUMAN:${child.issue}:${humanBlocker}`);
+    const parsed = parseChildTicket(child.body);
+    return { ...child, release: { number: Number(child.issue), order: index + 1, dependsOn: child.blockedBy.map(Number), objective: parsed.objective, acceptanceCriteria: parsed.acceptanceCriteria, suggestedValidation: [], allowNoop: false, expectedTitle: child.title, expectedBodyHash: child.bodyHash } };
   });
   const config = controller?.config ?? input.controller;
   const reviewEnabled = config?.review?.enabled ?? config?.reviewEnabled;
