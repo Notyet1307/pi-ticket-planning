@@ -72,6 +72,10 @@ const REQUIRED_FILES = [
   "schemas/execution-handoff-plan-v1.schema.json",
   "schemas/execution-handoff-receipt-v1.schema.json",
   "schemas/spec-publication-plan-v1.schema.json",
+  "schemas/spec-acceptance-v1.schema.json",
+  "schemas/roadmap-graph-v1.schema.json",
+  "schemas/delivery-release-graph-v3.schema.json",
+  "schemas/release-predecessor-receipt-v1.schema.json",
   "execution-plan/contract.md",
   "execution-plan/domain.mjs",
   "execution-plan/markdown.mjs",
@@ -458,11 +462,12 @@ export function validatePackage(root) {
   requireTokens(errors, "skills/to-tickets/SKILL.md", toTickets, [
     "## Source scenarios",
     "## Coverage role",
-    "## Ticket coverage",
     "## Starting state",
     "## Invariants and guardrails",
     "## Execution lane",
-    "pi-ticket-planning:delivery-graph:v2",
+    "pi-ticket-planning:spec-acceptance:v1",
+    "pi-ticket-planning:roadmap-graph:v1",
+    "pi-ticket-planning:delivery-release-graph:v3",
     "check-delivery-graph.mjs",
     "check-admission-state.mjs",
     "## Context anchors",
@@ -477,7 +482,8 @@ export function validatePackage(root) {
   ]);
   requireTokens(errors, "skills/admit-ticket/SKILL.md", admission, [
     "pi-ticket-planning:admission-review:v1",
-    "pi-ticket-planning:delivery-graph:v2",
+    "spec-acceptance:v1",
+    "delivery-release-graph:v3",
     "check-delivery-graph.mjs",
     "check-admission-state.mjs",
     "check-ticket-context.mjs",
@@ -607,6 +613,10 @@ export function validatePackage(root) {
   requireTokens(errors, "scripts/check-delivery-graph.mjs", graphCheck, [
     "<!-- pi-ticket-planning:delivery-graph:v1 -->",
     "<!-- pi-ticket-planning:delivery-graph:v2 -->",
+    "<!-- pi-ticket-planning:roadmap-graph:v1 -->",
+    "<!-- pi-ticket-planning:delivery-release-graph:v3 -->",
+    "<!-- pi-ticket-planning:parent-kind:executable-delivery-spec -->",
+    "<!-- pi-ticket-planning:parent-kind:roadmap -->",
   ]);
 
   const contextCheck = fs.readFileSync(path.join(root, "scripts", "check-ticket-context.mjs"), "utf8");
@@ -634,7 +644,8 @@ export function validatePackage(root) {
     const relative = path.join("skills", "setup-delivery-repository", trackerName);
     const trackerText = fs.readFileSync(path.join(root, relative), "utf8");
     requireTokens(errors, relative, trackerText, [
-      "pi-ticket-planning:delivery-graph:v2",
+      "pi-ticket-planning:spec-acceptance:v1",
+      "pi-ticket-planning:delivery-release-graph:v3",
       "check-delivery-graph.mjs",
     ]);
   }
@@ -694,7 +705,7 @@ export function validatePackage(root) {
   for (const item of fixtures.graphCases ?? []) {
     const { id: _id, expectedGraphVerdict: _verdict, expectedProblemCodes: _codes, ...snapshot } = structuredClone(item);
     for (const child of snapshot.children ?? []) child.externalBlockers ??= [];
-    const actual = validateDeliveryGraph(snapshot).verdict;
+    const actual = validateDeliveryGraph(snapshot).legacyVerdict;
     if (actual !== item.expectedGraphVerdict) {
       errors.push(`${item.id}: expected graph verdict ${item.expectedGraphVerdict}, fixture computes ${actual}`);
     }

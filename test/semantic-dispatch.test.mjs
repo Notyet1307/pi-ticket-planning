@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { validateRegisteredArtifactSemantics } from "../protocol/semantic-dispatch.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 
 const identity = (name) => ({ namespace: "pi-ticket-planning", name, major: 1 });
 const problems = async (name, value) => (await validateRegisteredArtifactSemantics(value, identity(name))).problems;
@@ -16,8 +17,15 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   release.digest = digest(JSON.stringify(release));
   assert.deepEqual(await problems("release-projection", release), []);
   assert.equal((await problems("release-projection", { ...release, digest: digest("bad") }))[0].code, "RELEASE_PROJECTION_DIGEST_MISMATCH");
-  assert.deepEqual(await problems("spec-projection", { target: "x", source: { target: "x" } }), []);
-  assert.equal((await problems("spec-projection", { target: "x", source: { target: "y" } }))[0].code, "SPEC_SOURCE_TARGET_MISMATCH");
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 1, title: "Spec", bodyHash: `sha256:${"a".repeat(64)}` },
+    source: { baseSha: "a".repeat(40), specContentHash: `sha256:${"b".repeat(64)}` },
+    decision: { caseId: "PC-semantic", approvalId: "F-approval", acceptedAt: "2026-08-29T00:00:00Z" },
+  };
+  const acceptance = { ...acceptanceBody, digest: fingerprint(acceptanceBody) };
+  assert.deepEqual(await problems("spec-projection", { target: "x", source: { target: "x" }, acceptance }), []);
+  assert.equal((await problems("spec-projection", { target: "x", source: { target: "y" }, acceptance }))[0].code, "SPEC_SOURCE_TARGET_MISMATCH");
   assert.deepEqual(await problems("planning-case", { nextAction: {} }), []);
   assert.equal((await problems("planning-case", { nextAction: null }))[0].code, "PLANNING_CASE_NEXT_ACTION_MISSING");
   assert.deepEqual(await problems("reviewed-admission-state", { repo: "acme/product", target: "1", currentCheckpoint: { subject: { target: "github:acme/product", id: "1" } } }), []);

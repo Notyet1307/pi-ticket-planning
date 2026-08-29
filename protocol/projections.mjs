@@ -35,7 +35,7 @@ export function projectRelease({ target, id, revision, status, ref, baseSha, pat
   return { ...projection, digest: hash(JSON.stringify(projection)) };
 }
 
-export function projectSpec({ target, id, revision, baseSha, source, scenarioIds, bytes: sourceBytes }) {
+export function projectSpec({ target, id, revision, baseSha, source, scenarioIds, bytes: sourceBytes, acceptance }) {
   if (!TARGET.test(target ?? "") || !id || !revision || !SHA.test(baseSha ?? "") || !Array.isArray(scenarioIds)
     || scenarioIds.length === 0 || new Set(scenarioIds).size !== scenarioIds.length
     || scenarioIds.some((scenario) => !/^S[1-9][0-9]*$/.test(scenario))) throw new Error("Spec projection identity is invalid");
@@ -48,5 +48,6 @@ export function projectSpec({ target, id, revision, baseSha, source, scenarioIds
     source: structuredClone(source),
     scenarioIds: [...scenarioIds],
     contentDigest: hash(bytes(sourceBytes)),
+    acceptance: structuredClone(acceptance),
   };
 }

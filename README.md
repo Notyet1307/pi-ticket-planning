@@ -277,19 +277,19 @@ Tracker capability is intentionally asymmetric:
 | GitLab | Planning and planning-level/readiness review only; no package-backed Controller or Legacy Herdr activation. |
 | Local Markdown | Planning and review only; no transactional execution handoff. |
 
-The delivery parent stores one normalized Delivery Graph v2 snapshot under `## Ticket coverage`. It binds accepted Spec content and exact child bodies by SHA-256. Check a snapshot with:
+`to-spec apply` binds one exact `spec-acceptance:v1` receipt to the immutable Delivery Parent. `to-tickets` stores a separate `delivery-release-graph:v3` artifact for exactly one current all-AGENT Release; Roadmap/HUMAN/future work stays in a non-executable `roadmap-graph:v1`. Check either artifact with:
 
 ```sh
 npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 ```
 
-The stronger state check compares that snapshot with the parent Spec, current child bodies, native order, and blocker graph:
+The stronger state check compares the v3 graph and receipt with the immutable Parent, current child bodies, native order, and blocker graph:
 
 ```sh
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub map with no external blocker and a non-empty dependency-closed AGENT tranche, the recommended path reviews the complete Graph and prepares one Release Handoff for that tranche. Trailing HUMAN obligations stay in `needs-triage` and outside Controller input:
+For an accepted GitHub v3 Release with no external blocker and at most the policy child limit (default four, hard cap six), the recommended path reviews and prepares one Release Handoff. Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \

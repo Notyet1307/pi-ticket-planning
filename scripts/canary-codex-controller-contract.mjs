@@ -15,7 +15,7 @@ import {
 } from "../execution-plan/private-paths.mjs";
 import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { DELIVERY_GRAPH_MARKER, computeSpecContentHash, hashText } from "./check-delivery-graph.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "./check-delivery-graph.mjs";
 import { checkTicketContext } from "./check-ticket-context.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -94,23 +94,40 @@ Compile Plan, validate Plan, compare digest.
 - Never call doctor, start, Codex, GitHub, or network writes.
 ## Out of scope
 Controller execution.`;
-  const graph = {
-    version: 2,
-    source: { identity: source.identity, revision: source.revision, baseSha, specContentHash: `sha256:${"0".repeat(64)}` },
-    scenarios: [{ id: "S1", behavior: "Validate one Plan", entry: "external:fixture", exit: "contract-result", releaseSignal: "matching digest", smallestLoop: true }],
-    children: [{ id: child.id, title: child.title, coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(child.body), startingState: "fixture", primaryVerification: "Validate the exact Controller Release Plan.", executionLane: "AGENT" }],
-    walkingSkeleton: [child.id],
-  };
-  const provisional = `${spec}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
-  graph.source.specContentHash = computeSpecContentHash(provisional);
   const parent = {
     id: "100",
     title: "Controller contract canary",
-    body: `${spec}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``,
+    body: `${spec}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}`,
     state: "open",
     labels: ["needs-triage"],
     blockedBy: [],
     updatedAt: "2026-08-20T00:00:00.000Z",
+  };
+  source.specContentHash = hashText(spec);
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: Number(parent.id), title: parent.title, bodyHash: hashText(parent.body) },
+    source: { baseSha, specContentHash: source.specContentHash },
+    decision: { caseId: "PC-contract-canary", approvalId: "F-spec-approval", acceptedAt: "2026-08-20T00:00:00.000Z" },
+  };
+  const graph = {
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "contract-canary-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: baseSha,
+    executionBaseSha: baseSha,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: fingerprint("contract-canary-decisions"),
+    source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
+    scenarios: [{ id: "S1", behavior: "Validate one Plan", entry: "external:fixture", exit: "contract-result", releaseSignal: "matching digest", smallestLoop: true }],
+    children: [{ id: child.id, title: child.title, coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(child.body), startingState: "fixture", primaryVerification: "Validate the exact Controller Release Plan.", executionLane: "AGENT" }],
+    walkingSkeleton: [child.id],
   };
   const input = {
     kind: "DELIVERY_GRAPH",
@@ -118,6 +135,8 @@ Controller execution.`;
     repositoryPath,
     source,
     parent,
+    specAcceptance: graph.specAcceptance,
+    deliveryGraph: graph,
     children: [child],
     contextChecks: [{ candidateId: child.id, result: checkTicketContext({ repo: repositoryPath, base: baseSha, body: child.body }) }],
     policy: { accepted: true, identity: "contract-canary-policy", digest: fingerprint("contract-canary-policy") },
@@ -125,7 +144,7 @@ Controller execution.`;
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-20T00:00:00.000Z",
-      source: { identity: source.identity, revision: source.revision, baseSha },
+      source: { identity: source.identity, revision: source.revision, baseSha, specContentHash: source.specContentHash },
       axes: Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((axis) => [axis, "PASS"])),
       graphVerdict: "READY",
       candidates: [{ id: child.id, verdict: "READY", executionLane: "AGENT" }],

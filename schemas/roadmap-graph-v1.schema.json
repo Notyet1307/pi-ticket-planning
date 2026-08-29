@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/roadmap-graph-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "executable", "readinessState", "roadmapId", "planningBaseSha", "parent", "plannedReleases", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:roadmap-graph:v1" },
+    "kind": { "const": "ROADMAP" },
+    "executable": { "const": false },
+    "readinessState": { "const": "PLANNED" },
+    "roadmapId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "planningBaseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "parent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "title", "bodyHash"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "title": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "bodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "plannedReleases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/plannedRelease" }
+    },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  },
+  "$defs": {
+    "plannedRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["releaseId", "releaseOrdinal", "readinessState", "objective", "scenarioCoverage", "predecessors", "candidateTickets"],
+      "properties": {
+        "releaseId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "releaseOrdinal": { "type": "integer", "minimum": 1 },
+        "readinessState": { "const": "PLANNED" },
+        "objective": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" },
+        "scenarioCoverage": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^S[1-9][0-9]*$" }
+        },
+        "predecessors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "common-v1.schema.json#/$defs/safeText" }
+        },
+        "candidateTickets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "objective", "executionLane"],
+            "properties": {
+              "id": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+              "title": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+              "objective": { "$ref": "common-v1.schema.json#/$defs/safeMultilineText" },
+              "executionLane": { "enum": ["AGENT", "HUMAN"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

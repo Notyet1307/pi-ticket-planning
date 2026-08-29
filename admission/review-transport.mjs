@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
+import { hashText, parseDeliveryGraph, validateDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { ADMISSION_READINESS_SCHEMA, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateCapabilityReceipt } from "../capabilities/doctor.mjs";
 
@@ -124,6 +124,9 @@ export function createAdmissionReviewInput({
   policy,
   parent,
   children,
+  deliveryGraph,
+  roadmapGraph,
+  roadmapParent,
   candidate,
   contextChecks,
   harness,
@@ -139,7 +142,11 @@ export function createAdmissionReviewInput({
         kind: "DELIVERY_GRAPH",
         parent: projectIssue(parent),
         children: (children ?? []).map((child) => projectIssue(child)),
-        graph: parseDeliveryGraph(parent?.body ?? ""),
+        graph: deliveryGraph && typeof deliveryGraph === "object"
+          ? structuredClone(deliveryGraph)
+          : parseDeliveryGraph(parent?.body ?? ""),
+        roadmap: roadmapGraph === undefined ? null : structuredClone(roadmapGraph),
+        roadmapParent: roadmapParent === undefined ? null : projectIssue(roadmapParent),
       };
   const input = {
     schema: ADMISSION_REVIEW_INPUT_SCHEMA,
@@ -176,7 +183,7 @@ export function validateAdmissionReviewInput(input) {
   if (!same(projectedSource, input.source) || input.subject.revision !== input.source.revision) throw new Error("Admission review source fields are invalid");
   if (!same(projectPolicy(input.policy), input.policy)) throw new Error("Admission review policy fields are invalid");
   if (!same(projectContextChecks(input.contextChecks), input.contextChecks)) throw new Error("Admission review Context check fields are invalid");
-  exactKeys(input.reviewTarget, input.reviewTarget?.kind === "STANDALONE" ? ["kind", "candidate"] : ["kind", "parent", "children", "graph"], "Admission review target");
+  exactKeys(input.reviewTarget, input.reviewTarget?.kind === "STANDALONE" ? ["kind", "candidate"] : ["kind", "parent", "children", "graph", "roadmap", "roadmapParent"], "Admission review target");
   if (input.reviewTarget.kind === "STANDALONE") {
     if (!same(projectIssue(input.reviewTarget.candidate), input.reviewTarget.candidate)) throw new Error("Admission review candidate fields are invalid");
   } else if (input.reviewTarget.kind === "DELIVERY_GRAPH") {
@@ -185,6 +192,13 @@ export function validateAdmissionReviewInput(input) {
     input.reviewTarget.children.forEach((child) => {
       if (!same(projectIssue(child), child)) throw new Error("Admission review child fields are invalid");
     });
+    if (input.reviewTarget.roadmap !== null && !validateDeliveryGraph(input.reviewTarget.roadmap).ok) {
+      throw new Error("Admission review Roadmap is invalid");
+    }
+    if (input.reviewTarget.roadmapParent !== null
+      && !same(projectIssue(input.reviewTarget.roadmapParent), input.reviewTarget.roadmapParent)) {
+      throw new Error("Admission review Roadmap Parent is invalid");
+    }
   } else throw new Error("Admission review target kind is invalid");
   if (input.harness !== null) validateStableHarnessProjection(input.harness);
   if (input.capability !== null && !validateCapabilityReceipt(input.capability, { now: input.reviewedAt }).ok) {
@@ -217,6 +231,9 @@ export function reviewBindingForAdmission(input) {
     policy: input.policy,
     parent: input.parent,
     children: input.children,
+    deliveryGraph: input.deliveryGraph,
+    roadmapGraph: input.roadmapGraph,
+    roadmapParent: input.roadmapParent,
     candidate: input.candidate,
     contextChecks: input.contextChecks,
     harness: input.harness ?? null,

@@ -359,14 +359,14 @@ test("readiness live fixture supplies the exact fresh-review facts", () => {
   assert.doesNotMatch(bundle, /public classify/u);
 });
 
-test("admission live fixture keeps candidate criteria bounded", () => {
+test("legacy admission live fixture keeps criteria bounded but requires migration", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
   const bundle = admission.files["tracker/admission-bundle-r006.md"];
   const harness = admission.files["tracker/harness-readiness-r006.md"];
   const parentCoverage = admission.files["tracker/parent-70-ticket-coverage.md"];
-  assert.match(admission.prompt, /tracker\/parent-70-ticket-coverage\.md/u);
+  assert.match(admission.prompt, /NEEDS_MIGRATION/u);
   assert.match(parentCoverage, /## Ticket coverage[\s\S]*pi-ticket-planning:delivery-graph:v2/u);
-  assert.deepEqual(validateDeliveryGraph(parseDeliveryGraph(parentCoverage)).problems, []);
+  assert.deepEqual(validateDeliveryGraph(parseDeliveryGraph(parentCoverage)).problems.map(({ code }) => code), ["NEEDS_MIGRATION"]);
   assert.match(harness, /Harness readiness stable projection[\s\S]*project-readiness:v1[\s\S]*providers: worker=passed, reviewer=passed[\s\S]*validation: status=passed[\s\S]*delivery: status=passed[\s\S]*bypassActorsPresent=false/u);
   assert.doesNotMatch(harness, /Harness CLI\/config paths[^\n]*(?:shown|included)|Docker host:\s*unix|token|credential:/iu);
   assert.match(admission.files["tracker/context-checks-r006.json"], /"candidateId":"C01"[\s\S]*"candidateId":"C02"/u);
@@ -379,26 +379,18 @@ test("admission live fixture keeps candidate criteria bounded", () => {
   assert.doesNotMatch(bundle, /public (?:classify|explain)|public explain-command/u);
 });
 
-test("admission fixture accepts stopping before a missing Plan fingerprint", () => {
+test("legacy admission fixture stops before review or activation", () => {
   const admission = fixture.cases.find(({ id }) => id === "lifecycle-admission-stops-for-confirmation");
-  assert.match(admission.prompt, /without an Admission Plan fingerprint|没有 Admission Plan fingerprint 时不得请求确认/u);
-  const prefix = [
-    "Delivery graph contract: PASS",
-    "Scenario coverage: PASS",
-    "Walking skeleton: PASS",
-    "Strict-frontier order: PASS",
-    "C01 | READY | AGENT",
-    "C02 | READY | AGENT",
-  ];
+  assert.match(admission.prompt, /不得 dispatch reviewer/u);
   for (const stop of [
-    "未生成 Admission Plan fingerprint，不能用 reviewer READY 代替精确确认。尚未请求或执行激活。",
-    "没有 Admission Plan fingerprint，也没有可确认的精确标签变更集；按合同不请求确认。",
+    "NEEDS_MIGRATION：Delivery Graph v2 必须迁移为 delivery-release-graph:v3 并绑定 spec-acceptance；不得 dispatch reviewer 或生成 Admission Plan。",
+    "NEEDS_MIGRATION。缺少 delivery-release-graph:v3 与 exact spec-acceptance receipt，不能请求确认或激活。",
   ]) {
-    assert.deepEqual(matchLiveEvalOutput([...prefix, stop].join("\n"), admission.expected), []);
+    assert.deepEqual(matchLiveEvalOutput(stop, admission.expected), []);
   }
 });
 
-test("ticket-graph live fixture binds its exact Spec and candidate bodies", () => {
+test("legacy ticket-graph fixture preserves exact hashes but requires migration", () => {
   const item = fixture.cases.find(({ id }) => id === "lifecycle-accepted-spec-compiles-ticket-graph");
   assert.match(item.files["tracker/ticket-context-checks.md"], /C01:[^\n]*PASS[\s\S]*C02:[^\n]*PASS/u);
   assert.match(item.files["tracker/repository-context-recheck.md"], /re-ran[\s\S]*against Git/u);
@@ -416,14 +408,8 @@ test("ticket-graph live fixture binds its exact Spec and candidate bodies", () =
     "approved explanation and existing link, or unsupported no-link response, with no raw log",
   ]);
   assert.doesNotMatch(`${spec}\n${snapshotText}`, /public (?:classify|explain)|public explain-command/u);
-  assert.deepEqual(validateDeliveryGraph(graph).problems, []);
-  assert.deepEqual(matchLiveEvalOutput([
-    "### Scenario coverage",
-    "**冻结草稿：PASS**",
-    "### Walking skeleton",
-    "**冻结草稿：PASS**",
-    "Delivery Graph includes C01 and C02 with needs-triage; waiting for approval.",
-  ].join("\n"), item.expected), []);
+  assert.deepEqual(validateDeliveryGraph(graph).problems.map(({ code }) => code), ["NEEDS_MIGRATION"]);
+  assert.deepEqual(matchLiveEvalOutput("NEEDS_MIGRATION：Delivery Graph v2 不得发布或编译为 production handoff。", item.expected), []);
 });
 
 test("multiturn fixture schema is globally unique and fail-closed", () => {

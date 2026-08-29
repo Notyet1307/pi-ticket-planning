@@ -6,9 +6,15 @@ import { validateArtifact } from "../protocol/kernel.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
 export const DELIVERY_GRAPH_MARKER = "<!-- pi-ticket-planning:delivery-graph:v2 -->";
+export const ROADMAP_GRAPH_MARKER = "<!-- pi-ticket-planning:roadmap-graph:v1 -->";
+export const DELIVERY_RELEASE_GRAPH_MARKER = "<!-- pi-ticket-planning:delivery-release-graph:v3 -->";
+export const EXECUTABLE_DELIVERY_SPEC_MARKER = "<!-- pi-ticket-planning:parent-kind:executable-delivery-spec -->";
+export const ROADMAP_PARENT_MARKER = "<!-- pi-ticket-planning:parent-kind:roadmap -->";
 const DELIVERY_GRAPH_MARKERS = new Map([
-  [DELIVERY_GRAPH_MARKER_V1, 1],
-  [DELIVERY_GRAPH_MARKER, 2],
+  [DELIVERY_GRAPH_MARKER_V1, { version: 1 }],
+  [DELIVERY_GRAPH_MARKER, { version: 2 }],
+  [ROADMAP_GRAPH_MARKER, { schema: "pi-ticket-planning:roadmap-graph:v1" }],
+  [DELIVERY_RELEASE_GRAPH_MARKER, { schema: "pi-ticket-planning:delivery-release-graph:v3" }],
 ]);
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
 
@@ -128,23 +134,28 @@ export function parseDeliveryGraph(text) {
   if (source.startsWith("{")) return JSON.parse(source);
 
   const occurrences = [];
-  for (const [marker, version] of DELIVERY_GRAPH_MARKERS) {
+  for (const [marker, identity] of DELIVERY_GRAPH_MARKERS) {
     let offset = source.indexOf(marker);
     while (offset !== -1) {
-      occurrences.push({ marker, version, offset });
+      occurrences.push({ marker, identity, offset });
       offset = source.indexOf(marker, offset + marker.length);
     }
   }
   if (occurrences.length !== 1) throw new Error("expected exactly one delivery-graph marker");
-  const [{ marker, version, offset }] = occurrences;
+  const [{ marker, identity, offset }] = occurrences;
   const match = source.slice(offset + marker.length).match(/^\s*```json\s*\n([\s\S]*?)\n```/);
   if (!match) throw new Error("delivery-graph marker must be followed by one JSON fence");
   const snapshot = JSON.parse(match[1]);
-  if (snapshot.version !== version) throw new Error(`delivery-graph marker v${version} does not match snapshot version`);
+  if (identity.version !== undefined && snapshot.version !== identity.version) {
+    throw new Error(`delivery-graph marker v${identity.version} does not match snapshot version`);
+  }
+  if (identity.schema !== undefined && snapshot.schema !== identity.schema) {
+    throw new Error("delivery artifact marker does not match snapshot schema");
+  }
   return snapshot;
 }
 
-export function validateDeliveryGraph(snapshot) {
+function validateLegacyDeliveryGraph(snapshot) {
   const contract = [];
   const coverage = [];
   const skeleton = [];
@@ -162,7 +173,7 @@ export function validateDeliveryGraph(snapshot) {
     contract.push(issue("INVALID_DELIVERY_GRAPH_ARTIFACT"));
   }
 
-  if (snapshot.version === 1) contract.push(issue("NEEDS_MIGRATION", "v1->v2"));
+  if (snapshot.version === 1) contract.push(issue("NEEDS_MIGRATION", "v1->v3"));
   else if (snapshot.version !== 2) contract.push(issue("UNSUPPORTED_VERSION"));
   for (const field of ["identity", "revision", "baseSha"]) {
     if (!nonEmpty(snapshot.source?.[field])) contract.push(issue("MISSING_SOURCE_FIELD", field));
@@ -294,6 +305,161 @@ export function validateDeliveryGraph(snapshot) {
   }
 
   return result(contract, coverage, skeleton, frontier);
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+}
+
+function exactDigest(value) {
+  const { digest, ...body } = value ?? {};
+  return SHA256.test(digest ?? "") && hashText(JSON.stringify(canonical(body))) === digest;
+}
+
+export function validateSpecAcceptance(receipt) {
+  const problems = [];
+  try {
+    const checked = validateArtifact(receipt, { identity: "pi-ticket-planning:spec-acceptance:v1" });
+    problems.push(...checked.problems);
+  } catch {
+    problems.push(issue("INVALID_SPEC_ACCEPTANCE_RECEIPT"));
+    return problems;
+  }
+  if (!exactDigest(receipt)) problems.push(issue("SPEC_ACCEPTANCE_DIGEST_MISMATCH"));
+  return problems;
+}
+
+export function validatePredecessorReceipt(receipt) {
+  const problems = [];
+  try {
+    const checked = validateArtifact(receipt, { identity: "pi-ticket-planning:release-predecessor-receipt:v1" });
+    problems.push(...checked.problems);
+  } catch {
+    problems.push(issue("INVALID_PREDECESSOR_RECEIPT"));
+    return problems;
+  }
+  if (!exactDigest(receipt)) problems.push(issue("PREDECESSOR_RECEIPT_DIGEST_MISMATCH"));
+  return problems;
+}
+
+function validateRoadmap(snapshot) {
+  const problems = [];
+  try {
+    problems.push(...validateArtifact(snapshot, { identity: "pi-ticket-planning:roadmap-graph:v1" }).problems);
+  } catch {
+    problems.push(issue("INVALID_ROADMAP_ARTIFACT"));
+  }
+  if (!exactDigest(snapshot)) problems.push(issue("ROADMAP_DIGEST_MISMATCH"));
+  const ids = (snapshot.plannedReleases ?? []).map(({ releaseId }) => releaseId);
+  const ordinals = (snapshot.plannedReleases ?? []).map(({ releaseOrdinal }) => releaseOrdinal);
+  duplicateIssues(problems, ids, "DUPLICATE_RELEASE_ID", "roadmap");
+  duplicateIssues(problems, ordinals, "DUPLICATE_RELEASE_ORDINAL", "roadmap");
+  return {
+    ok: problems.length === 0,
+    verdict: problems.length === 0 ? "PLANNED" : "NEEDS_INFO",
+    executable: false,
+    contract: problems.length === 0 ? "PASS" : "FAIL",
+    scenarioCoverage: "NOT_APPLICABLE",
+    walkingSkeleton: "NOT_APPLICABLE",
+    strictFrontier: "NOT_APPLICABLE",
+    problems,
+  };
+}
+
+function validateExecutableRelease(snapshot) {
+  const contract = [];
+  try {
+    contract.push(...validateArtifact(snapshot, { identity: "pi-ticket-planning:delivery-release-graph:v3" }).problems);
+  } catch {
+    contract.push(issue("INVALID_DELIVERY_RELEASE_GRAPH"));
+  }
+  if (Array.isArray(snapshot.plannedReleases) || Array.isArray(snapshot.releases)) {
+    contract.push(issue("MULTIPLE_RELEASES_NOT_EXECUTABLE"));
+  }
+  if ((snapshot.children ?? []).some(({ executionLane }) => executionLane === "HUMAN")) {
+    contract.push(issue("HUMAN_CHILD_NOT_EXECUTABLE"));
+  }
+  if ((snapshot.children ?? []).some(({ externalBlockers }) => (externalBlockers ?? []).length > 0)) {
+    contract.push(issue("OPEN_EXTERNAL_BLOCKER"));
+  }
+  const maxChildren = snapshot.childPolicy?.maxChildren ?? 4;
+  if ((snapshot.children?.length ?? 0) > maxChildren) contract.push(issue("CHILD_COUNT_POLICY_EXCEEDED", `${snapshot.children.length}>${maxChildren}`));
+  contract.push(...validateSpecAcceptance(snapshot.specAcceptance));
+  if (snapshot.specAcceptance?.source?.baseSha !== snapshot.planningBaseSha
+    || snapshot.specAcceptance?.source?.specContentHash !== snapshot.source?.specContentHash) {
+    contract.push(issue("SPEC_ACCEPTANCE_SOURCE_MISMATCH"));
+  }
+  if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReceipt !== null) {
+    contract.push(issue("UNEXPECTED_PREDECESSOR_RECEIPT"));
+  }
+  if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReleaseId !== null) {
+    contract.push(issue("UNEXPECTED_PREDECESSOR_RELEASE"));
+  }
+  if (snapshot.releaseOrdinal > 1) {
+    if (!SHA256.test(snapshot.roadmapDigest ?? "")) contract.push(issue("MISSING_ROADMAP_BINDING"));
+    if (!nonEmpty(snapshot.predecessorReleaseId)) contract.push(issue("MISSING_PREDECESSOR_RELEASE"));
+    if (!snapshot.predecessorReceipt) contract.push(issue("MISSING_PREDECESSOR_RECEIPT"));
+    else {
+      contract.push(...validatePredecessorReceipt(snapshot.predecessorReceipt));
+      if (snapshot.predecessorReceipt.releaseId !== snapshot.predecessorReleaseId) {
+        contract.push(issue("PREDECESSOR_RELEASE_MISMATCH"));
+      }
+      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergedMainSha) {
+        contract.push(issue("PREDECESSOR_EXECUTION_BASE_MISMATCH"));
+      }
+    }
+  }
+  const semantic = validateLegacyDeliveryGraph({
+    version: 2,
+    source: {
+      identity: snapshot.source?.identity,
+      revision: snapshot.source?.revision,
+      baseSha: snapshot.executionBaseSha,
+      specContentHash: snapshot.source?.specContentHash,
+    },
+    scenarios: snapshot.scenarios,
+    children: snapshot.children,
+    walkingSkeleton: snapshot.walkingSkeleton,
+  });
+  const semanticProblems = semantic.problems.filter(({ code }) => code !== "ARTIFACT_SCHEMA_INVALID");
+  const problems = [...contract, ...semanticProblems];
+  const readinessProblems = ["GRAPH_REVIEWED", "HANDOFF_APPROVED", "HANDOFF_READY"].includes(snapshot.readinessState)
+    ? []
+    : [issue("RELEASE_NOT_GRAPH_REVIEWED", snapshot.readinessState)];
+  return {
+    ok: problems.length === 0,
+    verdict: problems.length > 0 ? "NEEDS_INFO" : readinessProblems.length === 0 ? "READY" : snapshot.readinessState,
+    executable: problems.length === 0 && readinessProblems.length === 0,
+    contract: contract.length === 0 && semantic.contract === "PASS" ? "PASS" : "FAIL",
+    scenarioCoverage: semantic.scenarioCoverage,
+    walkingSkeleton: semantic.walkingSkeleton,
+    strictFrontier: semantic.strictFrontier,
+    readinessProblems,
+    problems,
+  };
+}
+
+export function validateDeliveryGraph(snapshot) {
+  if (snapshot?.schema === "pi-ticket-planning:roadmap-graph:v1" || snapshot?.kind === "ROADMAP") {
+    return validateRoadmap(snapshot);
+  }
+  if (snapshot?.schema === "pi-ticket-planning:delivery-release-graph:v3" || snapshot?.kind === "EXECUTABLE_RELEASE") {
+    return validateExecutableRelease(snapshot);
+  }
+  const legacy = validateLegacyDeliveryGraph(snapshot);
+  return snapshot?.version === 2
+    ? {
+        ...legacy,
+        ok: false,
+        verdict: "NEEDS_MIGRATION",
+        executable: false,
+        migration: "NEEDS_MIGRATION",
+        legacyVerdict: legacy.verdict,
+        problems: [...legacy.problems, issue("NEEDS_MIGRATION", "v2->v3")],
+      }
+    : legacy;
 }
 
 function result(contract, coverage, skeleton, frontier) {

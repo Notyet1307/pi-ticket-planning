@@ -34,6 +34,13 @@ test("Release and Spec projections bind exact source bytes", () => {
     source: { target: release.target, kind: "release", id: release.id, revision: release.revision, digest: release.digest },
     scenarioIds: ["S1", "S2"],
     bytes: Buffer.from("spec\n"),
+    acceptance: {
+      schema: "pi-ticket-planning:spec-acceptance:v1",
+      parent: { number: 100, title: "Spec", bodyHash: `sha256:${"a".repeat(64)}` },
+      source: { baseSha: release.source.baseSha, specContentHash: `sha256:${"b".repeat(64)}` },
+      decision: { caseId: "PC-R001", approvalId: "F-approval", acceptedAt: "2026-08-29T00:00:00Z" },
+      digest: `sha256:${"c".repeat(64)}`,
+    },
   });
   assert.equal(spec.schema, "pi-ticket-planning:spec-projection:v1");
   assert.match(spec.contentDigest, /^sha256:/);

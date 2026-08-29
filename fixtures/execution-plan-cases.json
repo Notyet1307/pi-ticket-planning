@@ -14,13 +14,25 @@
       }
     },
     {
-      "id": "terminal-human-projects-agent-tranche",
+      "id": "mixed-agent-human-stops-handoff",
       "executionLanes": ["AGENT", "HUMAN"],
       "blockedBy": [[], [0]],
       "externalBlockers": [],
       "expected": {
-        "status": "READY",
-        "route": "prepare-codex-release",
+        "status": "CODEX_RELEASE_NOT_EXECUTABLE",
+        "route": null,
+        "labelWrites": 0,
+        "controllerStarts": 0
+      }
+    },
+    {
+      "id": "roadmap-human-stops-handoff",
+      "artifactKind": "ROADMAP",
+      "executionLanes": ["AGENT", "HUMAN"],
+      "externalBlockers": [],
+      "expected": {
+        "status": "ROADMAP_NOT_EXECUTABLE",
+        "route": null,
         "labelWrites": 0,
         "controllerStarts": 0
       }

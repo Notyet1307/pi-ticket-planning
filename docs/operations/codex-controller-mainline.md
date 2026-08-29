@@ -6,7 +6,8 @@ The recommended execution path is the direct Planner-to-Controller handoff:
 
 ```text
 pi-ticket-planning
-→ accepted Delivery Graph v2
+→ exact Spec acceptance receipt
+→ one accepted delivery-release-graph v3
 → human-approved execution handoff
 → Release Plan v2
 → operator executes Controller start

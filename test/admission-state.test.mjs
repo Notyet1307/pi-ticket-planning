@@ -2,10 +2,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  DELIVERY_GRAPH_MARKER,
-  hashText,
-} from "../scripts/check-delivery-graph.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
 import {
   buildTicketContextResult,
@@ -30,12 +28,30 @@ function readyBundle() {
     { id: "101", body: "# Accept input\n\nExact ticket body.", blockedBy: [] },
     { id: "102", body: "# Return result\n\nExact ticket body.", blockedBy: ["101"] },
   ];
+  const parent = { id: "100", title: "Delivery Spec", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}` };
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 100, title: parent.title, bodyHash: hashText(parent.body) },
+    source: { baseSha, specContentHash: hashText(specBody) },
+    decision: { caseId: "PC-R1", approvalId: "F-spec-approval", acceptedAt: "2026-08-29T00:00:00Z" },
+  };
   const snapshot = {
-    version: 2,
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "R1-C1-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: baseSha,
+    executionBaseSha: baseSha,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: `sha256:${"d".repeat(64)}`,
     source: {
       identity: "PRODUCT_RELEASE R1",
       revision: "r2",
-      baseSha,
       specContentHash: hashText(specBody),
     },
     scenarios: [
@@ -84,16 +100,19 @@ function readyBundle() {
     ],
     walkingSkeleton: ["101", "102"],
   };
-  const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
   const source = {
     identity: "PRODUCT_RELEASE R1",
     revision: "r2",
     baseSha,
+    specContentHash: hashText(specBody),
   };
   return {
     repositoryPath,
     source,
-    parentBody,
+    parent,
+    parentBody: parent.body,
+    specAcceptance: snapshot.specAcceptance,
+    deliveryGraph: snapshot,
     children,
     contextChecks: children.map((child) => ({
       candidateId: child.id,
@@ -102,7 +121,7 @@ function readyBundle() {
   };
 }
 
-test("admission state accepts an exact v2 snapshot, Spec, body, order, and native graph", () => {
+test("admission state accepts one exact v3 release, acceptance receipt, body, order, and native graph", () => {
   const checked = validateAdmissionState(readyBundle());
   assert.equal(checked.ok, true);
   assert.equal(checked.verdict, "READY");
@@ -132,7 +151,7 @@ test("admission state rejects source, Spec Scenario, and external dependency dri
   const scenarioDrift = readyBundle();
   scenarioDrift.parentBody = scenarioDrift.parentBody.replace("### S2: Return result", "### S3: Return result");
   const scenarioCodes = validateAdmissionState(scenarioDrift).problems.map(({ code }) => code);
-  assert.equal(scenarioCodes.includes("SPEC_CONTENT_HASH_MISMATCH"), true);
+  assert.equal(scenarioCodes.includes("SPEC_ACCEPTANCE_RECEIPT_STALE"), true);
   assert.equal(scenarioCodes.includes("SPEC_SCENARIO_SET_MISMATCH"), true);
 
   const externalDrift = readyBundle();
@@ -159,4 +178,68 @@ test("admission state requires matching PASS Context checks", () => {
     body: baseDrift.children[0].body,
   });
   assert.equal(validateAdmissionState(baseDrift).problems.some(({ code }) => code === "CONTEXT_CHECK_BASE_SHA_MISMATCH"), true);
+});
+
+test("acceptance receipt fails closed on Parent contradiction or body drift", () => {
+  const contradiction = readyBundle();
+  contradiction.parentBody += "\n\nStatus: SPEC_IN_PROGRESS / not accepted";
+  const contradictionCodes = validateAdmissionState(contradiction).problems.map(({ code }) => code);
+  assert.equal(contradictionCodes.includes("PARENT_ACCEPTANCE_CONTRADICTION"), true);
+  assert.equal(contradictionCodes.includes("SPEC_ACCEPTANCE_RECEIPT_STALE"), true);
+
+  const childClaim = readyBundle();
+  childClaim.children[0].body += "\n\nParent: Accepted Delivery Spec";
+  childClaim.deliveryGraph.children[0].bodyHash = hashText(childClaim.children[0].body);
+  childClaim.parentBody += "\nchanged";
+  assert.equal(validateAdmissionState(childClaim).problems.some(({ code }) => code === "CHILD_ACCEPTANCE_WITHOUT_EXACT_RECEIPT"), true);
+});
+
+test("downstream release binds its predecessor receipt to the exact Roadmap sequence", () => {
+  const bundle = readyBundle();
+  bundle.roadmapParent = { id: "99", title: "R1 Roadmap", body: `# R1 Roadmap\n\n${ROADMAP_PARENT_MARKER}` };
+  const receiptBody = {
+    schema: "pi-ticket-planning:release-predecessor-receipt:v1",
+    releaseId: "R1-C1-r1",
+    mergedMainSha: baseSha,
+    handoffDigests: [],
+    validationDigest: `sha256:${"7".repeat(64)}`,
+    completedAt: "2026-08-29T01:00:00Z",
+  };
+  const roadmapBody = {
+    schema: "pi-ticket-planning:roadmap-graph:v1",
+    kind: "ROADMAP",
+    executable: false,
+    readinessState: "PLANNED",
+    roadmapId: "R1",
+    planningBaseSha: baseSha,
+    parent: { number: 99, title: bundle.roadmapParent.title, bodyHash: hashText(bundle.roadmapParent.body) },
+    plannedReleases: [
+      { releaseId: "R1-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
+      { releaseId: "R1-C2-r1", releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S2"], predecessors: ["R1-C1-r1"], candidateTickets: [] },
+    ],
+  };
+  bundle.roadmapGraph = { ...roadmapBody, digest: fingerprint(roadmapBody) };
+  Object.assign(bundle.deliveryGraph, {
+    releaseId: "R1-C2-r1",
+    releaseOrdinal: 2,
+    roadmapDigest: bundle.roadmapGraph.digest,
+    predecessorReleaseId: "R1-C1-r1",
+    predecessorReceipt: { ...receiptBody, digest: fingerprint(receiptBody) },
+  });
+  assert.equal(validateAdmissionState(bundle).ok, true);
+
+  const forged = structuredClone(bundle);
+  forged.roadmapGraph.plannedReleases[0].releaseId = "R999";
+  forged.roadmapGraph.plannedReleases[1].predecessors = ["R999"];
+  const { digest: _digest, ...forgedRoadmapBody } = forged.roadmapGraph;
+  forged.roadmapGraph.digest = fingerprint(forgedRoadmapBody);
+  forged.deliveryGraph.roadmapDigest = forged.roadmapGraph.digest;
+  assert.equal(validateAdmissionState(forged).problems.some(({ code }) => code === "ROADMAP_PREDECESSOR_MISMATCH"), true);
+
+  const planningBaseDrift = structuredClone(bundle);
+  planningBaseDrift.roadmapGraph.planningBaseSha = "f".repeat(40);
+  const { digest: _roadmapDigest, ...driftedRoadmapBody } = planningBaseDrift.roadmapGraph;
+  planningBaseDrift.roadmapGraph.digest = fingerprint(driftedRoadmapBody);
+  planningBaseDrift.deliveryGraph.roadmapDigest = planningBaseDrift.roadmapGraph.digest;
+  assert.equal(validateAdmissionState(planningBaseDrift).problems.some(({ code }) => code === "ROADMAP_PLANNING_BASE_MISMATCH"), true);
 });

@@ -12,7 +12,7 @@ import { validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
 import { validateE2EReportSemantics, validateModelReportSemantics, validateQualificationSemantics } from "../integration/report.mjs";
 import { validateE2EState } from "../integration/e2e-state.mjs";
 import { validateOutcomeReceipt } from "../outcome/ingest.mjs";
-import { validateDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
+import { validateDeliveryGraph, validatePredecessorReceipt, validateSpecAcceptance } from "../scripts/check-delivery-graph.mjs";
 import { validateDeliveryGatePlan } from "../scripts/delivery-gate.mjs";
 import { stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs";
@@ -46,7 +46,10 @@ function simpleSemantics(value, name) {
     const { digest, ...projection } = value;
     return digest === hash(projection) ? [] : [problem("RELEASE_PROJECTION_DIGEST_MISMATCH")];
   }
-  if (name === "spec-projection") return value.source.target === value.target ? [] : [problem("SPEC_SOURCE_TARGET_MISMATCH")];
+  if (name === "spec-projection") return [
+    ...(value.source.target === value.target ? [] : [problem("SPEC_SOURCE_TARGET_MISMATCH")]),
+    ...validateSpecAcceptance(value.acceptance),
+  ];
   if (name === "planning-case") {
     return value.nextAction && typeof value.nextAction === "object" && !Array.isArray(value.nextAction)
       ? [] : [problem("PLANNING_CASE_NEXT_ACTION_MISSING")];
@@ -71,6 +74,9 @@ function simpleSemantics(value, name) {
 export async function validateRegisteredArtifactSemantics(value, identity) {
   const name = identity.name;
   if (name === "delivery-graph") return { problems: validateDeliveryGraph(value).problems };
+  if (name === "delivery-release-graph" || name === "roadmap-graph") return { problems: validateDeliveryGraph(value).problems };
+  if (name === "spec-acceptance") return { problems: validateSpecAcceptance(value) };
+  if (name === "release-predecessor-receipt") return { problems: validatePredecessorReceipt(value) };
   if (name === "ticket-context-check") return { problems: validateTicketContextResult(value) };
   if (name === "admission-review") return { problems: validateReviewArtifact(value) ? [] : [problem("ADMISSION_REVIEW_INVALID")] };
   if (name === "admission-plan") return { problems: caught(() => validateAdmissionPlan(value), "ADMISSION_PLAN_INVALID") };

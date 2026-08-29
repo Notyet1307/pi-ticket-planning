@@ -954,7 +954,7 @@
     {
       "id": "lifecycle-accepted-spec-compiles-ticket-graph",
       "skill": "to-tickets",
-      "prompt": "只读票图检查：读取 accepted Spec、当前 tracker 快照、Ticket Context checker 结果和已冻结的候选草稿，重新判断 Context check、Scenario coverage、walking skeleton、Delivery Graph 与下一道人类门禁。不要创建或修改 Issue、关系、标签或文件。",
+      "prompt": "只读迁移门禁检查：读取 accepted Spec 与已冻结的 Delivery Graph v2 候选，确认旧 artifact 仍可解析但不能发布、Admission 或编译为新的 production handoff；返回 NEEDS_MIGRATION，不要创建或修改 Issue、关系、标签或文件。",
       "files": {
         "tracker/repository-context-recheck.md": "# Private deterministic recheck\n\nThe accepted-base checkout path was resolved privately. `check-admission-state.mjs` re-ran `check-ticket-context.mjs` against Git for C01 and C02; both canonical raw results match their exact proposed bodies and base. The local path is not a reviewer source or Tracker artifact.\n",
         "tracker/ticket-context-checks.md": "# Frozen Ticket Context checks\n\nBase: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.\nC01: pi-ticket-planning:ticket-context-check:v1 PASS; exact proposed body hash matches; zero anchors; digest sha256:1111111111111111111111111111111111111111111111111111111111111111.\nC02: pi-ticket-planning:ticket-context-check:v1 PASS; exact proposed body hash matches; zero anchors; digest sha256:2222222222222222222222222222222222222222222222222222222222222222.\n",
@@ -963,13 +963,9 @@
       },
       "expected": {
         "mustMatch": [
-          "Scenario coverage(?:[\\s*：:]|冻结草稿|frozen draft){0,40}PASS",
-          "Walking skeleton(?:[\\s*：:]|冻结草稿|frozen draft){0,40}PASS",
-          "Delivery Graph|Delivery graph",
-          "C01",
-          "C02",
-          "needs-triage",
-          "(?:批准|approval)"
+          "NEEDS_MIGRATION",
+          "(?:v2|Delivery Graph v2)",
+          "(?:不得|不能|不可|not)[^\\n]{0,100}(?:handoff|Admission|发布|编译)"
         ],
         "mustNotMatch": [
           "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",
@@ -1006,7 +1002,7 @@
       "skill": "admit-ticket",
       "timeoutMs": 420000,
       "tools": ["read", "grep", "find", "ls", "subagent"],
-      "prompt": "只读执行 Admission 到当前允许的最远门禁。读取 exact admission bundle、`tracker/parent-70-ticket-coverage.md` 中属于 Parent #70 exact body 的 `## Ticket coverage` continuation、`tracker/harness-readiness-r006.md` 中 freshly executed Harness readiness stable projection 和每个候选的 raw Ticket Context checker result，按合同调用配置好的 ticket-readiness-reviewer（fresh、同步、无 artifacts/mission/acceptance），然后展示结果并停在当前真实激活门禁；没有 Admission Plan fingerprint 时不得请求确认；不要修改 Issue、标签、关系或文件。",
+      "prompt": "只读执行 Admission 迁移门禁。输入中的 Parent 仍嵌入 Delivery Graph v2；确认它可读取但必须返回 NEEDS_MIGRATION，且在迁移为带 exact spec-acceptance receipt 的独立 delivery-release-graph:v3 前不得 dispatch reviewer、生成 Admission Plan、请求确认或修改 Issue、标签、关系和文件。",
       "files": {
         "tracker/repository-context-recheck-r006.md": "# Private deterministic Admission recheck\n\nThe accepted-base checkout path was resolved privately. `check-admission-state.mjs` re-ran `check-ticket-context.mjs` against Git for C01 and C02; both canonical raw results, body hashes, blob projections, and base SHA match. The path is omitted from reviewer content and Tracker comments.\n",
         "tracker/context-checks-r006.json": "{\"contextChecks\":[{\"candidateId\":\"C01\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}},{\"candidateId\":\"C02\",\"result\":{\"schema\":\"pi-ticket-planning:ticket-context-check:v1\",\"ok\":true,\"verdict\":\"PASS\",\"baseSha\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"bodyHash\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"anchorCount\":0,\"anchors\":[],\"problems\":[],\"digest\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\"}}]}\nBinding fact: check-admission-state validated both digests, exact body hashes, exact base SHA, and candidate identities.\n",
@@ -1016,13 +1012,10 @@
       },
       "expected": {
         "mustMatch": [
-          "Delivery graph contract[^\\n]*PASS",
-          "Scenario coverage[^\\n]*PASS",
-          "Walking skeleton[^\\n]*PASS",
-          "Strict-frontier order[^\\n]*PASS",
-          "(?:C01[^\\n]*READY[^\\n]*AGENT|C01(?:(?!C02)[\\s\\S]){0,1200}?Verdict:[^\\n]*READY(?:(?!C02)[\\s\\S]){0,500}?Execution lane:[^\\n]*AGENT)",
-          "(?:C02[^\\n]*READY[^\\n]*AGENT|C02[\\s\\S]{0,1200}?Verdict:[^\\n]*READY[\\s\\S]{0,500}?Execution lane:[^\\n]*AGENT)",
-          "(?:(?:确认|confirm)[^\\n]*(?:激活|activation|ready-for-agent)|(?:激活|activation|ready-for-agent)[^\\n]*(?:确认|confirm)|(?:未生成|没有|缺少)[^\\n]{0,100}(?:Admission Plan fingerprint|fingerprint)[\\s\\S]{0,260}(?:不能|不得|尚未|不可|不请求)[^\\n]{0,100}(?:确认|激活))"
+          "NEEDS_MIGRATION",
+          "delivery-release-graph:v3",
+          "spec-acceptance",
+          "(?:不得|不能|不可|not)[^\\n]{0,100}(?:reviewer|Admission Plan|确认|激活)"
         ],
         "mustNotMatch": [
           "(?:已添加|已应用|added|applied)[^\\n]*ready-for-agent",

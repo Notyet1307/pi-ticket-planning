@@ -77,7 +77,12 @@ export function immutableStateProblems(plan, state) {
     const checked = validateAdmissionState({
       repositoryPath: state.repositoryPath,
       source: state.source,
+      parent: state.parent,
       parentBody: state.parent?.body,
+      specAcceptance: state.specAcceptance,
+      deliveryGraph: state.deliveryGraph,
+      roadmapGraph: state.roadmapGraph,
+      roadmapParent: state.roadmapParent,
       children: state.children,
       contextChecks: state.contextChecks,
     });
@@ -85,10 +90,20 @@ export function immutableStateProblems(plan, state) {
     if (String(state.parent?.id) !== plan.parent) problems.push(issue("PARENT_IDENTITY_DRIFT"));
     problems.push(...harnessStateProblems(plan.reviewed.harness, state.harness, plan.repo, plan.reviewed.source?.baseSha));
     try {
-      if (fingerprint(parseDeliveryGraph(state.parent.body)) !== plan.graphFingerprint) problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
+      const graph = state.deliveryGraph && typeof state.deliveryGraph === "object"
+        ? state.deliveryGraph
+        : parseDeliveryGraph(state.parent.body);
+      if (fingerprint(graph) !== plan.graphFingerprint) problems.push(issue("GRAPH_FINGERPRINT_MISMATCH"));
     } catch (error) {
       problems.push(issue("INVALID_DELIVERY_GRAPH", error instanceof Error ? error.message : String(error)));
     }
+    if (fingerprint(state.roadmapGraph ?? null) !== fingerprint(plan.reviewed.roadmap ?? null)) problems.push(issue("ROADMAP_DRIFT"));
+    const roadmapParent = state.roadmapParent ? {
+      number: Number(state.roadmapParent.id),
+      title: state.roadmapParent.title,
+      bodyHash: hashText(state.roadmapParent.body),
+    } : null;
+    if (fingerprint(roadmapParent) !== fingerprint(plan.reviewed.roadmapParent ?? null)) problems.push(issue("ROADMAP_PARENT_DRIFT"));
   } else {
     if (String(state.candidate?.id) !== plan.target) problems.push(issue("CANDIDATE_IDENTITY_DRIFT"));
     problems.push(...verifyCandidateContextChecks({

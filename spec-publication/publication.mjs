@@ -7,6 +7,14 @@ import { canonical, fingerprint, safeError } from "../admission/domain.mjs";
 import { projectSpec } from "../protocol/projections.mjs";
 import { githubIssueBindingDigest } from "../planning-case/bindings.mjs";
 import {
+  DELIVERY_GRAPH_MARKER,
+  DELIVERY_GRAPH_MARKER_V1,
+  DELIVERY_RELEASE_GRAPH_MARKER,
+  EXECUTABLE_DELIVERY_SPEC_MARKER,
+  ROADMAP_GRAPH_MARKER,
+  ROADMAP_PARENT_MARKER,
+} from "../scripts/check-delivery-graph.mjs";
+import {
   createFactAttestation,
   evaluateMutation,
   producerAttestationSource,
@@ -90,7 +98,17 @@ function issueTitle(draft) {
 }
 
 function bodyWithMarker(draft, marker) {
-  return `${draft}${draft.endsWith("\n") ? "\n" : "\n\n"}${marker}\n`;
+  if ([
+    EXECUTABLE_DELIVERY_SPEC_MARKER,
+    ROADMAP_PARENT_MARKER,
+    ROADMAP_GRAPH_MARKER,
+    DELIVERY_RELEASE_GRAPH_MARKER,
+    DELIVERY_GRAPH_MARKER,
+    DELIVERY_GRAPH_MARKER_V1,
+  ].some((value) => draft.includes(value))) {
+    throw new Error("SPEC_PARENT_KIND_MARKER_CONFLICT");
+  }
+  return `${draft}${draft.endsWith("\n") ? "\n" : "\n\n"}${EXECUTABLE_DELIVERY_SPEC_MARKER}\n${marker}\n`;
 }
 
 function artifactPath(value) {
@@ -324,7 +342,20 @@ function assertCaseReleaseBinding(snapshot, plan, target) {
     || release.source?.path !== plan.source.path || release.source?.blobDigest !== plan.source.blobDigest) throw new Error("SPEC_PUBLICATION_CASE_SOURCE_MISMATCH");
 }
 
-function specProjection(plan, issue) {
+export function createSpecAcceptanceReceipt({ plan, issue, approval }) {
+  issue = normalizedIssue(issue);
+  const body = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: Number(issue.number), title: issue.title, bodyHash: plan.issue.bodyDigest },
+    source: { baseSha: plan.source.baseSha, specContentHash: plan.draftDigest },
+    decision: { caseId: plan.caseId, approvalId: approval.id, acceptedAt: approval.observedAt },
+  };
+  const receipt = { ...body, digest: fingerprint(body) };
+  if (!validateArtifact(receipt).ok) throw new Error("INVALID_SPEC_ACCEPTANCE_RECEIPT");
+  return receipt;
+}
+
+function specProjection(plan, issue, approval) {
   issue = normalizedIssue(issue);
   const ref = `repos/${plan.repo}/issues/${issue.number}`;
   return {
@@ -336,6 +367,7 @@ function specProjection(plan, issue) {
     source: { target: `github:${plan.repo}`, kind: "github-issue", id: issue.number, revision: issue.updatedAt, digest: plan.issue.bodyDigest },
     scenarioIds: plan.scenarioIds,
       bytes: plan.issue.body,
+      acceptance: createSpecAcceptanceReceipt({ plan, issue, approval }),
     }),
     verification: { kind: "GITHUB_ISSUE", ref, digest: githubIssueBindingDigest(ref, issue) },
   };
@@ -400,7 +432,7 @@ export function applySpecPublication({ plan, current, preflight, adapter, store,
   issue = adapter.readIssue(issue?.number);
   const issueProblems = [...verifySpecIssueExactReadback({ issue, plan }), ...verifySpecNeedsTriageOnly({ issue })];
   if (issueProblems.length) throw new Error(issueProblems[0].code);
-  const projection = specProjection(plan, issue);
+  const projection = specProjection(plan, issue, approval);
 
   snapshot = store.get({ caseId, target });
   if (snapshot.bindings.spec === null) store.bind({ caseId, target, name: "spec", binding: projection });
@@ -430,5 +462,5 @@ export function applySpecPublication({ plan, current, preflight, adapter, store,
   if (snapshot.approvals.pending.some(({ id }) => id === approvalId)) store.consumeApproval({ caseId, target, approvalId });
   const final = store.get({ caseId, target });
   if (final.approvals.consumed.filter(({ id }) => id === approvalId).length !== 1 || final.approvals.pending.some(({ id }) => id === approvalId)) throw new Error("APPROVAL_NOT_SINGLE_CONSUMED");
-  return { status: "COMPLETE", issue: normalizedIssue(issue), spec: projection, planFingerprint: plan.planFingerprint };
+  return { status: "COMPLETE", issue: normalizedIssue(issue), spec: projection, acceptance: projection.acceptance, planFingerprint: plan.planFingerprint };
 }
