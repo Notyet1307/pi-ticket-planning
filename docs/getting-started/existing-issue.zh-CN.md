@@ -84,7 +84,7 @@ Issue 需要产品塑形时，Candidate Frame、Release、accepted ADR、Deliver
 
 ## 8. 什么时候进入执行
 
-对于拆分后的 Delivery Graph，推荐路径检查 exact source 和 policy、当前 Issue body、blocker、graph、Context 结果与 fresh readiness verdict。全部为 AGENT 且没有 external blocker 的 graph 会形成一个 exact Controller Release Plan v2；source、body、graph、review、policy、Controller config 或 Plan 漂移后必须重建并重新批准。
+对于拆分后的 Delivery Graph，推荐路径检查 exact source 和 policy、当前 Issue body、blocker、graph、Context 结果与 fresh readiness verdict。没有 external blocker、包含非空 dependency-closed AGENT tranche 的 graph 会为该 tranche 形成一个 exact Controller Release Plan v2；后置 HUMAN obligation 仍绑定在完整 Graph 中且不进入 Controller input。source、body、graph、review、policy、Controller config 或 Plan 漂移后必须重建并重新批准。
 
 确认后的 apply 会原子写三个私有文件并记录 `EXECUTION/HANDOFF_READY`；它只打印绑定 approved config digest、Controller revision 与 provenance digest 的 Controller `start` 命令，不执行该命令，也不写 ready label。决定完整的 standalone Ticket，或显式选择 Legacy Herdr 的用户，仍可使用旧 `admit` 路径。下面含义彼此不同：
 

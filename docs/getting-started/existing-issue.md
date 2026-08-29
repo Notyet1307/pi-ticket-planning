@@ -84,7 +84,7 @@ For a split, the system first compiles stable Spec scenarios, then proves every 
 
 ## 8. When work reaches execution
 
-For a split Delivery Graph, the recommended path checks the exact source and policy, current Issue bodies, blockers, graph, Context results, and fresh readiness verdict. An all-AGENT graph with no external blocker becomes one exact Controller Release Plan v2; any source, body, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
+For a split Delivery Graph, the recommended path checks the exact source and policy, current Issue bodies, blockers, graph, Context results, and fresh readiness verdict. A graph with no external blocker and a non-empty dependency-closed AGENT tranche becomes one exact Controller Release Plan v2 for that tranche; trailing HUMAN obligations remain bound to the full Graph and outside Controller input. Any source, body, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
 
 Confirmed apply atomically writes three private files and records `EXECUTION/HANDOFF_READY`; it prints a Controller `start` command bound to the approved config digest, Controller revision, and provenance digest, but does not run it or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
 

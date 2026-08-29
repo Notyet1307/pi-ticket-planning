@@ -70,7 +70,7 @@ A complete human-only ticket is READY with execution lane HUMAN. Human ownership
 
 ## Activation boundary
 
-Recommended Codex Controller release handoff requires every graph child to be `AGENT`, have no external blocker, and remain `needs-triage`; one fresh graph review and one exact Release fingerprint authorization cover the whole Release. It does not write ready labels or create per-ticket runtime Reviewer work.
+Recommended Codex Controller release handoff reviews and binds the complete Graph, requires no external blocker, and projects one non-empty dependency-closed `AGENT` tranche. A `HUMAN` child may remain as a post-Controller obligation only when no projected `AGENT` child depends on it. Every child remains `needs-triage`; one fresh graph review and one exact Release fingerprint authorization bind the full Graph and projected tranche. It does not write ready labels or create per-ticket runtime Reviewer work.
 
 Legacy Herdr Admission may separately activate ready labels and require Harness execution evidence. Do not project those runtime facts back into this READY content contract.
 
