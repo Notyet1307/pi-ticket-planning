@@ -1,11 +1,12 @@
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
-import { parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
+import { parseDeliveryGraph, validateDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { requireExactAdmissionReviewBinding } from "../admission/review-transport.mjs";
 import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { validateReview } from "../admission/domain.mjs";
 import { HANDOFF_PLAN_SCHEMA, RELEASE_PLAN_SCHEMA, canonical, fingerprint, handoffProjection, hashText, releasePlanDigest } from "./domain.mjs";
 import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "./markdown.mjs";
+import { reviewCandidateMatchesTicketContract, validateTicketContract } from "../scripts/check-ticket-contract.mjs";
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA = /^[a-f0-9]{40}$/;
@@ -49,10 +50,21 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   try { graph = input.deliveryGraph && typeof input.deliveryGraph === "object" ? structuredClone(input.deliveryGraph) : parseDeliveryGraph(input.parent.body); } catch { throw new Error("INVALID_DELIVERY_GRAPH_SOURCE"); }
   if (graph?.schema === "pi-ticket-planning:roadmap-graph:v1" || graph?.kind === "ROADMAP") throw new Error("ROADMAP_NOT_EXECUTABLE");
   if (graph?.schema !== "pi-ticket-planning:delivery-release-graph:v3") throw new Error("NEEDS_MIGRATION");
-  const graphCheck = validateArtifact(graph, { identity: "pi-ticket-planning:delivery-release-graph:v3" });
-  if (!graphCheck.ok) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
-  if (!["GRAPH_REVIEWED", "HANDOFF_APPROVED", "HANDOFF_READY"].includes(graph.readinessState)) throw new Error("RELEASE_NOT_GRAPH_REVIEWED");
   if (graph.children?.some((child) => child.executionLane !== "AGENT" || (child.externalBlockers ?? []).length > 0)) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
+  const graphCheck = validateDeliveryGraph(graph);
+  if (!graphCheck.ok) {
+    const stable = graphCheck.problems.find(({ code }) => [
+      "MISSING_ORACLE_BINDING",
+      "TOO_MANY_RISK_CLASSES",
+      "SCOPE_BUDGET_TOO_LARGE",
+      "MISSING_REPLAN_TRIGGERS",
+      "PROTECTED_PATH_IN_EXPECTED_WRITE_SET",
+      "TICKET_REQUIRES_SPLIT",
+      "INTEGRATION_ONLY_CONTRACT_VIOLATION",
+    ].includes(code));
+    throw new Error(stable?.code ?? "CODEX_RELEASE_NOT_EXECUTABLE");
+  }
+  if (!["GRAPH_REVIEWED", "HANDOFF_APPROVED", "HANDOFF_READY"].includes(graph.readinessState)) throw new Error("RELEASE_NOT_GRAPH_REVIEWED");
   const maxChildren = graph.childPolicy?.maxChildren ?? 4;
   if (graph.children.length > maxChildren) throw new Error("CHILD_COUNT_POLICY_EXCEEDED");
   const initialChildren = new Map((input.children ?? []).map((child) => [String(child.id), child]));
@@ -81,6 +93,15 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
     if (!current || current.state !== "open" || current.title !== child.title || hashText(current.body) !== child.bodyHash) throw new Error(`CHILD_DRIFT:${child.id}`);
     if (review?.verdict !== "READY" || review.executionLane !== child.executionLane
       || current.executionLane !== undefined && current.executionLane !== child.executionLane) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
+    const contract = validateTicketContract({
+      repositoryPath: input.repositoryPath,
+      baseSha: graph.executionBaseSha,
+      child: current,
+      graphChild: child,
+      graphChildren: graph.children,
+    });
+    if (!contract.ok) throw new Error(contract.problems[0]?.code ?? "CODEX_RELEASE_NOT_EXECUTABLE");
+    if (!reviewCandidateMatchesTicketContract(review, contract.projection, contract.problems)) throw new Error("REVIEW_TICKET_CONTRACT_MISMATCH");
     if ((current.blockedBy ?? []).some((id) => !graph.children.some((item) => String(item.id) === String(id)))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
     return { issue: String(child.id), title: current.title, bodyHash: child.bodyHash, executionLane: child.executionLane, blockedBy: child.blockedBy.map(String), body: current.body };
   });

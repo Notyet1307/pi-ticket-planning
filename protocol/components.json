@@ -54,6 +54,7 @@
     "spec-publication-github-adapter": { "kind": "module", "path": "spec-publication/publication.mjs", "export": "createGitHubSpecPublicationAdapter" },
     "spec-publication-cli": { "kind": "module", "path": "spec-publication/cli.mjs", "export": "runSpecPublicationCli" },
     "ticket-context-checker": { "kind": "module", "path": "scripts/check-ticket-context.mjs", "export": "checkTicketContext" },
+    "ticket-contract-checker": { "kind": "module", "path": "scripts/check-ticket-contract.mjs", "export": "validateTicketContract" },
     "ticket-readiness-reviewer": { "kind": "skill", "path": "agents/ticket-readiness-reviewer.md" },
     "to-spec": { "kind": "skill", "path": "skills/to-spec/SKILL.md" },
     "to-tickets": { "kind": "skill", "path": "skills/to-tickets/SKILL.md" },

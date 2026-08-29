@@ -1,6 +1,7 @@
 import { hashText } from "../scripts/check-delivery-graph.mjs";
 import { evaluateTransition } from "../protocol/kernel.mjs";
 import { MAX_RECEIPT_AGE_MS, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
+import { reviewProjectionRequiresSplit } from "../scripts/check-ticket-contract.mjs";
 
 export const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
 export const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1";
@@ -103,8 +104,32 @@ export function validateReviewArtifact(review) {
   const candidates = review?.candidates;
   const completeAxes = axes && Object.keys(axes).sort().join("\n") === [...REVIEW_AXES].sort().join("\n")
     && REVIEW_AXES.every((name) => ["PASS", "FAIL", "NEEDS_INFO"].includes(axes[name]));
+  const validCandidate = (candidate) => {
+    const arrays = ["riskClasses", "primaryVerificationSeams", "expectedPaths", "protectedOraclePaths", "replanTriggers", "codeHotspotOverlap", "waiverDigests"];
+    if (arrays.some((key) => !Array.isArray(candidate?.[key]) || new Set(candidate[key]).size !== candidate[key].length)
+      || candidate.riskCount !== candidate.riskClasses.length
+      || !["PASS", "FAIL", "NOT_APPLICABLE"].includes(candidate.oracleBindingVerdict)
+      || !["PASS", "FAIL", "NOT_APPLICABLE"].includes(candidate.integrationOnlyVerdict)) return false;
+    if (candidate.executionLane === "HUMAN") {
+      return candidate.riskCount === 0 && candidate.scopeBudget === null && candidate.expectedPaths.length === 0
+        && candidate.primaryVerificationSeams.length === 0
+        && candidate.protectedOraclePaths.length === 0 && candidate.oracleBindingDigest === null
+        && candidate.oracleBindingVerdict === "NOT_APPLICABLE" && candidate.replanTriggers.length === 0
+        && candidate.codeHotspotOverlap.length === 0 && candidate.integrationOnlyVerdict === "NOT_APPLICABLE"
+        && candidate.waiverDigests.length === 0;
+    }
+    return candidate.executionLane === "AGENT" && candidate.riskCount > 0
+      && candidate.primaryVerificationSeams.length > 0
+      && Number.isInteger(candidate.scopeBudget?.maxFiles) && Number.isInteger(candidate.scopeBudget?.maxChangedLines)
+      && candidate.expectedPaths.length > 0 && candidate.protectedOraclePaths.length > 0
+      && SHA256.test(candidate.oracleBindingDigest ?? "") && candidate.oracleBindingVerdict !== "NOT_APPLICABLE"
+      && candidate.replanTriggers.length > 0 && candidate.integrationOnlyVerdict !== "FAIL"
+      && (candidate.verdict !== "READY" || candidate.oracleBindingVerdict === "PASS")
+      && (!reviewProjectionRequiresSplit(candidate) || candidate.verdict === "SPLIT");
+  };
   const validCandidates = Array.isArray(candidates) && candidates.length > 0
-    && new Set(candidates.map(({ id }) => String(id))).size === candidates.length;
+    && new Set(candidates.map(({ id }) => String(id))).size === candidates.length
+    && candidates.every(validCandidate);
   const valid = review?.schema === REVIEW_SCHEMA
     && review.reviewer === "ticket-readiness-reviewer"
     && Number.isFinite(Date.parse(review.reviewedAt))

@@ -112,7 +112,7 @@ function materialize(outputDir, plan, receipt) {
 
 function facts(plan, approval, mutationId, now, subject) {
   const create = (fact, source, digest, sameMutation = true) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${mutationId.slice(-12)}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: fact === "controller.readinessPassed" ? new Date(Date.parse(now) + 3600000).toISOString() : null, ...(sameMutation ? { mutationId } : {}), evidence: { kind: "artifact", ref: plan.planFingerprint, digest } });
-  return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.provenance.digest)), approval];
+  return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("oracles.bound", "execution-plan-compiler", plan.reviewedFingerprint), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.provenance.digest)), approval];
 }
 
 export function applyExecutionPlan({

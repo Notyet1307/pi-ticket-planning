@@ -18,6 +18,14 @@ import {
 } from "../scripts/check-ticket-context.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
+import {
+  executionConstraints,
+  graphContractFields,
+  humanReviewContractFields,
+  oracleBinding,
+  reviewContractFields,
+  ticketBody,
+} from "./ticket-contract-fixture.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
@@ -54,11 +62,17 @@ function readyInput() {
     "### S2: Return result",
     "Accepted behavior.",
   ].join("\n");
+  const binding = oracleBinding({ repo: root, baseSha });
   const children = [
     {
       id: "101",
       title: "Accept comparison inputs",
-      body: "# Accept comparison inputs\n\nExact reviewed body.",
+      body: ticketBody({
+        objective: "Accept comparison inputs.",
+        primaryVerification: "Submit two valid inputs.",
+        binding,
+        constraints: executionConstraints({ expectedPaths: ["admission/plan.mjs"], primaryVerificationSeams: ["Submit two valid inputs."] }),
+      }),
       blockedBy: [],
       labels: ["needs-triage", "product"],
       state: "open",
@@ -67,7 +81,12 @@ function readyInput() {
     {
       id: "102",
       title: "Return an explainable result",
-      body: "# Return an explainable result\n\nExact reviewed body.",
+      body: ticketBody({
+        objective: "Return an explainable result.",
+        primaryVerification: "Compare accepted inputs and inspect the result.",
+        binding,
+        constraints: executionConstraints({ expectedPaths: ["admission/domain.mjs"], primaryVerificationSeams: ["Compare accepted inputs."] }),
+      }),
       blockedBy: ["101"],
       labels: ["needs-triage"],
       state: "open",
@@ -77,6 +96,8 @@ function readyInput() {
   const source = { identity: snapshot.source.identity, revision: snapshot.source.revision, baseSha, specContentHash: hashText(specBody) };
   snapshot.children[0].bodyHash = hashText(children[0].body);
   snapshot.children[1].bodyHash = hashText(children[1].body);
+  Object.assign(snapshot.children[0], graphContractFields(children[0].body));
+  Object.assign(snapshot.children[1], graphContractFields(children[1].body));
   const parent = {
     id: "100",
     title: "Deliver comparison behavior",
@@ -136,8 +157,8 @@ function readyInput() {
       axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
-        { id: "101", verdict: "READY", executionLane: "AGENT" },
-        { id: "102", verdict: "READY", executionLane: "AGENT" },
+        { id: "101", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(children[0].body, deliveryGraph.children[0], deliveryGraph.children) },
+        { id: "102", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(children[1].body, deliveryGraph.children[1], deliveryGraph.children) },
       ],
     },
     currentCheckpoint: checkpoint("DELIVERY", "100", source.revision),
@@ -145,10 +166,16 @@ function readyInput() {
 }
 
 function standaloneInput() {
+  const binding = oracleBinding({ repo: root, baseSha });
   const candidate = {
     id: "42",
     title: "Correct status output",
-    body: "# Correct status output\n\n## Agent Brief\n\nReturn `Ready`.",
+    body: ticketBody({
+      objective: "Return the corrected status output.",
+      primaryVerification: "Run the status-output scenario.",
+      binding,
+      constraints: executionConstraints({ expectedPaths: ["planning-case/result.mjs"], primaryVerificationSeams: ["status-output scenario"] }),
+    }),
     blockedBy: [],
     labels: ["needs-triage", "copy"],
     state: "open",
@@ -180,7 +207,7 @@ function standaloneInput() {
       source,
       axes: READY_AXES,
       graphVerdict: "READY",
-      candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
+      candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(candidate.body) }],
     },
     currentCheckpoint: checkpoint("TRIAGE", "42", "r1"),
   });
@@ -255,6 +282,13 @@ test("Admission Plan rejects a Reviewer bound to another exact input", () => {
   assert.equal(checked.problems.some(({ code }) => ["REVIEWED_FINGERPRINT_MISMATCH", "REVIEW_INPUT_BINDING_MISMATCH"].includes(code)), true);
 });
 
+test("Admission Plan rejects forged Oracle/risk review metadata", () => {
+  const input = readyInput();
+  input.review.candidates[0].riskClasses = ["FORGED_RISK_CLASS"];
+  attachReviewBinding(input);
+  assert.throws(() => buildAdmissionPlan(input), /review Ticket contract drifted/);
+});
+
 test("Admission Plan requires the exact activation checkpoint", () => {
   const wrongVerdict = readyInput();
   wrongVerdict.currentCheckpoint.verdict = "BLOCKED";
@@ -279,6 +313,7 @@ test("standalone QUICK produces one exact Admission Plan", () => {
 test("standalone HUMAN work does not require a Harness execution receipt", () => {
   const human = standaloneInput();
   human.review.candidates[0].executionLane = "HUMAN";
+  Object.assign(human.review.candidates[0], humanReviewContractFields());
   delete human.harness;
   attachReviewBinding(human);
   const plan = buildStandaloneAdmissionPlan(human);

@@ -1,0 +1,6 @@
+{
+  "schema": "accord.oracle.schema9/v1",
+  "id": "O01",
+  "assertion": "The frozen schema migration preserves the accepted authority boundary.",
+  "expected": "PASS"
+}

@@ -47,7 +47,19 @@ function executableGraph(item = cases.find((entry) => entry.expectedGraphVerdict
     decisionManifestDigest: `sha256:${"8".repeat(64)}`,
     source: { identity: legacy.source.identity, revision: legacy.source.revision, specContentHash: legacy.source.specContentHash },
     scenarios: legacy.scenarios,
-    children: legacy.children,
+    children: legacy.children.map((child, index) => ({
+      ...child,
+      primaryVerificationSeams: [child.primaryVerification],
+      implementationOwner: `worker-${index + 1}`,
+      riskClasses: ["BOUNDED_BEHAVIOR_CHANGE"],
+      scopeBudget: { maxFiles: 8, maxChangedLines: 1500 },
+      expectedPaths: [`src/ticket-${index + 1}.ts`],
+      protectedPaths: [`oracles/o${index + 1}.json`],
+      replanTriggers: ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"],
+      oracleBindingDigest: `sha256:${String(index + 1).repeat(64)}`,
+      integrationOnly: null,
+      waiverDigests: [],
+    })),
     walkingSkeleton: legacy.walkingSkeleton,
   };
 }

@@ -212,6 +212,30 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "oracle-binding",
+      "schemaIdentity": "pi-ticket-planning:oracle-binding:v1",
+      "schemaPath": "schemas/oracle-binding-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "to-tickets",
+      "readers": ["ticket-contract-checker", "ticket-readiness-reviewer", "admission-state", "execution-plan-compiler"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "ticket-readiness-waiver",
+      "schemaIdentity": "pi-ticket-planning:ticket-readiness-waiver:v1",
+      "schemaPath": "schemas/ticket-readiness-waiver-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "operator",
+      "readers": ["ticket-contract-checker", "ticket-readiness-reviewer", "admission-state", "execution-plan-compiler"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "ticket-context-check",
       "schemaIdentity": "pi-ticket-planning:ticket-context-check:v1",
       "schemaPath": "schemas/ticket-context-check-v1.schema.json",

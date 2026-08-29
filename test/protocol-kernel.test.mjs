@@ -270,6 +270,7 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     fact("source.unchanged", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
     fact("policy.accepted", true, { source: { ...fact("release.readinessPassed").source, kind: "git-policy-check" } }),
     fact("graph.passed", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
+    fact("oracles.bound", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "check-admission-state" } }),
     fact("review.ready", true, { mutationId, source: { ...fact("release.readinessPassed").source, kind: "ticket-readiness-reviewer" } }),
     fact("capability.admissionReady", true, { source: { ...fact("release.readinessPassed").source, kind: "capability-receipt" } }),
     fact("harness.readinessPassed", true, { source: { ...fact("release.readinessPassed").source, kind: "harness-ledger" } }),
@@ -315,7 +316,7 @@ test("strict mutation consumes one exact approval and declares postconditions", 
     "approval.singleConsumed",
     "transaction.committed",
   ]);
-  const withoutRuntime = facts.filter(({ fact: name }) => !["capability.admissionReady", "harness.readinessPassed", "graph.passed"].includes(name));
+  const withoutRuntime = facts.filter(({ fact: name }) => !["capability.admissionReady", "harness.readinessPassed", "graph.passed", "oracles.bound"].includes(name));
   assert.equal(evaluateMutation({
     mutation: "admission.applyStandaloneHuman", actor: "admission-cli", transition, facts: withoutRuntime,
     consumedApprovalIds: [], mutationId, now: "2026-08-25T00:01:00.000Z",

@@ -10,6 +10,13 @@ import {
 } from "../scripts/check-delivery-graph.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
+import {
+  executionConstraints,
+  graphContractFields,
+  oracleBinding,
+  reviewContractFields,
+  ticketBody,
+} from "./ticket-contract-fixture.mjs";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const BASE_SHA = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).stdout.trim();
@@ -48,6 +55,11 @@ The first path produces the release artifact.
 None.`;
 
 export function executionInput() {
+  const binding = oracleBinding({ repo: ROOT, baseSha: BASE_SHA });
+  const constraints = executionConstraints({
+    expectedPaths: ["execution-plan/compiler.mjs"],
+    primaryVerificationSeams: ["Run the release scenario."],
+  });
   const child = {
     id: "101",
     title: "Build safe release",
@@ -55,18 +67,15 @@ export function executionInput() {
     labels: ["needs-triage"],
     blockedBy: [],
     updatedAt: "2026-08-20T00:00:00Z",
-    body: `## What to build
-Build the safe release.
-## Primary verification
-Run the release scenario.
-## Acceptance criteria
-- [ ] The release is created.
-- [ ] The release is durable.
-- [ ] A failed release leaves no partial state.
-## Invariants and guardrails
-No partial writes survive.
-## Out of scope
-No UI work.`,
+    body: ticketBody({
+      objective: "Build the safe release.",
+      primaryVerification: "Run the release scenario.",
+      acceptanceCriteria: ["The release is created.", "The release is durable.", "A failed release leaves no partial state."],
+      guardrails: "No partial writes survive.",
+      outOfScope: "No UI work.",
+      binding,
+      constraints,
+    }),
   };
   const parent = {
     id: "100",
@@ -112,6 +121,7 @@ No UI work.`,
       startingState: "input",
       primaryVerification: "Run the release scenario.",
       executionLane: "AGENT",
+      ...graphContractFields(child.body),
     }],
     walkingSkeleton: [child.id],
   };
@@ -143,7 +153,12 @@ No UI work.`,
       source: { identity: source.identity, revision: source.revision, baseSha: BASE_SHA, specContentHash },
       axes,
       graphVerdict: "READY",
-      candidates: [{ id: child.id, verdict: "READY", executionLane: "AGENT" }],
+      candidates: [{
+        id: child.id,
+        verdict: "READY",
+        executionLane: "AGENT",
+        ...reviewContractFields(child.body, graph.children[0], graph.children),
+      }],
     },
   });
 }

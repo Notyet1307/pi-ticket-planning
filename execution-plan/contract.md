@@ -18,7 +18,7 @@ approved Delivery Graph
 
 The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
 
-The v3 artifact represents exactly one current Release, has no external blocker, defaults to at most four children, is hard-capped at six, and contains only AGENT work. Roadmap, future Release candidates, and HUMAN work remain non-executable artifacts and never enter Controller input. Every live Parent/Child identity and body hash must match the acceptance receipt, Graph, and review source. Approval binds the exact Graph digest, review fingerprint, projected Plan, and handoff-plan fingerprint. Apply atomically materializes the three Controller input files, records `EXECUTION/HANDOFF_READY`, then consumes that approval.
+The v3 artifact represents one bounded all-AGENT Release. Before compilation, each exact Ticket body must pass Oracle bytes/base/digest/owner/command checks, risk/scope and protected-write-set limits, controlled REPLAN triggers, and exact reviewer metadata comparison. PR 2 gates these facts in Planner; Release Plan projection and Controller runtime enforcement remain the coordinated PR 3 contract. Approval binds the exact Graph digest, review fingerprint, projected Plan, and handoff-plan fingerprint.
 
 Release Plan v2 binds:
 

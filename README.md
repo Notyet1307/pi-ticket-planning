@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release with no external blocker and at most the policy child limit (default four, hard cap six), the recommended path reviews and prepares one Release Handoff. Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
+For an accepted GitHub v3 Release, every AGENT child must bind a frozen reviewed-base Oracle, independent owner, package-script allowlist, risk/scope budget, expected/protected paths, and REPLAN triggers. Admission and the compiler reject drift before preparing one Release Handoff. Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \

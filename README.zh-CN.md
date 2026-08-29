@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受、没有 external blocker、且不超过 policy child limit（默认 4、硬上限 6）的 GitHub v3 Release，默认先 review 再准备一次 Release Handoff。Roadmap、HUMAN work、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
+已接受的 GitHub v3 Release 中，每个 AGENT child 都必须绑定 reviewed-base frozen Oracle、独立 owner、package-script allowlist、risk/scope budget、expected/protected paths 与 REPLAN triggers。Admission 和 compiler 在 Handoff 前拒绝任何漂移。Roadmap、HUMAN work、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \

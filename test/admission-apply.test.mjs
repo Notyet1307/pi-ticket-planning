@@ -23,6 +23,13 @@ import { advanceCaseToActivation } from "./execution-handoff-fixture.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { verifyDisposableGitHubAppAuth, writeGitHubAppCredentialBinding } from "../integration/github-app-auth.mjs";
+import {
+  executionConstraints,
+  graphContractFields,
+  oracleBinding,
+  reviewContractFields,
+  ticketBody,
+} from "./ticket-contract-fixture.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -40,9 +47,10 @@ function checkpoint(lane, id, revision) {
 
 function input() {
   const specBody = "# Spec\n\n## Behavioral scenarios\n### S1: First\nFirst.\n\n### S2: Second\nSecond.";
+  const binding = oracleBinding({ repo: repositoryPath, baseSha });
   const children = [
-    { id: "11", title: "First", body: "# First\n\nBody one.", blockedBy: [], labels: ["needs-triage", "bug"], state: "open", updatedAt: "t1", assignees: [], comments: [] },
-    { id: "12", title: "Second", body: "# Second\n\nBody two.", blockedBy: ["11"], labels: ["needs-triage"], state: "open", updatedAt: "t2", assignees: [], comments: [] },
+    { id: "11", title: "First", body: ticketBody({ objective: "Build first.", primaryVerification: "Verify first.", binding, constraints: executionConstraints({ expectedPaths: ["admission/apply.mjs"], primaryVerificationSeams: ["Verify first."] }) }), blockedBy: [], labels: ["needs-triage", "bug"], state: "open", updatedAt: "t1", assignees: [], comments: [] },
+    { id: "12", title: "Second", body: ticketBody({ objective: "Build second.", primaryVerification: "Verify second.", binding, constraints: executionConstraints({ expectedPaths: ["admission/recovery.mjs"], primaryVerificationSeams: ["Verify second."] }) }), blockedBy: ["11"], labels: ["needs-triage"], state: "open", updatedAt: "t2", assignees: [], comments: [] },
   ];
   const source = {
     identity: "R001",
@@ -77,8 +85,8 @@ function input() {
       { id: "S2", behavior: "Second.", entry: "first", exit: "second", releaseSignal: "Second.", smallestLoop: true },
     ],
     children: [
-      { id: "11", title: "First", coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(children[0].body), startingState: "Input exists.", primaryVerification: "Verify first.", executionLane: "AGENT" },
-      { id: "12", title: "Second", coverageRole: "DIRECT", sourceScenarios: ["S2"], blockedBy: ["11"], externalBlockers: [], bodyHash: hashText(children[1].body), startingState: "First exists.", primaryVerification: "Verify second.", executionLane: "AGENT" },
+      { id: "11", title: "First", coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(children[0].body), startingState: "Input exists.", primaryVerification: "Verify first.", executionLane: "AGENT", ...graphContractFields(children[0].body) },
+      { id: "12", title: "Second", coverageRole: "DIRECT", sourceScenarios: ["S2"], blockedBy: ["11"], externalBlockers: [], bodyHash: hashText(children[1].body), startingState: "First exists.", primaryVerification: "Verify second.", executionLane: "AGENT", ...graphContractFields(children[1].body) },
     ],
     walkingSkeleton: ["11", "12"],
   };
@@ -106,8 +114,8 @@ function input() {
       axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
-        { id: "11", verdict: "READY", executionLane: "AGENT" },
-        { id: "12", verdict: "READY", executionLane: "AGENT" },
+        { id: "11", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(children[0].body, graph.children[0], graph.children) },
+        { id: "12", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(children[1].body, graph.children[1], graph.children) },
       ],
     },
     currentCheckpoint: checkpoint("DELIVERY", "10", "r2"),
@@ -548,10 +556,11 @@ test("Admission apply resumes a safe intermediate controlled-label state", () =>
 });
 
 test("standalone QUICK uses the same idempotent apply path", () => {
+  const binding = oracleBinding({ repo: repositoryPath, baseSha });
   const candidate = {
     id: "42",
     title: "Correct status output",
-    body: "# Correct status output\n\n## Agent Brief\n\nReturn `Ready`.",
+    body: ticketBody({ objective: "Return the corrected status output.", primaryVerification: "Run the status scenario.", binding, constraints: executionConstraints({ expectedPaths: ["planning-case/result.mjs"], primaryVerificationSeams: ["status scenario"] }) }),
     blockedBy: [],
     labels: ["needs-triage", "copy"],
     state: "open",
@@ -572,7 +581,7 @@ test("standalone QUICK uses the same idempotent apply path", () => {
       source: { identity: "accepted-status-behavior", revision: "r1", baseSha },
       axes: READY_AXES,
       graphVerdict: "READY",
-      candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT" }],
+      candidates: [{ id: "42", verdict: "READY", executionLane: "AGENT", ...reviewContractFields(candidate.body) }],
     },
     currentCheckpoint: checkpoint("TRIAGE", "42", "r1"),
   };

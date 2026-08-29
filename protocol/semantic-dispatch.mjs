@@ -16,6 +16,7 @@ import { validateDeliveryGraph, validatePredecessorReceipt, validateSpecAcceptan
 import { validateDeliveryGatePlan } from "../scripts/delivery-gate.mjs";
 import { stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs";
+import { ticketContractDigest } from "../scripts/check-ticket-contract.mjs";
 
 function problem(code, subject) {
   return subject === undefined ? { code } : { code, subject };
@@ -50,6 +51,10 @@ function simpleSemantics(value, name) {
     ...(value.source.target === value.target ? [] : [problem("SPEC_SOURCE_TARGET_MISMATCH")]),
     ...validateSpecAcceptance(value.acceptance),
   ];
+  if (name === "ticket-readiness-waiver") {
+    const { digest, ...body } = value;
+    return digest === ticketContractDigest(body) ? [] : [problem("TICKET_READINESS_WAIVER_DIGEST_MISMATCH")];
+  }
   if (name === "planning-case") {
     return value.nextAction && typeof value.nextAction === "object" && !Array.isArray(value.nextAction)
       ? [] : [problem("PLANNING_CASE_NEXT_ACTION_MISSING")];

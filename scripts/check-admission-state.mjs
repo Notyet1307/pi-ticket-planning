@@ -14,6 +14,7 @@ import {
   validateSpecAcceptance,
 } from "./check-delivery-graph.mjs";
 import { verifyCandidateContextChecks } from "./check-ticket-context.mjs";
+import { validateTicketContract } from "./check-ticket-contract.mjs";
 
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
@@ -175,6 +176,13 @@ export function validateAdmissionState(bundle) {
     if (typeof live.body !== "string" || hashText(live.body) !== child.bodyHash) {
       problems.push(issue("BODY_HASH_MISMATCH", id));
     }
+    problems.push(...validateTicketContract({
+      repositoryPath: bundle.repositoryPath,
+      baseSha: snapshot.executionBaseSha,
+      child: live,
+      graphChild: child,
+      graphChildren: snapshot.children,
+    }).problems);
     if (/\bAccepted Delivery Spec\b|已接受(?:的)?\s*Delivery Spec/iu.test(live.body ?? "") && !parentMatches) {
       problems.push(issue("CHILD_ACCEPTANCE_WITHOUT_EXACT_RECEIPT", id));
     }

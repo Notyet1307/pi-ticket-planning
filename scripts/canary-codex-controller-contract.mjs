@@ -17,6 +17,12 @@ import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-ga
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "./check-delivery-graph.mjs";
 import { checkTicketContext } from "./check-ticket-context.mjs";
+import {
+  oracleBindingDigest,
+  REQUIRED_REPLAN_TRIGGERS,
+  ticketReviewProjection,
+} from "./check-ticket-contract.mjs";
+import { parseChildTicket } from "../execution-plan/markdown.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
@@ -56,6 +62,32 @@ function fixtureConfig(root) {
 }
 
 function reviewedInput({ repositoryPath, baseSha, repo, baseRef }) {
+  const oracleBytes = fs.readFileSync(path.join(repositoryPath, "seed.txt"));
+  const oracle = {
+    schema: "pi-ticket-planning:oracle-binding:v1",
+    id: "O01",
+    owner: { kind: "INDEPENDENT_VERIFICATION", identity: "contract-canary-oracle" },
+    artifact: {
+      path: "seed.txt",
+      format: "text/plain",
+      baseSha,
+      sha256: `sha256:${sha256(oracleBytes)}`,
+      byteCount: oracleBytes.length,
+    },
+    execution: { command: "npm run verify:oracle:o01" },
+    workerMutationAllowed: false,
+  };
+  const constraints = {
+    implementationOwner: "contract-canary-worker",
+    riskClasses: ["AUTHORITY_BOUNDARY"],
+    scopeBudget: { maxFiles: 2, maxChangedLines: 200 },
+    expectedPaths: ["src/plan.ts"],
+    protectedPaths: ["seed.txt"],
+    replanTriggers: REQUIRED_REPLAN_TRIGGERS,
+    primaryVerificationSeams: ["Controller plan validation"],
+    integrationOnly: null,
+    waivers: [],
+  };
   const child = {
     id: "101",
     title: "Build the contract canary artifact",
@@ -73,6 +105,14 @@ Validate the exact Controller Release Plan.
 - [ ] A missing key fails validation.
 ## Invariants and guardrails
 No Controller job or network operation starts.
+## Oracle binding
+\`\`\`json
+${JSON.stringify(oracle)}
+\`\`\`
+## Execution constraints
+\`\`\`json
+${JSON.stringify(constraints)}
+\`\`\`
 ## Out of scope
 Controller execution.`,
   };
@@ -126,7 +166,28 @@ Controller execution.`;
     decisionManifestDigest: fingerprint("contract-canary-decisions"),
     source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
     scenarios: [{ id: "S1", behavior: "Validate one Plan", entry: "external:fixture", exit: "contract-result", releaseSignal: "matching digest", smallestLoop: true }],
-    children: [{ id: child.id, title: child.title, coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(child.body), startingState: "fixture", primaryVerification: "Validate the exact Controller Release Plan.", executionLane: "AGENT" }],
+    children: [{
+      id: child.id,
+      title: child.title,
+      coverageRole: "DIRECT",
+      sourceScenarios: ["S1"],
+      blockedBy: [],
+      externalBlockers: [],
+      bodyHash: hashText(child.body),
+      startingState: "fixture",
+      primaryVerification: "Validate the exact Controller Release Plan.",
+      primaryVerificationSeams: constraints.primaryVerificationSeams,
+      executionLane: "AGENT",
+      implementationOwner: constraints.implementationOwner,
+      riskClasses: constraints.riskClasses,
+      scopeBudget: constraints.scopeBudget,
+      expectedPaths: constraints.expectedPaths,
+      protectedPaths: constraints.protectedPaths,
+      replanTriggers: constraints.replanTriggers,
+      oracleBindingDigest: oracleBindingDigest(oracle),
+      integrationOnly: null,
+      waiverDigests: [],
+    }],
     walkingSkeleton: [child.id],
   };
   const input = {
@@ -147,7 +208,12 @@ Controller execution.`;
       source: { identity: source.identity, revision: source.revision, baseSha, specContentHash: source.specContentHash },
       axes: Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((axis) => [axis, "PASS"])),
       graphVerdict: "READY",
-      candidates: [{ id: child.id, verdict: "READY", executionLane: "AGENT" }],
+      candidates: [{
+        id: child.id,
+        verdict: "READY",
+        executionLane: "AGENT",
+        ...ticketReviewProjection({ parsed: parseChildTicket(child.body), graphChild: graph.children[0], graphChildren: graph.children }),
+      }],
     },
   };
   const binding = reviewBindingForAdmission(input);
@@ -238,7 +304,8 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   git(repository, ["config", "user.email", "contract@example.invalid"]);
   git(repository, ["config", "user.name", "Contract Canary"]);
   fs.writeFileSync(path.join(repository, "seed.txt"), "contract canary\n", { mode: 0o600 });
-  git(repository, ["add", "seed.txt"]);
+  fs.writeFileSync(path.join(repository, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node --check seed.txt" } })}\n`, { mode: 0o600 });
+  git(repository, ["add", "seed.txt", "package.json"]);
   requireRun(run("git", ["-C", repository, "commit", "-qm", "contract canary"], {
     env: { ...process.env, GIT_AUTHOR_DATE: "2026-08-20T00:00:00Z", GIT_COMMITTER_DATE: "2026-08-20T00:00:00Z" },
   }), "TEMP_GIT_FAILED");
