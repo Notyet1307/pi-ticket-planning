@@ -23,6 +23,12 @@ import {
   executionInput,
 } from "./execution-plan-fixture.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
+import {
+  executionConstraints,
+  graphContractFields,
+  reviewContractFields,
+  ticketBody,
+} from "./ticket-contract-fixture.mjs";
 
 function rebind(input) {
   const reviewSource = (({ identity, revision, baseSha, specContentHash }) => ({ identity, revision, baseSha, ...(specContentHash ? { specContentHash } : {}) }))(input.source);
@@ -112,17 +118,18 @@ test("execution-plan parser preserves only controlled parent fields", () => {
 });
 
 test("execution-plan child parser requires 3-8 pure checklist assertions", () => {
-  const child = `## What to build\nImplement the bounded change.\n## Primary verification\nRun the exact scenario.\n## Acceptance criteria\n- [ ] One result holds.\n- [ ] Two result holds.\n- [ ] Three result holds.\n## Invariants and guardrails\nNo partial writes.\n## Out of scope\nNothing.`;
+  const child = executionInput().children[0].body;
   assert.equal(parseChildTicket(child).acceptanceCriteria.length, 3);
-  assert.throws(() => parseChildTicket(child.replace("- [ ] Two result holds.", "Narrative")), /INVALID_ACCEPTANCE_CRITERIA_CONTENT/);
+  assert.throws(() => parseChildTicket(child.replace("- [ ] The release is durable.", "Narrative")), /INVALID_ACCEPTANCE_CRITERIA_CONTENT/);
 });
 
 test("execution-plan controlled markdown rejects missing, duplicate, and malformed sections", () => {
+  const child = executionInput().children[0].body;
   for (const [text, pattern] of [
     [parent.replace("## Decisions", "## Missing decisions"), /MISSING_SECTION:Decisions/],
     [parent.replace("## Out of scope", "## Decisions"), /DUPLICATE_SECTION:Decisions/],
-    ["## What to build\nA\n## Primary verification\nB\n## Acceptance criteria\n- [ ] A\n- [ ] B\n## Invariants and guardrails\nC\n## Out of scope\nD", /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
-    ["## What to build\nA\n## Primary verification\nB\n## Acceptance criteria\n- [ ] A\n- [ ] B\n- [ ] C\n- [ ] D\n- [ ] E\n- [ ] F\n- [ ] G\n- [ ] H\n- [ ] I\n## Invariants and guardrails\nC\n## Out of scope\nD", /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
+    [child.replace("- [ ] A failed release leaves no partial state.\n", ""), /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
+    [child.replace("- [ ] A failed release leaves no partial state.", "- [ ] C\n- [ ] D\n- [ ] E\n- [ ] F\n- [ ] G\n- [ ] H\n- [ ] I"), /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
   ]) assert.throws(() => text.includes("Delivery outcome") ? parseParentDeliverySpec(text) : parseChildTicket(text), pattern);
 });
 
@@ -331,6 +338,7 @@ test("private path checks allow the explicit system temporary-directory alias", 
 
 test("execution compiler preserves approved topological order, dependencies, and exact UTF-8 body identity", () => {
   const input = executionInput();
+  const binding = parseChildTicket(input.children[0].body).oracleBinding;
   const second = {
     id: "102",
     title: "Consume the durable artifact",
@@ -338,22 +346,17 @@ test("execution compiler preserves approved topological order, dependencies, and
     labels: ["needs-triage"],
     blockedBy: ["101"],
     updatedAt: "2026-08-20T00:01:00Z",
-    body: `## What to build
-Consume the durable artifact with stable UTF-8 output ✓.
-## Primary verification
-Run the artifact consumer scenario.
-## Acceptance criteria
-- [ ] The consumer reads the produced artifact.
-- [ ] The UTF-8 result remains exact.
-- [ ] A missing artifact fails without partial state.
-## Invariants and guardrails
-No partial writes survive.
-## Out of scope
-No UI work.`,
+    body: ticketBody({
+      objective: "Consume the durable artifact with stable UTF-8 output ✓.",
+      primaryVerification: "Run the artifact consumer scenario.",
+      acceptanceCriteria: ["The consumer reads the produced artifact.", "The UTF-8 result remains exact.", "A missing artifact fails without partial state."],
+      guardrails: "No partial writes survive.",
+      outOfScope: "No UI work.",
+      binding,
+      constraints: executionConstraints({ expectedPaths: ["execution-plan/validate.mjs"], primaryVerificationSeams: ["artifact consumer scenario"] }),
+    }),
   };
-  input.children.push(second);
-  input.review.candidates.push({ id: second.id, verdict: "READY", executionLane: "AGENT" });
-  rewriteGraph(input, (graph) => graph.children.push({
+  const graphChild = {
     id: second.id,
     title: second.title,
     coverageRole: "DIRECT",
@@ -364,7 +367,11 @@ No UI work.`,
     startingState: "artifact",
     primaryVerification: "Run the artifact consumer scenario.",
     executionLane: "AGENT",
-  }));
+    ...graphContractFields(second.body),
+  };
+  input.children.push(second);
+  input.review.candidates.push({ id: second.id, verdict: "READY", executionLane: "AGENT", ...reviewContractFields(second.body, graphChild, [...input.deliveryGraph.children, graphChild]) });
+  rewriteGraph(input, (graph) => graph.children.push(graphChild));
   const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   assert.deepEqual(plan.releasePlan.issues.map(({ number, order, dependsOn }) => ({ number, order, dependsOn })), [
@@ -407,6 +414,11 @@ test("execution compiler keeps executable-release shape fail-closed", () => {
 
   const early = rewriteGraph(executionInput(), (graph) => { graph.readinessState = "SPEC_ACCEPTED"; });
   assert.throws(() => compileExecutionPlan(early, { controller: controllerBinding(early) }), /RELEASE_NOT_GRAPH_REVIEWED/);
+
+  const missingOracle = executionInput();
+  missingOracle.children[0].body = missingOracle.children[0].body.replace("## Oracle binding", "## Oracle name");
+  rewriteGraph(missingOracle, () => {});
+  assert.throws(() => compileExecutionPlan(missingOracle, { controller: controllerBinding(missingOracle) }), /MISSING_ORACLE_BINDING/);
 });
 
 test("execution compiler binds an executable graph to an executable Delivery Spec Parent", () => {

@@ -17,6 +17,7 @@ import { createPlanningCaseApproval } from "../planning-case/cli.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
+import { REQUIRED_REPLAN_TRIGGERS } from "../scripts/check-ticket-contract.mjs";
 import { createPiRpcSession, readPiSessionHeader } from "../scripts/eval-pi-behavior.mjs";
 import { runHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import {
@@ -219,6 +220,60 @@ export function createLiveAdapter({ env = process.env, execute = spawnSync, revi
     return e2eLabel(runId);
   }
 
+  function e2eTicketBody(marker, contract) {
+    const baseSha = ready.capabilityReceipt.repo.baseSha;
+    const artifactPath = "fixtures/admission-cases.json";
+    const shown = spawnSync("git", ["-C", ready.sourcePath, "show", `${baseSha}:${artifactPath}`], { encoding: null });
+    if (shown.status !== 0 || !Buffer.isBuffer(shown.stdout)) throw new Error("E2E_ORACLE_UNAVAILABLE");
+    const oracle = {
+      schema: "pi-ticket-planning:oracle-binding:v1",
+      id: "O01",
+      owner: { kind: "INDEPENDENT_VERIFICATION", identity: "e2e-oracle-owner" },
+      artifact: {
+        path: artifactPath,
+        format: "application/json",
+        baseSha,
+        sha256: `sha256:${createHash("sha256").update(shown.stdout).digest("hex")}`,
+        byteCount: shown.stdout.length,
+      },
+      execution: { command: "npm run verify:protocol" },
+      workerMutationAllowed: false,
+    };
+    const constraints = {
+      implementationOwner: "e2e-worker",
+      riskClasses: ["AUTHORITY_BOUNDARY"],
+      scopeBudget: { maxFiles: 4, maxChangedLines: 500 },
+      expectedPaths: ["integration/live-adapter.mjs"],
+      protectedPaths: [artifactPath],
+      replanTriggers: REQUIRED_REPLAN_TRIGGERS,
+      primaryVerificationSeams: ["disposable Admission and Harness path"],
+      integrationOnly: null,
+      waivers: [],
+    };
+    return `${marker}
+
+## What to build
+Exercise the exact disposable Admission and Harness path for ${contract.id}.
+## Primary verification
+Run the disposable Admission and Harness scenario.
+## Acceptance criteria
+- [ ] Admission reaches its expected terminal state.
+- [ ] Harness evidence remains attributable.
+- [ ] Cleanup leaves no disposable resource.
+## Invariants and guardrails
+No production repository or credential is used.
+## Oracle binding
+\`\`\`json
+${JSON.stringify(oracle)}
+\`\`\`
+## Execution constraints
+\`\`\`json
+${JSON.stringify(constraints)}
+\`\`\`
+## Out of scope
+Production execution.`;
+  }
+
   function ensureLabel(context, name = labelName(context.runId), description = context.resourceTag) {
     const existing = gh(["api", `repos/${context.repo}/labels/${encodeURIComponent(name)}`], undefined, { notFound: true });
     if (!existing) gh(["api", "--method", "POST", `repos/${context.repo}/labels`, "--input", "-"], { name, color: "5319e7", description });
@@ -230,7 +285,7 @@ export function createLiveAdapter({ env = process.env, execute = spawnSync, revi
     const label = ready.label;
     const marker = `<!-- ${context.resourceTag}:${contract.id}:${context.ordinal} -->`;
     const title = `[${context.resourceTag}] ${contract.id}:${context.ordinal}`;
-    const issueBody = body ?? `${marker}\n\n# Controlled Beta scenario\n\n## Agent Brief\n\nExercise the exact disposable Admission and Harness path for ${contract.id}.`;
+    const issueBody = body ?? e2eTicketBody(marker, contract);
     saveState(declareE2EResource(ready.state, { marker, title }));
     const issue = gh(["api", "--method", "POST", `repos/${context.repo}/issues`, "--input", "-"], {
       title,

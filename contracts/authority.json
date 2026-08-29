@@ -69,7 +69,7 @@
       "targetStage": "ADMISSION",
       "targetVerdict": "ADMITTED",
       "approvalFact": "human.activation",
-      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "capability.admissionReady", "harness.readinessPassed", "human.activation"],
       "producesFacts": ["tracker.ready", "execution.handoffReady"],
       "postconditions": ["comments.exactReadback", "labels.exactControlledState", "activation.parentLast", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
@@ -105,7 +105,7 @@
       "targetStage": "EXECUTION",
       "targetVerdict": "HANDOFF_READY",
       "approvalFact": "human.executionHandoff",
-      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "executionPlan.validated", "controller.readinessPassed", "human.executionHandoff"],
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "controller.readinessPassed", "human.executionHandoff"],
       "producesFacts": ["execution.handoffReady"],
       "postconditions": ["handoff.filesExactReadback", "approval.singleConsumed", "handoff.receiptExact"]
     }

@@ -26,6 +26,16 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   const acceptance = { ...acceptanceBody, digest: fingerprint(acceptanceBody) };
   assert.deepEqual(await problems("spec-projection", { target: "x", source: { target: "x" }, acceptance }), []);
   assert.equal((await problems("spec-projection", { target: "x", source: { target: "y" }, acceptance }))[0].code, "SPEC_SOURCE_TARGET_MISMATCH");
+  const waiverBody = {
+    schema: "pi-ticket-planning:ticket-readiness-waiver:v1",
+    kind: "RISK_CLASS_LIMIT",
+    childId: "C1",
+    exception: { riskClasses: ["A", "B", "C"] },
+    approval: { kind: "HUMAN", approvalId: "F-waiver", approvedAt: "2026-08-29T00:00:00Z" },
+  };
+  const waiver = { ...waiverBody, digest: fingerprint(waiverBody) };
+  assert.deepEqual(await problems("ticket-readiness-waiver", waiver), []);
+  assert.equal((await problems("ticket-readiness-waiver", { ...waiver, digest: digest("bad") }))[0].code, "TICKET_READINESS_WAIVER_DIGEST_MISMATCH");
   assert.deepEqual(await problems("planning-case", { nextAction: {} }), []);
   assert.equal((await problems("planning-case", { nextAction: null }))[0].code, "PLANNING_CASE_NEXT_ACTION_MISSING");
   assert.deepEqual(await problems("reviewed-admission-state", { repo: "acme/product", target: "1", currentCheckpoint: { subject: { target: "github:acme/product", id: "1" } } }), []);

@@ -12,6 +12,18 @@ function oneLine(value, code) {
   return text;
 }
 
+function jsonFence(value, code) {
+  const match = value.match(/^```json[ \t]*\n([\s\S]+)\n```$/u);
+  if (!match) throw new Error(code);
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(code);
+    return parsed;
+  } catch {
+    throw new Error(code);
+  }
+}
+
 export function parseControlledLines(value) {
   const entries = [];
   let current = "";
@@ -63,10 +75,16 @@ export function parseParentDeliverySpec(body) {
 
 export function parseChildTicket(body) {
   if (typeof body !== "string") throw new Error("INVALID_CHILD_BODY");
-  const required = ["What to build", "Primary verification", "Acceptance criteria", "Invariants and guardrails", "Out of scope"];
+  const required = ["What to build", "Primary verification", "Acceptance criteria", "Invariants and guardrails", "Oracle binding", "Execution constraints", "Out of scope"];
   const values = Object.fromEntries(required.map((name) => [name, section(body, name)]));
   if (values["Acceptance criteria"].split("\n").some((line) => line.trim() && !/^\s*[-*]\s*\[ \]\s+[^\r\n]+$/.test(line))) throw new Error("INVALID_ACCEPTANCE_CRITERIA_CONTENT");
   const criteria = [...values["Acceptance criteria"].matchAll(/^\s*[-*]\s*\[ \]\s+(.+)$/gm)].map((match) => oneLine(match[1], "INVALID_ACCEPTANCE_CRITERION"));
   if (criteria.length < 3 || criteria.length > 8) throw new Error("INVALID_ACCEPTANCE_CRITERIA_COUNT");
-  return { objective: oneLine(values["What to build"], "EMPTY_CHILD_OBJECTIVE"), primaryVerification: oneLine(values["Primary verification"], "EMPTY_PRIMARY_VERIFICATION"), acceptanceCriteria: criteria };
+  return {
+    objective: oneLine(values["What to build"], "EMPTY_CHILD_OBJECTIVE"),
+    primaryVerification: oneLine(values["Primary verification"], "EMPTY_PRIMARY_VERIFICATION"),
+    acceptanceCriteria: criteria,
+    oracleBinding: jsonFence(values["Oracle binding"], "INVALID_ORACLE_BINDING_SECTION"),
+    executionConstraints: jsonFence(values["Execution constraints"], "INVALID_EXECUTION_CONSTRAINTS_SECTION"),
+  };
 }

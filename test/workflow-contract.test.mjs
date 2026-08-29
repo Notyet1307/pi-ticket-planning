@@ -86,6 +86,7 @@ test("legacy mutation cannot bypass exact same-mutation or approval binding", ()
     "source.unchanged": fact("check-admission-state"),
     "policy.accepted": fact("git-policy-check"),
     "graph.passed": fact("check-admission-state"),
+    "oracles.bound": fact("check-admission-state"),
     "review.ready": fact("ticket-readiness-reviewer"),
     "capability.admissionReady": fact("capability-receipt"),
     "harness.readinessPassed": fact("harness-ledger"),

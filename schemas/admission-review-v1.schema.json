@@ -42,11 +42,40 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "verdict", "executionLane"],
+        "required": ["id", "verdict", "executionLane", "riskClasses", "riskCount", "primaryVerificationSeams", "scopeBudget", "expectedPaths", "protectedOraclePaths", "oracleBindingDigest", "oracleBindingVerdict", "replanTriggers", "codeHotspotOverlap", "integrationOnlyVerdict", "waiverDigests"],
         "properties": {
           "id": { "$ref": "common-v1.schema.json#/$defs/safeText" },
           "verdict": { "enum": ["READY", "SPLIT", "NEEDS_INFO"] },
-          "executionLane": { "enum": ["AGENT", "HUMAN"] }
+          "executionLane": { "enum": ["AGENT", "HUMAN"] },
+          "riskClasses": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }
+          },
+          "riskCount": { "type": "integer", "minimum": 0 },
+          "primaryVerificationSeams": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
+          "scopeBudget": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["maxFiles", "maxChangedLines"],
+                "properties": {
+                  "maxFiles": { "type": "integer", "minimum": 1 },
+                  "maxChangedLines": { "type": "integer", "minimum": 1 }
+                }
+              }
+            ]
+          },
+          "expectedPaths": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
+          "protectedOraclePaths": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
+          "oracleBindingDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
+          "oracleBindingVerdict": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE"] },
+          "replanTriggers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" } },
+          "codeHotspotOverlap": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
+          "integrationOnlyVerdict": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE"] },
+          "waiverDigests": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/digest" } }
         }
       }
     },

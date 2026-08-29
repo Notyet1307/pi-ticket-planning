@@ -1,5 +1,6 @@
 import { hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { verifyCandidateContextChecks } from "../scripts/check-ticket-context.mjs";
+import { reviewCandidateMatchesTicketContract, validateTicketContract } from "../scripts/check-ticket-contract.mjs";
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
 import { issue, CONTROLLED_LABELS, sortedUnique, sameValues, fingerprint, harnessStateProblems } from "./domain.mjs";
 
@@ -113,6 +114,15 @@ export function immutableStateProblems(plan, state) {
       contextChecks: state.contextChecks,
     }));
     if (plan.reviewed?.review?.candidates?.[0]?.executionLane === "AGENT") {
+      const contract = validateTicketContract({
+        repositoryPath: state.repositoryPath,
+        baseSha: state.source?.baseSha,
+        child: state.candidate,
+      });
+      problems.push(...contract.problems);
+      if (contract.projection && !reviewCandidateMatchesTicketContract(plan.reviewed.review.candidates[0], contract.projection, contract.problems)) {
+        problems.push(issue("REVIEW_TICKET_CONTRACT_MISMATCH", state.candidate?.id));
+      }
       problems.push(...harnessStateProblems(plan.reviewed.harness, state.harness, plan.repo, plan.reviewed.source?.baseSha));
     }
   }

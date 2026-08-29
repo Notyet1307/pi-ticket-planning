@@ -9,6 +9,12 @@ import {
   buildTicketContextResult,
   checkTicketContext,
 } from "../scripts/check-ticket-context.mjs";
+import {
+  executionConstraints,
+  graphContractFields,
+  oracleBinding,
+  ticketBody,
+} from "./ticket-contract-fixture.mjs";
 
 const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
 const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
@@ -24,9 +30,34 @@ function readyBundle() {
     "### S2: Return result",
     "The user receives a result.",
   ].join("\n");
+  const binding = oracleBinding({ repo: repositoryPath, baseSha });
   const children = [
-    { id: "101", body: "# Accept input\n\nExact ticket body.", blockedBy: [] },
-    { id: "102", body: "# Return result\n\nExact ticket body.", blockedBy: ["101"] },
+    {
+      id: "101",
+      body: ticketBody({
+        objective: "Accept one input.",
+        primaryVerification: "Submit valid input.",
+        binding,
+        constraints: executionConstraints({
+          expectedPaths: ["scripts/check-admission-state.mjs"],
+          primaryVerificationSeams: ["Submit valid input."],
+        }),
+      }),
+      blockedBy: [],
+    },
+    {
+      id: "102",
+      body: ticketBody({
+        objective: "Return one result.",
+        primaryVerification: "Read the result.",
+        binding,
+        constraints: executionConstraints({
+          expectedPaths: ["scripts/check-delivery-graph.mjs"],
+          primaryVerificationSeams: ["Read the result."],
+        }),
+      }),
+      blockedBy: ["101"],
+    },
   ];
   const parent = { id: "100", title: "Delivery Spec", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}` };
   const acceptanceBody = {
@@ -84,6 +115,7 @@ function readyBundle() {
         startingState: "Input is available.",
         primaryVerification: "Submit valid input.",
         executionLane: "AGENT",
+        ...graphContractFields(children[0].body),
       },
       {
         id: "102",
@@ -96,6 +128,7 @@ function readyBundle() {
         startingState: "Input has been accepted.",
         primaryVerification: "Read the result.",
         executionLane: "AGENT",
+        ...graphContractFields(children[1].body),
       },
     ],
     walkingSkeleton: ["101", "102"],
@@ -192,6 +225,14 @@ test("acceptance receipt fails closed on Parent contradiction or body drift", ()
   childClaim.deliveryGraph.children[0].bodyHash = hashText(childClaim.children[0].body);
   childClaim.parentBody += "\nchanged";
   assert.equal(validateAdmissionState(childClaim).problems.some(({ code }) => code === "CHILD_ACCEPTANCE_WITHOUT_EXACT_RECEIPT"), true);
+});
+
+test("Admission rejects a natural-language Oracle without an exact binding", () => {
+  const bundle = readyBundle();
+  bundle.children[0].body = bundle.children[0].body.replace("## Oracle binding", "## Oracle name");
+  bundle.deliveryGraph.children[0].bodyHash = hashText(bundle.children[0].body);
+  bundle.contextChecks[0].result = checkTicketContext({ repo: bundle.repositoryPath, base: bundle.source.baseSha, body: bundle.children[0].body });
+  assert.equal(validateAdmissionState(bundle).problems.some(({ code }) => code === "MISSING_ORACLE_BINDING"), true);
 });
 
 test("downstream release binds its predecessor receipt to the exact Roadmap sequence", () => {

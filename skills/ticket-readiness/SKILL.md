@@ -30,6 +30,9 @@ Return READY only when every condition holds:
 7. **Scope is explicit.** Out of scope names the adjacent work this ticket intentionally leaves behind.
 8. **Fresh-start sufficiency.** The ticket body names its starting state or available inputs, primary outcome and verification, behavior-defining decisions, and invariants or guardrails. A fresh executor can choose the first correct action from the ticket plus repository policy; parent and decision links provide provenance or detail, never the only copy of behavior or a guardrail required to start.
 9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
+10. **Oracle is frozen.** Every AGENT Ticket embeds exact `pi-ticket-planning:oracle-binding:v1` path/format/base/bytes, an independent owner, an exact reviewed-base `npm run verify:*` script, and a protected path outside its write set.
+11. **Execution is bounded.** Declare risks, one seam, file/line budget, at most eight expected paths, protected paths, and REPLAN triggers. Defaults: two risks, eight files, 1500 lines. Exceptions need exact waiver; four risks always SPLIT; over 2500 lines needs `MECHANICAL_MIGRATION`.
+12. **Integration-only is closed.** Declare no new behavior/schema/duplicate logic and missing behavior as `REPLAN_REQUIRED`.
 
 Prefer a vertical slice through only the layers needed for the observable result. Preserve wide mechanical refactors as expand–migrate–contract sequences when no independently green vertical slice exists.
 
@@ -54,7 +57,7 @@ An older accepted ADR remains authoritative until a valid supersession, same-con
 ## Verdicts
 
 - **READY** — the candidate satisfies the full contract.
-- **SPLIT** — the objective is decided, but the candidate contains multiple outcomes, multiple primary verification seams, four or more independent delivery surfaces, more than eight assertions, or work that can land independently.
+- **SPLIT** — the objective is decided, but the candidate contains multiple outcomes or verification seams, four or more risks/surfaces, work that can land independently, Provider Attempt recovery plus Publication recovery, Provider boundary plus persistence plus UI, Reviewer plus Writer plus Artifact eligibility, or Approval plus publication plus crash recovery.
 - **NEEDS_INFO** — a product or architecture decision, contradictory source, missing behavior, unavailable required input, or unclear blocker prevents a stable ticket.
 
 Use NEEDS_INFO before SPLIT when the missing decision prevents a trustworthy split.
@@ -70,7 +73,7 @@ A complete human-only ticket is READY with execution lane HUMAN. Human ownership
 
 ## Activation boundary
 
-Recommended Codex Controller release handoff reviews and binds the complete Graph, requires no external blocker, and projects one non-empty dependency-closed `AGENT` tranche. A `HUMAN` child may remain as a post-Controller obligation only when no projected `AGENT` child depends on it. Every child remains `needs-triage`; one fresh graph review and one exact Release fingerprint authorization bind the full Graph and projected tranche. It does not write ready labels or create per-ticket runtime Reviewer work.
+Controller handoff reviews one bounded all-AGENT v3 Release; HUMAN work stays outside it. Children remain `needs-triage`; the fresh review binds Oracle/risk/scope and creates no ready labels or runtime Reviewer work.
 
 Legacy Herdr Admission may separately activate ready labels and require Harness execution evidence. Do not project those runtime facts back into this READY content contract.
 
@@ -95,6 +98,14 @@ For one candidate, return exactly:
     Context conflicts:
     Context anchors:
     Context economy:
+    Risk classes and count:
+    Scope budget:
+    Expected paths:
+    Protected Oracle paths:
+    Oracle binding verdict and digest:
+    REPLAN triggers:
+    Code hotspot overlap:
+    Integration-only verdict:
     Downstream consumers and exit condition: <required for ENABLER>
     Proposed split: <only for SPLIT>
 
@@ -109,7 +120,7 @@ After the human-readable fields, return one machine block. Echo the review times
   "axes": { "candidateReadiness": "PASS | FAIL | NEEDS_INFO", "contextQuality": "PASS | FAIL | NEEDS_INFO", "deliveryGraph": "PASS | FAIL | NEEDS_INFO", "scenarioCoverage": "PASS | FAIL | NEEDS_INFO", "walkingSkeleton": "PASS | FAIL | NEEDS_INFO", "strictFrontier": "PASS | FAIL | NEEDS_INFO", "executionLane": "PASS | FAIL | NEEDS_INFO", "inputBinding": "PASS | FAIL | NEEDS_INFO" },
   "graphVerdict": "READY | NEEDS_INFO",
   "candidates": [
-    { "id": "<exact candidate identity>", "verdict": "READY | SPLIT | NEEDS_INFO", "executionLane": "AGENT | HUMAN" }
+    { "id": "<candidate>", "verdict": "READY | SPLIT | NEEDS_INFO", "executionLane": "AGENT | HUMAN", "riskClasses": [], "riskCount": 0, "primaryVerificationSeams": [], "scopeBudget": null, "expectedPaths": [], "protectedOraclePaths": [], "oracleBindingDigest": null, "oracleBindingVerdict": "PASS | FAIL | NOT_APPLICABLE", "replanTriggers": [], "codeHotspotOverlap": [], "integrationOnlyVerdict": "PASS | FAIL | NOT_APPLICABLE", "waiverDigests": [] }
   ],
   "inputBinding": {
     "schema": "pi-ticket-planning:admission-review-binding:v1",
@@ -138,7 +149,7 @@ The batch output must include:
     Walking skeleton: PASS | FAIL — <ordered candidate IDs and covered scenarios, or the exact gap>
     Strict-frontier order: PASS | FAIL — <exact inverted edges when FAIL>
 
-Graph READY requires every intended candidate to be individually READY and the Delivery Graph contract, Scenario coverage, walking skeleton, and strict-frontier order all to pass. Every parent Scenario needs direct coverage; every child needs a valid mapping; every ENABLER needs a current downstream consumer and exit condition. Every walking-skeleton member must be READY, each named handoff must have an explicit producer or external source, and the chain must close the smallest trigger-to-result loop. For every internal `blocker -> dependent` edge, `position(blocker) < position(dependent)`. External blockers are reported but are not orderable inside the map. Any non-READY candidate, malformed or stale snapshot, broken or inferred handoff, coverage gap, orphan, cycle, or order inversion makes the Graph verdict NEEDS_INFO.
+Graph READY requires every candidate READY plus passing Graph, coverage, skeleton, frontier, Oracle, risk/scope, protected-path, REPLAN, and integration checks. Review metadata must equal body/v3; deterministic breadth findings require SPLIT.
 
 Tie the verdict to the exact candidate bodies, parent spec, sources, graph, and updated timestamps supplied in the admission bundle. Any material drift requires a new review.
 

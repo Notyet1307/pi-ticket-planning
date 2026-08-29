@@ -25,6 +25,8 @@ import {
 } from "../integration/e2e-state.mjs";
 import { buildPlanningSessionBinding } from "../planning-case/bindings.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
+import { parseChildTicket } from "../execution-plan/markdown.mjs";
+import { ticketReviewProjection } from "../scripts/check-ticket-contract.mjs";
 import { qualifiedCapability } from "./capability-fixture.mjs";
 import { harnessReadiness } from "./readiness-fixture.mjs";
 
@@ -56,7 +58,12 @@ function deterministicReviewerRuntime() {
         source: structuredClone(source),
         axes: Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((name) => [name, "PASS"])),
         graphVerdict: "READY",
-        candidates: [{ id: reviewInput.reviewTarget.candidate.id, verdict: "READY", executionLane: "AGENT" }],
+        candidates: [{
+          id: reviewInput.reviewTarget.candidate.id,
+          verdict: "READY",
+          executionLane: "AGENT",
+          ...ticketReviewProjection({ parsed: parseChildTicket(reviewInput.reviewTarget.candidate.body) }),
+        }],
         inputBinding,
       };
       if (fault === "reviewer-schema-error") review.schema = "pi-ticket-planning:admission-review:v999";

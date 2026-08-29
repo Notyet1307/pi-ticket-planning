@@ -24,7 +24,17 @@ function graph(size) {
       bodyHash: sha(`Ticket ${index}`),
       startingState: index === 1 ? "input" : `state-${index - 1}`,
       primaryVerification: `verify-${index}`,
+      primaryVerificationSeams: [`verify-${index}`],
       executionLane: "AGENT",
+      implementationOwner: `benchmark-worker-${index}`,
+      riskClasses: ["BOUNDED_BEHAVIOR_CHANGE"],
+      scopeBudget: { maxFiles: 1, maxChangedLines: 100 },
+      expectedPaths: [`src/change-${index}.ts`],
+      protectedPaths: [`oracles/o${index}.json`],
+      replanTriggers: ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"],
+      oracleBindingDigest: sha(`oracle-${index}`),
+      integrationOnly: null,
+      waiverDigests: [],
     });
   }
   const specContentHash = sha("benchmark");

@@ -5,6 +5,11 @@ import { issue, nonEmpty, planError, validatePolicy, requireHarnessReadiness, va
 import { requireExactAdmissionReviewBinding } from "./review-transport.mjs";
 import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+import {
+  humanTicketReviewProjection,
+  reviewCandidateMatchesTicketContract,
+  validateTicketContract,
+} from "../scripts/check-ticket-contract.mjs";
 
 function activationFacts(input, subject, reviewBinding, mutationId, observedAt) {
   const build = (fact, kind, evidence, sameMutation = false) => createFactAttestation({
@@ -80,6 +85,16 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     }
     if (live?.title !== child.title) throw planError("candidate title drifted", [issue("TITLE_MISMATCH", child.id)]);
     if (live?.state !== "open") throw planError("candidate must be open", [issue("ISSUE_NOT_OPEN", child.id)]);
+    const contract = validateTicketContract({
+      repositoryPath: input.repositoryPath,
+      baseSha: snapshot.executionBaseSha,
+      child: live,
+      graphChild: child,
+      graphChildren: snapshot.children,
+    });
+    if (!contract.ok || !reviewCandidateMatchesTicketContract(reviewed, contract.projection, contract.problems)) {
+      throw planError("review Ticket contract drifted", contract.problems.length ? contract.problems : [issue("REVIEW_TICKET_CONTRACT_MISMATCH", child.id)]);
+    }
   }
   let reviewBinding;
   try {
@@ -203,7 +218,14 @@ export function buildStandaloneAdmissionPlan(input, { clock = Date.now } = {}) {
   if (reviewedCandidate?.verdict !== "READY" || !["AGENT", "HUMAN"].includes(reviewedCandidate.executionLane)) {
     throw planError("standalone review must contain one exact READY candidate");
   }
-  if (reviewedCandidate.executionLane === "AGENT") requireHarnessReadiness(input.harness, input.repo, input.source.baseSha, { fresh: true, now: clock() });
+  if (reviewedCandidate.executionLane === "AGENT") {
+    const contract = validateTicketContract({ repositoryPath: input.repositoryPath, baseSha: input.source.baseSha, child: candidate });
+    if (!contract.ok) throw planError("standalone Ticket contract is not READY", contract.problems);
+    if (!reviewCandidateMatchesTicketContract(reviewedCandidate, contract.projection, contract.problems)) throw planError("review Ticket contract drifted", [issue("REVIEW_TICKET_CONTRACT_MISMATCH", candidate.id)]);
+    requireHarnessReadiness(input.harness, input.repo, input.source.baseSha, { fresh: true, now: clock() });
+  } else if (!reviewCandidateMatchesTicketContract(reviewedCandidate, humanTicketReviewProjection())) {
+    throw planError("review Ticket contract drifted", [issue("REVIEW_TICKET_CONTRACT_MISMATCH", candidate.id)]);
+  }
   let reviewBinding;
   try {
     reviewBinding = requireExactAdmissionReviewBinding(input);

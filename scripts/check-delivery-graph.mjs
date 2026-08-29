@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateArtifact } from "../protocol/kernel.mjs";
+import { staticGraphChildProblems } from "./check-ticket-contract.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
 export const DELIVERY_GRAPH_MARKER = "<!-- pi-ticket-planning:delivery-graph:v2 -->";
@@ -370,6 +371,7 @@ function validateRoadmap(snapshot) {
 
 function validateExecutableRelease(snapshot) {
   const contract = [];
+  for (const child of snapshot.children ?? []) contract.push(...staticGraphChildProblems(child));
   try {
     contract.push(...validateArtifact(snapshot, { identity: "pi-ticket-planning:delivery-release-graph:v3" }).problems);
   } catch {

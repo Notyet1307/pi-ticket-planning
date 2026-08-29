@@ -152,6 +152,11 @@ function mutationFacts(plan, approval, now, mutationId) {
       ref: `github:${plan.repo}#${plan.target}:delivery-graph`,
       digest: plan.graphFingerprint,
     }, now, mutationId));
+    facts.splice(3, 0, fact(plan, "oracles.bound", subject, "check-admission-state", {
+      kind: "artifact",
+      ref: `github:${plan.repo}#${plan.target}:oracle-bindings`,
+      digest: plan.reviewedFingerprint,
+    }, now, mutationId));
   }
   if (agentPlan(plan)) {
     const receipt = plan.reviewed.capabilityReceipt;

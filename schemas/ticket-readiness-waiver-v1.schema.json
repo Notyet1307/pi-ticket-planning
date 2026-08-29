@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/ticket-readiness-waiver-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "kind", "childId", "exception", "approval", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:ticket-readiness-waiver:v1" },
+    "kind": { "enum": ["RISK_CLASS_LIMIT", "SCOPE_BUDGET", "MECHANICAL_MIGRATION"] },
+    "childId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "riskClasses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }
+        },
+        "scopeBudget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxFiles", "maxChangedLines"],
+          "properties": {
+            "maxFiles": { "type": "integer", "minimum": 1 },
+            "maxChangedLines": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "mechanicalMigration": { "type": "boolean" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "approvalId", "approvedAt"],
+      "properties": {
+        "kind": { "const": "HUMAN" },
+        "approvalId": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" },
+        "approvedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+      }
+    },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

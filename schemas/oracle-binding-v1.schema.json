@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/oracle-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "owner", "artifact", "execution", "workerMutationAllowed"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:oracle-binding:v1" },
+    "id": { "type": "string", "pattern": "^O(?:0[1-9][0-9]*|[1-9][0-9]*)$" },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity"],
+      "properties": {
+        "kind": { "const": "INDEPENDENT_VERIFICATION" },
+        "identity": { "$ref": "common-v1.schema.json#/$defs/safeText" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "format", "baseSha", "sha256", "byteCount"],
+      "properties": {
+        "path": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "format": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "sha256": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "byteCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command"],
+      "properties": {
+        "command": { "$ref": "common-v1.schema.json#/$defs/safeText" }
+      }
+    },
+    "workerMutationAllowed": { "const": false }
+  }
+}

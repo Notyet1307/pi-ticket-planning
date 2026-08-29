@@ -42,6 +42,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
 - cheap deterministic repository and environment facts remain in their owning code, configuration, scripts, or tool output; copy only stable behavior, acceptance criteria, invariants, guardrails, decided handoffs, non-obvious first-action pointers, and exact decision authority into the Ticket.
 - when primary verification depends on Docker, Compose, a non-default runtime, or another configured tool, the stable requirement and canonical tracked validation entry are explicit. Live socket, daemon, credential, and machine availability stay out of the Ticket and are proven later by Admission readiness.
+- exact Oracle, risks, scope, expected/protected paths, one verification seam, all REPLAN triggers, integration declaration, and any exact waivers.
 
 Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
 
@@ -97,13 +98,13 @@ Represent only the current executable Release once as JSON. Keep multi-Release s
     { "id": "S1", "behavior": "<observable behavior>", "entry": "external:<input> or <artifact>", "exit": "<artifact>", "releaseSignal": "<signal>", "smallestLoop": true }
   ],
   "children": [
-    { "id": "C01", "title": "<title>", "coverageRole": "DIRECT", "sourceScenarios": ["S1"], "blockedBy": [], "externalBlockers": [], "bodyHash": "sha256:<exact UTF-8 body>", "startingState": "<entry state>", "primaryVerification": "<behavioral check>", "executionLane": "AGENT" }
+    { "id": "C01", "title": "<title>", "coverageRole": "DIRECT", "sourceScenarios": ["S1"], "blockedBy": [], "externalBlockers": [], "bodyHash": "sha256:<exact UTF-8 body>", "startingState": "<entry state>", "primaryVerification": "<behavioral check>", "primaryVerificationSeams": ["<one seam>"], "executionLane": "AGENT", "implementationOwner": "<worker identity>", "riskClasses": ["<RISK_CLASS>"], "scopeBudget": {"maxFiles": 8, "maxChangedLines": 1500}, "expectedPaths": ["src/module.ts"], "protectedPaths": ["fixtures/oracles/o01.json"], "replanTriggers": ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"], "oracleBindingDigest": "sha256:<binding>", "integrationOnly": null, "waiverDigests": [] }
   ],
   "walkingSkeleton": ["C01"]
 }
 ```
 
-`blockedBy` contains only children in this current Release; `externalBlockers` must be empty. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. The default child limit is four; an accepted policy may lower or raise it, but never above six. Hash exact proposed child bodies. The Parent body is immutable after Spec acceptance and is checked against the receipt; do not add a Ticket-coverage block to it. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
+`blockedBy` contains only current-Release children; `externalBlockers` is empty. ENABLER adds consumers and exit. Default child limit is four, hard cap six. Hash exact child bodies; never modify the accepted Parent body.
 
 For Release ordinal 2 or later, bind `roadmapDigest` to the exact validated Roadmap, set `predecessorReleaseId` to the Roadmap entry at ordinal minus one, require the current entry to name that predecessor, and bind a completion receipt whose `releaseId` matches it exactly. An arbitrary valid receipt from another Release is `ROADMAP_PREDECESSOR_MISMATCH` or `PREDECESSOR_RELEASE_MISMATCH`.
 
@@ -164,10 +165,16 @@ Use this child body:
     One behavioral seam or scenario that proves the outcome.
 
     ## Execution lane
-    AGENT, or HUMAN with the non-delegable reason.
+    AGENT. HUMAN work uses Roadmap or a separate Human Execution artifact.
 
     ## Acceptance criteria
     - [ ] One independently verifiable assertion per item.
+
+    ## Oracle binding
+    One JSON fence containing exact `pi-ticket-planning:oracle-binding:v1` bytes/path/base/owner/command fields.
+
+    ## Execution constraints
+    One JSON fence containing `implementationOwner`, `riskClasses`, `scopeBudget`, `expectedPaths`, `protectedPaths`, `replanTriggers`, `primaryVerificationSeams`, `integrationOnly`, and `waivers`.
 
     ## Blocked by
     Real prerequisites, or None.
@@ -180,7 +187,7 @@ Use this child body:
 
 Bind exactly one `pi-ticket-planning:delivery-release-graph:v3` artifact in the same Planning Case, using real tracker child identities throughout. The JSON is the durable current-Release Scenario matrix, handoff chain, child order, verifications, and blocker graph. Keep the exact Spec acceptance receipt inside it and leave the accepted Parent title/body untouched. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, order, edge, receipt, or base requires renewed approval.
 
-Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, private absolute accepted-base `repositoryPath`, complete immutable parent identity/body, the exact `deliveryGraph` artifact, and native-order children with exact bodies and open blocker identities. Re-run `check-ticket-context.mjs` for every persisted child and include each raw result bound to its candidate identity as `contextChecks`. Run `check-admission-state.mjs` against that bundle so it independently rechecks the receipt, graph, raw results, and Git base, then run the configured strict-frontier check. All checks must pass before handoff.
+Re-fetch the exact bundle. `check-admission-state.mjs` re-reads Oracle bytes/base, verifies independent owner and exact reviewed-base `npm run verify:*`, compares body/v3 constraints, and rejects protected/write-set overlap.
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 

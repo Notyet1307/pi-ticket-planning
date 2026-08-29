@@ -9,6 +9,7 @@ import {
   resourceStateProblems,
   stateIssue,
 } from "../admission/recovery.mjs";
+import { executionInput } from "./execution-plan-fixture.mjs";
 
 test("operation readback distinguishes before, partial, after, and conflict", () => {
   const comment = { kind: "comment", issue: "1", marker: "<!-- m -->", body: "exact\n<!-- m -->" };
@@ -111,4 +112,39 @@ test("immutable state reports source, policy, checkpoint, context, capability, a
   for (const code of ["SOURCE_DRIFT", "POLICY_DRIFT", "CHECKPOINT_DRIFT", "CONTEXT_CHECK_DRIFT", "CAPABILITY_RECEIPT_DRIFT", "CANDIDATE_IDENTITY_DRIFT"]) {
     assert.equal(codes.has(code), true, code);
   }
+});
+
+test("standalone recovery rejects drifted Oracle/risk review metadata", () => {
+  const fixture = executionInput();
+  const candidate = structuredClone(fixture.children[0]);
+  const source = structuredClone(fixture.source);
+  const policy = structuredClone(fixture.policy);
+  const currentCheckpoint = { id: "checkpoint" };
+  const reviewedCandidate = structuredClone(fixture.review.candidates[0]);
+  reviewedCandidate.riskClasses = ["FORGED_RISK_CLASS"];
+  const plan = {
+    kind: "STANDALONE",
+    repo: fixture.repo,
+    target: candidate.id,
+    reviewed: {
+      source,
+      policy,
+      currentCheckpoint,
+      contextChecks: fixture.contextChecks,
+      capabilityReceipt: null,
+      harness: null,
+      review: { candidates: [reviewedCandidate] },
+    },
+    resources: [],
+  };
+  const state = {
+    source,
+    policy,
+    currentCheckpoint,
+    contextChecks: fixture.contextChecks,
+    capabilityReceipt: null,
+    candidate,
+    repositoryPath: fixture.repositoryPath,
+  };
+  assert.equal(immutableStateProblems(plan, state).some(({ code }) => code === "REVIEW_TICKET_CONTRACT_MISMATCH"), true);
 });
