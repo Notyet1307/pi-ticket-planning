@@ -11,10 +11,6 @@ const DIGEST = `sha256:${"a".repeat(64)}`;
 const invocation = {
   agent: "ticket-readiness-reviewer",
   task: "Review the exact held input.",
-  async: false,
-  context: "fresh",
-  artifacts: false,
-  mission: false,
 };
 
 test("Reviewer one-shot gate blocks the second invocation before launch", () => {
@@ -35,6 +31,10 @@ test("Reviewer one-shot gate blocks the second invocation before launch", () => 
 test("Reviewer one-shot gate rejects any non-contract child", () => {
   const gate = createReviewerOneShotGate();
   assert.deepEqual(gate.beforeToolCall({ toolName: "subagent", input: { ...invocation, agent: "scout" } }), {
+    block: true,
+    reason: "REVIEWER_DISPATCH_CONTRACT_INVALID",
+  });
+  assert.deepEqual(gate.beforeToolCall({ toolName: "subagent", input: { ...invocation, cwd: "/tmp" } }), {
     block: true,
     reason: "REVIEWER_DISPATCH_CONTRACT_INVALID",
   });

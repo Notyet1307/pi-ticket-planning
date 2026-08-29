@@ -69,14 +69,12 @@
     "verify:release": "npm run verify && npm run eval:pi -- --suite release --retry-failures 1 --require-clean"
   },
   "pi": {
+    "extensions": [
+      "./extensions/ticket-readiness-read-guard.mjs"
+    ],
     "skills": [
       "./skills"
-    ],
-    "subagents": {
-      "agents": [
-        "./agents"
-      ]
-    }
+    ]
   },
   "mattpocockUpstream": {
     "repository": "https://github.com/mattpocock/skills.git",

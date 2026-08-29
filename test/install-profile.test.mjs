@@ -33,9 +33,12 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     const settingsFile = path.join(profileDir, "settings.json");
     const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
     assert.equal(settings.packages.find((entry) => entry.source === PACKAGE_ROOT)?.source, PACKAGE_ROOT);
-    assert.deepEqual(
-      settings.subagents.agentOverrides["ticket-readiness-reviewer"].subagentOnlyExtensions,
-      [path.join(PACKAGE_ROOT, "extensions", "ticket-readiness-read-guard.mjs")],
+    assert.equal(settings.subagents, undefined);
+    assert.equal(settings.packages.some((entry) => /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry.source)), true);
+    assert.equal(settings.packages.some((entry) => entry.source === "npm:@ff-labs/pi-fff@0.10.5"), true);
+    assert.equal(
+      readFileSync(path.join(profileDir, "agents", "ticket-readiness-reviewer.md"), "utf8"),
+      readFileSync(path.join(PACKAGE_ROOT, "agents", "ticket-readiness-reviewer.md"), "utf8"),
     );
     assert.equal(lstatSync(first.launcher).isSymbolicLink(), true);
     assert.equal(path.resolve(binDir, readlinkSync(first.launcher)), path.join(PACKAGE_ROOT, "profile", "pi-ticket-plan"));
@@ -46,6 +49,8 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     assert.equal(lstatSync(settingsFile).mode & 0o777, 0o600);
     const manifest = JSON.parse(readFileSync(path.join(profileDir, "installation.json"), "utf8"));
     assert.equal(manifest.piVersion, "UNTESTED");
+    assert.equal(manifest.subagentVersion.startsWith("pi-interactive-subagents@"), true);
+    assert.equal(manifest.installedFiles.some(({ path: file }) => file === "agents/ticket-readiness-reviewer.md"), true);
     assert.equal(JSON.stringify(manifest).match(/auth\.json|models\.json|"(?:token|credential)"\s*:/i), null);
 
     settings.theme = "dark";

@@ -13,12 +13,8 @@ function digest(value) {
 }
 
 function validDispatch(input) {
-  return input?.agent === "ticket-readiness-reviewer"
-    && input.async === false
-    && input.context === "fresh"
-    && input.artifacts === false
-    && input.mission === false
-    && input.acceptance === undefined
+  return input && Object.keys(input).sort().join("\n") === "agent\ntask"
+    && input.agent === "ticket-readiness-reviewer"
     && typeof input.task === "string" && input.task.length > 0;
 }
 

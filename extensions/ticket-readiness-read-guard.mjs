@@ -7,6 +7,9 @@ import { captureAdmissionReviewInput } from "../admission/review-transport.mjs";
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MAX_READ_BYTES = 50 * 1024;
 const MAX_READ_LINES = 2000;
+const EXTENSION_PATH = fileURLToPath(import.meta.url);
+const REVIEWER_AGENT = "ticket-readiness-reviewer";
+export const REVIEWER_READ_TOOL = "review_input_read";
 export const REVIEWER_SKILL_PATH = fs.realpathSync(path.join(PACKAGE_ROOT, "skills", "ticket-readiness", "SKILL.md"));
 
 const READ_PARAMETERS = {
@@ -52,8 +55,8 @@ export function createReviewerReadTool(cwd) {
     bundleError = error instanceof Error ? error.message : String(error);
   }
   return {
-    name: "read",
-    label: "read",
+    name: REVIEWER_READ_TOOL,
+    label: REVIEWER_READ_TOOL,
     description: "Read only the configured ticket-readiness Skill and the descriptor-held Admission review input.",
     parameters: READ_PARAMETERS,
     async execute(_toolCallId, params, signal) {
@@ -77,6 +80,15 @@ export function createReviewerReadTool(cwd) {
   };
 }
 
+function registerBackingExtension() {
+  globalThis.__pi_interactive_subagents?.registerToolExtension?.(REVIEWER_READ_TOOL, EXTENSION_PATH);
+}
+
 export default function ticketReadinessReadGuard(pi) {
-  pi.registerTool(createReviewerReadTool(process.cwd()));
+  registerBackingExtension();
+  pi.on("session_start", registerBackingExtension);
+  if (process.env.PI_SUBAGENT_AGENT === REVIEWER_AGENT
+    && process.env.PI_SUBAGENT_ID && process.env.PI_SUBAGENT_SESSION) {
+    pi.registerTool(createReviewerReadTool(process.cwd()));
+  }
 }

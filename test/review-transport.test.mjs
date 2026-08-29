@@ -12,7 +12,11 @@ import {
   createAdmissionReviewInput,
   materializeAdmissionReviewInput,
 } from "../admission/review-transport.mjs";
-import { createReviewerReadTool, REVIEWER_SKILL_PATH } from "../extensions/ticket-readiness-read-guard.mjs";
+import ticketReadinessReadGuard, {
+  createReviewerReadTool,
+  REVIEWER_READ_TOOL,
+  REVIEWER_SKILL_PATH,
+} from "../extensions/ticket-readiness-read-guard.mjs";
 
 const TARGET = "github:acme/product";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -70,6 +74,7 @@ test("Reviewer read tool serves only held Skill and bound input with continuatio
   const directory = privateDirectory(t);
   const materialized = materializeAdmissionReviewInput(reviewInput(), directory);
   const tool = createReviewerReadTool(directory);
+  assert.equal(tool.name, REVIEWER_READ_TOOL);
   const skill = await tool.execute("skill", { path: REVIEWER_SKILL_PATH, limit: 2 });
   assert.equal(skill.details.source, "skill");
   const first = await tool.execute("bundle", { path: materialized.path, limit: 2 });
@@ -78,6 +83,28 @@ test("Reviewer read tool serves only held Skill and bound input with continuatio
   const second = await tool.execute("bundle", { path: materialized.path, offset: first.details.nextOffset, limit: 2000 });
   assert.equal(second.content[0].text.length > 0, true);
   await assert.rejects(() => tool.execute("bad", { path: "/etc/passwd" }), /not allowlisted/);
+});
+
+test("Reviewer guard registers its custom tool path without exposing the tool to the parent", () => {
+  const previous = globalThis.__pi_interactive_subagents;
+  const registrations = [];
+  const listeners = [];
+  let exposed = false;
+  try {
+    globalThis.__pi_interactive_subagents = {
+      registerToolExtension(name, extensionPath) { registrations.push({ name, extensionPath }); },
+    };
+    ticketReadinessReadGuard({
+      on(name, listener) { listeners.push({ name, listener }); },
+      registerTool() { exposed = true; },
+    });
+    assert.equal(registrations[0].name, REVIEWER_READ_TOOL);
+    assert.equal(registrations[0].extensionPath.endsWith("extensions/ticket-readiness-read-guard.mjs"), true);
+    assert.equal(listeners[0].name, "session_start");
+    assert.equal(exposed, false);
+  } finally {
+    globalThis.__pi_interactive_subagents = previous;
+  }
 });
 
 test("mode, symlink, hardlink, digest, and extra-file drift fail closed", (t) => {

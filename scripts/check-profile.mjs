@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const PACKAGE_ROOT = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."));
 const PROFILE_ROOT = path.resolve(
@@ -11,11 +11,11 @@ const PROFILE_ROOT = path.resolve(
 const LAUNCHER = path.resolve(
   process.env.PI_TICKET_PLAN_LAUNCHER ?? path.join(os.homedir(), ".local", "bin", "pi-ticket-plan"),
 );
-const SCOUT_MODEL = "openai-codex/gpt-5.6-luna:max";
 const UPSTREAM = `git:github.com/mattpocock/skills@${JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).mattpocockUpstream.commit}`;
 const TEMPLATE = JSON.parse(readFileSync(new URL("../profile/settings.template.json", import.meta.url), "utf8"));
-const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^npm:pi-subagents@/.test(entry?.source ?? ""))?.source;
-const REVIEWER_READ_GUARD = realpathSync(path.join(PACKAGE_ROOT, "extensions", "ticket-readiness-read-guard.mjs"));
+const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry?.source ?? ""))?.source;
+const FFF_SOURCE = TEMPLATE.packages.find((entry) => /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
+const REVIEWER_AGENT = path.join("agents", "ticket-readiness-reviewer.md");
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));
 const SUPPRESSED_SKILLS = new Set(lock.suppressedSkills ?? []);
 const PACKAGE_SKILLS = new Set([...lock.overriddenSkills, ...lock.packageSkills]);
@@ -99,76 +99,43 @@ for (const name of REQUIRED_MODEL_INVOKED) {
   }
 }
 
-const subagents = commands.find((command) => command.name === "subagents" && command.source === "extension");
-if (!SUBAGENTS_SOURCE || subagents?.sourceInfo?.source !== SUBAGENTS_SOURCE) failures.push("pi-subagents extension is missing or unpinned");
+const subagents = commands.find((command) => command.name === "subagent" && command.source === "extension");
+if (!SUBAGENTS_SOURCE || subagents?.sourceInfo?.source !== SUBAGENTS_SOURCE) failures.push("pi-interactive-subagents extension is missing or unpinned");
+const fff = commands.find((command) => command.name === "fff-mode" && command.source === "extension");
+if (!FFF_SOURCE || fff?.sourceInfo?.source !== FFF_SOURCE) failures.push("pi-fff extension is missing or unpinned");
 
 if (readFileSync(path.join(PROFILE_ROOT, "AGENTS.md"), "utf8") !== readFileSync(path.join(PACKAGE_ROOT, "profile", "AGENTS.md"), "utf8")) {
   failures.push("deployed profile AGENTS.md drifted from the package template");
 }
+if (readFileSync(path.join(PROFILE_ROOT, REVIEWER_AGENT), "utf8") !== readFileSync(path.join(PACKAGE_ROOT, REVIEWER_AGENT), "utf8")) {
+  failures.push("deployed reviewer agent drifted from the package definition");
+}
 if ((statSync(path.join(PROFILE_ROOT, "settings.json")).mode & 0o077) !== 0) {
   failures.push("profile settings must not be group- or world-readable");
 }
-
-process.env.PI_CODING_AGENT_DIR = PROFILE_ROOT;
-process.env.PI_OFFLINE = "1";
-const jitiPath = path.join(PROFILE_ROOT, "npm", "node_modules", "jiti", "lib", "jiti.mjs");
-const { createJiti } = await import(pathToFileURL(jitiPath).href);
-const jiti = createJiti(import.meta.url);
-const { resolveSubagentLaunchContract } = await jiti.import(
-  path.join(PROFILE_ROOT, "npm", "node_modules", "pi-subagents", "src", "api", "preflight.ts"),
-);
-const preflight = await resolveSubagentLaunchContract({
-  agent: "ticket-readiness-reviewer",
-  cwd: process.cwd(),
-  artifacts: false,
-});
-if (!preflight.ok) {
-  failures.push(`reviewer preflight failed: ${preflight.message}`);
-} else {
-  const contract = preflight.contract;
-  if (contract.context !== "fresh") failures.push("reviewer launch context is not fresh");
-  if (contract.systemPromptMode !== "replace") failures.push("reviewer does not replace the inherited system prompt");
-  if (contract.inheritProjectContext || contract.inheritSkills) failures.push("reviewer inherits ambient context");
-  if (realpathSafe(contract.skills.resolved[0]?.path) !== path.join(PACKAGE_ROOT, "skills", "ticket-readiness", "SKILL.md")) {
-    failures.push("reviewer did not resolve its package-private readiness contract");
-  }
-  if (!contract.tools.explicitAllowlist || JSON.stringify(contract.tools.effectiveAllowlist) !== JSON.stringify(["read"])) {
-    failures.push("reviewer launch contract must permit only read");
-  }
-  if (!contract.tools.disableAmbientExtensions) failures.push("reviewer launch contract permits ambient extensions");
-  if (JSON.stringify(contract.tools.configuredExtensions.map(realpathSafe)) !== JSON.stringify([REVIEWER_READ_GUARD])) {
-    failures.push("reviewer launch contract lacks its sole package-private read guard");
-  }
-  if (!contract.tools.extensionArgs.map(realpathSafe).includes(REVIEWER_READ_GUARD)) {
-    failures.push("reviewer child does not load the package-private read guard");
-  }
+const settings = JSON.parse(readFileSync(path.join(PROFILE_ROOT, "settings.json"), "utf8"));
+const sources = settings.packages?.map((entry) => typeof entry === "string" ? entry : entry.source) ?? [];
+if (!sources.includes(SUBAGENTS_SOURCE) || !sources.includes(FFF_SOURCE) || sources.some((source) => /^npm:pi-subagents@/.test(source ?? ""))) {
+  failures.push("deployed profile package sources do not match the replacement template");
 }
+if (settings.subagents !== undefined) failures.push("deployed profile retained legacy pi-subagents settings");
 
-const scoutPreflight = await resolveSubagentLaunchContract({
-  agent: "scout",
-  cwd: process.cwd(),
-  artifacts: false,
-  parentModel: { provider: "openai-codex", id: "gpt-5.6-sol" },
-  availableModels: [
-    { provider: "openai-codex", id: "gpt-5.6-luna" },
-    { provider: "openai-codex", id: "gpt-5.6-sol" },
-  ],
-});
-if (!scoutPreflight.ok) {
-  failures.push(`scout preflight failed: ${scoutPreflight.message}`);
-} else {
-  if (scoutPreflight.contract.model !== SCOUT_MODEL) failures.push(`scout model is not ${SCOUT_MODEL}`);
-  if (scoutPreflight.contract.thinking !== "max") failures.push("scout thinking is not max");
-  if (scoutPreflight.contract.tools.extensionArgs.map(realpathSafe).includes(REVIEWER_READ_GUARD)) {
-    failures.push("reviewer read guard leaked into scout children");
-  }
+const reviewer = readFileSync(path.join(PROFILE_ROOT, REVIEWER_AGENT), "utf8");
+for (const [key, expected] of Object.entries({
+  "session-mode": "standalone",
+  "system-prompt": "replace",
+  "auto-exit": "true",
+  skills: "ticket-readiness",
+  tools: "review_input_read",
+})) {
+  if (frontmatterValue(reviewer, key) !== expected) failures.push(`reviewer ${key} must be ${expected}`);
 }
 
 if (failures.length) {
   for (const failure of failures) console.error(`ERROR ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`profile isolation: ok (${skills.length} skills)`);
+  console.log(`profile configuration: ok (${skills.length} skills, interactive subagents, FFF override default)`);
 }
 
 function realpathSafe(value) {
@@ -185,4 +152,9 @@ function modelInvocationDisabled(file) {
   const text = readFileSync(file, "utf8");
   const frontmatter = text.startsWith("---\n") ? text.slice(4, text.indexOf("\n---", 4)) : "";
   return /^disable-model-invocation:\s*true\s*$/m.test(frontmatter);
+}
+
+function frontmatterValue(text, key) {
+  const frontmatter = text.startsWith("---\n") ? text.slice(4, text.indexOf("\n---", 4)) : "";
+  return frontmatter.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim();
 }
