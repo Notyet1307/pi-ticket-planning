@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/spec-acceptance-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "parent", "source", "decision", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:spec-acceptance:v1" },
+    "parent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "title", "bodyHash"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "title": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "bodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseSha", "specContentHash"],
+      "properties": {
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "specContentHash": { "$ref": "common-v1.schema.json#/$defs/digest" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "approvalId", "acceptedAt"],
+      "properties": {
+        "caseId": { "type": "string", "pattern": "^PC-[A-Za-z0-9._-]{1,96}$" },
+        "approvalId": { "type": "string", "pattern": "^F-[A-Za-z0-9._:-]{1,126}$" },
+        "acceptedAt": { "$ref": "common-v1.schema.json#/$defs/time" }
+      }
+    },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

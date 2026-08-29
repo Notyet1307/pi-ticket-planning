@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import {
+  DELIVERY_RELEASE_GRAPH_MARKER,
   DELIVERY_GRAPH_MARKER,
   DELIVERY_GRAPH_MARKER_V1,
   computeSpecContentHash,
@@ -21,10 +23,53 @@ function graph(item) {
   return snapshot;
 }
 
+function executableGraph(item = cases.find((entry) => entry.expectedGraphVerdict === "READY")) {
+  const legacy = graph(item);
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 100, title: "Accepted Spec", bodyHash: `sha256:${"9".repeat(64)}` },
+    source: { baseSha: legacy.source.baseSha, specContentHash: legacy.source.specContentHash },
+    decision: { caseId: "PC-graph", approvalId: "F-spec-approval", acceptedAt: "2026-08-29T00:00:00Z" },
+  };
+  return {
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "R001-C1-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: legacy.source.baseSha,
+    executionBaseSha: legacy.source.baseSha,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: `sha256:${"8".repeat(64)}`,
+    source: { identity: legacy.source.identity, revision: legacy.source.revision, specContentHash: legacy.source.specContentHash },
+    scenarios: legacy.scenarios,
+    children: legacy.children,
+    walkingSkeleton: legacy.walkingSkeleton,
+  };
+}
+
+function roadmapGraph(plannedReleases) {
+  const body = {
+    schema: "pi-ticket-planning:roadmap-graph:v1",
+    kind: "ROADMAP",
+    executable: false,
+    readinessState: "PLANNED",
+    roadmapId: "R001",
+    planningBaseSha: "1".repeat(40),
+    parent: { number: 100, title: "Roadmap", bodyHash: `sha256:${"1".repeat(64)}` },
+    plannedReleases,
+  };
+  return { ...body, digest: fingerprint(body) };
+}
+
 test("delivery graph fixtures keep coverage, handoff, skeleton, and frontier fail-closed", () => {
   for (const item of cases) {
     const checked = validateDeliveryGraph(graph(item));
-    assert.equal(checked.verdict, item.expectedGraphVerdict, item.id);
+    assert.equal(checked.legacyVerdict, item.expectedGraphVerdict, item.id);
     for (const code of item.expectedProblemCodes ?? []) {
       assert.equal(checked.problems.some((problem) => problem.code === code), true, `${item.id}: ${code}`);
     }
@@ -35,6 +80,8 @@ test("delivery graph parser accepts raw JSON and one marked Markdown snapshot", 
   const ready = cases.find((item) => item.expectedGraphVerdict === "READY");
   assert.deepEqual(parseDeliveryGraph(JSON.stringify(ready)), ready);
   assert.deepEqual(parseDeliveryGraph(`${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(ready)}\n\`\`\``), ready);
+  const release = executableGraph();
+  assert.deepEqual(parseDeliveryGraph(`${DELIVERY_RELEASE_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(release)}\n\`\`\``), release);
   assert.throws(() => parseDeliveryGraph("# no graph"), /exactly one delivery-graph marker/);
 });
 
@@ -112,6 +159,86 @@ test("delivery graph v2 requires stable Spec and child body identities", () => {
   assert.equal(codes.includes("MISSING_SPEC_CONTENT_HASH"), true);
   assert.equal(codes.includes("MISSING_CHILD_BODY_HASH"), true);
   assert.equal(codes.includes("MISSING_CHILD_STARTING_STATE"), true);
+  const migration = validateDeliveryGraph(graph(cases.find((item) => item.expectedGraphVerdict === "READY")));
+  assert.equal(migration.ok, false);
+  assert.equal(migration.verdict, "NEEDS_MIGRATION");
+  assert.equal(migration.problems.some(({ code }) => code === "NEEDS_MIGRATION"), true);
+});
+
+test("delivery release v3 represents exactly one bounded AGENT release", () => {
+  const ready = executableGraph();
+  assert.equal(validateDeliveryGraph(ready).ok, true);
+
+  const human = structuredClone(ready);
+  human.children[0].executionLane = "HUMAN";
+  assert.equal(validateDeliveryGraph(human).problems.some(({ code }) => code === "HUMAN_CHILD_NOT_EXECUTABLE"), true);
+
+  const fiveReleases = structuredClone(ready);
+  fiveReleases.plannedReleases = Array.from({ length: 5 }, (_, index) => ({ releaseId: `R${index + 1}` }));
+  assert.equal(validateDeliveryGraph(fiveReleases).problems.some(({ code }) => code === "MULTIPLE_RELEASES_NOT_EXECUTABLE"), true);
+
+  for (const state of ["PLANNED", "SPEC_ACCEPTED", "ORACLES_BOUND"]) {
+    const early = structuredClone(ready);
+    early.readinessState = state;
+    const checked = validateDeliveryGraph(early);
+    assert.equal(checked.ok, true);
+    assert.equal(checked.executable, false);
+    assert.equal(checked.readinessProblems.some(({ code }) => code === "RELEASE_NOT_GRAPH_REVIEWED"), true);
+  }
+
+  const tooLarge = structuredClone(ready);
+  tooLarge.children = Array.from({ length: 5 }, (_, index) => ({
+    ...structuredClone(ready.children[0]),
+    id: `T${index + 1}`,
+    title: `Ticket ${index + 1}`,
+    blockedBy: [],
+  }));
+  tooLarge.walkingSkeleton = ["T1"];
+  assert.equal(validateDeliveryGraph(tooLarge).problems.some(({ code }) => code === "CHILD_COUNT_POLICY_EXCEEDED"), true);
+});
+
+test("Roadmap can hold future releases and HUMAN work but is never executable", () => {
+  const roadmap = roadmapGraph(Array.from({ length: 5 }, (_, index) => ({
+      releaseId: `R001-C${index + 1}`,
+      releaseOrdinal: index + 1,
+      readinessState: "PLANNED",
+      objective: `Future release ${index + 1}`,
+      scenarioCoverage: ["S1"],
+      predecessors: index === 0 ? [] : [`R001-C${index}`],
+      candidateTickets: [{ id: `H${index + 1}`, title: "Human step", objective: "Human-controlled work", executionLane: "HUMAN" }],
+    })));
+  const checked = validateDeliveryGraph(roadmap);
+  assert.equal(checked.ok, true);
+  assert.equal(checked.verdict, "PLANNED");
+  assert.equal(checked.executable, false);
+});
+
+test("a downstream release needs an exact predecessor receipt and fresh execution base", () => {
+  const release = executableGraph();
+  release.releaseId = "R001-C2-r1";
+  release.releaseOrdinal = 2;
+  release.predecessorReleaseId = "R001-C1-r1";
+  const roadmap = roadmapGraph([
+    { releaseId: "R001-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
+    { releaseId: "R001-C2-r1", releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S1"], predecessors: ["R001-C1-r1"], candidateTickets: [] },
+  ]);
+  release.roadmapDigest = roadmap.digest;
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "MISSING_PREDECESSOR_RECEIPT"), true);
+  const receiptBody = {
+    schema: "pi-ticket-planning:release-predecessor-receipt:v1",
+    releaseId: "R001-C1-r1",
+    mergedMainSha: "2".repeat(40),
+    handoffDigests: [],
+    validationDigest: `sha256:${"2".repeat(64)}`,
+    completedAt: "2026-08-29T01:00:00Z",
+  };
+  release.predecessorReceipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_EXECUTION_BASE_MISMATCH"), true);
+  release.executionBaseSha = receiptBody.mergedMainSha;
+  assert.equal(validateDeliveryGraph(release).ok, true);
+
+  release.predecessorReleaseId = "other-release";
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_RELEASE_MISMATCH"), true);
 });
 
 test("delivery graph v1 remains readable but cannot pass Admission", () => {

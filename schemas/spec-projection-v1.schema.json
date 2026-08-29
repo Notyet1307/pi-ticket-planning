@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/spec-projection-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "target", "id", "revision", "baseSha", "source", "scenarioIds", "contentDigest"],
+  "required": ["schema", "target", "id", "revision", "baseSha", "source", "scenarioIds", "contentDigest", "acceptance"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:spec-projection:v1" },
     "target": { "$ref": "common-v1.schema.json#/$defs/target" },
@@ -13,6 +13,7 @@
     "source": { "$ref": "common-v1.schema.json#/$defs/subject" },
     "scenarioIds": { "type": "array", "minItems": 1, "maxItems": 10000, "uniqueItems": true, "items": { "type": "string", "pattern": "^S[1-9][0-9]*$" } },
     "contentDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "acceptance": { "$ref": "spec-acceptance-v1.schema.json" },
     "verification": {
       "type": "object",
       "additionalProperties": false,

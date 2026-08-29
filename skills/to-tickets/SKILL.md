@@ -17,6 +17,7 @@ The issue tracker and triage labels must be configured by `setup-delivery-reposi
 
 Re-fetch the complete parent body, comments, label, and updated timestamp. Require:
 
+- one valid `pi-ticket-planning:spec-acceptance:v1` receipt from the same Case whose Parent number/title/body hash and source base/content hash match exactly, and exactly one executable-Delivery-Spec Parent-kind marker with no Roadmap marker;
 - one trusted source identity and exact delivery base;
 - stable Scenario IDs with explicit entry/input, trigger, result/failure, exit/output, and Release signal mapping;
 - one walking-skeleton target naming the ordered Scenario IDs and state/artifact handoffs in the smallest loop;
@@ -54,7 +55,7 @@ Do not qualify a `READY` verdict. If an open decision can change the candidate's
 
 Use coverage role `DIRECT` for a user-observable scenario slice. Use `ENABLER` only when an independently green vertical slice is impossible; name its downstream candidate consumers, exit condition, source scenarios, and real blocking edges. An ENABLER with no current consumer is an orphan and cannot proceed.
 
-Assign execution lane `AGENT` by default. Use `HUMAN` only when completion or primary verification requires intentionally human-held access, external or isolated environment control, physical access, or non-delegable judgment.
+Assign execution lane `AGENT` to every child of the current executable Release. Work requiring intentionally human-held access, external or isolated environment control, physical access, or non-delegable judgment belongs in the Roadmap or a separate Human Execution artifact; it must not enter `delivery-release-graph:v3`.
 
 ### 3. Prove Scenario coverage
 
@@ -74,12 +75,24 @@ Return `Scenario coverage: PASS | FAIL` using all of these rules:
 
 Then name the earliest candidate chain that closes the Spec's smallest trigger-to-result loop. Return `Walking skeleton: PASS | FAIL` with the ordered candidate IDs, covered Scenario IDs, and named handoffs. Every member must be individually `READY`, appear in dependency-valid order, and consume a state produced by an earlier member or declared external input. A missing direct path, broken handoff, uncovered scenario, orphan candidate, or non-READY member is `NEEDS_INFO`; do not publish a partial graph.
 
-Represent the same proposed graph once as JSON:
+Represent only the current executable Release once as JSON. Keep multi-Release sequencing and HUMAN work in a separate `pi-ticket-planning:roadmap-graph:v1` artifact with `executable:false`, `readinessState:PLANNED`, no future execution base, and no Admission/compiler route. Its `parent` must bind a separate, freshly read Umbrella title/body containing exactly one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; the executable Delivery Spec Parent cannot be reused as that Umbrella.
 
 ```json
 {
-  "version": 2,
-  "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "baseSha": "<exact base>", "specContentHash": "sha256:<Spec body without Ticket coverage>" },
+  "schema": "pi-ticket-planning:delivery-release-graph:v3",
+  "kind": "EXECUTABLE_RELEASE",
+  "executable": true,
+  "readinessState": "SPEC_ACCEPTED",
+  "releaseId": "R003-C1/r1",
+  "releaseOrdinal": 1,
+  "planningBaseSha": "<planning snapshot base>",
+  "executionBaseSha": "<fresh current execution base>",
+  "roadmapDigest": null,
+  "predecessorReleaseId": null,
+  "predecessorReceipt": null,
+  "specAcceptance": { "schema": "pi-ticket-planning:spec-acceptance:v1", "parent": {}, "source": {}, "decision": {}, "digest": "sha256:<exact receipt>" },
+  "decisionManifestDigest": "sha256:<accepted decision set>",
+  "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "specContentHash": "sha256:<accepted Spec content>" },
   "scenarios": [
     { "id": "S1", "behavior": "<observable behavior>", "entry": "external:<input> or <artifact>", "exit": "<artifact>", "releaseSignal": "<signal>", "smallestLoop": true }
   ],
@@ -90,7 +103,9 @@ Represent the same proposed graph once as JSON:
 }
 ```
 
-`blockedBy` contains only children in this map; put unresolved outside prerequisites in `externalBlockers`, which makes the graph ineligible for Admission. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. Hash the exact proposed child body bytes and the parent Spec body with its complete `## Ticket coverage` section removed. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
+`blockedBy` contains only children in this current Release; `externalBlockers` must be empty. For an `ENABLER`, also include `downstreamConsumers` and `exitCondition`. The default child limit is four; an accepted policy may lower or raise it, but never above six. Hash exact proposed child bodies. The Parent body is immutable after Spec acceptance and is checked against the receipt; do not add a Ticket-coverage block to it. Before approval, candidate IDs may be stable proposed IDs. Pipe this object to:
+
+For Release ordinal 2 or later, bind `roadmapDigest` to the exact validated Roadmap, set `predecessorReleaseId` to the Roadmap entry at ordinal minus one, require the current entry to name that predecessor, and bind a completion receipt whose `releaseId` matches it exactly. An arbitrary valid receipt from another Release is `ROADMAP_PREDECESSOR_MISMATCH` or `PREDECESSOR_RELEASE_MISMATCH`.
 
 ```sh
 node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -
@@ -116,7 +131,7 @@ Present together:
 - the walking-skeleton chain and verdict;
 - exact numbered child order and blocker edges;
 - each candidate's title, source scenarios, coverage role, primary outcome, primary verification, execution lane, AC count, delivery surfaces, blockers, and out of scope;
-- the exact write set: child creation, parent-child links, blocker edges, and the parent `## Ticket coverage` update.
+- the exact write set: current-Release child creation, parent-child links, blocker edges, and the Planning Case graph binding. The Parent body is not in the write set.
 - the deterministic Delivery Graph checker result.
 
 Wait for explicit approval of this exact split, graph, and write set. Approval does not authorize a ready label.
@@ -163,19 +178,12 @@ Use this child body:
     ## Out of scope
     Adjacent behavior excluded from this ticket.
 
-Update or replace one `## Ticket coverage` section in the parent. Store exactly one normalized snapshot, using real tracker child identities throughout:
+Bind exactly one `pi-ticket-planning:delivery-release-graph:v3` artifact in the same Planning Case, using real tracker child identities throughout. The JSON is the durable current-Release Scenario matrix, handoff chain, child order, verifications, and blocker graph. Keep the exact Spec acceptance receipt inside it and leave the accepted Parent title/body untouched. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, order, edge, receipt, or base requires renewed approval.
 
-    <!-- pi-ticket-planning:delivery-graph:v2 -->
-    ```json
-    <the approved version 2 object>
-    ```
-
-The JSON is the durable Scenario matrix, handoff chain, child order, roles, verifications, lanes, and blocker graph. Do not persist a duplicate prose matrix, table, or receipt. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, lane, order, or edge requires renewed approval.
-
-Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, private absolute accepted-base `repositoryPath`, complete parent body, and native-order children with exact bodies and open blocker identities. Re-run `check-ticket-context.mjs` for every persisted child and include each raw result bound to its candidate identity as `contextChecks`. Run `check-admission-state.mjs` against that bundle so it independently rechecks the raw results against Git, then run the configured strict-frontier check. All checks must pass before handoff.
+Re-fetch the parent and build one Admission bundle containing the trusted source identity/revision/base, private absolute accepted-base `repositoryPath`, complete immutable parent identity/body, the exact `deliveryGraph` artifact, and native-order children with exact bodies and open blocker identities. Re-run `check-ticket-context.mjs` for every persisted child and include each raw result bound to its candidate identity as `contextChecks`. Run `check-admission-state.mjs` against that bundle so it independently rechecks the receipt, graph, raw results, and Git base, then run the configured strict-frontier check. All checks must pass before handoff.
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 
 ### 6. Prepare the recommended release handoff
 
-Re-fetch the persisted parent and graph. Report their identities, Delivery Graph contract, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow `prepare-codex-release`. Keep every child in `needs-triage`: the recommended path reviews the full Graph and compiles its non-empty dependency-closed AGENT tranche into one Release Plan, while trailing HUMAN obligations remain outside Controller execution. It never writes ready labels. An AGENT child that depends on HUMAN work, an all-HUMAN Graph, or any external blocker is not directly executable. Only when the operator explicitly chooses Legacy Herdr per-ticket activation may this route continue to `admit-ticket`.
+Re-fetch the persisted parent, receipt, v3 graph, and current children. Report their identities, readiness state, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow `prepare-codex-release`. Keep every child in `needs-triage`: the recommended path reviews and compiles exactly this one all-AGENT Release. Roadmap, future `PLANNED` candidates, HUMAN work, legacy v2 graphs, and external blockers never enter Controller input. This route never writes ready labels. Only when the operator explicitly chooses Legacy Herdr per-ticket activation may it continue to `admit-ticket`.

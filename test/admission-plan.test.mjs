@@ -4,10 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  DELIVERY_GRAPH_MARKER,
-  hashText,
-} from "../scripts/check-delivery-graph.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import {
   buildAdmissionPlan,
   buildStandaloneAdmissionPlan,
@@ -45,7 +42,7 @@ function readyInput() {
   snapshot.children[0].id = "101";
   snapshot.children[1].id = "102";
   snapshot.children[1].blockedBy = ["101"];
-  snapshot.children[1].executionLane = "HUMAN";
+  snapshot.children[1].executionLane = "AGENT";
   snapshot.walkingSkeleton = ["101", "102"];
   const specBody = [
     "# Delivery Spec",
@@ -77,26 +74,53 @@ function readyInput() {
       updatedAt: "2026-08-16T10:01:00Z",
     },
   ];
-  snapshot.source.specContentHash = hashText(specBody);
+  const source = { identity: snapshot.source.identity, revision: snapshot.source.revision, baseSha, specContentHash: hashText(specBody) };
   snapshot.children[0].bodyHash = hashText(children[0].body);
   snapshot.children[1].bodyHash = hashText(children[1].body);
-  const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(snapshot)}\n\`\`\``;
+  const parent = {
+    id: "100",
+    title: "Deliver comparison behavior",
+    body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}`,
+    labels: ["needs-triage", "release"],
+    state: "open",
+    updatedAt: "2026-08-16T10:02:00Z",
+  };
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 100, title: parent.title, bodyHash: hashText(parent.body) },
+    source: { baseSha, specContentHash: source.specContentHash },
+    decision: { caseId: "PC-admission", approvalId: "F-spec-approval", acceptedAt: "2026-08-16T10:02:00Z" },
+  };
+  const deliveryGraph = {
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "R001-C1-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: baseSha,
+    executionBaseSha: baseSha,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: `sha256:${"c".repeat(64)}`,
+    source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
+    scenarios: snapshot.scenarios,
+    children: snapshot.children,
+    walkingSkeleton: snapshot.walkingSkeleton,
+  };
   return attachReviewBinding({
     repo: "acme/product",
     repositoryPath: root,
-    parent: {
-      id: "100",
-      title: "Deliver comparison behavior",
-      body: parentBody,
-      labels: ["needs-triage", "release"],
-      state: "open",
-      updatedAt: "2026-08-16T10:02:00Z",
-    },
-    source: structuredClone(snapshot.source),
+    parent,
+    specAcceptance: deliveryGraph.specAcceptance,
+    deliveryGraph,
+    source,
     children,
     contextChecks: children.map((child) => ({
       candidateId: child.id,
-      result: checkTicketContext({ repo: root, base: snapshot.source.baseSha, body: child.body }),
+      result: checkTicketContext({ repo: root, base: source.baseSha, body: child.body }),
     })),
     policy: {
       identity: "AGENTS.md@1111111",
@@ -108,15 +132,15 @@ function readyInput() {
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-16T10:03:00Z",
-      source: structuredClone(snapshot.source),
+      source: structuredClone(source),
       axes: READY_AXES,
       graphVerdict: "READY",
       candidates: [
         { id: "101", verdict: "READY", executionLane: "AGENT" },
-        { id: "102", verdict: "READY", executionLane: "HUMAN" },
+        { id: "102", verdict: "READY", executionLane: "AGENT" },
       ],
     },
-    currentCheckpoint: checkpoint("DELIVERY", "100", snapshot.source.revision),
+    currentCheckpoint: checkpoint("DELIVERY", "100", source.revision),
   });
 }
 
@@ -177,7 +201,7 @@ test("Admission Plan is deterministic and activates children before the parent",
   const labelOperations = first.operations.filter(({ kind }) => kind === "labels");
   assert.deepEqual(labelOperations.map(({ issue }) => issue), ["101", "102", "100"]);
   assert.deepEqual(labelOperations[0].after, ["ready-for-agent"]);
-  assert.deepEqual(labelOperations[1].after, ["ready-for-human"]);
+  assert.deepEqual(labelOperations[1].after, ["ready-for-agent"]);
   assert.deepEqual(labelOperations[2].after, ["ready-for-agent"]);
   assert.equal(first.operations.at(-1).issue, "100");
   assert.match(first.operations[0].body, new RegExp(`Plan fingerprint: ${first.planFingerprint}`));

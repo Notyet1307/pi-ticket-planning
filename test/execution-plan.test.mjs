@@ -10,7 +10,7 @@ import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
-import { DELIVERY_GRAPH_MARKER, computeSpecContentHash, hashText, parseDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import {
   BASE_SHA as baseSha,
@@ -32,16 +32,20 @@ function rebind(input) {
 }
 
 function rewriteGraph(input, mutate) {
-  const graph = parseDeliveryGraph(input.parent.body);
+  const graph = structuredClone(input.deliveryGraph);
   mutate(graph);
   for (const graphChild of graph.children) {
     const child = input.children.find((item) => String(item.id) === String(graphChild.id));
     if (child) graphChild.bodyHash = hashText(child.body);
   }
-  const before = input.parent.body.slice(0, input.parent.body.indexOf("## Ticket coverage")).trimEnd();
-  graph.source.specContentHash = computeSpecContentHash(`${before}\n\n## Ticket coverage\n`);
-  input.parent.body = `${before}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
-  input.source = { ...graph.source, baseRef: input.source.baseRef };
+  graph.source.specContentHash = hashText(input.parent.body);
+  graph.specAcceptance.parent = { number: Number(input.parent.id), title: input.parent.title, bodyHash: hashText(input.parent.body) };
+  graph.specAcceptance.source = { baseSha: graph.planningBaseSha, specContentHash: graph.source.specContentHash };
+  const { digest: _acceptanceDigest, ...acceptanceBody } = graph.specAcceptance;
+  graph.specAcceptance.digest = fingerprint(acceptanceBody);
+  input.deliveryGraph = graph;
+  input.specAcceptance = structuredClone(graph.specAcceptance);
+  input.source = { ...input.source, identity: graph.source.identity, revision: graph.source.revision, baseSha: graph.executionBaseSha, specContentHash: graph.source.specContentHash };
   return rebind(input);
 }
 
@@ -222,7 +226,7 @@ test("execution compiler maps one exact accepted graph and rejects non-executabl
   const controller = controllerBinding(input);
   const plan = compileExecutionPlan(input, { controller });
   assert.deepEqual(plan, compileExecutionPlan(executionInput(), { controller }));
-  assert.equal(plan.releasePlan.id, "release-100-" + plan.source.deliveryGraphDigest.slice(7, 19));
+  assert.equal(plan.releasePlan.id, input.deliveryGraph.releaseId);
   assert.deepEqual(plan.releasePlan.issues[0].suggestedValidation, []);
   assert.equal(plan.releasePlan.issues[0].allowNoop, false);
   assert.equal(plan.releasePlan.source.baseRef, "main");
@@ -231,15 +235,14 @@ test("execution compiler maps one exact accepted graph and rejects non-executabl
   assert.match(plan.releasePlan.reviewFocus[1], /Walking skeleton handoff/);
   assert.equal(plan.releasePlan.issues[0].order, 1);
   assert.deepEqual(plan.releasePlan.issues[0].dependsOn, []);
-  const accepted = executionInput(); accepted.release = { accepted: true, id: "accepted-release_1" };
-  assert.equal(compileExecutionPlan(accepted, { controller }).releasePlan.id, "accepted-release_1");
-  const unaccepted = executionInput(); unaccepted.release = { accepted: false, id: "accepted-release_1" };
-  assert.notEqual(compileExecutionPlan(unaccepted, { controller }).releasePlan.id, "accepted-release_1");
   assert.equal(plan.policy.accepted, undefined);
   assert.match(plan.children[0].bodyHash, /^sha256:/);
   for (const [mutate, code] of [[(value) => { value.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].blockedBy = ["999"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
     const changed = executionInput(); mutate(changed); assert.throws(() => compileExecutionPlan(changed, { controller }), new RegExp(code));
   }
+  const missingReceipt = executionInput();
+  delete missingReceipt.specAcceptance;
+  assert.throws(() => compileExecutionPlan(missingReceipt, { controller }), /ADMISSION_STATE_NOT_READY:MISSING_SPEC_ACCEPTANCE_RECEIPT/);
 });
 
 test("execution compiler preserves multilingual accepted review focus and fails closed above 20 entries", () => {
@@ -391,45 +394,38 @@ test("execution compiler rejects policy and controller authority drift with stab
   for (const [overrides, code] of [[{ repo: "other/repo" }, "CONTROLLER_CONFIG_MISMATCH"], [{ baseRef: "other" }, "CONTROLLER_CONFIG_MISMATCH"], [{ policy: { maxIssues: 0 } }, "CONTROLLER_CONFIG_MISMATCH"], [{ review: { enabled: false } }, "CONTROLLER_CONFIG_MISMATCH"]]) { const input = executionInput(); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input, overrides) }), new RegExp(code)); }
 });
 
-test("execution compiler projects a reviewed trailing HUMAN obligation out of the Controller tranche", () => {
+test("execution compiler rejects HUMAN work in an executable release", () => {
   const input = mixedLaneInput();
-  const plan = compileExecutionPlan(input, { controller: controllerBinding(input) });
-  const graph = parseDeliveryGraph(input.parent.body);
-  assert.deepEqual(plan.children.map(({ issue }) => issue), ["101"]);
-  assert.deepEqual(plan.releasePlan.issues.map(({ number, order }) => ({ number, order })), [{ number: 101, order: 1 }]);
-  assert.equal(plan.source.deliveryGraphDigest, fingerprint(graph));
-  assert.notEqual(plan.reviewedFingerprint, compileExecutionPlan(executionInput(), { controller: controllerBinding(executionInput()) }).reviewedFingerprint);
+  assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
 });
 
-test("execution compiler keeps mixed-lane projection fail-closed", () => {
-  {
-    const input = mixedLaneInput({ agentBlockedByHuman: true });
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_AGENT_DEPENDS_ON_HUMAN:101:102/);
+test("execution compiler keeps executable-release shape fail-closed", () => {
+  const humanDependency = mixedLaneInput({ agentBlockedByHuman: true });
+  assert.throws(() => compileExecutionPlan(humanDependency, { controller: controllerBinding(humanDependency) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
+  const external = rewriteGraph(executionInput(), (graph) => { graph.children[0].externalBlockers = ["external"]; });
+  assert.throws(() => compileExecutionPlan(external, { controller: controllerBinding(external) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
+
+  const early = rewriteGraph(executionInput(), (graph) => { graph.readinessState = "SPEC_ACCEPTED"; });
+  assert.throws(() => compileExecutionPlan(early, { controller: controllerBinding(early) }), /RELEASE_NOT_GRAPH_REVIEWED/);
+});
+
+test("execution compiler binds an executable graph to an executable Delivery Spec Parent", () => {
+  for (const marker of [ROADMAP_PARENT_MARKER, ROADMAP_GRAPH_MARKER]) {
+    const input = executionInput();
+    input.parent.body = input.parent.body.replace(EXECUTABLE_DELIVERY_SPEC_MARKER, `${EXECUTABLE_DELIVERY_SPEC_MARKER}\n${marker}`);
+    rewriteGraph(input, () => {});
+    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /ADMISSION_STATE_NOT_READY:PARENT_KIND_CONTRADICTION/);
   }
-  {
-    const input = mixedLaneInput({ humanVerdict: "NEEDS_INFO" });
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /REVIEW_NOT_READY/);
-  }
-  {
-    const input = mixedLaneInput({ humanReviewLane: "AGENT" });
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
-  }
-  {
-    const input = mixedLaneInput();
-    input.children.find(({ id }) => id === "102").body += "\ndrift";
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CHILD_DRIFT:102/);
-  }
-  {
-    const input = mixedLaneInput();
-    input.children.find(({ id }) => id === "101").executionLane = "HUMAN";
-    input.review.candidates.find(({ id }) => id === "101").executionLane = "HUMAN";
-    rewriteGraph(input, (graph) => { graph.children.find(({ id }) => id === "101").executionLane = "HUMAN"; });
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NO_AGENT_TRANCHE/);
-  }
-  {
-    const input = rewriteGraph(executionInput(), (graph) => { graph.children[0].externalBlockers = ["external"]; });
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
-  }
+});
+
+test("execution compiler rejects Roadmap and legacy v2 artifacts before handoff", () => {
+  const roadmap = executionInput();
+  roadmap.deliveryGraph = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false };
+  assert.throws(() => compileExecutionPlan(roadmap, { controller: controllerBinding(roadmap) }), /ROADMAP_NOT_EXECUTABLE/);
+
+  const legacy = executionInput();
+  legacy.deliveryGraph = { version: 2 };
+  assert.throws(() => compileExecutionPlan(legacy, { controller: controllerBinding(legacy) }), /NEEDS_MIGRATION/);
 });
 
 test("execution compiler rejects parent identity and state before review binding", () => {

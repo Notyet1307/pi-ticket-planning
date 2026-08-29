@@ -43,7 +43,12 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   const admissionState = validateAdmissionState({
     repositoryPath: input.repositoryPath,
     source: input.source,
+    parent: input.parent,
     parentBody: input.parent.body,
+    specAcceptance: input.specAcceptance,
+    deliveryGraph: input.deliveryGraph,
+    roadmapGraph: input.roadmapGraph,
+    roadmapParent: input.roadmapParent,
     children: input.children,
     contextChecks: input.contextChecks,
   });
@@ -58,7 +63,9 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
   }
   if (fingerprint(input.review.source) !== fingerprint(input.source)) throw planError("review source does not match the exact Admission source");
 
-  const snapshot = parseDeliveryGraph(input.parent.body);
+  const snapshot = input.deliveryGraph && typeof input.deliveryGraph === "object"
+    ? structuredClone(input.deliveryGraph)
+    : parseDeliveryGraph(input.parent.body);
   const reviewById = new Map((input.review.candidates ?? []).map((candidate) => [String(candidate.id), candidate]));
   const snapshotIds = snapshot.children.map(({ id }) => String(id));
   if (reviewById.size !== (input.review.candidates ?? []).length) throw planError("review contains duplicate candidate identities");
@@ -102,6 +109,12 @@ export function buildAdmissionPlan(input, { clock = Date.now } = {}) {
     target: String(input.parent.id),
     source: input.source,
     graph: snapshot,
+    roadmap: input.roadmapGraph ?? null,
+    roadmapParent: input.roadmapParent ? {
+      number: Number(input.roadmapParent.id),
+      title: input.roadmapParent.title,
+      bodyHash: hashText(input.roadmapParent.body),
+    } : null,
     parentTitle: input.parent.title,
     parentBodyHash: hashText(input.parent.body),
     parentState: input.parent.state,

@@ -77,16 +77,15 @@ function validateExecutionPlanBehaviorCases(file) {
   if (fixture.version !== 1 || fixture.evidenceTier !== "DETERMINISTIC_CONTRACT_FIXTURE" || !Array.isArray(fixture.cases)) {
     return ["invalid execution-plan deterministic fixture"];
   }
-  const expectedIds = ["agent-only-default-handoff", "terminal-human-projects-agent-tranche", "human-blocks-agent-stops-handoff", "all-human-stops-handoff", "external-blocker-stops-handoff"];
+  const expectedIds = ["agent-only-default-handoff", "mixed-agent-human-stops-handoff", "roadmap-human-stops-handoff", "human-blocks-agent-stops-handoff", "all-human-stops-handoff", "external-blocker-stops-handoff"];
   if (fixture.cases.map(({ id }) => id).join("\n") !== expectedIds.join("\n")) errors.push("execution-plan deterministic fixture case set drifted");
   for (const item of fixture.cases) {
-    const agentIndexes = new Set((item.executionLanes ?? []).flatMap((lane, index) => lane === "AGENT" ? [index] : []));
-    const executable = agentIndexes.size > 0
-      && [...agentIndexes].every((index) => (item.blockedBy?.[index] ?? []).every((blocker) => agentIndexes.has(blocker)))
+    const executable = (item.executionLanes ?? []).length > 0
+      && item.executionLanes.every((lane) => lane === "AGENT")
       && Array.isArray(item.externalBlockers)
       && item.externalBlockers.length === 0;
     const actual = {
-      status: executable ? "READY" : "CODEX_RELEASE_NOT_EXECUTABLE",
+      status: item.artifactKind === "ROADMAP" ? "ROADMAP_NOT_EXECUTABLE" : executable ? "READY" : "CODEX_RELEASE_NOT_EXECUTABLE",
       route: executable ? "prepare-codex-release" : null,
       labelWrites: 0,
       controllerStarts: 0,

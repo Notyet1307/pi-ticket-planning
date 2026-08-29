@@ -9,11 +9,9 @@ import {
   applyAdmissionPlan,
   buildAdmissionPlan,
   buildStandaloneAdmissionPlan,
+  fingerprint,
 } from "../scripts/admit.mjs";
-import {
-  DELIVERY_GRAPH_MARKER,
-  hashText,
-} from "../scripts/check-delivery-graph.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import {
   buildTicketContextResult,
   checkTicketContext,
@@ -52,25 +50,45 @@ function input() {
     baseSha,
     specContentHash: hashText(specBody),
   };
+  const parent = { id: "10", title: "Delivery parent", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}`, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] };
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 10, title: parent.title, bodyHash: hashText(parent.body) },
+    source: { baseSha, specContentHash: source.specContentHash },
+    decision: { caseId: "PC-admission", approvalId: "F-spec-approval", acceptedAt: "2026-08-16T12:00:00Z" },
+  };
   const graph = {
-    version: 2,
-    source,
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "R001-C1-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: baseSha,
+    executionBaseSha: baseSha,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: `sha256:${"c".repeat(64)}`,
+    source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
     scenarios: [
       { id: "S1", behavior: "First.", entry: "external:input", exit: "first", releaseSignal: "First.", smallestLoop: true },
       { id: "S2", behavior: "Second.", entry: "first", exit: "second", releaseSignal: "Second.", smallestLoop: true },
     ],
     children: [
       { id: "11", title: "First", coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: hashText(children[0].body), startingState: "Input exists.", primaryVerification: "Verify first.", executionLane: "AGENT" },
-      { id: "12", title: "Second", coverageRole: "DIRECT", sourceScenarios: ["S2"], blockedBy: ["11"], externalBlockers: [], bodyHash: hashText(children[1].body), startingState: "First exists.", primaryVerification: "Verify second.", executionLane: "HUMAN" },
+      { id: "12", title: "Second", coverageRole: "DIRECT", sourceScenarios: ["S2"], blockedBy: ["11"], externalBlockers: [], bodyHash: hashText(children[1].body), startingState: "First exists.", primaryVerification: "Verify second.", executionLane: "AGENT" },
     ],
     walkingSkeleton: ["11", "12"],
   };
-  const parentBody = `${specBody}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
   const harness = harnessReadiness("acme/product", baseSha);
   return attachReviewBinding({
     repo: "acme/product",
     repositoryPath,
-    parent: { id: "10", title: "Delivery parent", body: parentBody, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] },
+    parent,
+    specAcceptance: graph.specAcceptance,
+    deliveryGraph: graph,
     source,
     children,
     contextChecks: children.map((child) => ({
@@ -89,7 +107,7 @@ function input() {
       graphVerdict: "READY",
       candidates: [
         { id: "11", verdict: "READY", executionLane: "AGENT" },
-        { id: "12", verdict: "READY", executionLane: "HUMAN" },
+        { id: "12", verdict: "READY", executionLane: "AGENT" },
       ],
     },
     currentCheckpoint: checkpoint("DELIVERY", "10", "r2"),
@@ -107,6 +125,8 @@ class MemoryAdapter {
       currentCheckpoint: admissionInput.currentCheckpoint,
       contextChecks: admissionInput.contextChecks,
       parent: admissionInput.parent,
+      specAcceptance: admissionInput.specAcceptance,
+      deliveryGraph: admissionInput.deliveryGraph,
       children: admissionInput.children,
     });
     this.failure = failure;
@@ -231,7 +251,7 @@ test("Admission apply converges once and resumes the committed transaction idemp
   assert.equal(first.status, "COMPLETE", JSON.stringify(first));
   assert.deepEqual(adapter.mutations.filter((item) => item.startsWith("labels:")), ["labels:11", "labels:12", "labels:10"]);
   assert.deepEqual(adapter.state.children[0].labels.sort(), ["bug", "ready-for-agent"]);
-  assert.deepEqual(adapter.state.children[1].labels, ["ready-for-human"]);
+  assert.deepEqual(adapter.state.children[1].labels, ["ready-for-agent"]);
   assert.deepEqual(adapter.state.parent.labels.sort(), ["ready-for-agent", "release"]);
   assert.equal(adapter.caseStore.snapshot.checkpoint.stage, "EXECUTION");
   assert.equal(adapter.caseStore.snapshot.checkpoint.verdict, "HANDOFF_READY");

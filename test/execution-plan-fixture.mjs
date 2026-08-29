@@ -5,8 +5,7 @@ import { fileURLToPath } from "node:url";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
 import { fingerprint } from "../execution-plan/domain.mjs";
 import {
-  DELIVERY_GRAPH_MARKER,
-  computeSpecContentHash,
+  EXECUTABLE_DELIVERY_SPEC_MARKER,
   hashText,
 } from "../scripts/check-delivery-graph.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
@@ -69,10 +68,38 @@ No partial writes survive.
 ## Out of scope
 No UI work.`,
   };
-  const source = { identity: "accepted-release", revision: "r1", baseSha: BASE_SHA, baseRef: "main" };
+  const parent = {
+    id: "100",
+    title: "Release safely",
+    state: "open",
+    labels: ["needs-triage"],
+    blockedBy: [],
+    updatedAt: "2026-08-20T00:00:00Z",
+    body: `${PARENT_SPEC}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}`,
+  };
+  const specContentHash = hashText(parent.body);
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: Number(parent.id), title: parent.title, bodyHash: hashText(parent.body) },
+    source: { baseSha: BASE_SHA, specContentHash },
+    decision: { caseId: "PC-release-r1", approvalId: "F-spec-approval", acceptedAt: "2026-08-20T00:00:00Z" },
+  };
+  const source = { identity: "accepted-release", revision: "r1", baseSha: BASE_SHA, baseRef: "main", specContentHash };
   const graph = {
-    version: 2,
-    source: { identity: source.identity, revision: source.revision, baseSha: BASE_SHA, specContentHash: digest("0") },
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "R001-C1-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: BASE_SHA,
+    executionBaseSha: BASE_SHA,
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: digest("d"),
+    source: { identity: source.identity, revision: source.revision, specContentHash },
     scenarios: [{ id: "S1", behavior: "Release", entry: "external:input", exit: "artifact", releaseSignal: "release", smallestLoop: true }],
     children: [{
       id: child.id,
@@ -87,17 +114,6 @@ No UI work.`,
       executionLane: "AGENT",
     }],
     walkingSkeleton: [child.id],
-  };
-  const provisional = `${PARENT_SPEC}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``;
-  graph.source.specContentHash = computeSpecContentHash(provisional);
-  const parent = {
-    id: "100",
-    title: "Release safely",
-    state: "open",
-    labels: ["needs-triage"],
-    blockedBy: [],
-    updatedAt: "2026-08-20T00:00:00Z",
-    body: `${PARENT_SPEC}\n\n## Ticket coverage\n\n${DELIVERY_GRAPH_MARKER}\n\n\`\`\`json\n${JSON.stringify(graph)}\n\`\`\``,
   };
   const axes = Object.fromEntries([
     "candidateReadiness",
@@ -115,6 +131,8 @@ No UI work.`,
     repositoryPath: ROOT,
     source,
     parent,
+    specAcceptance: graph.specAcceptance,
+    deliveryGraph: graph,
     children: [child],
     contextChecks: [{ candidateId: child.id, result: checkTicketContext({ repo: ROOT, base: BASE_SHA, body: child.body }) }],
     policy: { identity: "policy", digest: digest("b"), accepted: true },
@@ -122,7 +140,7 @@ No UI work.`,
       schema: "pi-ticket-planning:admission-review:v1",
       reviewer: "ticket-readiness-reviewer",
       reviewedAt: "2026-08-20T00:00:00Z",
-      source: { identity: source.identity, revision: source.revision, baseSha: BASE_SHA },
+      source: { identity: source.identity, revision: source.revision, baseSha: BASE_SHA, specContentHash },
       axes,
       graphVerdict: "READY",
       candidates: [{ id: child.id, verdict: "READY", executionLane: "AGENT" }],

@@ -71,7 +71,10 @@ export function createGitHubAdapter({ repo, kind = "DELIVERY_GRAPH", target, con
       }
       const parent = readIssue(targetId);
       const children = childRefs().map((reference) => readIssue(reference.number, { includeBlockers: true }));
-      return structuredClone({ ...context, parent, children });
+      const roadmapParent = context.roadmapGraph?.parent?.number
+        ? readIssue(String(context.roadmapGraph.parent.number))
+        : undefined;
+      return structuredClone({ ...context, parent, ...(roadmapParent ? { roadmapParent } : {}), children });
     },
     readIssue(issueId) {
       return readIssue(issueId, { includeBlockers: kind === "STANDALONE" || String(issueId) !== targetId });

@@ -276,19 +276,19 @@ Delivery Spec 用稳定 Scenario ID 和明确交接描述行为。拆票会覆�
 | GitLab | 仅规划和规划级/就绪复核；没有 package-backed Controller 或 Legacy Herdr 激活。 |
 | Local Markdown | 仅规划和复核；没有事务化 execution handoff。 |
 
-Delivery Parent 在 `## Ticket coverage` 下保存一份规范化 Delivery Graph v2 snapshot，用 SHA-256 绑定 accepted Spec 和 exact child body。检查 snapshot：
+`to-spec apply` 会把一份 exact `spec-acceptance:v1` receipt 绑定到不可变的 Delivery Parent。`to-tickets` 另存一个 `delivery-release-graph:v3` artifact，只表示当前一个全 AGENT Release；Roadmap、HUMAN 和未来工作留在不可执行的 `roadmap-graph:v1`。检查 artifact：
 
 ```sh
 npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 ```
 
-更强的 state 检查会把它与 Parent Spec、当前 child body、原生顺序和 blocker graph 比对：
+更强的 state 检查会把 v3 graph 与 receipt 同不可变 Parent、当前 child body、原生顺序和 blocker graph 比对：
 
 ```sh
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受、没有 external blocker 且包含非空 dependency-closed AGENT tranche 的 GitHub 图，默认先 review 完整 Graph，再为该 tranche 准备一次 Release Handoff。后置 HUMAN obligation 保持 `needs-triage`，不会进入 Controller input：
+已接受、没有 external blocker、且不超过 policy child limit（默认 4、硬上限 6）的 GitHub v3 Release，默认先 review 再准备一次 Release Handoff。Roadmap、HUMAN work、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \

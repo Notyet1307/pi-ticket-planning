@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/release-predecessor-receipt-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "releaseId", "mergedMainSha", "handoffDigests", "validationDigest", "completedAt", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:release-predecessor-receipt:v1" },
+    "releaseId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "mergedMainSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "handoffDigests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "common-v1.schema.json#/$defs/digest" }
+    },
+    "validationDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "completedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

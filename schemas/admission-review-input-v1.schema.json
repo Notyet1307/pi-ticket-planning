@@ -13,7 +13,7 @@
     "contextChecks": { "type": "array" },
     "reviewTarget": {
       "oneOf": [
-        { "type": "object", "required": ["parent", "children", "graph"] },
+        { "type": "object", "required": ["parent", "children", "graph", "roadmap", "roadmapParent"] },
         { "type": "object", "required": ["candidate"] }
       ]
     },

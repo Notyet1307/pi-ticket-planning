@@ -21,7 +21,7 @@ Require:
 - the subagent tool;
 - the ticket-readiness-reviewer agent;
 - candidate issues in needs-triage or needs-info.
-- for a delivery parent, an accepted Spec with stable Scenario IDs and a current `## Ticket coverage` section.
+- for a delivery parent, an immutable accepted Spec, exact `spec-acceptance:v1` receipt, and separately bound `delivery-release-graph:v3` for one current all-AGENT Release.
 - an accepted-base checkout from which `check-ticket-context.mjs` can resolve exact Git blobs.
 
 If the reviewer cannot run in a fresh context, stop with the candidates unchanged. The authoring context is not a review fallback.
@@ -43,7 +43,7 @@ Re-fetch and include:
 - trusted source identity, exact Release revision when applicable, exact repository base, and effective policy identity;
 - for every graph and every standalone `AGENT` candidate, a freshly executed `herdr-harness:project-readiness:v1` receipt for the exact accepted base. Run `pi-ticket-plan admit readiness --repo <owner/repo> --base <sha> --harness-cli <absolute dist/src/cli.js> --harness-config <private 0600 config> --out <private receipt binding>` before fresh review. The command verifies the colocated versioned schema, both Provider lanes, Docker, exact-base validation, and the live no-bypass GitHub merge gate. Include only its bounded stable projection in the reviewer bundle; never include either private path, raw validation output, Docker host, environment, or credential material. Without a passing receipt, leave every candidate unactivated and do not dispatch the reviewer. A standalone `HUMAN` candidate does not require Harness execution readiness;
 - parent Scenario definitions, explicit state/artifact handoffs, and Release signal mapping;
-- the exact normalized Delivery Graph JSON from `## Ticket coverage` and its checker output;
+- the exact separately bound `delivery-release-graph:v3` JSON, embedded acceptance receipt, and checker output;
 - child order, native sub-issue relationships, and blocking edges;
 - linked ADRs, closed Wayfinder decisions, research findings, prototype decisions, and other sources needed by the ticket;
 - any detected source conflict or missing artifact.
@@ -58,7 +58,7 @@ node "$PI_TICKET_PLANNING_ROOT/scripts/check-ticket-context.mjs" --repo <absolut
 
 Use the same rule for every delivery-map child and a standalone QUICK candidate. Bind the raw JSON as `contextChecks: [{ "candidateId": "<exact id>", "result": <raw result> }]`, and retain the accepted-base checkout's absolute path as private transient `repositoryPath`. `check-admission-state`, `admit plan`, and `admit apply` re-run the checker from that checkout and require the canonical raw results to match; a caller-supplied digest is not trusted as proof. Keep `repositoryPath` in the private deterministic/CLI context, not the reviewer payload, Plan, or Tracker. A missing result, FAIL verdict, invalid digest, body-hash mismatch, base-SHA mismatch, blob mismatch, duplicate identity, or unexpected identity makes the Graph verdict NEEDS_INFO. Keep every label unchanged and do not dispatch a reviewer. The checker decides only structure and exact Git-blob facts; the fresh reviewer still owns semantic authority, staleness, relevance, conflict, and first-action economy.
 
-For a delivery map, extract the one `<!-- pi-ticket-planning:delivery-graph:v2 -->` snapshot from the refreshed parent and run the configured tracker command through `check-delivery-graph.mjs`. A v1 snapshot requires migration; a missing, duplicate, malformed, or failed snapshot is Graph NEEDS_INFO. Then compare the passing snapshot against the fresh Spec and native graph before dispatch:
+For a delivery map, load the exact graph binding from the Planning Case and run it through `check-delivery-graph.mjs`. Roadmap returns `ROADMAP_NOT_EXECUTABLE`; v1/v2 returns `NEEDS_MIGRATION`; a missing, malformed, mixed-lane, multi-Release, over-limit, externally blocked, or failed v3 artifact is Graph NEEDS_INFO. Then compare the passing snapshot and acceptance receipt against the immutable Spec and native graph before dispatch:
 
 1. Matrix Scenario IDs equal the parent Scenario IDs.
 2. Every Scenario has current `DIRECT` coverage.
@@ -67,7 +67,7 @@ For a delivery map, extract the one `<!-- pi-ticket-planning:delivery-graph:v2 -
 5. The declared walking-skeleton chain references current children in dependency-valid order and closes the stated smallest loop.
 6. Every named downstream state or artifact has the persisted producer or external source required by the Spec; no admission check invents a missing handoff.
 
-Serialize the refreshed source identity/revision/base, private `repositoryPath`, complete parent body, native-order children with exact bodies and open `blockedBy` identities, and bound `contextChecks` as one private deterministic bundle. Run it through `check-admission-state.mjs`; this one check re-runs the Delivery Graph contract and every Ticket Context checker against Git, then compares the Spec hash and Scenario set, child set/order/body hashes, source identity, native dependency graph, and every Context check binding. Strip `repositoryPath` before sending the otherwise exact bundle to the reviewer. Return `Delivery graph contract: PASS | FAIL`, `Scenario coverage: PASS | FAIL`, and `Walking skeleton: PASS | FAIL`. Then run the configured strict-frontier order check against the fresh native graph. Any failed or unavailable structural check is Graph NEEDS_INFO: keep every label unchanged, report the exact gap or read failure, and do not accept a reviewer READY result. After a confirmed edit, rebuild the bundle from scratch.
+Serialize the refreshed source identity/revision/base, private `repositoryPath`, complete immutable parent identity/body, exact `deliveryGraph`, native-order children with exact bodies and open `blockedBy` identities, and bound `contextChecks` as one private deterministic bundle. Run it through `check-admission-state.mjs`; this one check re-runs the receipt, v3 Graph contract, and every Ticket Context checker against Git, then compares the Scenario set, child set/order/body hashes, source identity, native dependency graph, and every Context check binding. Strip `repositoryPath` before sending the otherwise exact bundle to the reviewer. Return `Delivery graph contract: PASS | FAIL`, `Scenario coverage: PASS | FAIL`, and `Walking skeleton: PASS | FAIL`. Then run the configured strict-frontier order check against the fresh native graph. Any failed or unavailable structural check is Graph NEEDS_INFO: keep every label unchanged, report the exact gap or read failure, and do not accept a reviewer READY result. After a confirmed edit, rebuild the bundle from scratch.
 
 ### 3. Dispatch the independent review
 
@@ -106,7 +106,7 @@ The following direct outcome rules apply only to confirmed non-READY review outc
 - On SPLIT: keep needs-triage, remove both ready labels, and post the proposed split only after user confirmation.
 - On NEEDS_INFO: replace needs-triage with needs-info after user confirmation, remove both ready labels, and list the exact unresolved questions.
 
-For a delivery map, `admit apply` activates children in their reviewed lanes first. It adds ready-for-agent to the parent only after every intended child has a READY verdict, all scenarios have direct coverage, the walking skeleton and frontier pass, all relationships are wired, and no unresolved implementation candidate remains. A READY/HUMAN child is resolved for graph admission. The parent is always the final activation write.
+For a delivery map, `admit apply` activates the all-AGENT current-Release children first. It adds ready-for-agent to the parent only after every intended child has a READY verdict, all scenarios have direct coverage, the walking skeleton and frontier pass, all relationships are wired, and no unresolved implementation candidate remains. HUMAN work uses a standalone Human Execution route and never appears in the executable graph. The parent is always the final activation write.
 
 ### 6. Report completion
 

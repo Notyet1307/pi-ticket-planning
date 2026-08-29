@@ -11,6 +11,7 @@ import { requireAdmissionCapabilities } from "../capabilities/admission.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { verifyPlanningCaseBindings } from "../planning-case/bindings.mjs";
 import { createFactAttestation, loadProtocol, producerAttestationSource } from "../protocol/kernel.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER } from "../scripts/check-delivery-graph.mjs";
 import {
   applySpecPublication,
   buildSpecPublicationPlan,
@@ -213,6 +214,7 @@ None.
   const plan = buildSpecPublicationPlan({ context, draftBytes: Buffer.from(draft), artifacts: { contextPath, contextDigest: digestBytes(contextBytes), draftPath, planPath } });
   assert.equal(plan.draftDigest, hash(draft));
   assert.equal(plan.issue.bodyDigest, hash(plan.issue.body));
+  assert.equal(plan.issue.body.split(EXECUTABLE_DELIVERY_SPEC_MARKER).length - 1, 1);
   fs.writeFileSync(planPath, `${JSON.stringify(plan, null, 2)}\n`, { mode: 0o600 });
   recordSpecPublicationArtifacts({ plan, store: ready.store, clock: () => NOW });
   const approval = createSpecPublicationApproval({ plan, correlationId: "C-spec-publication", observedAt: NOW });
@@ -246,6 +248,9 @@ test("Controller-direct SPEC publication succeeds with no Legacy compatibility t
   const snapshot = ready.store.get({ caseId: ready.caseId, target: TARGET });
   assert.equal(snapshot.checkpoint.verdict, "SPEC_ACCEPTED");
   assert.equal(snapshot.bindings.spec.contentDigest, hash(ready.plan.issue.body));
+  assert.equal(snapshot.bindings.spec.acceptance.parent.bodyHash, ready.plan.issue.bodyDigest);
+  assert.equal(snapshot.bindings.spec.acceptance.decision.approvalId, ready.approval.id);
+  assert.equal(ready.apply().acceptance.digest, snapshot.bindings.spec.acceptance.digest);
   assert.equal(applySpecPublication({
     plan: ready.plan,
     current: { context: ready.context, draftBytes: Buffer.from(ready.draft) },
@@ -299,6 +304,13 @@ test("Spec self-check rejects a missing required section", (t) => {
     draftBytes: Buffer.from(broken),
     artifacts: { contextPath: ready.contextPath, contextDigest: ready.plan.artifacts.context.digest, draftPath: ready.draftPath, planPath: ready.planPath },
   }), /SPEC_STRUCTURE_CHECK_FAILED/);
+  for (const marker of [EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER]) {
+    assert.throws(() => buildSpecPublicationPlan({
+      context: ready.context,
+      draftBytes: Buffer.from(`${ready.draft}\n${marker}`),
+      artifacts: { contextPath: ready.contextPath, contextDigest: ready.plan.artifacts.context.digest, draftPath: ready.draftPath, planPath: ready.planPath },
+    }), /SPEC_PARENT_KIND_MARKER_CONFLICT/);
+  }
 });
 
 test("Spec preflight rereads exact Git authorities and live tracker label", (t) => {

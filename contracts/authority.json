@@ -32,6 +32,7 @@
     "spec.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["spec-tracker-api", "tracker-api", "git"] },
     "tickets.persisted": { "kind": "TRACKER_FACT", "owner": "tracker", "sources": ["tracker-api", "git"] },
     "graph.passed": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
+    "oracles.bound": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "human.graphApproval": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
     "source.unchanged": { "kind": "LIVE_FACT", "owner": "deterministic-checker", "sources": ["check-admission-state", "admission-cli", "execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "policy.accepted": { "kind": "IMMUTABLE_FACT", "owner": "git-policy", "sources": ["git-policy-check"] },

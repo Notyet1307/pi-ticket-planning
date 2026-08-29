@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import { validateDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 
 const sha = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -23,12 +24,32 @@ function graph(size) {
       bodyHash: sha(`Ticket ${index}`),
       startingState: index === 1 ? "input" : `state-${index - 1}`,
       primaryVerification: `verify-${index}`,
-      executionLane: index % 7 === 0 ? "HUMAN" : "AGENT",
+      executionLane: "AGENT",
     });
   }
+  const specContentHash = sha("benchmark");
+  const acceptanceBody = {
+    schema: "pi-ticket-planning:spec-acceptance:v1",
+    parent: { number: 1, title: "Benchmark", bodyHash: sha("benchmark-parent") },
+    source: { baseSha: "a".repeat(40), specContentHash },
+    decision: { caseId: "PC-benchmark", approvalId: "F-benchmark", acceptedAt: "2026-08-29T00:00:00Z" },
+  };
   return {
-    version: 2,
-    source: { identity: "benchmark-spec", revision: "r1", baseSha: "a".repeat(40), specContentHash: sha("benchmark") },
+    schema: "pi-ticket-planning:delivery-release-graph:v3",
+    kind: "EXECUTABLE_RELEASE",
+    executable: true,
+    readinessState: "GRAPH_REVIEWED",
+    releaseId: "benchmark-r1",
+    releaseOrdinal: 1,
+    planningBaseSha: "a".repeat(40),
+    executionBaseSha: "a".repeat(40),
+    roadmapDigest: null,
+    predecessorReleaseId: null,
+    predecessorReceipt: null,
+    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    decisionManifestDigest: sha("benchmark-decisions"),
+    source: { identity: "benchmark-spec", revision: "r1", specContentHash },
+    childPolicy: { maxChildren: 6 },
     scenarios,
     children,
     walkingSkeleton: ["C1"],
@@ -42,7 +63,7 @@ function percentile(values, quantile) {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * quantile) - 1)] ?? 0;
 }
 
-export function runBenchmark({ ticketSizes = [100, 500, 1000], caseSizes = [10, 50], clock = process.hrtime.bigint } = {}) {
+export function runBenchmark({ ticketSizes = [1, 4, 6], caseSizes = [10, 50], clock = process.hrtime.bigint } = {}) {
   validateDeliveryGraph(graph(1));
   const cpu = process.cpuUsage();
   const memory = process.memoryUsage().heapUsed;

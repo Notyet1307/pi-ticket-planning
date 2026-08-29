@@ -338,8 +338,8 @@ test("strict mutation consumes one exact approval and declares postconditions", 
 
 test("protocol model checker reports a closed reachable machine", () => {
   assert.deepEqual(verifyProtocol(), {
-    legalStructuralStates: 169,
-    reachableStructuralStates: 169,
+    legalStructuralStates: 189,
+    reachableStructuralStates: 189,
     unreachableStructuralStates: [],
     invalidCombinations: [],
     blockedWithoutRecovery: [],

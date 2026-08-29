@@ -11,6 +11,8 @@
     "target": { "$ref": "common-v1.schema.json#/$defs/safeText" },
     "source": { "type": "object" },
     "graph": { "type": "object" },
+    "roadmap": { "type": ["object", "null"] },
+    "roadmapParent": { "type": ["object", "null"] },
     "parentTitle": { "type": "string" },
     "parentBodyHash": { "$ref": "common-v1.schema.json#/$defs/digest" },
     "parentState": { "type": "string" },

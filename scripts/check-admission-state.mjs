@@ -2,10 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  computeSpecContentHash,
+  EXECUTABLE_DELIVERY_SPEC_MARKER,
+  DELIVERY_GRAPH_MARKER,
+  DELIVERY_GRAPH_MARKER_V1,
+  DELIVERY_RELEASE_GRAPH_MARKER,
+  ROADMAP_GRAPH_MARKER,
+  ROADMAP_PARENT_MARKER,
   hashText,
   parseDeliveryGraph,
   validateDeliveryGraph,
+  validateSpecAcceptance,
 } from "./check-delivery-graph.mjs";
 import { verifyCandidateContextChecks } from "./check-ticket-context.mjs";
 
@@ -41,31 +47,96 @@ export function validateAdmissionState(bundle) {
   if (typeof bundle.parentBody !== "string") {
     return result([issue("MISSING_PARENT_BODY")]);
   }
+  const parent = bundle.parent ?? {};
 
   let snapshot;
   try {
-    snapshot = parseDeliveryGraph(bundle.parentBody);
+    snapshot = bundle.deliveryGraph && typeof bundle.deliveryGraph === "object"
+      ? structuredClone(bundle.deliveryGraph)
+      : parseDeliveryGraph(bundle.parentBody);
   } catch (error) {
     return result([issue("INVALID_DELIVERY_GRAPH", error instanceof Error ? error.message : String(error))]);
   }
 
   const graph = validateDeliveryGraph(snapshot);
   problems.push(...graph.problems);
+  if (snapshot?.schema === "pi-ticket-planning:roadmap-graph:v1" || snapshot?.kind === "ROADMAP") {
+    problems.push(issue("ROADMAP_NOT_EXECUTABLE"));
+    return result(problems, graph);
+  }
+  if (snapshot?.schema !== "pi-ticket-planning:delivery-release-graph:v3") {
+    problems.push(issue("NEEDS_MIGRATION", "v2->v3"));
+    return result(problems, graph);
+  }
+  if (!graph.executable) problems.push(...(graph.readinessProblems ?? [issue("RELEASE_NOT_GRAPH_REVIEWED")]));
 
-  for (const [field, code] of [
-    ["identity", "SOURCE_IDENTITY_MISMATCH"],
-    ["revision", "SOURCE_REVISION_MISMATCH"],
-    ["baseSha", "SOURCE_BASE_SHA_MISMATCH"],
-  ]) {
-    if (bundle.source?.[field] !== snapshot.source?.[field]) problems.push(issue(code));
+  const roadmap = bundle.roadmapGraph;
+  if (snapshot.roadmapDigest !== null || roadmap !== undefined && roadmap !== null) {
+    const checked = validateDeliveryGraph(roadmap);
+    if (roadmap?.schema !== "pi-ticket-planning:roadmap-graph:v1" || !checked.ok) {
+      problems.push(issue("INVALID_ROADMAP_BINDING"));
+    } else {
+      const roadmapParent = bundle.roadmapParent;
+      const roadmapParentMarkers = typeof roadmapParent?.body === "string"
+        ? roadmapParent.body.split(ROADMAP_PARENT_MARKER).length - 1
+        : 0;
+      const roadmapParentHasGraph = typeof roadmapParent?.body === "string" && [
+        EXECUTABLE_DELIVERY_SPEC_MARKER,
+        ROADMAP_GRAPH_MARKER,
+        DELIVERY_RELEASE_GRAPH_MARKER,
+        DELIVERY_GRAPH_MARKER,
+        DELIVERY_GRAPH_MARKER_V1,
+      ].some((value) => roadmapParent.body.includes(value));
+      if (!roadmapParent || String(roadmapParent.id) === String(parent.id)
+        || Number(roadmapParent.id) !== roadmap.parent.number
+        || roadmapParent.title !== roadmap.parent.title
+        || hashText(roadmapParent.body ?? "") !== roadmap.parent.bodyHash
+        || roadmapParentMarkers !== 1 || roadmapParentHasGraph) {
+        problems.push(issue("ROADMAP_PARENT_MISMATCH"));
+      }
+      if (roadmap.digest !== snapshot.roadmapDigest) problems.push(issue("ROADMAP_BINDING_MISMATCH"));
+      if (roadmap.planningBaseSha !== snapshot.planningBaseSha) problems.push(issue("ROADMAP_PLANNING_BASE_MISMATCH"));
+      const current = roadmap.plannedReleases.find(({ releaseId }) => releaseId === snapshot.releaseId);
+      const previous = roadmap.plannedReleases.find(({ releaseOrdinal }) => releaseOrdinal === snapshot.releaseOrdinal - 1);
+      if (!current || current.releaseOrdinal !== snapshot.releaseOrdinal) problems.push(issue("ROADMAP_RELEASE_MISMATCH"));
+      if (snapshot.releaseOrdinal > 1 && (!previous || previous.releaseId !== snapshot.predecessorReleaseId
+        || !current?.predecessors?.includes(previous.releaseId))) problems.push(issue("ROADMAP_PREDECESSOR_MISMATCH"));
+    }
+  } else if (snapshot.releaseOrdinal > 1) {
+    problems.push(issue("MISSING_ROADMAP_BINDING"));
   }
 
-  try {
-    if (computeSpecContentHash(bundle.parentBody) !== snapshot.source?.specContentHash) {
-      problems.push(issue("SPEC_CONTENT_HASH_MISMATCH"));
-    }
-  } catch (error) {
-    problems.push(issue("INVALID_SPEC_CONTENT", error instanceof Error ? error.message : String(error)));
+  if (bundle.source?.identity !== snapshot.source?.identity) problems.push(issue("SOURCE_IDENTITY_MISMATCH"));
+  if (bundle.source?.revision !== snapshot.source?.revision) problems.push(issue("SOURCE_REVISION_MISMATCH"));
+  if (bundle.source?.baseSha !== snapshot.executionBaseSha) problems.push(issue("SOURCE_BASE_SHA_MISMATCH"));
+  if (bundle.source?.specContentHash !== undefined && bundle.source.specContentHash !== snapshot.source?.specContentHash) {
+    problems.push(issue("SPEC_CONTENT_HASH_MISMATCH"));
+  }
+
+  const executableMarkers = bundle.parentBody.split(EXECUTABLE_DELIVERY_SPEC_MARKER).length - 1;
+  const embeddedGraphMarker = [
+    ROADMAP_PARENT_MARKER,
+    ROADMAP_GRAPH_MARKER,
+    DELIVERY_RELEASE_GRAPH_MARKER,
+    DELIVERY_GRAPH_MARKER,
+    DELIVERY_GRAPH_MARKER_V1,
+  ].some((value) => bundle.parentBody.includes(value));
+  if (executableMarkers !== 1 || embeddedGraphMarker) {
+    problems.push(issue("PARENT_KIND_CONTRADICTION"));
+  }
+  const acceptance = snapshot.specAcceptance;
+  const boundAcceptance = bundle.specAcceptance ?? bundle.spec?.acceptance;
+  if (!boundAcceptance) problems.push(issue("MISSING_SPEC_ACCEPTANCE_RECEIPT"));
+  else {
+    problems.push(...validateSpecAcceptance(boundAcceptance));
+    if (boundAcceptance.digest !== acceptance?.digest) problems.push(issue("SPEC_ACCEPTANCE_RECEIPT_MISMATCH"));
+  }
+  const parentMatches = Number(parent.id) === acceptance?.parent?.number
+    && parent.title === acceptance?.parent?.title
+    && hashText(bundle.parentBody) === acceptance?.parent?.bodyHash;
+  if (!parentMatches) problems.push(issue("SPEC_ACCEPTANCE_RECEIPT_STALE"));
+  if (/\bSPEC_IN_PROGRESS\b|\bnot\s+accepted\b|尚未接受|未接受/iu.test(bundle.parentBody)) {
+    problems.push(issue("PARENT_ACCEPTANCE_CONTRADICTION"));
   }
 
   const specScenarioIds = extractSpecScenarioIds(bundle.parentBody);
@@ -79,7 +150,7 @@ export function validateAdmissionState(bundle) {
   problems.push(...verifyCandidateContextChecks({
     repositoryPath: bundle.repositoryPath,
     candidates: liveChildren,
-    baseSha: snapshot.source?.baseSha,
+    baseSha: snapshot.executionBaseSha,
     contextChecks: bundle.contextChecks,
   }));
   const liveIds = liveChildren.map(({ id }) => canonicalId(id));
@@ -103,6 +174,9 @@ export function validateAdmissionState(bundle) {
     if (!live) continue;
     if (typeof live.body !== "string" || hashText(live.body) !== child.bodyHash) {
       problems.push(issue("BODY_HASH_MISMATCH", id));
+    }
+    if (/\bAccepted Delivery Spec\b|已接受(?:的)?\s*Delivery Spec/iu.test(live.body ?? "") && !parentMatches) {
+      problems.push(issue("CHILD_ACCEPTANCE_WITHOUT_EXACT_RECEIPT", id));
     }
 
     if (!Array.isArray(live.blockedBy)) {

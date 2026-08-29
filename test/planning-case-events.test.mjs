@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
+import { noNextAction, reducePlanningCaseEvent } from "../planning-case/events.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 
@@ -31,6 +32,25 @@ function fact(id, name, value, factSubject = subject) {
     evidence: { kind: "operator", ref: `test:${id}`, digest: digest(id) },
   });
 }
+
+test("Planning Case event defaults and missing snapshots fail deterministically", () => {
+  assert.equal(noNextAction().reasonCode, "TERMINAL_STATE");
+  assert.equal(noNextAction("CUSTOM_TERMINAL").reasonCode, "CUSTOM_TERMINAL");
+  const created = { caseId: "PC-direct" };
+  assert.deepEqual(reducePlanningCaseEvent(null, { type: "CASE_CREATED", at: NOW, data: { snapshot: created } }), created);
+  assert.throws(
+    () => reducePlanningCaseEvent(created, { type: "CASE_CREATED", at: NOW, data: { snapshot: created } }),
+    (error) => error.code === "INVALID_CASE_EVENT",
+  );
+  assert.throws(
+    () => reducePlanningCaseEvent(null, { type: "UNKNOWN", at: NOW, data: {} }),
+    (error) => error.code === "INVALID_CASE_EVENT",
+  );
+  assert.throws(
+    () => reducePlanningCaseEvent({}, { type: "UNKNOWN", at: NOW, data: {} }),
+    (error) => error.code === "UNKNOWN_CASE_EVENT",
+  );
+});
 
 test("Planning Case v2 reduces every domain event and replays identically", (t) => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-events-v2-"));

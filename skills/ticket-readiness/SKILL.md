@@ -129,7 +129,7 @@ After the human-readable fields, return one machine block. Echo the review times
 
 Echo the held `source` and `inputBinding` exactly and include every axis. READY requires all eight axes to PASS; omission or disagreement is malformed.
 
-For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the exact normalized JSON under the parent's `## Ticket coverage`, the Delivery Graph checker result, one raw Ticket Context checker result per candidate, the parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, Context-check mismatch/failure, and execution lanes. Do not repair or reinterpret a failed deterministic result. A READY candidate in the HUMAN lane does not make the graph NEEDS_INFO.
+For a batch, add a Graph verdict first, then repeat the fields for every candidate. The admission bundle must include the immutable Parent, exact `spec-acceptance:v1` receipt, separately bound current `delivery-release-graph:v3`, its checker result, one raw Ticket Context checker result per candidate, the Parent Scenario list and handoffs, and the current child set. Compare them and report uncovered scenarios, broken or inferred handoffs, orphan candidates, overlapping outcomes, invalid ENABLER relationships, invalid dependency edges, Context-check mismatch/failure, and execution lanes. Do not repair or reinterpret a failed deterministic result. HUMAN work is valid in a Roadmap or standalone Human Execution artifact, never in the executable Release graph.
 
 The batch output must include:
 
@@ -151,7 +151,7 @@ Only an operator's explicit Legacy Herdr selection follows this ready-label acti
 3. Run the Ticket Context checker for every candidate and the Delivery Graph checker, compare their snapshots with current children and native blockers, then review the complete graph in a fresh context.
 4. Obtain explicit human confirmation.
 5. Re-fetch, re-run every Ticket Context check, and confirm the reviewed snapshot is unchanged.
-6. Add ready-for-agent to READY/AGENT children and ready-for-human to READY/HUMAN children.
+6. Add ready-for-agent to READY/AGENT executable-Release children; standalone HUMAN work uses its separate ready-for-human route.
 7. Add ready-for-agent to the delivery parent last.
 
 Keep Wayfinder maps and their decision tickets outside this activation sequence.
