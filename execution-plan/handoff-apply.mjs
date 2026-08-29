@@ -16,6 +16,7 @@ import {
   assertSameFileSystem,
 } from "./private-paths.mjs";
 import { verifyExecutionPlan } from "./validate.mjs";
+import { assertFreshExecutionInput } from "./freshness.mjs";
 
 function outputDirectory(value) {
   if (typeof value !== "string" || !path.isAbsolute(value)) throw new Error("OUTPUT_DIR_MUST_BE_ABSOLUTE");
@@ -31,7 +32,7 @@ function shellQuote(value) { return `'${String(value).replaceAll("'", `'"'"'`)}'
 
 function receiptFor(plan, approvalId, configDigest, planDigest, now) {
   const provenance = plan.controller.provenance;
-  const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, controllerRevision: provenance.controller.sourceRevision, controllerSourceManifestDigest: provenance.controller.sourceManifestDigest, controllerBuildDigest: provenance.controller.buildDigest, controllerIdentityDigest: provenance.controller.digest, controllerProvenanceDigest: provenance.digest, approvalId, verifiedAt: now };
+  const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, freshnessDigest: fingerprint(plan.freshness), decisionManifestDigest: plan.freshness.decisionManifestDigest, predecessorReceiptDigest: plan.freshness.predecessorReceiptDigest, dependencyHandoffDigests: plan.freshness.dependencyHandoffDigests, oracleBindingDigests: plan.freshness.oracleBindingDigests, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, controllerRevision: provenance.controller.sourceRevision, controllerSourceManifestDigest: provenance.controller.sourceManifestDigest, controllerBuildDigest: provenance.controller.buildDigest, controllerIdentityDigest: provenance.controller.digest, controllerProvenanceDigest: provenance.digest, approvalId, verifiedAt: now };
   const complete = { ...body, releasePlanDigest: fingerprint(plan.releasePlan) };
   return { ...complete, digest: fingerprint(complete) };
 }
@@ -57,6 +58,11 @@ function exactExisting(outputDir, plan, approvalId) {
     || receipt.repo !== plan.repo
     || receipt.target !== plan.target
     || receipt.status !== "COMPLETE"
+    || receipt.freshnessDigest !== fingerprint(plan.freshness)
+    || receipt.decisionManifestDigest !== plan.freshness.decisionManifestDigest
+    || receipt.predecessorReceiptDigest !== plan.freshness.predecessorReceiptDigest
+    || JSON.stringify(receipt.dependencyHandoffDigests) !== JSON.stringify(plan.freshness.dependencyHandoffDigests)
+    || JSON.stringify(receipt.oracleBindingDigests) !== JSON.stringify(plan.freshness.oracleBindingDigests)
     || receipt.controllerPlanDigest !== plan.controllerPlanDigest
     || receipt.controllerConfigDigest !== plan.controller.configDigest
     || receipt.controllerRevision !== plan.controller.provenance.controller.sourceRevision
@@ -82,6 +88,11 @@ export function verifyHandoffReceiptExact({ receipt, plan, approvalId }) {
       || receipt.controllerBuildDigest !== plan.controller.provenance.controller.buildDigest
       || receipt.controllerIdentityDigest !== plan.controller.provenance.controller.digest
       || receipt.controllerProvenanceDigest !== plan.controller.provenance.digest
+      || receipt.freshnessDigest !== fingerprint(plan.freshness)
+      || receipt.decisionManifestDigest !== plan.freshness.decisionManifestDigest
+      || receipt.predecessorReceiptDigest !== plan.freshness.predecessorReceiptDigest
+      || JSON.stringify(receipt.dependencyHandoffDigests) !== JSON.stringify(plan.freshness.dependencyHandoffDigests)
+      || JSON.stringify(receipt.oracleBindingDigests) !== JSON.stringify(plan.freshness.oracleBindingDigests)
       || receipt.releasePlanDigest !== fingerprint(plan.releasePlan))
     || approvalId && receipt.approvalId !== approvalId) return [{ code: "HANDOFF_RECEIPT_MISMATCH" }];
   return [];
@@ -126,6 +137,8 @@ export function applyExecutionPlan({
   outputDir,
   clock = () => new Date().toISOString(),
   nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --expected-config-digest ${shellQuote(plan.controller.configDigest)} --expected-controller-revision ${shellQuote(plan.controller.provenance.controller.sourceRevision)} --expected-controller-provenance-digest ${shellQuote(plan.controller.provenance.digest)} --json`,
+  readFresh = assertFreshExecutionInput,
+  reloadInput = () => input,
 }) {
   outputDir = outputDirectory(outputDir);
   if (expectedFingerprint !== plan?.planFingerprint) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
@@ -141,8 +154,11 @@ export function applyExecutionPlan({
   const existing = exactExisting(outputDir, plan, approvalId);
   const handoffReady = snapshot.checkpoint.stage === "EXECUTION" && snapshot.checkpoint.verdict === "HANDOFF_READY"
     && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === plan.target && snapshot.checkpoint.subject?.revision === plan.source.revision;
-  if (snapshot.approvals.consumed.some(({ id }) => id === approvalId)) {
-    if (!existing || !handoffReady) throw new Error("HANDOFF_OUTPUT_CONFLICT");
+  const consumed = snapshot.approvals.consumed.some(({ id }) => id === approvalId);
+  if (consumed && (!existing || !handoffReady)) throw new Error("HANDOFF_OUTPUT_CONFLICT");
+  const verified = verifyExecutionPlan(plan, input, adapter, { readFresh, reloadInput });
+  if (verified.status !== "READY") return verified;
+  if (consumed) {
     return { status: "COMPLETE", receipt: existing, nextCommand };
   }
   if (existing && handoffReady) {
@@ -153,8 +169,6 @@ export function applyExecutionPlan({
     if (final.approvals.pending.some(({ id }) => id === approvalId) || !final.approvals.consumed.some(({ id }) => id === approvalId)) throw new Error("APPROVAL_NOT_SINGLE_CONSUMED");
     return { status: "COMPLETE", receipt: existing, nextCommand };
   }
-  const verified = verifyExecutionPlan(plan, input, adapter);
-  if (verified.status !== "READY") return verified;
   const now = clock();
   const mutationId = `execution-plan-apply:${plan.planFingerprint}`;
   if (snapshot.checkpoint.stage !== "ADMISSION" || snapshot.checkpoint.verdict !== "ACTIVATION_AWAITING_CONFIRMATION"

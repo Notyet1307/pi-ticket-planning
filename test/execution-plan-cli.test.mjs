@@ -13,6 +13,7 @@ import {
   executionInput,
 } from "./execution-plan-fixture.mjs";
 import { createReadyCase } from "./execution-handoff-fixture.mjs";
+import { createFreshnessFixture } from "./execution-freshness-fixture.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -56,19 +57,53 @@ function run(args, env = {}) {
   });
 }
 
+function liveFiles(directory, input) {
+  return {
+    context: writeJson(directory, "context.json", input),
+    review: writeJson(directory, "review.json", input.review),
+    reviewBinding: writeJson(directory, "review-binding.json", input.reviewBinding),
+    reviewDispatch: writeJson(directory, "review-dispatch.json", input.reviewDispatchBinding),
+  };
+}
+
+function githubFiles(directory, input) {
+  const gh = path.join(directory, "gh");
+  const record = path.join(directory, "gh-argv.jsonl");
+  const parent = input.parent;
+  const child = input.children[0];
+  fs.writeFileSync(gh, `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.TEST_GH_RECORD, JSON.stringify(args) + "\\n");
+if (args.includes("--method")) process.exit(90);
+const endpoint = args.at(-1);
+if (endpoint === "user") console.log(JSON.stringify({login:"reader"}));
+else if (endpoint === "repos/acme/product/git/ref/heads/main") console.log(JSON.stringify({object:{sha:"${input.source.baseSha}"}}));
+else if (endpoint === "repos/acme/product/issues/100") console.log(${JSON.stringify(JSON.stringify({ number: 100, title: parent.title, body: parent.body, state: "open", updated_at: parent.updatedAt, labels: [{ name: "needs-triage" }], assignees: [] }))});
+else if (endpoint === "repos/acme/product/issues/101") console.log(${JSON.stringify(JSON.stringify({ number: 101, title: child.title, body: child.body, state: "open", updated_at: child.updatedAt, labels: [{ name: "needs-triage" }], assignees: [] }))});
+else if (endpoint.includes("/sub_issues")) console.log(JSON.stringify([[{number:101,assignees:[]}]]));
+else if (endpoint.includes("/comments") || endpoint.includes("/dependencies/blocked_by")) console.log(JSON.stringify([[]]));
+else process.exit(91);
+`, { mode: 0o700, flag: "wx" });
+  return { gh, record };
+}
+
 test("execution-plan CLI builds, verifies, and applies through only the Controller public contract", (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-cli-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const controllerDirectory = path.join(directory, "controller'files");
   fs.mkdirSync(controllerDirectory, { mode: 0o700 });
   const controller = controllerFiles(controllerDirectory);
-  const input = executionInput();
-  const inputFile = writeJson(directory, "input.json", input);
+  const { input } = createFreshnessFixture(t);
+  const live = liveFiles(directory, input);
+  const github = githubFiles(directory, input);
   const planFile = path.join(directory, "handoff-plan.json");
-  const env = { TEST_CONTROLLER_RECORD: controller.record };
+  const env = { TEST_CONTROLLER_RECORD: controller.record, TEST_GH_RECORD: github.record, PATH: `${directory}${path.delimiter}${process.env.PATH}` };
 
   const built = run([
-    "build", "--input", inputFile,
+    "build", "--repo", input.repo, "--parent", input.parent.id,
+    "--review", live.review, "--review-binding", live.reviewBinding, "--review-dispatch-binding", live.reviewDispatch,
+    "--context", live.context,
     "--controller-cli", controller.cli,
     "--controller-config", controller.config,
     "--out", planFile,
@@ -80,7 +115,8 @@ test("execution-plan CLI builds, verifies, and applies through only the Controll
   assert.equal(validateArtifact(plan).ok, true);
 
   const verified = run([
-    "verify", "--plan", planFile, "--input", inputFile,
+    "verify", "--plan", planFile, "--context", live.context,
+    "--review", live.review, "--review-binding", live.reviewBinding, "--review-dispatch-binding", live.reviewDispatch,
     "--controller-cli", controller.cli,
     "--controller-config", controller.config,
     "--json",
@@ -93,7 +129,8 @@ test("execution-plan CLI builds, verifies, and applies through only the Controll
   const ready = createReadyCase({ stateDir, plan, now, caseId: "PC-cli-handoff" });
   const outputDir = path.join(directory, "output");
   const applied = run([
-    "apply", "--plan", planFile, "--input", inputFile,
+    "apply", "--plan", planFile, "--context", live.context,
+    "--review", live.review, "--review-binding", live.reviewBinding, "--review-dispatch-binding", live.reviewDispatch,
     "--expected-fingerprint", plan.planFingerprint,
     "--case-id", ready.caseId,
     "--approval-id", ready.approval.id,
@@ -119,60 +156,23 @@ test("execution-plan CLI builds, verifies, and applies through only the Controll
     "config:validate", "plan:validate", "config:validate", "doctor:--config",
   ]);
   assert.equal(calls.flat().some((value) => /^(start|run|step)$/.test(value)), false);
+  const githubCalls = fs.readFileSync(github.record, "utf8").trim().split("\n").map(JSON.parse);
+  assert.equal(githubCalls.length > 0, true);
+  assert.equal(githubCalls.some((args) => args.includes("--method") || args.some((value) => /^(POST|PATCH|PUT|DELETE)$/u.test(value))), false);
 
-  const forbidden = run(["build", "--input", inputFile, "--harness-cli", controller.cli, "--controller-cli", controller.cli, "--controller-config", controller.config], env);
+  const forbidden = run(["build", "--repo", input.repo, "--parent", input.parent.id, "--context", live.context, "--harness-cli", controller.cli, "--controller-cli", controller.cli, "--controller-config", controller.config], env);
   assert.equal(forbidden.status, 2);
   assert.match(forbidden.stderr, /UNKNOWN_OPTION:harness-cli/);
 });
 
-test("execution-plan live GitHub convenience performs reads only", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-live-cli-"));
+test("execution-plan CLI rejects the offline input bypass", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-offline-cli-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const controller = controllerFiles(directory);
-  const input = executionInput();
-  const contextFile = writeJson(directory, "context.json", input);
-  const reviewFile = writeJson(directory, "review.json", input.review);
-  const reviewBindingFile = writeJson(directory, "review-binding.json", input.reviewBinding);
-  const dispatchFile = writeJson(directory, "review-dispatch.json", input.reviewDispatchBinding);
-  const planFile = path.join(directory, "live-handoff-plan.json");
-  const gh = path.join(directory, "gh");
-  const ghRecord = path.join(directory, "gh-argv.jsonl");
-  const parent = input.parent;
-  const child = input.children[0];
-  fs.writeFileSync(gh, `#!/usr/bin/env node
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-fs.appendFileSync(process.env.TEST_GH_RECORD, JSON.stringify(args) + "\\n");
-if (args.includes("--method")) process.exit(90);
-const endpoint = args.at(-1);
-if (endpoint === "user") console.log(JSON.stringify({login:"reader"}));
-else if (endpoint === "repos/acme/product/issues/100") console.log(${JSON.stringify(JSON.stringify({ number: 100, title: parent.title, body: parent.body, state: "open", updated_at: parent.updatedAt, labels: [{ name: "needs-triage" }], assignees: [] }))});
-else if (endpoint === "repos/acme/product/issues/101") console.log(${JSON.stringify(JSON.stringify({ number: 101, title: child.title, body: child.body, state: "open", updated_at: child.updatedAt, labels: [{ name: "needs-triage" }], assignees: [] }))});
-else if (endpoint.includes("/sub_issues")) console.log(JSON.stringify([[{number:101,assignees:[]}]]));
-else if (endpoint.includes("/comments") || endpoint.includes("/dependencies/blocked_by")) console.log(JSON.stringify([[]]));
-else process.exit(91);
-`, { mode: 0o700, flag: "wx" });
-
-  const result = run([
-    "build", "--repo", input.repo, "--parent", input.parent.id,
-    "--review", reviewFile,
-    "--review-binding", reviewBindingFile,
-    "--review-dispatch-binding", dispatchFile,
-    "--context", contextFile,
-    "--controller-cli", controller.cli,
-    "--controller-config", controller.config,
-    "--out", planFile,
-    "--json",
-  ], {
-    PATH: `${directory}${path.delimiter}${process.env.PATH}`,
-    TEST_GH_RECORD: ghRecord,
-    TEST_CONTROLLER_RECORD: controller.record,
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(validateArtifact(JSON.parse(fs.readFileSync(planFile, "utf8"))).ok, true);
-  const calls = fs.readFileSync(ghRecord, "utf8").trim().split("\n").map(JSON.parse);
-  assert.equal(calls.length > 0, true);
-  assert.equal(calls.some((args) => args.includes("--method") || args.some((value) => /^(POST|PATCH|PUT|DELETE)$/.test(value))), false);
+  const inputFile = writeJson(directory, "input.json", executionInput());
+  const result = run(["build", "--input", inputFile, "--controller-cli", controller.cli, "--controller-config", controller.config]);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /UNKNOWN_OPTION:input/);
 });
 
 test("profile launcher dispatches execution-plan without starting PI", () => {
@@ -189,8 +189,10 @@ test("execution-plan CLI rejects build and apply output ancestor symlinks", (t) 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-cli-output-paths-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const controller = controllerFiles(directory);
+  const { input } = createFreshnessFixture(t);
+  const live = liveFiles(directory, input);
+  const github = githubFiles(directory, input);
   const fixture = compiledFixture();
-  const inputFile = writeJson(directory, "input.json", fixture.input);
   const planFile = writeJson(directory, "plan.json", fixture.plan);
   const realParent = path.join(directory, "private-output");
   const linkedParent = path.join(directory, "linked-output");
@@ -198,12 +200,14 @@ test("execution-plan CLI rejects build and apply output ancestor symlinks", (t) 
   fs.symlinkSync(realParent, linkedParent);
 
   const built = run([
-    "build", "--input", inputFile,
+    "build", "--repo", input.repo, "--parent", input.parent.id,
+    "--review", live.review, "--review-binding", live.reviewBinding, "--review-dispatch-binding", live.reviewDispatch,
+    "--context", live.context,
     "--controller-cli", controller.cli,
     "--controller-config", controller.config,
     "--out", path.join(linkedParent, "built.json"),
     "--json",
-  ], { TEST_CONTROLLER_RECORD: controller.record });
+  ], { TEST_CONTROLLER_RECORD: controller.record, TEST_GH_RECORD: github.record, PATH: `${directory}${path.delimiter}${process.env.PATH}` });
   assert.equal(built.status, 2);
   assert.match(built.stderr, /OUTPUT_PARENT_PATH_CONTAINS_SYMLINK/);
   assert.equal(fs.existsSync(path.join(realParent, "built.json")), false);
@@ -211,7 +215,7 @@ test("execution-plan CLI rejects build and apply output ancestor symlinks", (t) 
   const stateDir = path.join(directory, "state");
   const ready = createReadyCase({ stateDir, plan: fixture.plan, caseId: "PC-cli-output-path" });
   const applied = run([
-    "apply", "--plan", planFile, "--input", inputFile,
+    "apply", "--plan", planFile, "--context", live.context,
     "--expected-fingerprint", fixture.plan.planFingerprint,
     "--case-id", ready.caseId,
     "--approval-id", ready.approval.id,

@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受的 GitHub v3 Release 中，每个 AGENT child 都必须绑定 reviewed-base frozen Oracle、独立 owner、package-script allowlist、risk/scope budget、expected/protected paths 与 REPLAN triggers。Admission 和 compiler 在 Handoff 前拒绝任何漂移。Roadmap、HUMAN work、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
+已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget；graph 还绑定 tracked Spec/predecessor receipt，以及覆盖 policy、product Release、accepted ADR 和 dependency handoff 的 decision manifest。Build/verify/apply 都会 fresh-read remote base 与全部 binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -315,7 +315,9 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build 只调用 Controller `config validate` 与 `plan validate`，把 lock-qualified runtime identity 以及 config/Plan/provenance digest 绑定进 Handoff，并拒绝漂移。Apply 还会调用 `doctor`，要求 config digest 和 Controller identity 与已验证、已批准的值相同；随后精确物化 `release-plan.json`、`execution-handoff-plan.json` 和 `execution-handoff-receipt.json`，记录 `EXECUTION/HANDOFF_READY`，最后消费 approval。它只打印、不执行带 approved config digest、Controller revision 和 provenance digest 的 exact Controller `start` 命令。publish 后、checkpoint 前恢复会重新验证 source/config/Plan/provenance/doctor；冲突或阻断时保留文件和 pending approval。source、graph、review、policy、Controller config/provenance 或 Plan 漂移都必须重建并重新批准。
+Build 只调用 Controller `config validate` 与 `plan validate`；Apply 还调用 `doctor`。两者都会绑定/重查 remote base、Parent/Children、receipts、decisions、dependency handoffs、Oracles 与 Controller provenance。漂移返回稳定 rebuild-required code 并保留 pending approval。Apply 只物化三个 private files、记录 `HANDOFF_READY`、最后消费 approval，并只打印 bound Controller `start` 命令。
+
+Legacy v2 只允许 dry-run migration：`node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`。单一 Release 必须有 exact `releaseMembership`，否则必须提供 Roadmap/current membership。输出保持 `PLANNED`、人工批准、不写 Issue/label，也不能直接 handoff。
 
 #### Legacy Herdr 按 Ticket 激活
 

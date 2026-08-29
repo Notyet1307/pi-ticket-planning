@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 import {
   EXECUTABLE_DELIVERY_SPEC_MARKER,
   DELIVERY_GRAPH_MARKER,
@@ -40,6 +41,15 @@ function extractSpecScenarioIds(parentBody) {
   return [...section.matchAll(/^### (S[0-9]+):/gm)].map((match) => match[1]);
 }
 
+function isAncestor(repositoryPath, ancestor, descendant) {
+  if (!path.isAbsolute(repositoryPath ?? "")) return false;
+  const run = spawnSync("git", ["-C", repositoryPath, "merge-base", "--is-ancestor", ancestor, descendant], {
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024,
+  });
+  return !run.error && !run.signal && run.status === 0;
+}
+
 export function validateAdmissionState(bundle) {
   const problems = [];
   if (!bundle || typeof bundle !== "object" || Array.isArray(bundle)) {
@@ -59,7 +69,7 @@ export function validateAdmissionState(bundle) {
     return result([issue("INVALID_DELIVERY_GRAPH", error instanceof Error ? error.message : String(error))]);
   }
 
-  const graph = validateDeliveryGraph(snapshot);
+  const graph = validateDeliveryGraph(snapshot, { isAncestor: (from, to) => isAncestor(bundle.repositoryPath, from, to) });
   problems.push(...graph.problems);
   if (snapshot?.schema === "pi-ticket-planning:roadmap-graph:v1" || snapshot?.kind === "ROADMAP") {
     problems.push(issue("ROADMAP_NOT_EXECUTABLE"));

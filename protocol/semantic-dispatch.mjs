@@ -17,6 +17,7 @@ import { validateDeliveryGatePlan } from "../scripts/delivery-gate.mjs";
 import { stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs";
 import { ticketContractDigest } from "../scripts/check-ticket-contract.mjs";
+import { decisionManifestProblems } from "../execution-plan/freshness.mjs";
 
 function problem(code, subject) {
   return subject === undefined ? { code } : { code, subject };
@@ -79,9 +80,10 @@ function simpleSemantics(value, name) {
 export async function validateRegisteredArtifactSemantics(value, identity) {
   const name = identity.name;
   if (name === "delivery-graph") return { problems: validateDeliveryGraph(value).problems };
-  if (name === "delivery-release-graph" || name === "roadmap-graph") return { problems: validateDeliveryGraph(value).problems };
+  if (name === "delivery-release-graph" || name === "roadmap-graph") return { problems: validateDeliveryGraph(value, { requireAncestry: false }).problems };
   if (name === "spec-acceptance") return { problems: validateSpecAcceptance(value) };
   if (name === "release-predecessor-receipt") return { problems: validatePredecessorReceipt(value) };
+  if (name === "decision-manifest") return { problems: decisionManifestProblems(value) };
   if (name === "ticket-context-check") return { problems: validateTicketContextResult(value) };
   if (name === "admission-review") return { problems: validateReviewArtifact(value) ? [] : [problem("ADMISSION_REVIEW_INVALID")] };
   if (name === "admission-plan") return { problems: caught(() => validateAdmissionPlan(value), "ADMISSION_PLAN_INVALID") };

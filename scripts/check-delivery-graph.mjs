@@ -369,7 +369,7 @@ function validateRoadmap(snapshot) {
   };
 }
 
-function validateExecutableRelease(snapshot) {
+function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = true } = {}) {
   const contract = [];
   for (const child of snapshot.children ?? []) contract.push(...staticGraphChildProblems(child));
   try {
@@ -389,6 +389,9 @@ function validateExecutableRelease(snapshot) {
   const maxChildren = snapshot.childPolicy?.maxChildren ?? 4;
   if ((snapshot.children?.length ?? 0) > maxChildren) contract.push(issue("CHILD_COUNT_POLICY_EXCEEDED", `${snapshot.children.length}>${maxChildren}`));
   contract.push(...validateSpecAcceptance(snapshot.specAcceptance));
+  if (snapshot.specAcceptanceBinding?.baseSha !== snapshot.executionBaseSha) {
+    contract.push(issue("SPEC_ACCEPTANCE_BINDING_BASE_MISMATCH"));
+  }
   if (snapshot.specAcceptance?.source?.baseSha !== snapshot.planningBaseSha
     || snapshot.specAcceptance?.source?.specContentHash !== snapshot.source?.specContentHash) {
     contract.push(issue("SPEC_ACCEPTANCE_SOURCE_MISMATCH"));
@@ -399,18 +402,44 @@ function validateExecutableRelease(snapshot) {
   if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReleaseId !== null) {
     contract.push(issue("UNEXPECTED_PREDECESSOR_RELEASE"));
   }
+  if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReceiptBinding !== null) {
+    contract.push(issue("UNEXPECTED_PREDECESSOR_RECEIPT_BINDING"));
+  }
+  if (snapshot.releaseOrdinal === 1 && snapshot.executionBasePolicy !== "PLANNING_BASE_OR_DESCENDANT") {
+    contract.push(issue("INVALID_EXECUTION_BASE_POLICY"));
+  }
+  if (snapshot.releaseOrdinal === 1 && snapshot.executionBaseSha !== snapshot.planningBaseSha
+    && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.planningBaseSha, snapshot.executionBaseSha))) {
+    contract.push(issue("PLANNING_EXECUTION_BASE_MISMATCH"));
+  }
+  if (snapshot.decisionManifestBinding?.baseSha !== snapshot.executionBaseSha
+    || !exactDigest(snapshot.decisionManifest)
+    || snapshot.decisionManifestDigest !== snapshot.decisionManifestBinding?.sha256
+    || snapshot.decisionManifest?.baseSha !== snapshot.executionBaseSha
+      && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.decisionManifest?.baseSha, snapshot.executionBaseSha))) {
+    contract.push(issue("DECISION_MANIFEST_INVALID"));
+  }
   if (snapshot.releaseOrdinal > 1) {
+    if (snapshot.executionBasePolicy !== "PREDECESSOR_MERGE_OR_DESCENDANT") contract.push(issue("INVALID_EXECUTION_BASE_POLICY"));
     if (!SHA256.test(snapshot.roadmapDigest ?? "")) contract.push(issue("MISSING_ROADMAP_BINDING"));
     if (!nonEmpty(snapshot.predecessorReleaseId)) contract.push(issue("MISSING_PREDECESSOR_RELEASE"));
     if (!snapshot.predecessorReceipt) contract.push(issue("MISSING_PREDECESSOR_RECEIPT"));
-    else {
+    if (!snapshot.predecessorReceiptBinding) contract.push(issue("MISSING_PREDECESSOR_RECEIPT_BINDING"));
+    if (snapshot.predecessorReceipt && snapshot.predecessorReceiptBinding) {
+      if (snapshot.predecessorReceiptBinding.baseSha !== snapshot.executionBaseSha) {
+        contract.push(issue("PREDECESSOR_RECEIPT_BINDING_BASE_MISMATCH"));
+      }
       contract.push(...validatePredecessorReceipt(snapshot.predecessorReceipt));
       if (snapshot.predecessorReceipt.releaseId !== snapshot.predecessorReleaseId) {
         contract.push(issue("PREDECESSOR_RELEASE_MISMATCH"));
       }
-      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergedMainSha) {
+      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergedMainSha
+        && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.predecessorReceipt.mergedMainSha, snapshot.executionBaseSha))) {
         contract.push(issue("PREDECESSOR_EXECUTION_BASE_MISMATCH"));
       }
+      const handoffs = [...(snapshot.predecessorReceipt.handoffDigests ?? [])].sort();
+      const dependencies = (snapshot.decisionManifest?.dependencyHandoffs ?? []).map(({ sha256 }) => sha256).sort();
+      if (handoffs.join("\n") !== dependencies.join("\n")) contract.push(issue("DEPENDENCY_HANDOFF_MISMATCH"));
     }
   }
   const semantic = validateLegacyDeliveryGraph({
@@ -443,12 +472,12 @@ function validateExecutableRelease(snapshot) {
   };
 }
 
-export function validateDeliveryGraph(snapshot) {
+export function validateDeliveryGraph(snapshot, options = {}) {
   if (snapshot?.schema === "pi-ticket-planning:roadmap-graph:v1" || snapshot?.kind === "ROADMAP") {
     return validateRoadmap(snapshot);
   }
   if (snapshot?.schema === "pi-ticket-planning:delivery-release-graph:v3" || snapshot?.kind === "EXECUTABLE_RELEASE") {
-    return validateExecutableRelease(snapshot);
+    return validateExecutableRelease(snapshot, options);
   }
   const legacy = validateLegacyDeliveryGraph(snapshot);
   return snapshot?.version === 2

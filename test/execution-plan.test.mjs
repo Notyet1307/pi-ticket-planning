@@ -8,6 +8,7 @@ import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from 
 import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
 import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
+import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
@@ -17,6 +18,7 @@ import {
   CONTROLLER_IDENTITY,
   PARENT_SPEC as parent,
   ROOT as root,
+  controllerAdapter,
   controllerBinding,
   controllerProvenance,
   digest,
@@ -298,7 +300,7 @@ test("execution verification binds doctor to the validated config digest", () =>
       return { ok: true, configDigest: controller.configDigest };
     },
   };
-  assert.equal(verifyExecutionPlan(plan, input, adapter).status, "READY");
+  assert.equal(verifyExecutionPlan(plan, input, adapter, { readFresh: executionFreshnessProjection }).status, "READY");
 
   let currentDigest = controller.configDigest;
   const changing = {
@@ -311,9 +313,31 @@ test("execution verification binds doctor to the validated config digest", () =>
       if (expectedConfigDigest !== currentDigest) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
     },
   };
-  const changed = verifyExecutionPlan(plan, input, changing);
+  const changed = verifyExecutionPlan(plan, input, changing, { readFresh: executionFreshnessProjection });
   assert.equal(changed.status, "CONFLICT");
   assert.deepEqual(changed.problems, [{ code: "CONTROLLER_DOCTOR_CONFIG_DRIFT" }]);
+});
+
+test("execution verification reloads live bindings after Controller validation", () => {
+  const input = executionInput();
+  const controller = controllerBinding(input);
+  const plan = compileExecutionPlan(input, { controller });
+  const calls = [];
+  let reads = 0;
+  const result = verifyExecutionPlan(plan, input, controllerAdapter(controller, calls), {
+    readFresh: executionFreshnessProjection,
+    reloadInput() {
+      reads += 1;
+      if (reads === 1) return input;
+      const changed = structuredClone(input);
+      changed.children[0].body += "\nafter-doctor drift";
+      return changed;
+    },
+  });
+  assert.equal(result.status, "CONFLICT");
+  assert.deepEqual(result.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
+  assert.deepEqual(calls, ["config validate", "plan validate", "doctor"]);
+  assert.equal(reads, 2);
 });
 
 test("PR #16 planning methodology remains navigation-only and trigger-aware", () => {

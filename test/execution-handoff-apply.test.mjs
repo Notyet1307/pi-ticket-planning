@@ -3,9 +3,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
 
 import { applyExecutionPlan } from "../execution-plan/handoff-apply.mjs";
 import { fingerprint } from "../execution-plan/domain.mjs";
+import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
 import {
   NOW,
   compiledFixture,
@@ -36,6 +38,7 @@ function setup(t, name) {
     expectedFingerprint: fixture.plan.planFingerprint,
     outputDir,
     clock: () => NOW,
+    readFresh: executionFreshnessProjection,
   };
   return { ...fixture, ...ready, directory, outputDir, calls, base };
 }
@@ -84,6 +87,11 @@ function assertExactOutput(outputDir, plan, approvalId) {
   assert.equal(receipt.repo, plan.repo);
   assert.equal(receipt.target, plan.target);
   assert.equal(receipt.planFingerprint, plan.planFingerprint);
+  assert.equal(receipt.freshnessDigest, fingerprint(plan.freshness));
+  assert.equal(receipt.decisionManifestDigest, plan.freshness.decisionManifestDigest);
+  assert.equal(receipt.predecessorReceiptDigest, plan.freshness.predecessorReceiptDigest);
+  assert.deepEqual(receipt.dependencyHandoffDigests, plan.freshness.dependencyHandoffDigests);
+  assert.deepEqual(receipt.oracleBindingDigests, plan.freshness.oracleBindingDigests);
   assert.equal(receipt.controllerPlanDigest, plan.controllerPlanDigest);
   assert.equal(receipt.controllerConfigDigest, plan.controller.configDigest);
   assert.equal(receipt.controllerRevision, plan.controller.provenance.controller.sourceRevision);
@@ -121,7 +129,7 @@ test("execution handoff apply publishes exact private files, records the Case, a
   const replay = applyExecutionPlan(ready.base);
   assert.equal(replay.status, "COMPLETE");
   assert.deepEqual(replay.receipt, result.receipt);
-  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate", "plan validate", "doctor"]);
 });
 
 test("execution handoff revalidates after publish and before the Case checkpoint", (t) => {
@@ -134,12 +142,12 @@ test("execution handoff revalidates after publish and before the Case checkpoint
   ready.input.children[0].body += "\npost-publication drift";
   const result = applyExecutionPlan({ ...ready.base, clock: () => "2026-08-20T02:00:00.000Z" });
   assert.equal(result.status, "CONFLICT");
-  assert.deepEqual(result.problems, [{ code: "CHILD_DRIFT:101" }]);
+  assert.deepEqual(result.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
   snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
   assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
   assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
-  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate"]);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
 });
 
 test("execution handoff resumes exact pre-checkpoint output and blocks config or doctor drift", (t) => {
@@ -191,9 +199,16 @@ test("execution handoff recovers a crash after the checkpoint and before approva
   assert.equal(snapshot.checkpoint.verdict, "HANDOFF_READY");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
 
+  const body = ready.input.children[0].body;
+  ready.input.children[0].body += "\npost-checkpoint drift";
+  const stale = applyExecutionPlan(ready.base);
+  assert.equal(stale.status, "CONFLICT");
+  assert.deepEqual(stale.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
+  assert.equal(ready.store.get({ caseId: ready.caseId, target: ready.target }).approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  ready.input.children[0].body = body;
   assert.equal(applyExecutionPlan(ready.base).status, "COMPLETE");
   assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);
-  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate", "plan validate", "doctor"]);
 });
 
 test("execution handoff recovers when approval consumption committed before the response was lost", (t) => {
@@ -212,7 +227,7 @@ test("execution handoff recovers when approval consumption committed before the 
   assert.throws(() => applyExecutionPlan({ ...ready.base, store: faulted }), /CRASH_AFTER_CONSUME/);
   assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);
   assert.equal(applyExecutionPlan(ready.base).status, "COMPLETE");
-  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate", "plan validate", "doctor"]);
 });
 
 test("execution handoff rejects wrong, foreign, expired, and prematurely consumed approvals without publishing", (t) => {
@@ -266,7 +281,7 @@ test("execution handoff blocks source, Controller config, Plan, and doctor drift
     ready.input.children[0].body += "\nsource drift";
     const result = applyExecutionPlan(ready.base);
     assert.equal(result.status, "CONFLICT");
-    assert.deepEqual(result.problems, [{ code: "CHILD_DRIFT:101" }]);
+    assert.deepEqual(result.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
     assert.equal(fs.existsSync(ready.outputDir), false);
   }
   {
@@ -349,4 +364,24 @@ test("execution handoff artifacts and receipt contain no private paths, Issue bo
     assert.equal(planText.includes(forbidden), false, `plan leaked ${forbidden}`);
   }
   assert.equal(ready.calls.some((call) => /start|run|step/.test(call)), false);
+});
+
+test("apply ignores an unbound alternate remote and preserves approval on canonical base drift", (t) => {
+  const ready = setup(t, "execution-handoff-canonical-remote");
+  const canonicalSha = spawnSync("git", ["-C", ready.input.repositoryPath, "rev-parse", "HEAD^"], { encoding: "utf8" }).stdout.trim();
+  const bin = path.join(ready.directory, "bin");
+  fs.mkdirSync(bin);
+  const gh = path.join(bin, "gh");
+  fs.writeFileSync(gh, `#!/usr/bin/env node\nconsole.log(JSON.stringify({object:{sha:"${canonicalSha}"}}));\n`, { mode: 0o700 });
+  const priorPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${priorPath ?? ""}`;
+  t.after(() => { if (priorPath === undefined) delete process.env.PATH; else process.env.PATH = priorPath; });
+  ready.input.source.remote = "evil";
+  const { readFresh: _readFresh, ...base } = ready.base;
+  const result = applyExecutionPlan(base);
+  assert.equal(result.status, "CONFLICT");
+  assert.deepEqual(result.problems, [{ code: "EXECUTION_BASE_DRIFT" }]);
+  assert.equal(ready.store.get({ caseId: ready.caseId, target: ready.target }).approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  assert.equal(fs.existsSync(ready.outputDir), false);
+  assert.deepEqual(ready.calls, []);
 });

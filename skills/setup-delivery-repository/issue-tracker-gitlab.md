@@ -49,7 +49,7 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 - **Draft parent**: create the accepted Delivery Spec with `needs-triage` and no ready label.
 - **Candidate child**: create one issue per candidate with stable source Scenario IDs, coverage role, and `Part of #<parent>`.
-- **Coverage**: keep the accepted Parent title/body immutable and bind one `pi-ticket-planning:delivery-release-graph:v3` JSON artifact in the same Planning Case. It embeds the exact `pi-ticket-planning:spec-acceptance:v1` receipt and records only the current all-AGENT Release. Multi-Release/HUMAN planning uses a separate non-executable Roadmap.
+- **Coverage**: keep the accepted Parent title/body immutable and bind one `pi-ticket-planning:delivery-release-graph:v3` JSON artifact in the same Planning Case. It binds the tracked `pi-ticket-planning:spec-acceptance:v1`/predecessor receipts, execution-base ancestry, decision/handoff sources and only the current all-AGENT Release. Multi-Release/HUMAN planning uses a separate non-executable Roadmap.
 - **Graph check**: `glab issue view <parent> -F json | jq -r .description | node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -`. PASS is mandatory before planning-level readiness review.
 - **Blocking and order**: use native blocking links when available; otherwise use `Blocked by`. Keep the parent's child task list in stable topological order.
 - **Readiness review**: validate coverage, state/artifact handoffs, walking skeleton, order, and blockers. This package provides no transactional `admit apply` or ready-label activation path for GitLab.

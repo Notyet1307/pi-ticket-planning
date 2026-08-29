@@ -26,7 +26,7 @@ Re-fetch the complete parent body, comments, label, and updated timestamp. Requi
 
 Fetch linked Release, ADR, Wayfinder, research, questionnaire, and prototype sources only when needed to interpret a stated decision. A conversation or plan is not a replacement for the accepted parent. Stop with `NEEDS_INFO` on missing scenarios or explicit handoffs, source drift, conflicting authority, or an unsafe ready-labelled parent. Do not infer an omitted producer, representation, or clearing transition for a state consumed by a later scenario.
 
-Treat the accepted Spec, its one named source, and the configured tracker/policy files as one small authoritative set; read them directly in the main context. Delegate only a genuinely large linked-source set. For local Markdown, the current tracked blob is the body snapshot and its latest commit identity/time is the update marker; an absent `## Comments` section means empty local comment history. Search for no sidecar unless the stored tracker contract names one. One `git status` plus the minimum blob/commit checks is enough to establish drift.
+Read the accepted Spec, named source, tracker, and policy directly; delegate only a genuinely large linked set. For local Markdown, use the tracked blob and latest commit identity/time; missing `## Comments` means none. Do not invent sidecars. One status plus minimal blob/commit checks establishes drift.
 
 ### 2. Draft vertical slices
 
@@ -48,7 +48,7 @@ Add `## Context anchors` only when the first action has a non-obvious repository
 
     - `src/module/current-entry.ts` — When changing <branch or behavior>, locate the current behavior entry point.
 
-Each anchor is one exact repo-relative regular file at the reviewed base plus one short trigger and purpose: name the branch of work that makes the file relevant and what the executor should obtain from it. Do not use directories, globs, absolute paths, `..`, working-tree/draft/historical/example/fixture sources, or instructions such as `read docs/`, `inspect the codebase`, or `read all ADRs`. Anchors navigate; they never replace behavior, acceptance criteria, decisions, or guardrails in the body. Omit the section when the entry is obvious. More than five means the Ticket is too broad, the necessary decision belongs in the body, or the list has not been reduced to first-action sources; it cannot proceed as READY.
+Each anchor is an exact reviewed-base regular file with one short trigger and purpose. Reject directories, globs, absolute/`..`, draft/historical/example/fixture sources, or broad read instructions. Anchors navigate; never replace behavior or decisions. Omit obvious entries; over five cannot be READY.
 
 Every `## Decision sources` item must name the concern it owns and an exact accepted identity. Discussions, summaries, examples, and navigation documents are not decision authorities.
 
@@ -76,7 +76,9 @@ Return `Scenario coverage: PASS | FAIL` using all of these rules:
 
 Then name the earliest candidate chain that closes the Spec's smallest trigger-to-result loop. Return `Walking skeleton: PASS | FAIL` with the ordered candidate IDs, covered Scenario IDs, and named handoffs. Every member must be individually `READY`, appear in dependency-valid order, and consume a state produced by an earlier member or declared external input. A missing direct path, broken handoff, uncovered scenario, orphan candidate, or non-READY member is `NEEDS_INFO`; do not publish a partial graph.
 
-Represent only the current executable Release once as JSON. Keep multi-Release sequencing and HUMAN work in a separate `pi-ticket-planning:roadmap-graph:v1` artifact with `executable:false`, `readinessState:PLANNED`, no future execution base, and no Admission/compiler route. Its `parent` must bind a separate, freshly read Umbrella title/body containing exactly one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; the executable Delivery Spec Parent cannot be reused as that Umbrella.
+Represent only the current executable Release. Put multi-Release/HUMAN work in a separate non-executable `pi-ticket-planning:roadmap-graph:v1`: `PLANNED`, no future base, no Admission/compiler route. Bind its `parent` to a separate fresh Umbrella containing one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; never reuse the Delivery Spec Parent.
+
+Graph review requires public regular-file bindings for the Spec receipt, decisions, predecessor receipt, and dependency handoffs on the execution base or verified descendant. A private Case copy is insufficient; publish through the repository's human-reviewed path, then rebuild.
 
 ```json
 {
@@ -88,11 +90,16 @@ Represent only the current executable Release once as JSON. Keep multi-Release s
   "releaseOrdinal": 1,
   "planningBaseSha": "<planning snapshot base>",
   "executionBaseSha": "<fresh current execution base>",
+  "executionBasePolicy": "PLANNING_BASE_OR_DESCENDANT",
   "roadmapDigest": null,
   "predecessorReleaseId": null,
   "predecessorReceipt": null,
+  "predecessorReceiptBinding": null,
   "specAcceptance": { "schema": "pi-ticket-planning:spec-acceptance:v1", "parent": {}, "source": {}, "decision": {}, "digest": "sha256:<exact receipt>" },
-  "decisionManifestDigest": "sha256:<accepted decision set>",
+  "specAcceptanceBinding": { "path": "evidence/spec-acceptance.json", "baseSha": "<execution base>", "sha256": "sha256:<bytes>", "byteCount": 0 },
+  "decisionManifest": { "schema": "pi-ticket-planning:decision-manifest:v1", "baseSha": "<execution base>", "policy": {}, "productRelease": {}, "decisions": [], "dependencyHandoffs": [], "digest": "sha256:<manifest>" },
+  "decisionManifestBinding": { "path": "evidence/decision-manifest.json", "baseSha": "<execution base>", "sha256": "sha256:<bytes>", "byteCount": 0 },
+  "decisionManifestDigest": "sha256:<same manifest bytes>",
   "source": { "identity": "<accepted Spec>", "revision": "<exact update>", "specContentHash": "sha256:<accepted Spec content>" },
   "scenarios": [
     { "id": "S1", "behavior": "<observable behavior>", "entry": "external:<input> or <artifact>", "exit": "<artifact>", "releaseSignal": "<signal>", "smallestLoop": true }
@@ -106,7 +113,9 @@ Represent only the current executable Release once as JSON. Keep multi-Release s
 
 `blockedBy` contains only current-Release children; `externalBlockers` is empty. ENABLER adds consumers and exit. Default child limit is four, hard cap six. Hash exact child bodies; never modify the accepted Parent body.
 
-For Release ordinal 2 or later, bind `roadmapDigest` to the exact validated Roadmap, set `predecessorReleaseId` to the Roadmap entry at ordinal minus one, require the current entry to name that predecessor, and bind a completion receipt whose `releaseId` matches it exactly. An arbitrary valid receipt from another Release is `ROADMAP_PREDECESSOR_MISMATCH` or `PREDECESSOR_RELEASE_MISMATCH`.
+Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT`, exact Roadmap/predecessor identity, and a bound completion receipt; its execution base is `mergedMainSha` or a verified descendant containing that receipt. Mismatch returns the named Roadmap/predecessor code.
+
+`decision-manifest:v1` binds policy, product Release, applicable `ACCEPTED` ADRs, and dependency handoffs by path/bytes. `expectedPaths` are complete Controller write families; Context anchors remain the separate first-action read set.
 
 ```sh
 node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -
