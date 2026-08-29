@@ -422,7 +422,7 @@ test("execution compiler rejects policy and controller authority drift with stab
     [(input) => { input.policy.identity = ""; }, "POLICY_NOT_ACCEPTED"],
     [(input) => { input.policy.digest = "bad"; }, "POLICY_NOT_ACCEPTED"],
   ]) { const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
-  for (const [overrides, code] of [[{ repo: "other/repo" }, "CONTROLLER_CONFIG_MISMATCH"], [{ baseRef: "other" }, "CONTROLLER_CONFIG_MISMATCH"], [{ policy: { maxIssues: 0 } }, "CONTROLLER_CONFIG_MISMATCH"], [{ review: { enabled: false } }, "CONTROLLER_CONFIG_MISMATCH"]]) { const input = executionInput(); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input, overrides) }), new RegExp(code)); }
+  for (const [overrides, code] of [[{ repo: "other/repo" }, "CONTROLLER_CONFIG_MISMATCH"], [{ baseRef: "other" }, "CONTROLLER_CONFIG_MISMATCH"], [{ policy: { maxIssues: 0 } }, "CONTROLLER_CONFIG_MISMATCH"], [{ review: { enabled: false } }, "CONTROLLER_CONFIG_MISMATCH"], [{ validation: { release: [] } }, "ORACLE_VALIDATION_COMMAND_MISSING"]]) { const input = executionInput(); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input, overrides) }), new RegExp(code)); }
 });
 
 test("execution compiler rejects HUMAN work in an executable release", () => {

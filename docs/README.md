@@ -9,6 +9,7 @@
 - Executable mechanics: `scripts/`.
 - Recommended Controller handoff contract: `execution-plan/contract.md`; Legacy Herdr activation remains under `admission/`.
 - Qualified direct Controller deployment and upgrade procedure: `docs/operations/codex-controller-mainline.md`.
+- Release authority, Oracle execution, path ownership, and Roadmap continuity: `docs/operations/release-closure-guardrails.md`.
 - Evaluation evidence: `test/` and `fixtures/`.
 
 Historical design evolution is available in Git history.

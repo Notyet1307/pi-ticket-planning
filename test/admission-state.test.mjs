@@ -269,7 +269,20 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
     parent: { number: 99, title: bundle.roadmapParent.title, bodyHash: hashText(bundle.roadmapParent.body) },
     plannedReleases: [
       { releaseId: "R1-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
-      { releaseId: "R1-C2-r1", releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S2"], predecessors: ["R1-C1-r1"], candidateTickets: [] },
+      {
+        releaseId: "R1-C2-r1",
+        releaseOrdinal: 2,
+        readinessState: "PLANNED",
+        objective: "C2",
+        scenarioCoverage: bundle.deliveryGraph.scenarios.map(({ id }) => id),
+        predecessors: ["R1-C1-r1"],
+        candidateTickets: bundle.deliveryGraph.children.map((child) => ({
+          id: child.id,
+          title: child.title,
+          objective: child.id === "101" ? "Accept one input." : "Return one result.",
+          executionLane: "AGENT",
+        })),
+      },
     ],
   };
   bundle.roadmapGraph = { ...roadmapBody, digest: fingerprint(roadmapBody) };

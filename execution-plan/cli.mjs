@@ -88,7 +88,8 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "controller-cli", "controller-config", "json"], ["plan", "context", "controller-cli", "controller-config"]);
       const plan = json(values.get("plan"));
       const input = liveInput(values, { plan });
-      const result = verifyExecutionPlan(plan, input, createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), { reloadInput: () => liveInput(values, { plan }) });
+      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
+      const result = verifyExecutionPlan(plan, input, adapter, { reloadInput: () => liveInput(values, { plan }) });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "READY" ? 0 : 1;
     }
@@ -113,7 +114,8 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
         "--json",
       ].join(" ");
       const input = liveInput(values, { plan });
-      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), adapter: createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
+      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
+      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), adapter, store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "COMPLETE" ? 0 : 1;
     }

@@ -16,6 +16,11 @@ import {
 } from "./check-delivery-graph.mjs";
 import { verifyCandidateContextChecks } from "./check-ticket-context.mjs";
 import { validateTicketContract } from "./check-ticket-contract.mjs";
+import {
+  graphReleaseClosureProblems,
+  oracleVerifierProtectionProblems,
+  roadmapReleaseBindingProblems,
+} from "./check-release-closure.mjs";
 
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
@@ -80,6 +85,7 @@ export function validateAdmissionState(bundle) {
     return result(problems, graph);
   }
   if (!graph.executable) problems.push(...(graph.readinessProblems ?? [issue("RELEASE_NOT_GRAPH_REVIEWED")]));
+  problems.push(...graphReleaseClosureProblems(snapshot));
 
   const roadmap = bundle.roadmapGraph;
   if (snapshot.roadmapDigest !== null || roadmap !== undefined && roadmap !== null) {
@@ -112,6 +118,7 @@ export function validateAdmissionState(bundle) {
       if (!current || current.releaseOrdinal !== snapshot.releaseOrdinal) problems.push(issue("ROADMAP_RELEASE_MISMATCH"));
       if (snapshot.releaseOrdinal > 1 && (!previous || previous.releaseId !== snapshot.predecessorReleaseId
         || !current?.predecessors?.includes(previous.releaseId))) problems.push(issue("ROADMAP_PREDECESSOR_MISMATCH"));
+      problems.push(...roadmapReleaseBindingProblems({ roadmap, graph: snapshot, children: bundle.children }));
     }
   } else if (snapshot.releaseOrdinal > 1) {
     problems.push(issue("MISSING_ROADMAP_BINDING"));
@@ -158,6 +165,12 @@ export function validateAdmissionState(bundle) {
 
   const liveChildren = Array.isArray(bundle.children) ? bundle.children : [];
   if (!Array.isArray(bundle.children)) problems.push(issue("MISSING_LIVE_CHILDREN"));
+  problems.push(...oracleVerifierProtectionProblems({
+    repositoryPath: bundle.repositoryPath,
+    baseSha: snapshot.executionBaseSha,
+    children: liveChildren,
+    graphChildren: snapshot.children,
+  }));
   problems.push(...verifyCandidateContextChecks({
     repositoryPath: bundle.repositoryPath,
     candidates: liveChildren,

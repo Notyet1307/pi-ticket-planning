@@ -76,11 +76,11 @@ function globRegex(value) {
   return new RegExp(`^${value.split("*").map((part) => part.replace(/[|\\{}()[\]^$+?.]/gu, "\\$&")).join("[^/]*")}$`, "u");
 }
 
-function pathMatches(pattern, value) {
+export function pathMatches(pattern, value) {
   return safeExpectedPath(pattern) && safeExactPath(value) && globRegex(pattern).test(value);
 }
 
-function patternsOverlap(left, right) {
+export function patternsOverlap(left, right) {
   if (left === right) return true;
   if (!left.includes("*") && pathMatches(right, left)) return true;
   if (!right.includes("*") && pathMatches(left, right)) return true;

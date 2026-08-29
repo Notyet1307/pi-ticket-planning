@@ -42,6 +42,7 @@
     "planning-case-store": { "kind": "module", "path": "planning-case/store.mjs", "export": "createPlanningCaseStore" },
     "profile-installer": { "kind": "module", "path": "scripts/install-profile.mjs", "export": "writeInstallation" },
     "protocol-kernel": { "kind": "module", "path": "protocol/kernel.mjs", "export": "validateArtifact" },
+    "release-closure-checker": { "kind": "module", "path": "scripts/check-release-closure.mjs", "export": "graphReleaseClosureProblems" },
     "release-manager": { "kind": "actor" },
     "release-projector": { "kind": "module", "path": "protocol/projections.mjs", "export": "projectRelease" },
     "release-qualification": { "kind": "module", "path": "integration/qualify.mjs", "export": "qualifyRelease" },
