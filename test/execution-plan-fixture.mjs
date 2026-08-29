@@ -58,6 +58,15 @@ export function executionInput() {
   const binding = oracleBinding({ repo: ROOT, baseSha: BASE_SHA });
   const constraints = executionConstraints({
     expectedPaths: ["execution-plan/compiler.mjs"],
+    protectedPaths: [
+      "fixtures/admission-cases.json",
+      "package.json",
+      "scripts/verify-protocol.mjs",
+      "evidence/spec-acceptance.json",
+      "evidence/decision-manifest.json",
+      "AGENTS.md",
+      "README.md",
+    ],
     primaryVerificationSeams: ["Run the release scenario."],
   });
   const child = {
@@ -182,6 +191,7 @@ export function controllerBinding(input, overrides = {}) {
       repo: input.repo,
       baseRef: input.source.baseRef,
       executionMode: "release-plan-v2-direct",
+      validation: { release: [{ command: "npm run verify:protocol", timeoutMs: 900000 }] },
       policy: { maxIssues: 2 },
       review: { enabled: true },
       ...overrides.config,
