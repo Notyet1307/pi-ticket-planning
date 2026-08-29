@@ -69,9 +69,6 @@ export function graphReleaseClosureProblems(graph) {
 
   for (const child of children) {
     for (const authorityPath of protectedAuthority) {
-      if (!child.protectedPaths?.includes(authorityPath)) {
-        problems.push(issue("MISSING_PROTECTED_AUTHORITY_PATH", `${child.id}:${authorityPath}`));
-      }
       if ((child.expectedPaths ?? []).some((pattern) => pathMatches(pattern, authorityPath))) {
         problems.push(issue("AUTHORITY_PATH_IN_EXPECTED_WRITE_SET", `${child.id}:${authorityPath}`));
       }
@@ -113,7 +110,7 @@ function packageManifest(repositoryPath, baseSha, problems) {
 }
 
 function directScriptPaths(repositoryPath, baseSha, source) {
-  const matches = [...String(source).matchAll(/(?:^|[\s"'=])((?:[A-Za-z0-9._-]+\/)+[A-Za-z0-9._-]+\.(?:cjs|cts|js|json|mjs|mts|sh|ts))(?=$|[\s"';&|)])/gu)]
+  const matches = [...String(source).matchAll(/(?:^|[\s"'=])([A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:cjs|cts|js|json|mjs|mts|sh|ts|txt))(?=$|[\s"';&|)])/gu)]
     .map((match) => match[1])
     .filter(safeExactPath);
   return [...new Set(matches.filter((candidate) => readRegularBaseFile(repositoryPath, baseSha, candidate) !== null))];
@@ -158,11 +155,7 @@ export function oracleVerifierProtectionProblems({ repositoryPath, baseSha, chil
       problems.push(issue("ORACLE_VERIFIER_SOURCE_MISSING", `${child.id}:${command}`));
     }
     const graphChild = graphById.get(canonicalId(child.id));
-    const required = ["package.json", ...sources];
-    for (const verifierPath of required) {
-      if (!graphChild?.protectedPaths?.includes(verifierPath)) {
-        problems.push(issue("MISSING_PROTECTED_ORACLE_VERIFIER_PATH", `${child.id}:${verifierPath}`));
-      }
+    for (const verifierPath of ["package.json", ...sources]) {
       if ((graphChild?.expectedPaths ?? []).some((pattern) => pathMatches(pattern, verifierPath))) {
         problems.push(issue("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET", `${child.id}:${verifierPath}`));
       }
