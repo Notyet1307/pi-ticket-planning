@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
@@ -14,6 +17,7 @@ import {
   controllerBinding,
   executionInput,
 } from "./execution-plan-fixture.mjs";
+import { git, write } from "./execution-freshness-fixture.mjs";
 
 function problemCodes(problems) {
   return problems.map(({ code }) => code);
@@ -90,6 +94,30 @@ test("Oracle verifier command definition and direct source stay outside the Tick
   codes = problemCodes(oracleVerifierProtectionProblems({
     repositoryPath: ROOT,
     baseSha: BASE_SHA,
+    children: input.children,
+    graphChildren: input.deliveryGraph.children,
+  }));
+  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
+});
+
+test("Oracle verifier protection normalizes a direct ./ helper operand", (t) => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "oracle-verifier-relative-"));
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
+  git(repo, ["init", "-q"]);
+  git(repo, ["config", "user.name", "Oracle Verifier Test"]);
+  git(repo, ["config", "user.email", "oracle@example.invalid"]);
+  write(repo, "package.json", `${JSON.stringify({ scripts: { "verify:oracle:o01": "node scripts/runner.mjs ./scripts/oracle-logic.mjs" } })}\n`);
+  write(repo, "scripts/runner.mjs", "// runner\n");
+  write(repo, "scripts/oracle-logic.mjs", "// Oracle logic\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-qm", "Oracle verifier"]);
+
+  const input = executionInput();
+  input.children[0].body = input.children[0].body.replace("npm run verify:protocol", "npm run verify:oracle:o01");
+  input.deliveryGraph.children[0].expectedPaths = ["scripts/oracle-logic.mjs"];
+  const codes = problemCodes(oracleVerifierProtectionProblems({
+    repositoryPath: repo,
+    baseSha: git(repo, ["rev-parse", "HEAD"]),
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));

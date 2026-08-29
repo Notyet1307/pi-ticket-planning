@@ -55,7 +55,8 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
   write(repo, "docs/adr-1.md", "ACCEPTED decision\n");
   write(repo, "handoffs/c1.json", "handoff\n");
   write(repo, "fixtures/oracle.json", "{\"oracle\":true}\n");
-  write(repo, "package.json", `${JSON.stringify({ scripts: { "verify:oracle:o01": "node --test" } })}\n`);
+  write(repo, "scripts/verify-oracle.mjs", "// repository-owned Oracle verifier\n");
+  write(repo, "package.json", `${JSON.stringify({ scripts: { "verify:oracle:o01": "node scripts/verify-oracle.mjs" } })}\n`);
   git(repo, ["add", "."]);
   git(repo, ["commit", "-m", "planning base"]);
   git(repo, ["branch", "-M", "main"]);

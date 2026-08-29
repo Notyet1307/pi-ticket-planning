@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
-import { readRegularBaseFile } from "./check-ticket-contract.mjs";
+import { pathMatches, patternsOverlap, readRegularBaseFile } from "./check-ticket-contract.mjs";
 
 function issue(code, subject) {
   return subject === undefined ? { code } : { code, subject };
@@ -21,32 +21,6 @@ function safeExactPath(value) {
     && !value.includes("\\") && !value.split("/").includes("..")
     && !/[*?[\]{}\u0000\r\n]/u.test(value)
     && path.posix.normalize(value) === value;
-}
-
-function safeExpectedPath(value) {
-  return typeof value === "string" && value.length > 0
-    && !path.posix.isAbsolute(value) && !path.win32.isAbsolute(value)
-    && !value.includes("\\") && !value.split("/").includes("..")
-    && !/[?[\]{}\u0000\r\n]/u.test(value) && !value.includes("**")
-    && path.posix.normalize(value.replaceAll("*", "x")) === value.replaceAll("*", "x");
-}
-
-function globRegex(value) {
-  return new RegExp(`^${value.split("*").map((part) => part.replace(/[|\\{}()[\]^$+?.]/gu, "\\$&")).join("[^/]*")}$`, "u");
-}
-
-function pathMatches(pattern, value) {
-  return safeExpectedPath(pattern) && safeExactPath(value) && globRegex(pattern).test(value);
-}
-
-function patternsOverlap(left, right) {
-  if (!safeExpectedPath(left) || !safeExpectedPath(right)) return false;
-  if (left === right) return true;
-  if (!left.includes("*") && pathMatches(right, left)) return true;
-  if (!right.includes("*") && pathMatches(left, right)) return true;
-  const leftPrefix = left.split("*", 1)[0];
-  const rightPrefix = right.split("*", 1)[0];
-  return Boolean(leftPrefix && rightPrefix && (leftPrefix.startsWith(rightPrefix) || rightPrefix.startsWith(leftPrefix)));
 }
 
 export function authorityProtectedPaths(graph) {
@@ -110,8 +84,8 @@ function packageManifest(repositoryPath, baseSha, problems) {
 }
 
 function directScriptPaths(repositoryPath, baseSha, source) {
-  const matches = [...String(source).matchAll(/(?:^|[\s"'=])([A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:cjs|cts|js|json|mjs|mts|sh|ts|txt))(?=$|[\s"';&|)])/gu)]
-    .map((match) => match[1])
+  const matches = [...String(source).matchAll(/(?:^|[\s"'=])((?:\.\/)?[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:cjs|cts|js|json|mjs|mts|sh|ts|txt))(?=$|[\s"';&|)])/gu)]
+    .map((match) => match[1].replace(/^\.\//u, ""))
     .filter(safeExactPath);
   return [...new Set(matches.filter((candidate) => readRegularBaseFile(repositoryPath, baseSha, candidate) !== null))];
 }

@@ -363,7 +363,7 @@ function freshC2(repository, c1, mergedMainSha) {
   input.deliveryGraph.decisionManifestBinding = artifactBinding(trackedBinding(repository, executionBaseSha, "decision-manifest", "evidence/decision-manifest.json"), executionBaseSha);
   input.deliveryGraph.decisionManifestDigest = input.deliveryGraph.decisionManifestBinding.sha256;
   input.roadmapParent = { id: "99", title: "Contract canary Roadmap", body: `# Roadmap\n\n${ROADMAP_PARENT_MARKER}`, state: "open", labels: ["needs-triage"], blockedBy: [], updatedAt: "2026-08-20T01:00:00.000Z" };
-  const roadmapBody = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false, readinessState: "PLANNED", roadmapId: "contract-canary", planningBaseSha: input.deliveryGraph.planningBaseSha, parent: { number: 99, title: input.roadmapParent.title, bodyHash: hashText(input.roadmapParent.body) }, plannedReleases: [{ releaseId: c1.deliveryGraph.releaseId, releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] }, { releaseId: input.deliveryGraph.releaseId, releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S1"], predecessors: [c1.deliveryGraph.releaseId], candidateTickets: [] }] };
+  const roadmapBody = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false, readinessState: "PLANNED", roadmapId: "contract-canary", planningBaseSha: input.deliveryGraph.planningBaseSha, parent: { number: 99, title: input.roadmapParent.title, bodyHash: hashText(input.roadmapParent.body) }, plannedReleases: [{ releaseId: c1.deliveryGraph.releaseId, releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] }, { releaseId: input.deliveryGraph.releaseId, releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: input.deliveryGraph.scenarios.map(({ id }) => id), predecessors: [c1.deliveryGraph.releaseId], candidateTickets: input.deliveryGraph.children.map((child) => ({ id: child.id, title: child.title, objective: parseChildTicket(input.children.find(({ id }) => String(id) === String(child.id))?.body).objective, executionLane: "AGENT" })) }] };
   input.roadmapGraph = { ...roadmapBody, digest: fingerprint(roadmapBody) };
   input.deliveryGraph.roadmapDigest = input.roadmapGraph.digest;
   return rebindExecutionInput(input, executionBaseSha);
@@ -457,6 +457,13 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   const config = path.join(temporary, "controller.json");
   fs.copyFileSync(sourceConfig, config);
   fs.chmodSync(config, 0o600);
+  const canaryConfig = JSON.parse(fs.readFileSync(config, "utf8"));
+  canaryConfig.validation ??= {};
+  canaryConfig.validation.release ??= [];
+  if (!canaryConfig.validation.release.some((entry) => (typeof entry === "string" ? entry : entry?.command) === "npm run verify:oracle:o01")) {
+    canaryConfig.validation.release.push({ command: "npm run verify:oracle:o01", timeoutMs: 900000 });
+  }
+  fs.writeFileSync(config, `${JSON.stringify(canaryConfig)}\n`);
   const adapter = createControllerAdapter({ cli, config, nodeArgs });
   const controller = adapter.config();
   const repo = controller.config?.repo;

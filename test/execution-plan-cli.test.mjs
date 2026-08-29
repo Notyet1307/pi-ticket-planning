@@ -37,7 +37,7 @@ const args = process.argv.slice(2);
 const controller = ${JSON.stringify(CONTROLLER_IDENTITY)};
 const canonical = (value) => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
 const digest = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
-const config = {repo:"acme/product",baseRef:"main",executionMode:"release-plan-v2-direct",policy:{maxIssues:2},review:{enabled:true}};
+const config = {repo:"acme/product",baseRef:"main",executionMode:"release-plan-v2-direct",validation:{release:[{command:"npm run verify:oracle:o01",timeoutMs:900000}]},policy:{maxIssues:2},review:{enabled:true}};
 fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args) + "\\n");
 if (args[0] === "config") console.log(JSON.stringify({ok:true,config,configDigest:"${"a".repeat(64)}",controller}));
 else if (args[0] === "plan") { const plan=JSON.parse(fs.readFileSync(args[args.indexOf("--plan") + 1], "utf8")); const planDigest=digest(plan); const body={version:1,controller,executionMode:config.executionMode,configDigest:"${"a".repeat(64)}",releasePlan:{version:2,digest:planDigest}}; console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}})); }
