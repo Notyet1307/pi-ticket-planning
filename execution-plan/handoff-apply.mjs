@@ -98,6 +98,17 @@ export function verifyHandoffReceiptExact({ receipt, plan, approvalId }) {
   return [];
 }
 
+export function verifyHandoffApprovalPendingExact({ snapshot, plan, approvalId }) {
+  const pending = snapshot?.approvals?.pending?.filter(({ id }) => id === approvalId) ?? [];
+  const consumed = snapshot?.approvals?.consumed?.some(({ id }) => id === approvalId) ?? false;
+  const approval = pending[0];
+  const approved = snapshot?.checkpoint?.stage === "ADMISSION" && snapshot.checkpoint.verdict === "HANDOFF_APPROVED";
+  return pending.length === 1 && !consumed && approval?.fact === "human.executionHandoff"
+    && approval.subject?.digest === plan?.planFingerprint && approved
+    ? []
+    : [{ code: "HANDOFF_APPROVAL_NOT_EXACT_PENDING" }];
+}
+
 function materialize(outputDir, plan, receipt) {
   outputDir = assertCanonicalAbsentChildPath(outputDir, "OUTPUT_DIR", "OUTPUT_PARENT");
   const parent = assertCanonicalPrivateOutputParent(path.dirname(outputDir), "OUTPUT_PARENT");
@@ -122,7 +133,8 @@ function materialize(outputDir, plan, receipt) {
 }
 
 function facts(plan, approval, mutationId, now, subject) {
-  const create = (fact, source, digest, sameMutation = true) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${mutationId.slice(-12)}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: fact === "controller.readinessPassed" ? new Date(Date.parse(now) + 3600000).toISOString() : null, ...(sameMutation ? { mutationId } : {}), evidence: { kind: "artifact", ref: plan.planFingerprint, digest } });
+  const suffix = fingerprint(mutationId).slice(-12);
+  const create = (fact, source, digest, sameMutation = true) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${suffix}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: fact === "controller.readinessPassed" ? new Date(Date.parse(now) + 3600000).toISOString() : null, ...(sameMutation ? { mutationId } : {}), evidence: { kind: "artifact", ref: plan.planFingerprint, digest } });
   return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("oracles.bound", "execution-plan-compiler", plan.reviewedFingerprint), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.provenance.digest)), approval];
 }
 
@@ -143,7 +155,7 @@ export function applyExecutionPlan({
   outputDir = outputDirectory(outputDir);
   if (expectedFingerprint !== plan?.planFingerprint) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
   const target = `github:${plan.repo}`;
-  const snapshot = store.get({ caseId, target });
+  let snapshot = store.get({ caseId, target });
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
   const approval = approvals.find(({ id }) => id === approvalId);
   const matchingApprovals = approvals.filter((item) => item.fact === "human.executionHandoff" && item.subject?.digest === plan.planFingerprint);
@@ -170,15 +182,32 @@ export function applyExecutionPlan({
     return { status: "COMPLETE", receipt: existing, nextCommand };
   }
   const now = clock();
+  const checkpointMatches = () => snapshot.checkpoint.stage === "ADMISSION"
+    && ["ACTIVATION_AWAITING_CONFIRMATION", "HANDOFF_APPROVED"].includes(snapshot.checkpoint.verdict)
+    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === plan.target
+    && snapshot.checkpoint.subject?.revision === plan.source.revision && snapshot.checkpoint.subject?.digest;
+  if (!checkpointMatches()) throw new Error("INVALID_HANDOFF_CHECKPOINT");
+  if (snapshot.checkpoint.verdict === "ACTIVATION_AWAITING_CONFIRMATION") {
+    const approvalMutationId = `execution-plan-approve:${plan.planFingerprint}`;
+    const approvalFacts = facts(plan, approval, approvalMutationId, now, snapshot.checkpoint.subject);
+    const approved = { schema: "pi-ticket-planning:checkpoint:v2", lane: snapshot.checkpoint.lane, stage: "ADMISSION", verdict: "HANDOFF_APPROVED", subject: snapshot.checkpoint.subject };
+    const evaluatedApproval = evaluateMutation({ mutation: "executionPlan.approve", actor: "execution-plan-apply", transition: { current: snapshot.checkpoint, proposed: approved, approvalSubject }, facts: approvalFacts, consumedApprovalIds: snapshot.approvals.consumed.map(({ id }) => id), consumedFactIds: snapshot.consumedFactIds, mutationId: approvalMutationId, now });
+    if (!evaluatedApproval.allowed) throw new Error(evaluatedApproval.problems[0]?.code ?? "EXECUTION_HANDOFF_APPROVAL_NOT_ALLOWED");
+    const approvedFact = createFactAttestation({ id: `F-handoff-approved-${fingerprint(approvalMutationId).slice(-12)}`, fact: "handoff.approved", value: true, subject: approved.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "operator", ref: approval.id, digest: plan.planFingerprint } });
+    store.transition({ caseId, target, checkpoint: approved, facts: [...approvalFacts.filter((fact) => fact.id !== approval.id), approvedFact], mutationId: approvalMutationId, nextAction: { kind: "NONE", command: null, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "HANDOFF_MATERIALIZATION_PENDING" } });
+    snapshot = store.get({ caseId, target });
+  }
+  const pending = verifyHandoffApprovalPendingExact({ snapshot, plan, approvalId });
+  if (pending.length) throw new Error(pending[0].code);
   const mutationId = `execution-plan-apply:${plan.planFingerprint}`;
-  if (snapshot.checkpoint.stage !== "ADMISSION" || snapshot.checkpoint.verdict !== "ACTIVATION_AWAITING_CONFIRMATION"
-    || snapshot.checkpoint.subject?.target !== target || snapshot.checkpoint.subject?.id !== plan.target || snapshot.checkpoint.subject?.revision !== plan.source.revision || !snapshot.checkpoint.subject?.digest) throw new Error("INVALID_HANDOFF_CHECKPOINT");
-  const allFacts = facts(plan, approval, mutationId, now, snapshot.checkpoint.subject);
+  const approvedFact = snapshot.facts.find((fact) => fact.fact === "handoff.approved" && fact.subject?.digest === snapshot.checkpoint.subject?.digest);
+  if (!approvedFact) throw new Error("HANDOFF_APPROVAL_FACT_MISSING");
+  const allFacts = [...facts(plan, approval, mutationId, now, snapshot.checkpoint.subject), approvedFact];
   const proposed = { schema: "pi-ticket-planning:checkpoint:v2", lane: snapshot.checkpoint.lane, stage: "EXECUTION", verdict: "HANDOFF_READY", subject: snapshot.checkpoint.subject };
   const evaluated = evaluateMutation({ mutation: "executionPlan.apply", actor: "execution-plan-apply", transition: { current: snapshot.checkpoint, proposed, approvalSubject }, facts: allFacts, consumedApprovalIds: snapshot.approvals.consumed.map(({ id }) => id), consumedFactIds: snapshot.consumedFactIds, mutationId, now });
   if (!evaluated.allowed) throw new Error(evaluated.problems[0]?.code ?? "EXECUTION_HANDOFF_NOT_ALLOWED");
   const receipt = existing ?? materialize(outputDir, plan, receiptFor(plan, approvalId, verified.controllerConfigDigest, verified.controllerPlanDigest, now));
-  const ready = createFactAttestation({ id: `F-execution-handoff-ready-${mutationId.slice(-12)}`, fact: "execution.handoffReady", value: true, subject: proposed.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "receipt", ref: plan.planFingerprint, digest: receipt.digest } });
+  const ready = createFactAttestation({ id: `F-execution-handoff-ready-${fingerprint(mutationId).slice(-12)}`, fact: "execution.handoffReady", value: true, subject: proposed.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "receipt", ref: plan.planFingerprint, digest: receipt.digest } });
   store.transition({ caseId, target, checkpoint: proposed, facts: [...allFacts.filter((fact) => fact.id !== approval.id), ready], mutationId, nextAction: { kind: "COMMAND", command: nextCommand, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "CONTROLLER_START_REQUIRED" } });
   store.consumeApproval({ caseId, target, approvalId });
   const final = store.get({ caseId, target });

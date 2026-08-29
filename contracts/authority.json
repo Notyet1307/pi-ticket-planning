@@ -21,6 +21,7 @@
     "executionPlan.validated": { "kind": "LIVE_FACT", "owner": "execution-plan-compiler", "sources": ["execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "controller.readinessPassed": { "kind": "LIVE_FACT", "owner": "codex-controller", "sources": ["codex-controller-cli"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
     "human.executionHandoff": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "handoff.approved": { "kind": "IMMUTABLE_FACT", "owner": "execution-plan-apply", "sources": ["execution-plan-apply"] },
     "execution.handoffReady": { "kind": "IMMUTABLE_FACT", "owner": "execution-plan-apply", "sources": ["execution-plan-apply", "admission-cli"] },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
@@ -97,15 +98,27 @@
       "producesFacts": ["tracker.ready", "execution.handoffReady"],
       "postconditions": ["comments.exactReadback", "labels.exactControlledState", "harness.noClaimDuringApply", "tracker.matchesPlan", "approval.singleConsumed", "transaction.committed"]
     },
-    "executionPlan.apply": {
+    "executionPlan.approve": {
       "strict": true,
       "actor": "execution-plan-apply",
       "sourceStage": "ADMISSION",
       "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "ADMISSION",
+      "targetVerdict": "HANDOFF_APPROVED",
+      "approvalFact": "human.executionHandoff",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "controller.readinessPassed", "human.executionHandoff"],
+      "producesFacts": ["handoff.approved"],
+      "postconditions": ["approval.exactPending"]
+    },
+    "executionPlan.apply": {
+      "strict": true,
+      "actor": "execution-plan-apply",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "HANDOFF_APPROVED",
       "targetStage": "EXECUTION",
       "targetVerdict": "HANDOFF_READY",
       "approvalFact": "human.executionHandoff",
-      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "controller.readinessPassed", "human.executionHandoff"],
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "controller.readinessPassed", "handoff.approved", "human.executionHandoff"],
       "producesFacts": ["execution.handoffReady"],
       "postconditions": ["handoff.filesExactReadback", "approval.singleConsumed", "handoff.receiptExact"]
     }

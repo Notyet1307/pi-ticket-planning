@@ -316,7 +316,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build calls only Controller `config validate` and `plan validate`; apply also calls `doctor`. Both bind/recheck remote base, Parent/Children, receipts, decisions, dependency handoffs, Oracles and Controller provenance. Drift returns stable rebuild-required codes and preserves pending approval. Apply materializes exactly three private files, records `HANDOFF_READY`, consumes approval last, and only prints the bound Controller `start` command.
+Build calls only Controller `config validate` and `plan validate`; apply also calls `doctor`. Both recheck every binding. Apply durably records `HANDOFF_APPROVED` with approval pending, materializes exactly three private files, records `HANDOFF_READY`, consumes approval last, and only prints the bound Controller `start` command.
 
 Legacy v2 migration is dry-run only: `node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`. A single Release requires exact `releaseMembership`; otherwise Roadmap/current membership is mandatory. Output is `PLANNED`, human-approved, never writes Issues/labels, and cannot hand off directly.
 
