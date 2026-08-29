@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Close the executable-Release authority boundary: every Ticket must protect the tracked Spec receipt, decision manifest, policy, product Release, accepted ADRs, predecessor receipt, dependency handoffs, Oracle command definition, and direct verifier sources.
+- Require one exact `expectedPaths` owner per current Release and bind Roadmap Scenario coverage plus AGENT Ticket membership, identity, and objective to the executable v3 graph.
+- Require every bound Oracle `npm run verify:*` command to appear in the qualified Controller configuration's `validation.release` command list before handoff.
 - Formally qualify `herdr-codex-controller` commit `b1afa0127dd0b51e210757e9baf150d2d2851326` for the direct Release Plan v2 mainline. The machine lock now fixes `release-plan-v2-direct`, keeps Dispatcher unqualified, and preserves operator-explicit `start`.
 - Require the Controller checkout used by `prepare-codex-release` to match the exact lock with a clean tracked worktree; never translate the approved graph into Dispatcher-driven per-Issue Plan v1 or use `ready-for-agent` on this path.
 - Add the recommended Codex Controller Release Handoff: deterministic Release Plan v2 compilation, exact source/review/config binding, one-hour fingerprint approval, live Controller doctor gate, and atomic three-file materialization without starting execution or writing ready labels.
