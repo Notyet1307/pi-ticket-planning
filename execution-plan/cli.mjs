@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createGitHubAdapter } from "../admission/github-adapter.mjs";
+import { oracleValidationCoverageProblems } from "../scripts/check-release-closure.mjs";
 import { compileExecutionPlan } from "./compiler.mjs";
 import { createControllerAdapter } from "./controller-adapter.mjs";
 import { applyExecutionPlan } from "./handoff-apply.mjs";
@@ -65,6 +66,11 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", `'"'"'`)}'`;
 }
 
+function requireOracleReleaseValidation(config, input) {
+  const problems = oracleValidationCoverageProblems({ controllerConfig: config, children: input.children });
+  if (problems.length > 0) throw new Error(problems[0].code);
+}
+
 export function runExecutionPlanCli(argv = process.argv.slice(2)) {
   try {
     const [command, ...rest] = argv;
@@ -74,6 +80,7 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       const input = liveInput(values); const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
       assertFreshExecutionInput(input);
       const config = adapter.config();
+      requireOracleReleaseValidation(config.config, input);
       const draft = compileExecutionPlan(input, { controller: config });
       const validated = adapter.validatePlan(draft.releasePlan, config.configDigest, config.configIdentity);
       const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest, provenance: validated.provenance } });
@@ -88,7 +95,9 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "controller-cli", "controller-config", "json"], ["plan", "context", "controller-cli", "controller-config"]);
       const plan = json(values.get("plan"));
       const input = liveInput(values, { plan });
-      const result = verifyExecutionPlan(plan, input, createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), { reloadInput: () => liveInput(values, { plan }) });
+      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
+      requireOracleReleaseValidation(adapter.config().config, input);
+      const result = verifyExecutionPlan(plan, input, adapter, { reloadInput: () => liveInput(values, { plan }) });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "READY" ? 0 : 1;
     }
@@ -113,7 +122,9 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
         "--json",
       ].join(" ");
       const input = liveInput(values, { plan });
-      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), adapter: createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
+      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
+      requireOracleReleaseValidation(adapter.config().config, input);
+      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), adapter, store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "COMPLETE" ? 0 : 1;
     }
