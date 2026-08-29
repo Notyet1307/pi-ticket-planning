@@ -17,10 +17,10 @@ pi-ticket-planning
 The exact qualified Controller revision is owned by `compatibility/codex-controller-contract.json`. At the time of this qualification it is:
 
 ```text
-45bb61a2697ad518e97402ab9d921617739cbd92
+987a30872494e50987f17d1cc74304763bc74a28
 ```
 
-The same lock pins Controller source-manifest digest `64bd6d551dbea2cbe25ed878141714b278783be4036931c5ea2e1af9b6338733`, build digest `bfcef4acdc17e7ed705020754957a066429f66d4694d1db33ff821d376c3311f`, and identity digest `40cf05579fd6e8db1a36dd3f11fd9ea137aace2d06d9d9b68e2e009aedb1a0f4`.
+The same lock pins Controller source-manifest digest `a9d8f7af31575d33ca9bbb9d795d68e776801709416e6fec08c99481e39da737`, build digest `b3df861932cd74545937508a5e42d5def94973ddaa6095d778fd6962f6c9db0a`, and identity digest `0352949ac5fedc92717d402af0d36a71ec921cdb07343a298ccf8577eb2a984f`.
 
 The machine scope is:
 
@@ -34,6 +34,7 @@ operatorStartRequired = true
 
 - Controller `config validate`;
 - Controller `plan validate`;
+- Controller Oracle/protected-path checks before and after writing Workers, per-Issue/aggregate scope enforcement, and terminal replan on drift;
 - Planner-owned Release Plan v2 schema bytes and canonical digest;
 - the approved config digest, exact Controller revision, and complete provenance digest passed to the three v2 `start --expected-*` gates;
 - live `doctor` config and Controller identity readback during handoff apply;

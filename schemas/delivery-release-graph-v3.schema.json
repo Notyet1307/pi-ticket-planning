@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/delivery-release-graph-v3.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "kind", "executable", "readinessState", "releaseId", "releaseOrdinal", "planningBaseSha", "executionBaseSha", "roadmapDigest", "predecessorReleaseId", "predecessorReceipt", "specAcceptance", "decisionManifestDigest", "source", "scenarios", "children", "walkingSkeleton"],
+  "required": ["schema", "kind", "executable", "readinessState", "releaseId", "releaseOrdinal", "planningBaseSha", "executionBaseSha", "executionBasePolicy", "roadmapDigest", "predecessorReleaseId", "predecessorReceipt", "predecessorReceiptBinding", "specAcceptance", "specAcceptanceBinding", "decisionManifest", "decisionManifestBinding", "decisionManifestDigest", "source", "scenarios", "children", "walkingSkeleton"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:delivery-release-graph:v3" },
     "kind": { "const": "EXECUTABLE_RELEASE" },
@@ -13,6 +13,7 @@
     "releaseOrdinal": { "type": "integer", "minimum": 1 },
     "planningBaseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
     "executionBaseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "executionBasePolicy": { "enum": ["PLANNING_BASE_OR_DESCENDANT", "PREDECESSOR_MERGE_OR_DESCENDANT"] },
     "roadmapDigest": {
       "oneOf": [
         { "type": "null" },
@@ -31,7 +32,16 @@
         { "$ref": "release-predecessor-receipt-v1.schema.json" }
       ]
     },
+    "predecessorReceiptBinding": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/artifactBinding" }
+      ]
+    },
     "specAcceptance": { "$ref": "spec-acceptance-v1.schema.json" },
+    "specAcceptanceBinding": { "$ref": "#/$defs/artifactBinding" },
+    "decisionManifest": { "$ref": "decision-manifest-v1.schema.json" },
+    "decisionManifestBinding": { "$ref": "#/$defs/artifactBinding" },
     "decisionManifestDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
     "source": {
       "type": "object",
@@ -72,6 +82,17 @@
     }
   },
   "$defs": {
+    "artifactBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "baseSha", "sha256", "byteCount"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.\\.?(?:/|$))(?!.*(?:/\\.\\.?)(?:/|$))(?!.*//)(?!.*[\\\\*?\\[\\]{}\\u0000\\r\\n])[^/]+(?:/[^/]+)*$", "maxLength": 2048 },
+        "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+        "sha256": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "byteCount": { "type": "integer", "minimum": 0, "maximum": 67108864 }
+      }
+    },
     "scenario": {
       "type": "object",
       "additionalProperties": false,

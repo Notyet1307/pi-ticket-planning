@@ -15,7 +15,7 @@ import {
 } from "../execution-plan/private-paths.mjs";
 import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "./check-delivery-graph.mjs";
+import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "./check-delivery-graph.mjs";
 import { checkTicketContext } from "./check-ticket-context.mjs";
 import {
   oracleBindingDigest,
@@ -23,6 +23,8 @@ import {
   ticketReviewProjection,
 } from "./check-ticket-contract.mjs";
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
+import { assertFreshExecutionInput, executionFreshnessProjection, gitRemoteBase } from "../execution-plan/freshness.mjs";
+import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
@@ -150,6 +152,15 @@ Controller execution.`;
     source: { baseSha, specContentHash: source.specContentHash },
     decision: { caseId: "PC-contract-canary", approvalId: "F-spec-approval", acceptedAt: "2026-08-20T00:00:00.000Z" },
   };
+  const packageBytes = fs.readFileSync(path.join(repositoryPath, "package.json"));
+  const decisionManifestBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha,
+    policy: { identity: "seed-policy", path: "seed.txt", sha256: `sha256:${sha256(oracleBytes)}`, byteCount: oracleBytes.length },
+    productRelease: { identity: "contract-canary/r1", path: "package.json", sha256: `sha256:${sha256(packageBytes)}`, byteCount: packageBytes.length },
+    decisions: [],
+    dependencyHandoffs: [],
+  };
   const graph = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -159,11 +170,16 @@ Controller execution.`;
     releaseOrdinal: 1,
     planningBaseSha: baseSha,
     executionBaseSha: baseSha,
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
-    decisionManifestDigest: fingerprint("contract-canary-decisions"),
+    specAcceptanceBinding: { path: "seed.txt", baseSha, sha256: `sha256:${sha256(oracleBytes)}`, byteCount: oracleBytes.length },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "seed.txt", baseSha, sha256: `sha256:${sha256(oracleBytes)}`, byteCount: oracleBytes.length },
+    decisionManifestDigest: `sha256:${sha256(oracleBytes)}`,
     source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
     scenarios: [{ id: "S1", behavior: "Validate one Plan", entry: "external:fixture", exit: "contract-result", releaseSignal: "matching digest", smallestLoop: true }],
     children: [{
@@ -230,6 +246,127 @@ Controller execution.`;
     totalDispatches: 1,
   });
   return input;
+}
+
+function trackedBinding(repository, baseSha, identity, file, extra = {}) {
+  const read = run("git", ["-C", repository, "show", `${baseSha}:${file}`], { encoding: null });
+  if (read.error || read.signal || read.status !== 0 || !Buffer.isBuffer(read.stdout)) throw new Error("FRESH_CANARY_ARTIFACT_MISSING");
+  return { identity, ...extra, path: file, sha256: `sha256:${sha256(read.stdout)}`, byteCount: read.stdout.length };
+}
+
+function artifactBinding(binding, baseSha) {
+  return { path: binding.path, baseSha, sha256: binding.sha256, byteCount: binding.byteCount };
+}
+
+function commitAndPush(repository, message) {
+  git(repository, ["add", "."]);
+  git(repository, ["commit", "-qm", message]);
+  git(repository, ["push", "origin", "main"]);
+  return git(repository, ["rev-parse", "HEAD"]);
+}
+
+function rebindExecutionInput(input, baseSha) {
+  const parsed = parseChildTicket(input.children[0].body);
+  const oracleBytes = fs.readFileSync(path.join(input.repositoryPath, parsed.oracleBinding.artifact.path));
+  const oracle = {
+    ...parsed.oracleBinding,
+    artifact: {
+      ...parsed.oracleBinding.artifact,
+      baseSha,
+      sha256: `sha256:${sha256(oracleBytes)}`,
+      byteCount: oracleBytes.length,
+    },
+  };
+  input.children[0].body = input.children[0].body.replace(JSON.stringify(parsed.oracleBinding), JSON.stringify(oracle));
+  input.source = { ...input.source, baseSha, remote: "origin" };
+  input.deliveryGraph.executionBaseSha = baseSha;
+  input.deliveryGraph.children[0].bodyHash = hashText(input.children[0].body);
+  input.deliveryGraph.children[0].oracleBindingDigest = oracleBindingDigest(oracle);
+  input.contextChecks = [{ candidateId: input.children[0].id, result: checkTicketContext({ repo: input.repositoryPath, base: baseSha, body: input.children[0].body }) }];
+  input.review.source = { identity: input.source.identity, revision: input.source.revision, baseSha, specContentHash: input.source.specContentHash };
+  input.review.candidates[0] = {
+    id: input.children[0].id,
+    verdict: "READY",
+    executionLane: "AGENT",
+    ...ticketReviewProjection({ parsed: parseChildTicket(input.children[0].body), graphChild: input.deliveryGraph.children[0], graphChildren: input.deliveryGraph.children }),
+  };
+  delete input.reviewBinding;
+  delete input.review.inputBinding;
+  delete input.reviewDispatchBinding;
+  const binding = reviewBindingForAdmission(input);
+  input.reviewBinding = structuredClone(binding);
+  input.review.inputBinding = structuredClone(binding);
+  input.reviewDispatchBinding = buildReviewerDispatchBinding({
+    parentSessionId: "contract-canary-parent",
+    childRunId: "contract-canary-run",
+    childSessionId: "contract-canary-child",
+    childFileDigest: fingerprint("contract-canary-child"),
+    inputDigest: binding.inputDigest,
+    outputDigest: fingerprint(input.review),
+    dispatchOrdinal: 1,
+    totalDispatches: 1,
+  });
+  return input;
+}
+
+function freshC1(repository, planningBaseSha, input) {
+  fs.mkdirSync(path.join(repository, "evidence"), { recursive: true });
+  fs.writeFileSync(path.join(repository, "evidence", "spec-acceptance.json"), `${JSON.stringify(input.deliveryGraph.specAcceptance)}\n`);
+  const decisionBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha: planningBaseSha,
+    policy: trackedBinding(repository, planningBaseSha, "seed-policy", "seed.txt"),
+    productRelease: trackedBinding(repository, planningBaseSha, "contract-canary/r1", "package.json"),
+    decisions: [],
+    dependencyHandoffs: [],
+  };
+  const decisionManifest = { ...decisionBody, digest: fingerprint(decisionBody) };
+  fs.writeFileSync(path.join(repository, "evidence", "decision-manifest.json"), `${JSON.stringify(decisionManifest)}\n`);
+  const executionBaseSha = commitAndPush(repository, "publish C1 evidence");
+  input.source.remote = "origin";
+  input.deliveryGraph.executionBasePolicy = "PLANNING_BASE_OR_DESCENDANT";
+  input.deliveryGraph.planningBaseSha = planningBaseSha;
+  input.deliveryGraph.specAcceptanceBinding = artifactBinding(trackedBinding(repository, executionBaseSha, "spec-acceptance", "evidence/spec-acceptance.json"), executionBaseSha);
+  input.deliveryGraph.decisionManifest = decisionManifest;
+  input.deliveryGraph.decisionManifestBinding = artifactBinding(trackedBinding(repository, executionBaseSha, "decision-manifest", "evidence/decision-manifest.json"), executionBaseSha);
+  input.deliveryGraph.decisionManifestDigest = input.deliveryGraph.decisionManifestBinding.sha256;
+  return rebindExecutionInput(input, executionBaseSha);
+}
+
+function freshC2(repository, c1, mergedMainSha) {
+  const handoff = trackedBinding(repository, mergedMainSha, "C1-handoff", "handoff.txt");
+  const receiptBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: c1.deliveryGraph.releaseId, mergedMainSha, handoffDigests: [handoff.sha256], validationDigest: fingerprint("C1-validation"), completedAt: "2026-08-20T01:00:00.000Z" };
+  const receipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+  fs.writeFileSync(path.join(repository, "evidence", "predecessor.json"), `${JSON.stringify(receipt)}\n`);
+  const decisionBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha: mergedMainSha,
+    policy: trackedBinding(repository, mergedMainSha, "seed-policy", "seed.txt"),
+    productRelease: trackedBinding(repository, mergedMainSha, "contract-canary/r1", "package.json"),
+    decisions: [],
+    dependencyHandoffs: [trackedBinding(repository, mergedMainSha, "C1-handoff", "handoff.txt")],
+  };
+  const decisionManifest = { ...decisionBody, digest: fingerprint(decisionBody) };
+  fs.writeFileSync(path.join(repository, "evidence", "decision-manifest.json"), `${JSON.stringify(decisionManifest)}\n`);
+  const executionBaseSha = commitAndPush(repository, "publish C2 predecessor");
+  const input = structuredClone(c1);
+  Object.assign(input.deliveryGraph, {
+    releaseId: "contract-canary-r2",
+    releaseOrdinal: 2,
+    executionBasePolicy: "PREDECESSOR_MERGE_OR_DESCENDANT",
+    predecessorReleaseId: c1.deliveryGraph.releaseId,
+    predecessorReceipt: receipt,
+    predecessorReceiptBinding: artifactBinding(trackedBinding(repository, executionBaseSha, "predecessor", "evidence/predecessor.json"), executionBaseSha),
+    specAcceptanceBinding: artifactBinding(trackedBinding(repository, executionBaseSha, "spec-acceptance", "evidence/spec-acceptance.json"), executionBaseSha),
+  });
+  input.deliveryGraph.decisionManifest = decisionManifest;
+  input.deliveryGraph.decisionManifestBinding = artifactBinding(trackedBinding(repository, executionBaseSha, "decision-manifest", "evidence/decision-manifest.json"), executionBaseSha);
+  input.deliveryGraph.decisionManifestDigest = input.deliveryGraph.decisionManifestBinding.sha256;
+  input.roadmapParent = { id: "99", title: "Contract canary Roadmap", body: `# Roadmap\n\n${ROADMAP_PARENT_MARKER}`, state: "open", labels: ["needs-triage"], blockedBy: [], updatedAt: "2026-08-20T01:00:00.000Z" };
+  const roadmapBody = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false, readinessState: "PLANNED", roadmapId: "contract-canary", planningBaseSha: input.deliveryGraph.planningBaseSha, parent: { number: 99, title: input.roadmapParent.title, bodyHash: hashText(input.roadmapParent.body) }, plannedReleases: [{ releaseId: c1.deliveryGraph.releaseId, releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] }, { releaseId: input.deliveryGraph.releaseId, releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S1"], predecessors: [c1.deliveryGraph.releaseId], candidateTickets: [] }] };
+  input.roadmapGraph = { ...roadmapBody, digest: fingerprint(roadmapBody) };
+  input.deliveryGraph.roadmapDigest = input.roadmapGraph.digest;
+  return rebindExecutionInput(input, executionBaseSha);
 }
 
 function invalidPlanRejected(cli, config, file, plan, nodeArgs) {
@@ -299,17 +436,23 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   fs.mkdirSync(temporary, { recursive: true, mode: 0o700 });
   fs.chmodSync(temporary, 0o700);
   const repository = path.join(temporary, "repo");
+  const remote = path.join(temporary, "remote.git");
+  git(temporary, ["init", "--bare", "-q", remote]);
   fs.mkdirSync(repository, { mode: 0o700 });
   git(repository, ["init", "-q"]);
   git(repository, ["config", "user.email", "contract@example.invalid"]);
   git(repository, ["config", "user.name", "Contract Canary"]);
   fs.writeFileSync(path.join(repository, "seed.txt"), "contract canary\n", { mode: 0o600 });
+  fs.writeFileSync(path.join(repository, "handoff.txt"), "C1 handoff\n", { mode: 0o600 });
   fs.writeFileSync(path.join(repository, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node --check seed.txt" } })}\n`, { mode: 0o600 });
-  git(repository, ["add", "seed.txt", "package.json"]);
+  git(repository, ["add", "seed.txt", "handoff.txt", "package.json"]);
   requireRun(run("git", ["-C", repository, "commit", "-qm", "contract canary"], {
     env: { ...process.env, GIT_AUTHOR_DATE: "2026-08-20T00:00:00Z", GIT_COMMITTER_DATE: "2026-08-20T00:00:00Z" },
   }), "TEMP_GIT_FAILED");
-  const baseSha = git(repository, ["rev-parse", "HEAD"]);
+  git(repository, ["branch", "-M", "main"]);
+  git(repository, ["remote", "add", "origin", remote]);
+  git(repository, ["push", "-u", "origin", "main"]);
+  const planningBaseSha = git(repository, ["rev-parse", "HEAD"]);
 
   const config = path.join(temporary, "controller.json");
   fs.copyFileSync(sourceConfig, config);
@@ -319,7 +462,9 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   const repo = controller.config?.repo;
   const baseRef = controller.config?.baseRef;
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo ?? "") || typeof baseRef !== "string") throw new Error("CONTROLLER_CONFIG_CONTRACT_INVALID");
-  const input = reviewedInput({ repositoryPath: repository, baseSha, repo, baseRef });
+  const input = freshC1(repository, planningBaseSha, reviewedInput({ repositoryPath: repository, baseSha: planningBaseSha, repo, baseRef }));
+  const readFresh = (value) => assertFreshExecutionInput(value, { resolveRemoteBase: gitRemoteBase });
+  if (fingerprint(readFresh(input)) !== fingerprint(executionFreshnessProjection(input))) throw new Error("FRESH_C1_VECTOR_MISMATCH");
   const draft = compileExecutionPlan(input, { controller });
   if (!validateArtifact(draft.releasePlan, { identity: CONTROLLER_PLAN }).ok) throw new Error("PLANNER_SCHEMA_POSITIVE_VECTOR_REJECTED");
   const validated = adapter.validatePlan(draft.releasePlan, controller.configDigest, controller.configIdentity);
@@ -346,6 +491,59 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     }
   }
 
+  const freshCases = { "c1-base-a": "PASS" };
+  fs.writeFileSync(path.join(repository, "merged.txt"), "C1 merged\n");
+  const mergedMainSha = commitAndPush(repository, "merge C1");
+  try { readFresh(input); freshCases["c2-stale-base-a"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["c2-stale-base-a"] = error.message; }
+  const c2 = freshC2(repository, input, mergedMainSha);
+  readFresh(c2);
+  freshCases["c2-fresh-base-b"] = "PASS";
+
+  const c2Draft = compileExecutionPlan(c2, { controller });
+  const c2Validated = adapter.validatePlan(c2Draft.releasePlan, controller.configDigest, controller.configIdentity);
+  const c2Plan = compileExecutionPlan(c2, { controller: { ...controller, planDigest: c2Validated.planDigest, provenance: c2Validated.provenance } });
+  freshCases["exact-v3-v2-direct"] = "PASS";
+
+  const decisionDrift = structuredClone(c2);
+  decisionDrift.deliveryGraph.decisionManifest.policy.sha256 = `sha256:${"0".repeat(64)}`;
+  try { readFresh(decisionDrift); freshCases["accepted-decision-drift"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["accepted-decision-drift"] = error.message; }
+  const oracleDrift = structuredClone(c2);
+  oracleDrift.children[0].body = oracleDrift.children[0].body.replace(/"sha256":"sha256:[a-f0-9]{64}"/u, `"sha256":"sha256:${"0".repeat(64)}"`);
+  try { readFresh(oracleDrift); freshCases["oracle-drift"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["oracle-drift"] = error.message; }
+
+  const parentDrift = structuredClone(c2);
+  parentDrift.parent.body += "\nchanged";
+  freshCases["parent-body-drift"] = verifyExecutionPlan(c2Plan, parentDrift, adapter, { doctor: false, readFresh }).problems[0]?.code;
+  const childDrift = structuredClone(c2);
+  childDrift.children[0].body += "\nchanged";
+  freshCases["child-body-drift"] = verifyExecutionPlan(c2Plan, childDrift, adapter, { doctor: false, readFresh }).problems[0]?.code;
+  const provenanceAdapter = {
+    ...adapter,
+    config() {
+      const current = adapter.config();
+      return { ...current, controllerIdentity: { ...current.controllerIdentity, sourceRevision: "f".repeat(40) } };
+    },
+  };
+  freshCases["controller-provenance-drift"] = verifyExecutionPlan(c2Plan, c2, provenanceAdapter, { doctor: false, readFresh }).problems[0]?.code;
+  try { compileExecutionPlan({ ...c2, deliveryGraph: c2.roadmapGraph }, { controller }); freshCases["roadmap-or-human"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["roadmap-or-human"] = error.message; }
+
+  const dependencyDrift = structuredClone(c2);
+  fs.writeFileSync(path.join(repository, "handoff.txt"), "changed handoff\n");
+  const dependencyBaseSha = commitAndPush(repository, "change C1 handoff");
+  dependencyDrift.deliveryGraph.specAcceptanceBinding.baseSha = dependencyBaseSha;
+  dependencyDrift.deliveryGraph.predecessorReceiptBinding.baseSha = dependencyBaseSha;
+  dependencyDrift.deliveryGraph.decisionManifestBinding.baseSha = dependencyBaseSha;
+  rebindExecutionInput(dependencyDrift, dependencyBaseSha);
+  try { readFresh(dependencyDrift); freshCases["dependency-handoff-drift"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["dependency-handoff-drift"] = error.message; }
+
+  const expectedCases = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "fresh-handoff-cases.json"), "utf8")).cases;
+  for (const { id, expected } of expectedCases) if (freshCases[id] !== expected) throw new Error(`FRESH_CANARY_CASE_MISMATCH:${id}:${freshCases[id]}`);
+
   return {
     status: "PASS",
     configDigest: controller.configDigest,
@@ -359,6 +557,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     releasePlanFingerprint: fingerprint(draft.releasePlan),
     handoffScope: { releasePlanV2Direct: "ACCEPTED", releasePlanV1: "REJECTED", dispatch: "OUT_OF_SCOPE" },
     vectors: Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])),
+    freshCases,
   };
 }
 

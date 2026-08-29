@@ -65,6 +65,7 @@ function input() {
     source: { baseSha, specContentHash: source.specContentHash },
     decision: { caseId: "PC-admission", approvalId: "F-spec-approval", acceptedAt: "2026-08-16T12:00:00Z" },
   };
+  const decisionManifestBody = { schema: "pi-ticket-planning:decision-manifest:v1", baseSha, policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"a".repeat(64)}`, byteCount: 1 }, productRelease: { identity: "R001/r2", path: "README.md", sha256: `sha256:${"b".repeat(64)}`, byteCount: 1 }, decisions: [], dependencyHandoffs: [] };
   const graph = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -74,11 +75,16 @@ function input() {
     releaseOrdinal: 1,
     planningBaseSha: baseSha,
     executionBaseSha: baseSha,
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
-    decisionManifestDigest: `sha256:${"c".repeat(64)}`,
+    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha, sha256: `sha256:${"c".repeat(64)}`, byteCount: 1 },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha, sha256: `sha256:${"d".repeat(64)}`, byteCount: 1 },
+    decisionManifestDigest: `sha256:${"d".repeat(64)}`,
     source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
     scenarios: [
       { id: "S1", behavior: "First.", entry: "external:input", exit: "first", releaseSignal: "First.", smallestLoop: true },

@@ -25,10 +25,10 @@ export const digest = (letter) => `sha256:${letter.repeat(64)}`;
 
 export const CONTROLLER_IDENTITY = {
   version: 1,
-  sourceRevision: "45bb61a2697ad518e97402ab9d921617739cbd92",
-  sourceManifestDigest: "64bd6d551dbea2cbe25ed878141714b278783be4036931c5ea2e1af9b6338733",
-  buildDigest: "bfcef4acdc17e7ed705020754957a066429f66d4694d1db33ff821d376c3311f",
-  digest: "40cf05579fd6e8db1a36dd3f11fd9ea137aace2d06d9d9b68e2e009aedb1a0f4",
+  sourceRevision: "987a30872494e50987f17d1cc74304763bc74a28",
+  sourceManifestDigest: "a9d8f7af31575d33ca9bbb9d795d68e776801709416e6fec08c99481e39da737",
+  buildDigest: "b3df861932cd74545937508a5e42d5def94973ddaa6095d778fd6962f6c9db0a",
+  digest: "0352949ac5fedc92717d402af0d36a71ec921cdb07343a298ccf8577eb2a984f",
 };
 
 export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY) {
@@ -93,7 +93,15 @@ export function executionInput() {
     source: { baseSha: BASE_SHA, specContentHash },
     decision: { caseId: "PC-release-r1", approvalId: "F-spec-approval", acceptedAt: "2026-08-20T00:00:00Z" },
   };
-  const source = { identity: "accepted-release", revision: "r1", baseSha: BASE_SHA, baseRef: "main", specContentHash };
+  const source = { identity: "accepted-release", revision: "r1", baseSha: BASE_SHA, baseRef: "main", remote: "origin", specContentHash };
+  const decisionManifestBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha: BASE_SHA,
+    policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: digest("a"), byteCount: 1 },
+    productRelease: { identity: "R001/r1", path: "README.md", sha256: digest("b"), byteCount: 1 },
+    decisions: [],
+    dependencyHandoffs: [],
+  };
   const graph = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -103,10 +111,15 @@ export function executionInput() {
     releaseOrdinal: 1,
     planningBaseSha: BASE_SHA,
     executionBaseSha: BASE_SHA,
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha: BASE_SHA, sha256: digest("c"), byteCount: 1 },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha: BASE_SHA, sha256: digest("d"), byteCount: 1 },
     decisionManifestDigest: digest("d"),
     source: { identity: source.identity, revision: source.revision, specContentHash },
     scenarios: [{ id: "S1", behavior: "Release", entry: "external:input", exit: "artifact", releaseSignal: "release", smallestLoop: true }],

@@ -31,6 +31,14 @@ function executableGraph(item = cases.find((entry) => entry.expectedGraphVerdict
     source: { baseSha: legacy.source.baseSha, specContentHash: legacy.source.specContentHash },
     decision: { caseId: "PC-graph", approvalId: "F-spec-approval", acceptedAt: "2026-08-29T00:00:00Z" },
   };
+  const decisionManifestBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha: legacy.source.baseSha,
+    policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"6".repeat(64)}`, byteCount: 1 },
+    productRelease: { identity: "R001/r1", path: "README.md", sha256: `sha256:${"7".repeat(64)}`, byteCount: 1 },
+    decisions: [],
+    dependencyHandoffs: [],
+  };
   return {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -40,10 +48,15 @@ function executableGraph(item = cases.find((entry) => entry.expectedGraphVerdict
     releaseOrdinal: 1,
     planningBaseSha: legacy.source.baseSha,
     executionBaseSha: legacy.source.baseSha,
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha: legacy.source.baseSha, sha256: `sha256:${"5".repeat(64)}`, byteCount: 1 },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha: legacy.source.baseSha, sha256: `sha256:${"8".repeat(64)}`, byteCount: 1 },
     decisionManifestDigest: `sha256:${"8".repeat(64)}`,
     source: { identity: legacy.source.identity, revision: legacy.source.revision, specContentHash: legacy.source.specContentHash },
     scenarios: legacy.scenarios,
@@ -229,6 +242,7 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   const release = executableGraph();
   release.releaseId = "R001-C2-r1";
   release.releaseOrdinal = 2;
+  release.executionBasePolicy = "PREDECESSOR_MERGE_OR_DESCENDANT";
   release.predecessorReleaseId = "R001-C1-r1";
   const roadmap = roadmapGraph([
     { releaseId: "R001-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
@@ -245,8 +259,15 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
     completedAt: "2026-08-29T01:00:00Z",
   };
   release.predecessorReceipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+  release.predecessorReceiptBinding = { path: "evidence/c1-completion.json", baseSha: release.executionBaseSha, sha256: `sha256:${"4".repeat(64)}`, byteCount: 1 };
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_EXECUTION_BASE_MISMATCH"), true);
   release.executionBaseSha = receiptBody.mergedMainSha;
+  release.predecessorReceiptBinding.baseSha = release.executionBaseSha;
+  release.specAcceptanceBinding.baseSha = release.executionBaseSha;
+  const { digest: _decisionDigest, ...decisionBody } = release.decisionManifest;
+  decisionBody.baseSha = release.executionBaseSha;
+  release.decisionManifest = { ...decisionBody, digest: fingerprint(decisionBody) };
+  release.decisionManifestBinding.baseSha = release.executionBaseSha;
   assert.equal(validateDeliveryGraph(release).ok, true);
 
   release.predecessorReleaseId = "other-release";

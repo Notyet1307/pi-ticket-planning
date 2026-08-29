@@ -44,6 +44,7 @@ function graph(size) {
     source: { baseSha: "a".repeat(40), specContentHash },
     decision: { caseId: "PC-benchmark", approvalId: "F-benchmark", acceptedAt: "2026-08-29T00:00:00Z" },
   };
+  const decisionManifestBody = { schema: "pi-ticket-planning:decision-manifest:v1", baseSha: "a".repeat(40), policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: sha("policy"), byteCount: 1 }, productRelease: { identity: "benchmark/r1", path: "README.md", sha256: sha("release"), byteCount: 1 }, decisions: [], dependencyHandoffs: [] };
   return {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -53,11 +54,16 @@ function graph(size) {
     releaseOrdinal: 1,
     planningBaseSha: "a".repeat(40),
     executionBaseSha: "a".repeat(40),
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
-    decisionManifestDigest: sha("benchmark-decisions"),
+    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha: "a".repeat(40), sha256: sha("acceptance"), byteCount: 1 },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha: "a".repeat(40), sha256: sha("decisions"), byteCount: 1 },
+    decisionManifestDigest: sha("decisions"),
     source: { identity: "benchmark-spec", revision: "r1", specContentHash },
     childPolicy: { maxChildren: 6 },
     scenarios,

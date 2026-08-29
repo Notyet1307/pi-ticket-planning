@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release, every AGENT child must bind a frozen reviewed-base Oracle, independent owner, package-script allowlist, risk/scope budget, expected/protected paths, and REPLAN triggers. Admission and the compiler reject drift before preparing one Release Handoff. Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
+For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. The graph also binds tracked Spec/predecessor receipts and a decision manifest covering policy, product Release, accepted ADRs, and dependency handoffs. Build/verify/apply fresh-read the remote base and all bindings; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -316,7 +316,9 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build calls only Controller `config validate` and `plan validate`, binds the lock-qualified runtime identity plus config/Plan/provenance digests into the Handoff, and rejects drift. Apply also calls `doctor` and requires its config digest and Controller identity to match the approved values, materializes exactly `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`, records `EXECUTION/HANDOFF_READY`, and consumes approval last. It prints—without executing—the exact Controller `start` command with approved config digest, Controller revision, and provenance digest. Recovery after publication but before the checkpoint repeats source/config/Plan/provenance/doctor validation; conflict or block preserves the files and pending approval. Source, graph, review, policy, Controller config/provenance, or Plan drift requires rebuild and re-approval.
+Build calls only Controller `config validate` and `plan validate`; apply also calls `doctor`. Both bind/recheck remote base, Parent/Children, receipts, decisions, dependency handoffs, Oracles and Controller provenance. Drift returns stable rebuild-required codes and preserves pending approval. Apply materializes exactly three private files, records `HANDOFF_READY`, consumes approval last, and only prints the bound Controller `start` command.
+
+Legacy v2 migration is dry-run only: `node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`. A single Release requires exact `releaseMembership`; otherwise Roadmap/current membership is mandatory. Output is `PLANNED`, human-approved, never writes Issues/labels, and cannot hand off directly.
 
 #### Legacy Herdr per-ticket activation
 

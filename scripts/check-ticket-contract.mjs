@@ -120,7 +120,7 @@ function resolveBase(repo, baseSha, problems) {
   return baseSha;
 }
 
-function readRegularBaseFile(repo, baseSha, file) {
+export function readRegularBaseFile(repo, baseSha, file) {
   if (!safeExactPath(file)) return null;
   const tree = runGit(repo, ["ls-tree", "-z", baseSha, "--", file], { buffer: true });
   if (!tree.ok || !tree.stdout?.length) return null;

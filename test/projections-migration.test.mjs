@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import { projectRelease, projectSpec } from "../protocol/projections.mjs";
-import { migrateCheckpointV1, migrateDeliveryGraphV1 } from "../scripts/migrate-artifacts.mjs";
+import { migrateCheckpointV1, migrateDeliveryGraphV1, migrateDeliveryGraphV2 } from "../scripts/migrate-artifacts.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import {
   migrateCompatibilityMatrixV1,
   migrateE2EReportV1,
@@ -72,6 +77,65 @@ test("legacy Checkpoint and Delivery Graph migration is explicit and determinist
   assert.equal(v2.version, 2);
   assert.equal(v2.source.specContentHash, `sha256:${"b".repeat(64)}`);
   assert.throws(() => migrateDeliveryGraphV1(v1, {}), /migration context/);
+});
+
+test("Delivery Graph v2 migration emits deterministic approval-only v3 or Roadmap candidates", (t) => {
+  const baseSha = "a".repeat(40);
+  const v2 = {
+    version: 2,
+    source: { identity: "spec", revision: "r1", baseSha, specContentHash: `sha256:${"b".repeat(64)}` },
+    scenarios: [{ id: "S1", behavior: "B", entry: "external:x", exit: "y", releaseSignal: "s", smallestLoop: true }],
+    children: [{ id: "C1", title: "C", coverageRole: "DIRECT", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: `sha256:${"c".repeat(64)}`, startingState: "x", primaryVerification: "v", executionLane: "AGENT" }],
+    walkingSkeleton: ["C1"],
+  };
+  const acceptanceBody = { schema: "pi-ticket-planning:spec-acceptance:v1", parent: { number: 100, title: "Spec", bodyHash: `sha256:${"d".repeat(64)}` }, source: { baseSha, specContentHash: v2.source.specContentHash }, decision: { caseId: "PC-migration", approvalId: "F-approval", acceptedAt: "2026-08-29T00:00:00Z" } };
+  const manifestBody = { schema: "pi-ticket-planning:decision-manifest:v1", baseSha, policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"e".repeat(64)}`, byteCount: 1 }, productRelease: { identity: "R1/r1", path: "README.md", sha256: `sha256:${"f".repeat(64)}`, byteCount: 1 }, decisions: [], dependencyHandoffs: [] };
+  const context = {
+    releaseMembership: { singleCurrentRelease: true, releaseId: "R1-C1-r1", childIds: ["C1"] },
+    release: {
+      releaseId: "R1-C1-r1", releaseOrdinal: 1, planningBaseSha: baseSha, executionBaseSha: baseSha,
+      executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT", roadmapDigest: null, predecessorReleaseId: null,
+      predecessorReceipt: null, predecessorReceiptBinding: null,
+      specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+      specAcceptanceBinding: { path: "evidence/spec.json", baseSha, sha256: `sha256:${"1".repeat(64)}`, byteCount: 1 },
+      decisionManifest: { ...manifestBody, digest: fingerprint(manifestBody) },
+      decisionManifestBinding: { path: "evidence/decision.json", baseSha, sha256: `sha256:${"5".repeat(64)}`, byteCount: 1 },
+    },
+    childContracts: {
+      C1: {
+        primaryVerificationSeams: ["v"], implementationOwner: "worker", riskClasses: ["BOUNDED_CHANGE"],
+        scopeBudget: { maxFiles: 2, maxChangedLines: 100 }, expectedPaths: ["src/c1.ts"], protectedPaths: ["fixtures/o1.json"],
+        replanTriggers: ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"],
+        oracleBindingDigest: `sha256:${"2".repeat(64)}`, integrationOnly: null, waiverDigests: [],
+      },
+    },
+  };
+  const single = migrateDeliveryGraphV2(v2, context);
+  assert.deepEqual(single, migrateDeliveryGraphV2(structuredClone(v2), structuredClone(context)));
+  assert.equal(single.kind, "EXECUTABLE_RELEASE_CANDIDATE");
+  assert.equal(single.requiresHumanApproval, true);
+  assert.equal(single.currentReleaseCandidate.readinessState, "PLANNED");
+  assert.throws(() => migrateDeliveryGraphV2(v2, { ...context, releaseMembership: undefined }), /roadmapCandidate/);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "v2-migration-cli-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const inputFile = path.join(directory, "v2.json");
+  const contextFile = path.join(directory, "context.json");
+  fs.writeFileSync(inputFile, JSON.stringify(v2));
+  fs.writeFileSync(contextFile, JSON.stringify(context));
+  const cli = spawnSync(process.execPath, ["scripts/migrate-artifacts.mjs", "--artifact", "delivery-graph-v2", "--input", inputFile, "--context", contextFile, "--dry-run", "true"], { encoding: "utf8" });
+  assert.equal(cli.status, 0, cli.stderr);
+  assert.deepEqual(JSON.parse(cli.stdout), { dryRun: true, output: single });
+  assert.notEqual(spawnSync(process.execPath, ["scripts/migrate-artifacts.mjs", "--artifact", "delivery-graph-v2", "--input", inputFile, "--context", contextFile, "--dry-run", "false"]).status, 0);
+
+  const mixed = structuredClone(v2);
+  mixed.children.push({ id: "H1", title: "Human", coverageRole: "ENABLER", sourceScenarios: ["S1"], blockedBy: [], externalBlockers: [], bodyHash: `sha256:${"3".repeat(64)}`, startingState: "x", primaryVerification: "human", executionLane: "HUMAN" });
+  const roadmapBody = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false, readinessState: "PLANNED", roadmapId: "R1", planningBaseSha: baseSha, parent: { number: 99, title: "Roadmap", bodyHash: `sha256:${"4".repeat(64)}` }, plannedReleases: [{ releaseId: "R1-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [{ id: "C1", title: "C", objective: "C", executionLane: "AGENT" }, { id: "H1", title: "Human", objective: "Human", executionLane: "HUMAN" }] }] };
+  const complexContext = { ...context, releaseMembership: undefined, currentReleaseChildIds: ["C1"], roadmapCandidate: { ...roadmapBody, digest: fingerprint(roadmapBody) } };
+  const complex = migrateDeliveryGraphV2(mixed, complexContext);
+  assert.equal(complex.kind, "ROADMAP_AND_CURRENT_RELEASE_CANDIDATES");
+  assert.equal(complex.requiresHumanApproval, true);
+  assert.deepEqual(complex.currentReleaseCandidate.children.map(({ id }) => id), ["C1"]);
+  assert.throws(() => migrateDeliveryGraphV2(mixed, { ...complexContext, currentReleaseChildIds: ["H1"] }), /not one unblocked AGENT tranche/);
 });
 
 test("Planning Case v1 migration is explicit and fails on unprojectable free objects", () => {

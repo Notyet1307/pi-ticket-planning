@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/decision-manifest-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "baseSha", "policy", "productRelease", "decisions", "dependencyHandoffs", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:decision-manifest:v1" },
+    "baseSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "policy": { "$ref": "#/$defs/boundFile" },
+    "productRelease": { "$ref": "#/$defs/boundFile" },
+    "decisions": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/decision" }
+    },
+    "dependencyHandoffs": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/boundFile" }
+    },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  },
+  "$defs": {
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.\\.?(?:/|$))(?!.*(?:/\\.\\.?)(?:/|$))(?!.*//)(?!.*[\\\\*?\\[\\]{}\\u0000\\r\\n])[^/]+(?:/[^/]+)*$"
+    },
+    "boundFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "path", "sha256", "byteCount"],
+      "properties": {
+        "identity": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "sha256": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "byteCount": { "type": "integer", "minimum": 0, "maximum": 67108864 }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "status", "path", "sha256", "byteCount"],
+      "properties": {
+        "identity": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+        "status": { "const": "ACCEPTED" },
+        "path": { "$ref": "#/$defs/repoPath" },
+        "sha256": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "byteCount": { "type": "integer", "minimum": 0, "maximum": 67108864 }
+      }
+    }
+  }
+}

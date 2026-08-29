@@ -66,6 +66,14 @@ function readyBundle() {
     source: { baseSha, specContentHash: hashText(specBody) },
     decision: { caseId: "PC-R1", approvalId: "F-spec-approval", acceptedAt: "2026-08-29T00:00:00Z" },
   };
+  const decisionManifestBody = {
+    schema: "pi-ticket-planning:decision-manifest:v1",
+    baseSha,
+    policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"a".repeat(64)}`, byteCount: 1 },
+    productRelease: { identity: "R1/r2", path: "README.md", sha256: `sha256:${"b".repeat(64)}`, byteCount: 1 },
+    decisions: [],
+    dependencyHandoffs: [],
+  };
   const snapshot = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -75,10 +83,15 @@ function readyBundle() {
     releaseOrdinal: 1,
     planningBaseSha: baseSha,
     executionBaseSha: baseSha,
+    executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
+    predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
+    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha, sha256: `sha256:${"c".repeat(64)}`, byteCount: 1 },
+    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
+    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha, sha256: `sha256:${"d".repeat(64)}`, byteCount: 1 },
     decisionManifestDigest: `sha256:${"d".repeat(64)}`,
     source: {
       identity: "PRODUCT_RELEASE R1",
@@ -263,9 +276,11 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
   Object.assign(bundle.deliveryGraph, {
     releaseId: "R1-C2-r1",
     releaseOrdinal: 2,
+    executionBasePolicy: "PREDECESSOR_MERGE_OR_DESCENDANT",
     roadmapDigest: bundle.roadmapGraph.digest,
     predecessorReleaseId: "R1-C1-r1",
     predecessorReceipt: { ...receiptBody, digest: fingerprint(receiptBody) },
+    predecessorReceiptBinding: { path: "evidence/c1-completion.json", baseSha, sha256: `sha256:${"6".repeat(64)}`, byteCount: 1 },
   });
   assert.equal(validateAdmissionState(bundle).ok, true);
 

@@ -1,0 +1,16 @@
+{
+  "schema": "pi-ticket-planning:fresh-handoff-cases:v1",
+  "cases": [
+    { "id": "c1-base-a", "expected": "PASS" },
+    { "id": "c2-stale-base-a", "expected": "EXECUTION_BASE_DRIFT" },
+    { "id": "c2-fresh-base-b", "expected": "PASS" },
+    { "id": "accepted-decision-drift", "expected": "DECISION_MANIFEST_DRIFT" },
+    { "id": "oracle-drift", "expected": "ORACLE_BINDING_DRIFT" },
+    { "id": "dependency-handoff-drift", "expected": "DEPENDENCY_HANDOFF_DRIFT" },
+    { "id": "parent-body-drift", "expected": "PARENT_BINDING_DRIFT" },
+    { "id": "child-body-drift", "expected": "CHILD_BINDING_DRIFT" },
+    { "id": "controller-provenance-drift", "expected": "CONTROLLER_PROVENANCE_DRIFT" },
+    { "id": "roadmap-or-human", "expected": "ROADMAP_NOT_EXECUTABLE" },
+    { "id": "exact-v3-v2-direct", "expected": "PASS" }
+  ]
+}
