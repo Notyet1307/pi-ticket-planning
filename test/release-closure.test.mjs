@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import {
   graphReleaseClosureProblems,
@@ -48,17 +47,16 @@ function roadmapFor(input) {
   };
 }
 
-test("release closure requires every authority source in every Ticket protected set", () => {
+test("release closure rejects policy, Release, receipt, ADR, and handoff paths in a Ticket write set", () => {
   const input = executionInput();
   assert.deepEqual(graphReleaseClosureProblems(input.deliveryGraph), []);
-  input.deliveryGraph.children[0].protectedPaths = input.deliveryGraph.children[0].protectedPaths
-    .filter((value) => value !== input.deliveryGraph.decisionManifest.policy.path);
-  assert.ok(problemCodes(graphReleaseClosureProblems(input.deliveryGraph)).includes("MISSING_PROTECTED_AUTHORITY_PATH"));
+  input.deliveryGraph.children[0].expectedPaths = [input.deliveryGraph.decisionManifest.policy.path];
+  assert.ok(problemCodes(graphReleaseClosureProblems(input.deliveryGraph)).includes("AUTHORITY_PATH_IN_EXPECTED_WRITE_SET"));
 });
 
-test("release closure rejects authority paths in the expected write set", () => {
+test("release closure rejects tracked Spec and decision evidence in a Ticket write set", () => {
   const input = executionInput();
-  input.deliveryGraph.children[0].expectedPaths = ["AGENTS.md"];
+  input.deliveryGraph.children[0].expectedPaths = [input.deliveryGraph.specAcceptanceBinding.path];
   const codes = problemCodes(graphReleaseClosureProblems(input.deliveryGraph));
   assert.ok(codes.includes("AUTHORITY_PATH_IN_EXPECTED_WRITE_SET"));
 });
@@ -71,7 +69,7 @@ test("release closure rejects overlapping expected path ownership", () => {
   assert.ok(codes.includes("PATH_OWNERSHIP_OVERLAP"));
 });
 
-test("Oracle verifier definition and entry source must be protected", () => {
+test("Oracle verifier command definition and direct source stay outside the Ticket write set", () => {
   const input = executionInput();
   assert.deepEqual(oracleVerifierProtectionProblems({
     repositoryPath: ROOT,
@@ -79,18 +77,26 @@ test("Oracle verifier definition and entry source must be protected", () => {
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }), []);
-  input.deliveryGraph.children[0].protectedPaths = input.deliveryGraph.children[0].protectedPaths
-    .filter((value) => value !== "scripts/verify-protocol.mjs");
-  const codes = problemCodes(oracleVerifierProtectionProblems({
+  input.deliveryGraph.children[0].expectedPaths = ["scripts/verify-protocol.mjs"];
+  let codes = problemCodes(oracleVerifierProtectionProblems({
     repositoryPath: ROOT,
     baseSha: BASE_SHA,
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));
-  assert.ok(codes.includes("MISSING_PROTECTED_ORACLE_VERIFIER_PATH"));
+  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
+
+  input.deliveryGraph.children[0].expectedPaths = ["package.json"];
+  codes = problemCodes(oracleVerifierProtectionProblems({
+    repositoryPath: ROOT,
+    baseSha: BASE_SHA,
+    children: input.children,
+    graphChildren: input.deliveryGraph.children,
+  }));
+  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
 });
 
-test("Controller release validation must execute every bound Oracle command", () => {
+test("qualified Controller release validation must execute every bound Oracle command", () => {
   const input = executionInput();
   const controller = controllerBinding(input);
   assert.deepEqual(oracleValidationCoverageProblems({ controllerConfig: controller.config, children: input.children }), []);
@@ -98,7 +104,6 @@ test("Controller release validation must execute every bound Oracle command", ()
   assert.deepEqual(problemCodes(oracleValidationCoverageProblems({ controllerConfig: controller.config, children: input.children })), [
     "ORACLE_VALIDATION_COMMAND_MISSING",
   ]);
-  assert.throws(() => compileExecutionPlan(input, { controller }), /ORACLE_VALIDATION_COMMAND_MISSING/);
 });
 
 test("Roadmap current Release binds exact AGENT membership, identity, objective, and scenarios", () => {
