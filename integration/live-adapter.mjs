@@ -94,7 +94,7 @@ function defaultReviewerRuntime(env) {
         extensions: [path.join(ROOT, "extensions", "reviewer-one-shot-gate.mjs")],
       });
       try {
-        const prompt = `/skill:admit-ticket Invoke ticket-readiness-reviewer exactly once with async false, context fresh, artifacts false, mission false, and omitted acceptance. Give the child only this descriptor, require strict JSON bound to its exact input, and return the child final result verbatim: ${JSON.stringify(descriptor)}`;
+        const prompt = `/skill:admit-ticket Invoke the interactive subagent exactly once with only agent ticket-readiness-reviewer and a task. Give the child only this descriptor, require strict JSON bound to its exact input, treat the launch acknowledgement as non-evidence, wait for subagent_result, and return the child final result verbatim: ${JSON.stringify(descriptor)}`;
         const parent = await session.prompt(prompt, { turnTimeoutMs: fault === "provider-timeout" ? 1 : Number(env.PI_TICKET_PLAN_ACTIVE_PROBE_TIMEOUT_MS ?? 120_000) });
         const childTool = selectReviewerChildTool(parent.subagentResults);
         const child = childTool?.details?.results?.[0];

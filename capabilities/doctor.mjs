@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { validateArtifact, validateArtifactRuntime, validateCodeSchemaCoverage, validateProtocolRules, validateRegistry } from "../protocol/kernel.mjs";
-import { runtimeMetadata } from "../installation/build-metadata.mjs";
+import { configuredSubagentSource, configuredSubagentVersion, runtimeMetadata } from "../installation/build-metadata.mjs";
 import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -176,7 +176,7 @@ function profileObservation(env) {
     const metadata = fs.lstatSync(settingsFile);
     if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o077) !== 0) throw new Error("unsafe settings");
     const settings = JSON.parse(fs.readFileSync(settingsFile, "utf8"));
-    const source = settings.packages?.find(({ source: value }) => /^npm:pi-subagents@/.test(value ?? ""))?.source ?? "";
+    const source = settings.packages?.find(({ source: value }) => value === configuredSubagentSource(ROOT))?.source ?? "";
     const settingsDigest = fileDigest(settingsFile);
     const checked = spawnSync(process.execPath, [path.join(ROOT, "scripts", "check-profile.mjs")], {
       encoding: "utf8",
@@ -186,7 +186,7 @@ function profileObservation(env) {
     return {
       available: checked.status === 0,
       digest: hash({ settingsDigest, checkStatus: checked.status, checkOutput: checked.status === 0 ? checked.stdout.trim() : "FAILED" }),
-      subagentVersion: source.match(/@([^@]+)$/)?.[1] ?? "UNKNOWN",
+      subagentVersion: source ? configuredSubagentVersion(ROOT) : "UNKNOWN",
     };
   } catch {
     return { available: false, digest: unavailableDigest("profile"), subagentVersion: "UNKNOWN" };
@@ -369,10 +369,10 @@ async function defaultActiveProbe(observed, { env }) {
         extensions: [path.join(ROOT, "extensions", "reviewer-one-shot-gate.mjs")],
       });
       const expectedAxes = { candidateReadiness: "NEEDS_INFO", contextQuality: "NEEDS_INFO", deliveryGraph: "NEEDS_INFO", scenarioCoverage: "NEEDS_INFO", walkingSkeleton: "NEEDS_INFO", strictFrontier: "NEEDS_INFO", executionLane: "PASS", inputBinding: "PASS" };
-      const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke ticket-readiness-reviewer exactly once with async false, context fresh, artifacts false, mission false, and omitted acceptance. Give the child only this transport descriptor as the end of its task, ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, echo the exact source and all eight axes ${JSON.stringify(expectedAxes)}, and include the required machine projection. Return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
+      const reviewerResult = await reviewerSession.prompt(`/skill:admit-ticket This is a read-only capability probe, not an Admission activation. Invoke the interactive subagent exactly once with only agent ticket-readiness-reviewer and a task. Give the child only this transport descriptor as the end of its task, ask it to read through EOF, return NEEDS_INFO for the intentionally absent Context check, preserve the HUMAN lane, echo the exact source and all eight axes ${JSON.stringify(expectedAxes)}, and include the required machine projection. The launch acknowledgement is not evidence; wait for subagent_result and then return the child's final result verbatim: ${JSON.stringify(descriptor)}`);
       const evidence = reviewerResult.subagentResults;
       const childTool = selectReviewerChildTool(evidence);
-      const child = childTool?.details.results[0] ?? null;
+      const child = childTool?.details?.results?.[0] ?? null;
       const call = childTool?.toolCall?.arguments;
       const childHeader = child?.sessionFile ? (await import("../scripts/eval-pi-behavior.mjs")).readPiSessionHeader(child.sessionFile) : null;
       const finalResult = child && typeof child.finalOutput === "string" ? child.finalOutput : null;

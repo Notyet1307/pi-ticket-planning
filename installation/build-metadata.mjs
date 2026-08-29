@@ -8,6 +8,7 @@ import { loadProtocol, validateArtifact } from "../protocol/kernel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA = /^[a-f0-9]{40,64}$/;
+const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@([a-f0-9]{40})$/;
 
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -19,12 +20,17 @@ function runGit(root, args) {
   return result.stdout.trim();
 }
 
-export function configuredSubagentVersion(root = ROOT) {
+export function configuredSubagentSource(root = ROOT) {
   const profile = JSON.parse(fs.readFileSync(path.join(root, "profile", "settings.template.json"), "utf8"));
-  const source = profile.packages?.find((entry) => /^npm:pi-subagents@/.test(entry?.source ?? ""))?.source;
-  const version = source?.match(/^npm:pi-subagents@(.+)$/)?.[1];
-  if (!version) throw new Error("SUBAGENT_VERSION_UNAVAILABLE");
-  return version;
+  const source = profile.packages?.find((entry) => INTERACTIVE_SUBAGENTS.test(entry?.source ?? ""))?.source;
+  if (!source) throw new Error("SUBAGENT_SOURCE_UNAVAILABLE");
+  return source;
+}
+
+export function configuredSubagentVersion(root = ROOT) {
+  const commit = configuredSubagentSource(root).match(INTERACTIVE_SUBAGENTS)?.[1];
+  if (!commit) throw new Error("SUBAGENT_VERSION_UNAVAILABLE");
+  return `pi-interactive-subagents@${commit}`;
 }
 
 export function generateBuildMetadata({

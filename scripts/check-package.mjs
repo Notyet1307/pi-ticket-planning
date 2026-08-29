@@ -6,8 +6,8 @@ import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
 import { validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
-const SCOUT_MODEL = "openai-codex/gpt-5.6-luna";
-const SCOUT_THINKING = "max";
+const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/;
+const FFF = /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/;
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
   "ask-yet",
@@ -279,16 +279,16 @@ export function validatePackage(root) {
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);
   const packageProfile = profile.packages?.find((entry) => entry?.source === "__PACKAGE_ROOT__");
-  const subagentEntries = profile.packages?.filter((entry) => /^npm:pi-subagents@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? "")) ?? [];
+  const subagentEntries = profile.packages?.filter((entry) => INTERACTIVE_SUBAGENTS.test(entry?.source ?? "")) ?? [];
+  const fffEntries = profile.packages?.filter((entry) => FFF.test(entry?.source ?? "")) ?? [];
   if (!upstreamProfile) errors.push("profile does not pin the expected Matt upstream commit");
   if (!packageProfile) errors.push("profile does not expose the package-root install placeholder");
-  if (subagentEntries.length !== 1) errors.push("profile must pin one exact pi-subagents version");
+  if (subagentEntries.length !== 1) errors.push("profile must pin one exact pi-interactive-subagents commit");
+  if (fffEntries.length !== 1) errors.push("profile must pin one exact pi-fff version");
   if (JSON.stringify(profile.skills) !== JSON.stringify(["!**"])) errors.push("profile must suppress ambient user skills");
-  if (profile.subagents?.agentOverrides?.scout?.model !== SCOUT_MODEL) errors.push(`profile scout model must be ${SCOUT_MODEL}`);
-  if (profile.subagents?.agentOverrides?.scout?.thinking !== SCOUT_THINKING) errors.push(`profile scout thinking must be ${SCOUT_THINKING}`);
-  if (JSON.stringify(profile.subagents?.agentOverrides?.["ticket-readiness-reviewer"]?.subagentOnlyExtensions)
-    !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
-    errors.push("profile reviewer must bind the package-private read guard placeholder");
+  if (profile.subagents !== undefined) errors.push("profile must not retain legacy pi-subagents settings");
+  if (JSON.stringify(packageProfile?.extensions) !== JSON.stringify(["extensions/ticket-readiness-read-guard.mjs"])) {
+    errors.push("profile package must load only the reviewer read-guard registrar extension");
   }
   for (const skill of lock.overriddenSkills) {
     if (!upstreamProfile?.skills?.includes(`!skills/engineering/${skill}/**`)) {
@@ -490,11 +490,11 @@ export function validatePackage(root) {
   ]);
 
   const reviewer = fs.readFileSync(path.join(root, "agents", "ticket-readiness-reviewer.md"), "utf8");
-  if (frontmatterValue(reviewer, "defaultContext") !== "fresh") errors.push("reviewer is not fresh by default");
+  if (frontmatterValue(reviewer, "session-mode") !== "standalone") errors.push("reviewer is not a standalone fresh session");
+  if (frontmatterValue(reviewer, "system-prompt") !== "replace") errors.push("reviewer does not replace the child system prompt");
+  if (frontmatterValue(reviewer, "auto-exit") !== "true") errors.push("reviewer must auto-exit after one result");
   if (frontmatterValue(reviewer, "skills") !== "ticket-readiness") errors.push("reviewer lacks the ticket-readiness contract");
-  if (frontmatterValue(reviewer, "skillPath") !== "../skills") errors.push("reviewer does not pin its package-private skill path");
-  if (frontmatterValue(reviewer, "tools") !== "read") errors.push("reviewer must permit only read for its configured skill");
-  if (!/^extensions:\s*$/m.test(reviewer)) errors.push("reviewer must explicitly disable ambient extensions");
+  if (frontmatterValue(reviewer, "tools") !== "review_input_read") errors.push("reviewer must permit only the guarded review-input reader");
   requireTokens(errors, "agents/ticket-readiness-reviewer.md", reviewer, [
     "pi-ticket-planning:admission-review-binding:v1",
     "inputBinding",
@@ -505,6 +505,7 @@ export function validatePackage(root) {
   requireTokens(errors, "profile/pi-ticket-plan", launcher, [
     "PI_TICKET_PLANNING_ROOT",
     "PI_TICKET_PLAN_PROFILE_DIR",
+    'PI_FFF_MODE="${PI_FFF_MODE:-override}"',
     '= "doctor"',
     "scripts/doctor.mjs",
     '= "admit"',

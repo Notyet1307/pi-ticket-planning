@@ -29,7 +29,7 @@ function input(capabilities) {
     observedAt: "2026-08-25T01:00:00.000Z",
     expiresAt: "2026-08-25T02:00:00.000Z",
     pi: { path: "/usr/local/bin/pi", version: "0.84.2", digest: DIGEST },
-    subagent: { version: "0.42.1" },
+    subagent: { version: "pi-interactive-subagents@c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7" },
     provider: { name: "openai-codex", model: "gpt-5.6-sol", thinking: "high" },
     profileDigest: DIGEST,
     harness: { version: "1.0.0", configDigest: DIGEST },
@@ -111,7 +111,7 @@ test("static Doctor leaves runtime capabilities UNTESTED until active evidence e
     git: executable,
     gh: executable,
     docker: executable,
-    profile: { available: true, digest: DIGEST, subagentVersion: "0.42.1" },
+    profile: { available: true, digest: DIGEST, subagentVersion: "pi-interactive-subagents@c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7" },
     protocolOk: true,
     harness: null,
   };

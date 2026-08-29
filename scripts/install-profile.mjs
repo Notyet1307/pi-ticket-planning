@@ -16,14 +16,17 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { digest } from "../installation/manager.mjs";
-import { configuredSubagentVersion, runtimeMetadata } from "../installation/build-metadata.mjs";
+import { configuredSubagentSource, runtimeMetadata } from "../installation/build-metadata.mjs";
 import { loadProtocol } from "../protocol/kernel.mjs";
 
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGE_METADATA = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8"));
+const PROFILE_TEMPLATE = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "profile", "settings.template.json"), "utf8"));
 const UPSTREAM_SOURCE = `git:github.com/mattpocock/skills@${PACKAGE_METADATA.mattpocockUpstream.commit}`;
-const SUBAGENTS_SOURCE = `npm:pi-subagents@${configuredSubagentVersion(PACKAGE_ROOT)}`;
+const SUBAGENTS_SOURCE = configuredSubagentSource(PACKAGE_ROOT);
+const FFF_SOURCE = PROFILE_TEMPLATE.packages.find((entry) => /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
 const REVIEWER_READ_GUARD = path.join("extensions", "ticket-readiness-read-guard.mjs");
+const REVIEWER_AGENT = path.join("agents", "ticket-readiness-reviewer.md");
 
 function timestamp() {
   return new Date().toISOString().replace(/[-:.]/g, "");
@@ -51,24 +54,12 @@ function mergedSettings(packageRoot, existing) {
   const packageEntry = template.packages.find((entry) => entry.source === "__PACKAGE_ROOT__");
   if (!packageEntry) throw new Error("profile template has no package-root placeholder");
   packageEntry.source = packageRoot;
-  const reviewer = template.subagents?.agentOverrides?.["ticket-readiness-reviewer"];
-  if (JSON.stringify(reviewer?.subagentOnlyExtensions) !== JSON.stringify(["__REVIEWER_READ_GUARD__"])) {
-    throw new Error("profile template has no reviewer read guard placeholder");
-  }
-  reviewer.subagentOnlyExtensions = [path.join(packageRoot, REVIEWER_READ_GUARD)];
-
-  return {
+  const merged = {
     ...existing,
     ...template,
-    subagents: {
-      ...(existing.subagents ?? {}),
-      ...template.subagents,
-      agentOverrides: {
-        ...(existing.subagents?.agentOverrides ?? {}),
-        ...template.subagents.agentOverrides,
-      },
-    },
   };
+  delete merged.subagents;
+  return merged;
 }
 
 export function managedProfileFiles({ packageRoot = PACKAGE_ROOT, profileDir }) {
@@ -79,6 +70,7 @@ export function managedProfileFiles({ packageRoot = PACKAGE_ROOT, profileDir }) 
   return [
     { path: "settings.json", content: `${JSON.stringify(mergedSettings(resolvedPackageRoot, existing), null, 2)}\n`, mode: 0o600 },
     { path: "AGENTS.md", content: readFileSync(path.join(resolvedPackageRoot, "profile", "AGENTS.md"), "utf8"), mode: 0o644 },
+    { path: REVIEWER_AGENT, content: readFileSync(path.join(resolvedPackageRoot, REVIEWER_AGENT), "utf8"), mode: 0o644 },
   ];
 }
 
@@ -135,6 +127,12 @@ export function writeInstallation({
     readFileSync(path.join(resolvedPackageRoot, "profile", "AGENTS.md"), "utf8"),
     0o644,
   );
+  mkdirSync(path.join(resolvedProfileDir, "agents"), { recursive: true, mode: 0o700 });
+  atomicWrite(
+    path.join(resolvedProfileDir, REVIEWER_AGENT),
+    readFileSync(path.join(resolvedPackageRoot, REVIEWER_AGENT), "utf8"),
+    0o644,
+  );
 
   const launcher = path.join(resolvedBinDir, "pi-ticket-plan");
   installLink(path.join(resolvedPackageRoot, "profile", "pi-ticket-plan"), launcher, backups);
@@ -149,7 +147,7 @@ export function writeInstallation({
 
   const packageMetadata = JSON.parse(readFileSync(path.join(resolvedPackageRoot, "package.json"), "utf8"));
   const buildMetadata = runtimeMetadata({ root: resolvedPackageRoot });
-  const installedFiles = [settingsFile, path.join(resolvedProfileDir, "AGENTS.md")].map((file) => ({
+  const installedFiles = [settingsFile, path.join(resolvedProfileDir, "AGENTS.md"), path.join(resolvedProfileDir, REVIEWER_AGENT)].map((file) => ({
     path: path.relative(resolvedProfileDir, file),
     digest: digest(readFileSync(file)),
     mode: lstatSync(file).mode & 0o777,
@@ -238,6 +236,8 @@ function main(argv) {
 
   run(piBin, ["install", UPSTREAM_SOURCE], runtimeEnv);
   run(piBin, ["install", SUBAGENTS_SOURCE], runtimeEnv);
+  if (!FFF_SOURCE) throw new Error("pi-fff source is unavailable");
+  run(piBin, ["install", FFF_SOURCE], runtimeEnv);
   run(piBin, ["update", "--extensions"], runtimeEnv);
   chmodSync(path.join(installed.profileDir, "settings.json"), 0o600);
   const verification = run(process.execPath, [path.join(PACKAGE_ROOT, "scripts", "check-profile.mjs")], runtimeEnv);

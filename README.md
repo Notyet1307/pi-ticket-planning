@@ -45,6 +45,7 @@ Requirements:
 
 - Node.js 22.16 or newer;
 - `pi`, `git`, and `gh` on `PATH`;
+- `tmux` when using interactive subagents;
 - a working PI login/model configuration;
 - GitHub authentication before operating on real Issues.
 
@@ -226,12 +227,13 @@ Inside PI, `/session` shows the current session, `/new` starts one, `/resume` se
 
 ### Dedicated PI Profile and pinned release
 
-The installer creates the dedicated Profile at `$HOME/.pi/ticket-planning`, renders settings with the checkout's actual path, pins the recorded Matt Pocock Skill commit and `pi-subagents`, and installs `$HOME/.local/bin/pi-ticket-plan` as a symlink to this checkout. Existing default-profile `auth.json` and `models.json` are shared by symlink when present. Managed files are backed up before replacement; credentials, sessions, trust decisions, caches, and runtime state do not belong in this repository.
+The installer creates the dedicated Profile at `$HOME/.pi/ticket-planning`, renders settings with the checkout's actual path, pins the recorded Matt Pocock Skill commit, `pi-interactive-subagents` commit, and `pi-fff` version, and installs `$HOME/.local/bin/pi-ticket-plan` as a symlink to this checkout. `pi-fff` replaces the built-in `find` and `grep` tools through its `override` mode. Interactive subagents require a persistent PI session and return results asynchronously; a launch acknowledgement is not review evidence. Existing default-profile `auth.json` and `models.json` are shared by symlink when present. Managed files are backed up before replacement; credentials, sessions, trust decisions, caches, and runtime state do not belong in this repository.
 
 The launcher sets the Profile before PI starts:
 
 ```sh
 export PI_CODING_AGENT_DIR="${PI_TICKET_PLAN_PROFILE_DIR:-$HOME/.pi/ticket-planning}"
+export PI_FFF_MODE="${PI_FFF_MODE:-override}"
 exec pi "$@"
 ```
 

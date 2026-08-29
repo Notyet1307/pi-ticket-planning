@@ -85,7 +85,7 @@ test("synthetic complete evidence builds and smokes the no-Git release archive",
   const observedAt = new Date().toISOString();
   const expiresAt = new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString();
   const build = generateBuildMetadata({ root: repository, sourceCommit: head, buildTime: observedAt });
-  const tuple = { piVersion: "0.84.2", piDigest: digest("1"), subagentVersion: "0.42.1", provider: "openai-codex", model: "gpt-test", thinking: "high", profileDigest: digest("2"), harnessVersion: "1.0.0", harnessDigest: digest("3") };
+  const tuple = { piVersion: "0.84.2", piDigest: digest("1"), subagentVersion: "pi-interactive-subagents@c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7", provider: "openai-codex", model: "gpt-test", thinking: "high", profileDigest: digest("2"), harnessVersion: "1.0.0", harnessDigest: digest("3") };
   const evidenceRefs = [
     { reportId: "RPT-l2", tier: "L2_REAL_MODEL", digest: digest("4"), workflowRunUrl: "https://github.com/acme/product/actions/runs/10", file: "model-eval.json" },
     { reportId: "RPT-l3", tier: "L3_REAL_DISPOSABLE_INTEGRATION", digest: digest("5"), workflowRunUrl: "https://github.com/acme/product/actions/runs/11", file: "e2e-report.json" },

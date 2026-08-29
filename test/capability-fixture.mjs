@@ -11,7 +11,7 @@ export function qualifiedCapability(repo, baseSha, harness, observedAt = "2026-0
     observedAt,
     expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
     pi: { path: "/test/pi", version: "0.84.2", digest: digest("2") },
-    subagent: { version: "0.42.1" },
+    subagent: { version: "pi-interactive-subagents@c3e8b53c0754ae5ccc19fdab5a7481ec039bc2f7" },
     provider: { name: "openai-codex", model: "test", thinking: "high" },
     profileDigest: digest("3"),
     harness: { version: "1.0.0", configDigest: harnessDigest },
