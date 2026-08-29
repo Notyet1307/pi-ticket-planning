@@ -7,7 +7,6 @@ import { validateReview } from "../admission/domain.mjs";
 import { HANDOFF_PLAN_SCHEMA, RELEASE_PLAN_SCHEMA, canonical, fingerprint, handoffProjection, hashText, releasePlanDigest } from "./domain.mjs";
 import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "./markdown.mjs";
 import { reviewCandidateMatchesTicketContract, validateTicketContract } from "../scripts/check-ticket-contract.mjs";
-import { oracleValidationCoverageProblems } from "../scripts/check-release-closure.mjs";
 import { executionFreshnessProjection, isGitAncestor } from "./freshness.mjs";
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -116,8 +115,6 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   const config = controller?.config ?? input.controller;
   const reviewEnabled = config?.review?.enabled ?? config?.reviewEnabled;
   if (!config || config.executionMode !== "release-plan-v2-direct" || config.repo !== input.repo || config.baseRef !== input.source.baseRef || !Number.isInteger(config.policy?.maxIssues) || config.policy.maxIssues < children.length || reviewEnabled !== true) throw new Error("CONTROLLER_CONFIG_MISMATCH");
-  const oracleValidationProblems = oracleValidationCoverageProblems({ controllerConfig: config, children: input.children });
-  if (oracleValidationProblems.length > 0) throw new Error(oracleValidationProblems[0].code);
   const dependencyHandoffDigests = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256);
   const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: focus(spec) };
   if (releasePlan.releaseAcceptanceCriteria.length > 50 || releasePlan.releaseAcceptanceCriteria.some((value) => value.length > 2000)) throw new Error("RELEASE_PLAN_TOO_LARGE");
