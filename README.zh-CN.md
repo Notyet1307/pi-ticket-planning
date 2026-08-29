@@ -315,7 +315,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build 只调用 Controller `config validate` 与 `plan validate`；Apply 还调用 `doctor`。两者都会绑定/重查 remote base、Parent/Children、receipts、decisions、dependency handoffs、Oracles 与 Controller provenance。漂移返回稳定 rebuild-required code 并保留 pending approval。Apply 只物化三个 private files、记录 `HANDOFF_READY`、最后消费 approval，并只打印 bound Controller `start` 命令。
+Build 只调用 Controller `config validate` 与 `plan validate`；Apply 还调用 `doctor` 并重查全部 binding。Apply 先持久化 `HANDOFF_APPROVED` 且 approval 保持 pending，再物化三个 private files、记录 `HANDOFF_READY`、最后消费 approval，并只打印 bound Controller `start` 命令。
 
 Legacy v2 只允许 dry-run migration：`node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`。单一 Release 必须有 exact `releaseMembership`，否则必须提供 Roadmap/current membership。输出保持 `PLANNED`、人工批准、不写 Issue/label，也不能直接 handoff。
 

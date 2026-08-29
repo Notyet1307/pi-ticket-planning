@@ -53,18 +53,17 @@ function storeWith(store, overrides) {
 }
 
 function publishBeforeCheckpoint(ready) {
-  let fail = true;
+  let transitions = 0;
   const faulted = storeWith(ready.store, {
     transition(args) {
-      if (fail) {
-        fail = false;
-        throw new Error("CRASH_AFTER_PUBLISH");
-      }
+      transitions += 1;
+      if (transitions === 2) throw new Error("CRASH_AFTER_PUBLISH");
       return ready.store.transition(args);
     },
   });
   assert.throws(() => applyExecutionPlan({ ...ready.base, store: faulted }), /CRASH_AFTER_PUBLISH/);
   assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
+  assert.equal(ready.store.get({ caseId: ready.caseId, target: ready.target }).checkpoint.verdict, "HANDOFF_APPROVED");
 }
 
 function assertExactOutput(outputDir, plan, approvalId) {
@@ -109,6 +108,8 @@ function assertCompleteCase(store, caseId, target, approvalId) {
   const snapshot = store.get({ caseId, target });
   assert.equal(snapshot.checkpoint.stage, "EXECUTION");
   assert.equal(snapshot.checkpoint.verdict, "HANDOFF_READY");
+  assert.equal(snapshot.lastCheckpoint.verdict, "HANDOFF_APPROVED");
+  assert.equal(snapshot.facts.some(({ fact }) => fact === "handoff.approved"), true);
   assert.equal(snapshot.facts.some(({ fact }) => fact === "execution.handoffReady"), true);
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === approvalId), false);
   assert.equal(snapshot.approvals.consumed.filter(({ id }) => id === approvalId).length, 1);
@@ -136,7 +137,7 @@ test("execution handoff revalidates after publish and before the Case checkpoint
   const ready = setup(t, "execution-handoff-before-checkpoint");
   publishBeforeCheckpoint(ready);
   let snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
-  assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
+  assert.equal(snapshot.checkpoint.verdict, "HANDOFF_APPROVED");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
 
   ready.input.children[0].body += "\npost-publication drift";
@@ -144,7 +145,7 @@ test("execution handoff revalidates after publish and before the Case checkpoint
   assert.equal(result.status, "CONFLICT");
   assert.deepEqual(result.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
   snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
-  assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
+  assert.equal(snapshot.checkpoint.verdict, "HANDOFF_APPROVED");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
   assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
   assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor"]);
@@ -176,10 +177,36 @@ test("execution handoff resumes exact pre-checkpoint output and blocks config or
     assert.equal(result.status, "BLOCKED");
     assert.deepEqual(result.problems, [{ code: "CONTROLLER_DOCTOR_FAILED" }]);
     const snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
-    assert.equal(snapshot.checkpoint.verdict, "ACTIVATION_AWAITING_CONFIRMATION");
+    assert.equal(snapshot.checkpoint.verdict, "HANDOFF_APPROVED");
     assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
     assertExactOutput(ready.outputDir, ready.plan, ready.approval.id);
   }
+});
+
+test("execution handoff recovers after durable approval and before materialization", (t) => {
+  const ready = setup(t, "execution-handoff-after-approval");
+  let fail = true;
+  const faulted = storeWith(ready.store, {
+    transition(args) {
+      const result = ready.store.transition(args);
+      if (fail) {
+        fail = false;
+        throw new Error("CRASH_AFTER_APPROVAL");
+      }
+      return result;
+    },
+  });
+  assert.throws(() => applyExecutionPlan({ ...ready.base, store: faulted }), /CRASH_AFTER_APPROVAL/);
+  let snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.checkpoint.verdict, "HANDOFF_APPROVED");
+  assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  assert.equal(fs.existsSync(ready.outputDir), false);
+
+  assert.equal(applyExecutionPlan(ready.base).status, "COMPLETE");
+  snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.lastCheckpoint.verdict, "HANDOFF_APPROVED");
+  assertCompleteCase(ready.store, ready.caseId, ready.target, ready.approval.id);
+  assert.deepEqual(ready.calls, ["config validate", "plan validate", "doctor", "config validate", "plan validate", "doctor"]);
 });
 
 test("execution handoff recovers a crash after the checkpoint and before approval consumption", (t) => {
