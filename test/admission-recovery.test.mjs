@@ -9,6 +9,7 @@ import {
   resourceStateProblems,
   stateIssue,
 } from "../admission/recovery.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import { executionInput } from "./execution-plan-fixture.mjs";
 
 test("operation readback distinguishes before, partial, after, and conflict", () => {
@@ -147,4 +148,41 @@ test("standalone recovery rejects drifted Oracle/risk review metadata", () => {
     repositoryPath: fixture.repositoryPath,
   };
   assert.equal(immutableStateProblems(plan, state).some(({ code }) => code === "REVIEW_TICKET_CONTRACT_MISMATCH"), true);
+});
+
+test("delivery recovery rechecks tracked acceptance bytes", () => {
+  const fixture = executionInput();
+  const currentCheckpoint = { id: "checkpoint" };
+  const plan = {
+    kind: "DELIVERY_GRAPH",
+    repo: fixture.repo,
+    parent: fixture.parent.id,
+    graphFingerprint: fingerprint(fixture.deliveryGraph),
+    reviewed: {
+      source: fixture.source,
+      policy: fixture.policy,
+      currentCheckpoint,
+      contextChecks: fixture.contextChecks,
+      capabilityReceipt: null,
+      harness: null,
+      roadmap: null,
+      roadmapParent: null,
+    },
+    resources: [],
+  };
+  const state = {
+    repositoryPath: fixture.repositoryPath,
+    source: structuredClone(fixture.source),
+    policy: structuredClone(fixture.policy),
+    currentCheckpoint,
+    contextChecks: structuredClone(fixture.contextChecks),
+    capabilityReceipt: null,
+    harness: null,
+    parent: structuredClone(fixture.parent),
+    specAcceptance: structuredClone(fixture.specAcceptance),
+    deliveryGraph: structuredClone(fixture.deliveryGraph),
+    children: structuredClone(fixture.children),
+  };
+  state.deliveryGraph.specAcceptanceBinding.sha256 = `sha256:${"0".repeat(64)}`;
+  assert.equal(immutableStateProblems(plan, state).some(({ code }) => code === "SPEC_ACCEPTANCE_DRIFT"), true);
 });

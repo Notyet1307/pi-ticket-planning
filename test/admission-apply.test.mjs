@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
-import { fileURLToPath } from "node:url";
+import test, { after } from "node:test";
 import {
   applyAdmissionPlan,
   buildAdmissionPlan,
   buildStandaloneAdmissionPlan,
-  fingerprint,
 } from "../scripts/admit.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import {
@@ -30,10 +27,22 @@ import {
   reviewContractFields,
   ticketBody,
 } from "./ticket-contract-fixture.mjs";
+import { createAdmissionBindingFixture } from "./admission-binding-fixture.mjs";
 
-const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
-const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
 const READY_AXES = Object.fromEntries(["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"].map((name) => [name, "PASS"]));
+const specBody = "# Spec\n\n## Behavioral scenarios\n### S1: First\nFirst.\n\n### S2: Second\nSecond.";
+const boundParent = { id: "10", title: "Delivery parent", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}` };
+const bindings = createAdmissionBindingFixture({
+  registerCleanup: after,
+  parent: boundParent,
+  specBody,
+  caseId: "PC-admission",
+  approvalId: "F-spec-approval",
+  acceptedAt: "2026-08-16T12:00:00Z",
+  productReleaseIdentity: "R001/r2",
+});
+const repositoryPath = bindings.repositoryPath;
+const baseSha = bindings.executionBaseSha;
 
 function checkpoint(lane, id, revision) {
   return {
@@ -46,7 +55,6 @@ function checkpoint(lane, id, revision) {
 }
 
 function input() {
-  const specBody = "# Spec\n\n## Behavioral scenarios\n### S1: First\nFirst.\n\n### S2: Second\nSecond.";
   const binding = oracleBinding({ repo: repositoryPath, baseSha });
   const children = [
     { id: "11", title: "First", body: ticketBody({ objective: "Build first.", primaryVerification: "Verify first.", binding, constraints: executionConstraints({ expectedPaths: ["admission/apply.mjs"], primaryVerificationSeams: ["Verify first."] }) }), blockedBy: [], labels: ["needs-triage", "bug"], state: "open", updatedAt: "t1", assignees: [], comments: [] },
@@ -58,14 +66,7 @@ function input() {
     baseSha,
     specContentHash: hashText(specBody),
   };
-  const parent = { id: "10", title: "Delivery parent", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}`, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] };
-  const acceptanceBody = {
-    schema: "pi-ticket-planning:spec-acceptance:v1",
-    parent: { number: 10, title: parent.title, bodyHash: hashText(parent.body) },
-    source: { baseSha, specContentHash: source.specContentHash },
-    decision: { caseId: "PC-admission", approvalId: "F-spec-approval", acceptedAt: "2026-08-16T12:00:00Z" },
-  };
-  const decisionManifestBody = { schema: "pi-ticket-planning:decision-manifest:v1", baseSha, policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"a".repeat(64)}`, byteCount: 1 }, productRelease: { identity: "R001/r2", path: "README.md", sha256: `sha256:${"b".repeat(64)}`, byteCount: 1 }, decisions: [], dependencyHandoffs: [] };
+  const parent = { ...boundParent, labels: ["needs-triage", "release"], state: "open", updatedAt: "tp", assignees: [], comments: [] };
   const graph = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -73,18 +74,18 @@ function input() {
     readinessState: "GRAPH_REVIEWED",
     releaseId: "R001-C1-r1",
     releaseOrdinal: 1,
-    planningBaseSha: baseSha,
+    planningBaseSha: bindings.planningBaseSha,
     executionBaseSha: baseSha,
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
-    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
-    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha, sha256: `sha256:${"c".repeat(64)}`, byteCount: 1 },
-    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
-    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha, sha256: `sha256:${"d".repeat(64)}`, byteCount: 1 },
-    decisionManifestDigest: `sha256:${"d".repeat(64)}`,
+    specAcceptance: structuredClone(bindings.specAcceptance),
+    specAcceptanceBinding: structuredClone(bindings.specAcceptanceBinding),
+    decisionManifest: structuredClone(bindings.decisionManifest),
+    decisionManifestBinding: structuredClone(bindings.decisionManifestBinding),
+    decisionManifestDigest: bindings.decisionManifestDigest,
     source: { identity: source.identity, revision: source.revision, specContentHash: source.specContentHash },
     scenarios: [
       { id: "S1", behavior: "First.", entry: "external:input", exit: "first", releaseSignal: "First.", smallestLoop: true },

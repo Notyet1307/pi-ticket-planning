@@ -21,6 +21,7 @@ import {
   oracleVerifierProtectionProblems,
   roadmapReleaseBindingProblems,
 } from "./check-release-closure.mjs";
+import { assertTrackedReleaseBindings } from "../execution-plan/freshness.mjs";
 
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
@@ -222,6 +223,11 @@ export function validateAdmissionState(bundle) {
     if (!sameValues(internal, expected)) {
       problems.push(issue("NATIVE_GRAPH_MISMATCH", `${id}:${expected.join(",")}!=${internal.join(",")}`));
     }
+  }
+
+  if (graph.ok) {
+    try { assertTrackedReleaseBindings({ repositoryPath: bundle.repositoryPath, deliveryGraph: snapshot }); }
+    catch (error) { problems.push(issue(error instanceof Error ? error.message : "EXECUTION_BASE_DRIFT")); }
   }
 
   return result(problems, graph);
