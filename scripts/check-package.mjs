@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
 import { validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
-import { validateRiskClassRegistry } from "./risk-classes.mjs";
+import { RISK_CLASS_REGISTRY, validateRiskClassRegistry } from "./risk-classes.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/;
@@ -294,12 +294,15 @@ export function validatePackage(root) {
   const controllerContractLock = readJson(path.join(root, "compatibility", "codex-controller-contract.json"));
   const controllerSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-plan-v2.schema.json"));
   const completionSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-completion-v1.schema.json"));
+  const riskClassRegistry = fs.readFileSync(path.join(root, "contracts", "risk-class-registry.json"));
   if (controllerContractLock.commit?.startsWith("d450f6a6") || !/^[a-f0-9]{40}$/.test(controllerContractLock.commit ?? "")) errors.push("Controller contract commit is not exact");
   if (![controllerContractLock.sourceManifestDigest, controllerContractLock.buildDigest, controllerContractLock.identityDigest].every((value) => /^[a-f0-9]{64}$/.test(value ?? ""))) errors.push("Controller contract runtime identity is not exact");
   const controllerIdentityDigest = createHash("sha256").update(JSON.stringify({ buildDigest: controllerContractLock.buildDigest, sourceManifestDigest: controllerContractLock.sourceManifestDigest, sourceRevision: controllerContractLock.commit, version: 1 })).digest("hex");
   if (controllerContractLock.identityDigest !== controllerIdentityDigest) errors.push("Controller contract runtime identity digest drifted");
   if (controllerContractLock.schemaSha256 !== createHash("sha256").update(controllerSchema).digest("hex")) errors.push("Controller schema mirror drifted from its lock");
   if (controllerContractLock.completionSchemaSha256 !== createHash("sha256").update(completionSchema).digest("hex")) errors.push("Controller completion schema mirror drifted from its lock");
+  if (controllerContractLock.riskClassRegistrySha256 !== createHash("sha256").update(riskClassRegistry).digest("hex")) errors.push("Controller risk registry mirror drifted from its lock");
+  if (controllerContractLock.riskClassRegistryDigest !== RISK_CLASS_REGISTRY.digest) errors.push("Controller risk registry artifact digest drifted from its lock");
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);

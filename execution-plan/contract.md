@@ -4,7 +4,7 @@ Use the immutable accepted Delivery Spec, exact `spec-acceptance:v1` receipt, se
 
 ## Qualified Controller mainline
 
-`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, Release Plan/completion schemas, and integration scope. The currently qualified revision is `0ddfc71d42d8a732099554f866a650aba18c581b`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
+`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, Release Plan/completion schemas, shared risk registry, and integration scope. The currently qualified revision is `10ff0db3c4e5cc1dc17384442831231341c2fec2`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
 
 This contract qualifies only the direct path:
 
@@ -45,6 +45,6 @@ The lock also pins the owner schema bytes and digest algorithm. The cross-reposi
 
 Authority owners: `scripts/check-delivery-graph.mjs`, `scripts/check-ticket-context.mjs`, `admission/review-transport.mjs`, `planning-case/cli.mjs`, and `execution-plan/compiler.mjs`.
 
-Controller execution-result ingestion is intentionally not part of this compatibility change. A future separate contract may consume the public status API; Planner code must never read private `job.json` state.
+Planner never reads Controller private `job.json` or treats its status API as predecessor evidence. Ordinal 2+ consumes only the verified public completion export embedded by deterministic predecessor-receipt v2 ingestion.
 
 Legacy v2 graphs remain readable but never compile. `scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 ... --dry-run true` deterministically emits only `PLANNED`, human-approved v3 and/or Roadmap candidates.
