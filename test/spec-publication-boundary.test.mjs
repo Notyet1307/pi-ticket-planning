@@ -319,6 +319,29 @@ test("Spec publication approval can be refreshed after its producer binding beco
   assert.equal(refreshed.subject.digest, ready.plan.planFingerprint);
 });
 
+test("Spec publication apply ignores an invalid superseded approval for the same exact plan", (t) => {
+  const ready = publicationSetup(t);
+  const invalid = structuredClone(ready.approval);
+  invalid.id = "F-human-spec-publication-superseded";
+  invalid.source.producerDigest = `sha256:${"0".repeat(64)}`;
+  const store = new Proxy(ready.store, {
+    get(target, property) {
+      if (property === "get") {
+        return (options) => {
+          const snapshot = target.get(options);
+          snapshot.approvals.pending.unshift(invalid);
+          return snapshot;
+        };
+      }
+      const value = target[property];
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+
+  assert.equal(ready.applyWithStore(store).status, "COMPLETE");
+  assert.equal(ready.store.get({ caseId: ready.caseId, target: TARGET }).approvals.consumed[0].id, ready.approval.id);
+});
+
 test("Delivery Spec publication excludes Legacy Admission qualification and runtime review", (t) => {
   const ready = publicationSetup(t);
   ready.apply();

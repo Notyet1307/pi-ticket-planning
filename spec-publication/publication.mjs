@@ -398,8 +398,11 @@ export function applySpecPublication({ plan, current, preflight, adapter, store,
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
   const approval = approvals.find(({ id }) => id === approvalId);
   const matches = approvals.filter((item) => item.fact === "human.specPublication" && item.subject?.digest === plan.planFingerprint);
+  const consumedApprovalIds = new Set(snapshot.approvals.consumed.map(({ id }) => id));
+  const competingApproval = matches.some((item) => item.id !== approvalId
+    && (consumedApprovalIds.has(item.id) || validateFactAttestation(item, { now }).ok));
   const approvalSubject = { target, kind: "spec-publication-plan", id: plan.planFingerprint, revision: plan.source.revision, digest: plan.planFingerprint };
-  if (!approval || matches.length !== 1 || approval.fact !== "human.specPublication" || !same(approval.subject, approvalSubject)
+  if (!approval || competingApproval || approval.fact !== "human.specPublication" || !same(approval.subject, approvalSubject)
     || !validateFactAttestation(approval).ok) throw new Error("INVALID_SPEC_PUBLICATION_APPROVAL");
   const preAccepted = snapshot.checkpoint.stage === "SPEC" && snapshot.checkpoint.verdict === "SPEC_ACCEPTED";
   const preInProgress = snapshot.checkpoint.stage === "SPEC" && snapshot.checkpoint.verdict === "SPEC_IN_PROGRESS";
