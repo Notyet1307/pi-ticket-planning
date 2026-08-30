@@ -14,7 +14,10 @@ function schemaFiles(root) {
     .map((name) => path.join(directory, name));
 }
 
-const EXTERNAL_SCHEMA_WITHOUT_ID = "herdr-codex-release-plan-v2.schema.json";
+const EXTERNAL_SCHEMAS_WITHOUT_ID = new Set([
+  "herdr-codex-release-plan-v2.schema.json",
+  "herdr-codex-release-completion-v1.schema.json",
+]);
 
 function createRuntime(root) {
   const ajv = new Ajv2020({
@@ -29,10 +32,10 @@ function createRuntime(root) {
   const schemas = new Map();
   for (const file of schemaFiles(root)) {
     const schema = JSON.parse(fs.readFileSync(file, "utf8"));
-    if ((!schema.$id || typeof schema.$id !== "string") && path.basename(file) !== EXTERNAL_SCHEMA_WITHOUT_ID) {
+    if ((!schema.$id || typeof schema.$id !== "string") && !EXTERNAL_SCHEMAS_WITHOUT_ID.has(path.basename(file))) {
       throw new Error(`MISSING_JSON_SCHEMA_ID: ${path.relative(root, file)}`);
     }
-    const id = schema.$id || `https://schemas.pi-ticket-planning.invalid/${EXTERNAL_SCHEMA_WITHOUT_ID}`;
+    const id = schema.$id || `https://schemas.pi-ticket-planning.invalid/${path.basename(file)}`;
     if ([...schemas.values()].includes(id)) throw new Error(`DUPLICATE_JSON_SCHEMA_ID: ${id}`);
     schemas.set(path.resolve(file), id);
     ajv.addSchema(schema, id);

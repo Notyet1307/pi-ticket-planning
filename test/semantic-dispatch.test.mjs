@@ -4,6 +4,8 @@ import test from "node:test";
 
 import { validateRegisteredArtifactSemantics } from "../protocol/semantic-dispatch.mjs";
 import { fingerprint } from "../execution-plan/domain.mjs";
+import { ingestControllerCompletion } from "../execution-plan/completion-ingest.mjs";
+import { controllerCompletionFixture } from "./controller-completion-fixture.mjs";
 
 const identity = (name) => ({ namespace: "pi-ticket-planning", name, major: 1 });
 const problems = async (name, value) => (await validateRegisteredArtifactSemantics(value, identity(name))).problems;
@@ -60,6 +62,10 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   assert.equal((await problems("e2e-report", { ...e2e, scenarios: [...e2e.scenarios, e2e.scenarios[0]] }))[0].code, "DUPLICATE_E2E_SCENARIO");
   assert.deepEqual(await problems("benchmark-report", { metrics: { p50DurationMs: 1, p95DurationMs: 2 } }), []);
   assert.equal((await problems("benchmark-report", { metrics: { p50DurationMs: 2, p95DurationMs: 1 } }))[0].code, "BENCHMARK_PERCENTILE_INVALID");
+  const completion = controllerCompletionFixture();
+  assert.deepEqual(await problems("release-completion", completion), []);
+  assert.deepEqual(await problems("release-predecessor-receipt", ingestControllerCompletion(completion)), []);
+  assert.equal((await problems("release-completion", { ...completion, digest: digest("bad") }))[0].code, "CONTROLLER_COMPLETION_DIGEST_MISMATCH");
   assert.deepEqual(await problems("unmapped-structural-artifact", {}), []);
 
   for (const [name, value] of [

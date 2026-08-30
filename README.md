@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. The graph also binds tracked Spec/predecessor receipts and a decision manifest covering policy, product Release, accepted ADRs, and dependency handoffs. Build/verify/apply fresh-read the remote base and all bindings; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 artifacts stay outside Controller input:
+For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. Ordinal 2+ first ingests the Controller public completion export with `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`; the resulting tracked predecessor receipt v2 embeds and revalidates that exact export. A legacy release-manager v1 self-digest is not automatic execution evidence. Build/verify/apply fresh-read the remote base and every Spec/receipt/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \

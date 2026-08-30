@@ -72,6 +72,7 @@ const REQUIRED_FILES = [
   "schemas/project-readiness-v1.schema.json",
   "schemas/codex-controller-contract-v1.schema.json",
   "schemas/herdr-codex-release-plan-v2.schema.json",
+  "schemas/herdr-codex-release-completion-v1.schema.json",
   "schemas/execution-handoff-plan-v1.schema.json",
   "schemas/execution-handoff-receipt-v1.schema.json",
   "schemas/spec-publication-plan-v1.schema.json",
@@ -79,6 +80,7 @@ const REQUIRED_FILES = [
   "schemas/roadmap-graph-v1.schema.json",
   "schemas/delivery-release-graph-v3.schema.json",
   "schemas/release-predecessor-receipt-v1.schema.json",
+  "schemas/release-predecessor-receipt-v2.schema.json",
   "schemas/decision-manifest-v1.schema.json",
   "schemas/oracle-binding-v1.schema.json",
   "schemas/oracle-verifier-manifest-v1.schema.json",
@@ -232,6 +234,7 @@ export function validatePackage(root) {
     doctor: "node scripts/doctor.mjs",
     "delivery-gate": "node scripts/delivery-gate.mjs",
     "execution-plan": "node scripts/execution-plan.mjs",
+    "ingest:release-completion": "node execution-plan/completion-ingest.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
     "e2e:cleanup": "node integration/cleanup.mjs",
@@ -283,11 +286,13 @@ export function validatePackage(root) {
   }
   const controllerContractLock = readJson(path.join(root, "compatibility", "codex-controller-contract.json"));
   const controllerSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-plan-v2.schema.json"));
+  const completionSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-completion-v1.schema.json"));
   if (controllerContractLock.commit?.startsWith("d450f6a6") || !/^[a-f0-9]{40}$/.test(controllerContractLock.commit ?? "")) errors.push("Controller contract commit is not exact");
   if (![controllerContractLock.sourceManifestDigest, controllerContractLock.buildDigest, controllerContractLock.identityDigest].every((value) => /^[a-f0-9]{64}$/.test(value ?? ""))) errors.push("Controller contract runtime identity is not exact");
   const controllerIdentityDigest = createHash("sha256").update(JSON.stringify({ buildDigest: controllerContractLock.buildDigest, sourceManifestDigest: controllerContractLock.sourceManifestDigest, sourceRevision: controllerContractLock.commit, version: 1 })).digest("hex");
   if (controllerContractLock.identityDigest !== controllerIdentityDigest) errors.push("Controller contract runtime identity digest drifted");
   if (controllerContractLock.schemaSha256 !== createHash("sha256").update(controllerSchema).digest("hex")) errors.push("Controller schema mirror drifted from its lock");
+  if (controllerContractLock.completionSchemaSha256 !== createHash("sha256").update(completionSchema).digest("hex")) errors.push("Controller completion schema mirror drifted from its lock");
 
   const upstreamSource = `git:github.com/mattpocock/skills@${EXPECTED_COMMIT}`;
   const upstreamProfile = profile.packages?.find((entry) => entry?.source === upstreamSource);

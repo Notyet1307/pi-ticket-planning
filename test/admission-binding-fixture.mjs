@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 
 import { fingerprint } from "../execution-plan/domain.mjs";
 import { hashText } from "../scripts/check-delivery-graph.mjs";
+import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
 
 function git(repo, args) {
   const run = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
@@ -26,7 +27,7 @@ export function createAdmissionBindingFixture({
   approvalId,
   acceptedAt,
   productReleaseIdentity,
-  predecessorReleaseId = "R1-C1-r1",
+  predecessorReleaseId = "r1-c1-r1",
 }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "admission-bindings-"));
   const repositoryPath = path.join(root, "repo");
@@ -63,15 +64,7 @@ export function createAdmissionBindingFixture({
     dependencyHandoffs: [],
   };
   const decisionManifest = { ...manifestBody, digest: fingerprint(manifestBody) };
-  const predecessorBody = {
-    schema: "pi-ticket-planning:release-predecessor-receipt:v1",
-    releaseId: predecessorReleaseId,
-    mergedMainSha: planningBaseSha,
-    handoffDigests: [],
-    validationDigest: `sha256:${"7".repeat(64)}`,
-    completedAt: acceptedAt,
-  };
-  const predecessorReceipt = { ...predecessorBody, digest: fingerprint(predecessorBody) };
+  const predecessorReceipt = predecessorReceiptFixture({ releaseId: predecessorReleaseId, repo: "acme/product", baseRef: "main", sourceBaseSha: planningBaseSha, candidateSha: planningBaseSha, mergedMainSha: planningBaseSha });
   write(repositoryPath, "evidence/spec-acceptance.json", `${JSON.stringify(specAcceptance)}\n`);
   write(repositoryPath, "evidence/decision-manifest.json", `${JSON.stringify(decisionManifest)}\n`);
   write(repositoryPath, "evidence/predecessor.json", `${JSON.stringify(predecessorReceipt)}\n`);

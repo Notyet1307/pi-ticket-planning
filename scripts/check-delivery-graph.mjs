@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateArtifact } from "../protocol/kernel.mjs";
+import { validateControllerPredecessorReceipt } from "../execution-plan/completion-ingest.mjs";
 import { staticGraphChildProblems } from "./check-ticket-contract.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
@@ -333,16 +334,7 @@ export function validateSpecAcceptance(receipt) {
 }
 
 export function validatePredecessorReceipt(receipt) {
-  const problems = [];
-  try {
-    const checked = validateArtifact(receipt, { identity: "pi-ticket-planning:release-predecessor-receipt:v1" });
-    problems.push(...checked.problems);
-  } catch {
-    problems.push(issue("INVALID_PREDECESSOR_RECEIPT"));
-    return problems;
-  }
-  if (!exactDigest(receipt)) problems.push(issue("PREDECESSOR_RECEIPT_DIGEST_MISMATCH"));
-  return problems;
+  return validateControllerPredecessorReceipt(receipt);
 }
 
 function validateRoadmap(snapshot) {
