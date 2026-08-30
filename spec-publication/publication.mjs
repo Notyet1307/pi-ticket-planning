@@ -328,9 +328,9 @@ export function createGitHubSpecPublicationAdapter({ repo, runJson = runGhJson }
 }
 
 function matchingFact(snapshot, name, subject, now) {
-  const matches = snapshot.facts.filter((fact) => fact.fact === name && Object.entries(subject).every(([key, value]) => fact.subject?.[key] === value));
-  if (matches.length === 0 || matches.some((fact) => fact.value !== true || !validateFactAttestation(fact, { now }).ok)) throw new Error(`SPEC_PUBLICATION_FACT_INVALID:${name}`);
-  return matches.at(-1);
+  const match = snapshot.facts.filter((fact) => fact.fact === name && Object.entries(subject).every(([key, value]) => fact.subject?.[key] === value)).at(-1);
+  if (!match || match.value !== true || !validateFactAttestation(match, { now }).ok) throw new Error(`SPEC_PUBLICATION_FACT_INVALID:${name}`);
+  return match;
 }
 
 function same(left, right) { return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right)); }

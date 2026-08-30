@@ -267,6 +267,28 @@ test("Controller-direct SPEC publication succeeds with no Legacy compatibility t
   assert.throws(() => ready.store.resume({ caseId: ready.caseId, target: TARGET }), (error) => error.code === "BINDING_READBACK_DRIFT");
 });
 
+test("Spec publication uses the latest attestation when an older duplicate was superseded", (t) => {
+  const ready = publicationSetup(t);
+  const accepted = ready.store.get({ caseId: ready.caseId, target: TARGET }).facts.find(({ fact }) => fact === "release.accepted");
+  for (const [suffix, value] of [["superseded", false], ["current", true]]) {
+    ready.store.record({
+      caseId: ready.caseId,
+      target: TARGET,
+      type: "FACT_ATTACHED",
+      data: {
+        fact: {
+          ...structuredClone(accepted),
+          id: `F-release-accepted-${suffix}`,
+          value,
+          evidence: { kind: "artifact", ref: `spec-boundary:release.accepted:${suffix}`, digest: hash(suffix) },
+        },
+      },
+    });
+  }
+
+  assert.equal(ready.apply().status, "COMPLETE");
+});
+
 test("Delivery Spec publication excludes Legacy Admission qualification and runtime review", (t) => {
   const ready = publicationSetup(t);
   ready.apply();
