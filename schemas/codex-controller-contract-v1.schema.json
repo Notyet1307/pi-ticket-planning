@@ -40,7 +40,7 @@
     "riskClassRegistrySha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "riskClassRegistryDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
     "riskClassRegistrySourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-    "digestAlgorithm": { "const": "canonical-json-v1+sha256-hex" },
+    "digestAlgorithm": { "const": "utf16-code-unit-canonical-json-v1+sha256-hex" },
     "integrationMode": { "const": "release-plan-v2-direct" },
     "dispatcherQualified": { "const": false },
     "operatorStartRequired": { "const": true }
