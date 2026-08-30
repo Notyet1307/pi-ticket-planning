@@ -320,6 +320,7 @@ test("Spec preflight rereads exact Git authorities and live tracker label", (t) 
     "docs/product/releases/r003.md": "# R003/r1\n",
     "AGENTS.md": "# Policy\n",
     "docs/adr/0003-boundary.md": "# ADR\n\n- Status: ACCEPTED\n",
+    "docs/adr/0004-localized.md": "# ADR\n\n状态：已接受\n",
     "docs/agents/issue-tracker.md": "# Issue tracker: GitHub\n",
     "docs/agents/triage-labels.md": "needs-triage\n",
   };
@@ -337,6 +338,12 @@ test("Spec preflight rereads exact Git authorities and live tracker label", (t) 
   Object.assign(context.source, { baseRef: "HEAD", baseSha, blobDigest: hash(files["docs/product/releases/r003.md"]) });
   Object.assign(context.policy, { digest: hash(files["AGENTS.md"]) });
   Object.assign(context.adrs[0], { digest: hash(files["docs/adr/0003-boundary.md"]) });
+  context.adrs.push({
+    identity: `ADR-0004@${baseSha}`,
+    path: "docs/adr/0004-localized.md",
+    digest: hash(files["docs/adr/0004-localized.md"]),
+    accepted: true,
+  });
   Object.assign(context.tracker.issueTracker, { digest: hash(files["docs/agents/issue-tracker.md"]) });
   Object.assign(context.tracker.triageLabels, { digest: hash(files["docs/agents/triage-labels.md"]) });
   let labelReads = 0;

@@ -29,6 +29,7 @@ const SHA = /^[a-f0-9]{40,64}$/;
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const REQUIRED_SECTIONS = ["Source", "Problem statement", "Delivery outcome", "Behavioral scenarios", "Release signal mapping", "Walking skeleton target", "Decisions", "Verification strategy", "Constraints and dependencies", "Out of scope", "Unresolved decisions"];
+const ACCEPTED_ADR_STATUS = /(?:Status\**:?\s*ACCEPTED|状态\**[：:]?\s*已接受)/iu;
 
 function exactUtf8(value) {
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value ?? "");
@@ -179,7 +180,7 @@ export function verifySpecPublicationContext({ context, repositoryPath, adapter,
   if (digestBytes(blob(exact.policy)) !== exact.policy.digest) throw new Error("SPEC_POLICY_DRIFT");
   for (const adr of exact.adrs) {
     const bytes = blob(adr);
-    if (digestBytes(bytes) !== adr.digest || !/Status\**:?\s*ACCEPTED/iu.test(bytes.toString("utf8"))) throw new Error("SPEC_ADR_DRIFT");
+    if (digestBytes(bytes) !== adr.digest || !ACCEPTED_ADR_STATUS.test(bytes.toString("utf8"))) throw new Error("SPEC_ADR_DRIFT");
   }
   const issueTracker = blob(exact.tracker.issueTracker);
   const triageLabels = blob(exact.tracker.triageLabels);
