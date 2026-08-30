@@ -1,10 +1,10 @@
 {
   "schema": "pi-ticket-planning:codex-controller-contract:v1",
   "repository": "https://github.com/Notyet1307/herdr-codex-controller.git",
-  "commit": "7fda8b75bc187b2fe9b121230ae83c85d79a3d8b",
-  "sourceManifestDigest": "4c7f63241ebb37b55deb5232cc19c0ead802de48a87bee05337017d9d2392e21",
-  "buildDigest": "3fd5eccf6f9d36206b1216704af5bb6f2058ea7f8845b49856083b8861f2e16e",
-  "identityDigest": "c0567aff6266120fea08c3565461f56a949b2cbd4941968164fc81e3d92d371a",
+  "commit": "9af584fcbd6a833577b562d866078ba71adf7c4d",
+  "sourceManifestDigest": "644993dd0607932b2b98defb9b0cee6b1c829284bd90e3ac0772f27f1a0d3bcb",
+  "buildDigest": "ac4d143ae1fa202b00ef78a4d6a9cbc037d778fa0eec68f4ce6c9b42124b9f98",
+  "identityDigest": "e7a679909d3ac052a40d9a882c765285b53e5249e8a1ba294b285bc6bf2c4646",
   "releasePlanVersion": 2,
   "schemaPath": "schemas/release-plan-v2.schema.json",
   "schemaSha256": "362c9ae154c502ce80df16f17527c7136f4de2804da55c1c7c1314882160f363",
@@ -14,7 +14,7 @@
   "riskClassRegistrySha256": "4d06dc5e7bafbff2cfbed4004f88b3b41f948f30a7cd70846a113daaa982cf8e",
   "riskClassRegistryDigest": "sha256:c4672e817c410fb7f8463430e441c556aed161fa8d740db9eccdb024fb737330",
   "riskClassRegistrySourceCommit": "441c8f0816f145b8aa5feb0caf61584c44005fd2",
-  "digestAlgorithm": "canonical-json-v1+sha256-hex",
+  "digestAlgorithm": "utf16-code-unit-canonical-json-v1+sha256-hex",
   "integrationMode": "release-plan-v2-direct",
   "dispatcherQualified": false,
   "operatorStartRequired": true

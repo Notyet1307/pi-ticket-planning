@@ -19,7 +19,7 @@ test("pinned latest Controller lock qualifies only the direct Release Plan v2 ma
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
   const completionSchema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json"));
   const riskRegistry = fs.readFileSync(path.join(ROOT, "contracts", "risk-class-registry.json"));
-  assert.equal(lock.commit, "7fda8b75bc187b2fe9b121230ae83c85d79a3d8b");
+  assert.equal(lock.commit, "9af584fcbd6a833577b562d866078ba71adf7c4d");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
   assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
@@ -29,7 +29,8 @@ test("pinned latest Controller lock qualifies only the direct Release Plan v2 ma
   assert.equal(lock.riskClassRegistrySha256, createHash("sha256").update(riskRegistry).digest("hex"));
   assert.equal(lock.riskClassRegistryDigest, JSON.parse(riskRegistry).digest);
   assert.equal(lock.riskClassRegistrySourceCommit, "441c8f0816f145b8aa5feb0caf61584c44005fd2");
-  assert.equal(lock.digestAlgorithm, "canonical-json-v1+sha256-hex");
+  assert.equal(lock.digestAlgorithm, "utf16-code-unit-canonical-json-v1+sha256-hex");
+  assert.equal(fingerprint({ pullRequest: { mergedAt: "a", mergeSha: "b" }, controllerProvenance: { releasePlan: { version: 2, digest: "d" }, controller: { sourceRevision: "r", sourceManifestDigest: "m" } } }), "sha256:df317dfa9d435d5743f552ca85ab07f098aee010d249abd6ea5259892ac673f6");
   assert.equal(lock.integrationMode, "release-plan-v2-direct");
   assert.equal(lock.dispatcherQualified, false);
   assert.equal(lock.operatorStartRequired, true);
@@ -99,7 +100,7 @@ if (args[0] === "config") {
   const commit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const schemaSha256 = createHash("sha256").update(fs.readFileSync(controllerSchema)).digest("hex");
   const completionSchemaSha256 = createHash("sha256").update(fs.readFileSync(controllerCompletionSchema)).digest("hex");
-  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, sourceManifestDigest: CONTROLLER_IDENTITY.sourceManifestDigest, buildDigest: CONTROLLER_IDENTITY.buildDigest, identityDigest: CONTROLLER_IDENTITY.digest, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, completionSchemaPath: "schemas/release-completion-v1.schema.json", completionSchemaSha256, riskClassRegistryPath: "contracts/risk-class-registry.json", riskClassRegistrySha256, riskClassRegistryDigest, riskClassRegistrySourceCommit: "441c8f0816f145b8aa5feb0caf61584c44005fd2", digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
+  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, sourceManifestDigest: CONTROLLER_IDENTITY.sourceManifestDigest, buildDigest: CONTROLLER_IDENTITY.buildDigest, identityDigest: CONTROLLER_IDENTITY.digest, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, completionSchemaPath: "schemas/release-completion-v1.schema.json", completionSchemaSha256, riskClassRegistryPath: "contracts/risk-class-registry.json", riskClassRegistrySha256, riskClassRegistryDigest, riskClassRegistrySourceCommit: "441c8f0816f145b8aa5feb0caf61584c44005fd2", digestAlgorithm: "utf16-code-unit-canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
   const prior = process.env.TEST_CANARY_RECORD;
   process.env.TEST_CANARY_RECORD = record;
   let result;
