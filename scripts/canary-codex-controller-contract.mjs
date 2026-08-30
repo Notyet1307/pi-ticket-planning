@@ -18,6 +18,7 @@ import { buildReviewerDispatchBinding } from "../extensions/reviewer-one-shot-ga
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "./check-delivery-graph.mjs";
 import { checkTicketContext } from "./check-ticket-context.mjs";
+import { unknownRiskClasses } from "./risk-classes.mjs";
 import {
   buildOracleVerifierManifest,
   oracleBindingDigest,
@@ -33,6 +34,7 @@ const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
 const CONTRACT_LOCK = path.join(ROOT, "compatibility", "codex-controller-contract.json");
 const PLANNER_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json");
 const PLANNER_COMPLETION_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json");
+const PLANNER_RISK_CLASS_REGISTRY = path.join(ROOT, "contracts", "risk-class-registry.json");
 const HEX = /^[a-f0-9]{64}$/;
 const REVISION = /^[a-f0-9]{40}$/;
 
@@ -551,17 +553,24 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     throw new Error("CONTROLLER_ORACLE_VALIDATION_COVERAGE_MISMATCH");
   }
   const { parentIssue: _parentIssue, ...missingRequired } = draft.releasePlan;
+  const rootWildcard = { ...draft.releasePlan, issues: draft.releasePlan.issues.map((issue, index) => index === 0 ? { ...issue, expectedPaths: ["*.ts"] } : issue) };
   const vectors = [
     ["extraTopLevel", { ...draft.releasePlan, unexpected: true }],
     ["missingRequired", missingRequired],
     ["extraSource", { ...draft.releasePlan, source: { ...draft.releasePlan.source, unexpected: true } }],
     ["extraIssue", { ...draft.releasePlan, issues: draft.releasePlan.issues.map((issue, index) => index === 0 ? { ...issue, unexpected: true } : issue) }],
+    ["rootWildcardExpectedPath", rootWildcard],
     ["releasePlanV1", legacyPlanVector()],
   ];
   for (const [, vector] of vectors) {
     if (validateArtifact(vector, { identity: CONTROLLER_PLAN }).ok || !invalidPlanRejected(cli, config, vectorFile, vector, nodeArgs)) {
       throw new Error("CONTROLLER_SCHEMA_VECTOR_MISMATCH");
     }
+  }
+  const unknownRiskClass = { ...draft.releasePlan, issues: draft.releasePlan.issues.map((issue, index) => index === 0 ? { ...issue, riskClasses: ["BOUNDED_CHANGE"] } : issue) };
+  if (unknownRiskClasses(unknownRiskClass.issues[0].riskClasses).length === 0
+    || !invalidPlanRejected(cli, config, vectorFile, unknownRiskClass, nodeArgs)) {
+    throw new Error("CONTROLLER_RISK_CLASS_VECTOR_MISMATCH");
   }
 
   const freshCases = { "c1-base-a": "PASS" };
@@ -640,7 +649,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     controllerIdentityDigest: validated.provenance.controller.digest,
     releasePlanFingerprint: fingerprint(draft.releasePlan),
     handoffScope: { releasePlanV2Direct: "ACCEPTED", releasePlanV1: "REJECTED", dispatch: "OUT_OF_SCOPE" },
-    vectors: { ...Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])), oracleValidationCommandMissing: "REJECTED" },
+    vectors: { ...Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])), unknownRiskClass: "REJECTED", oracleValidationCommandMissing: "REJECTED" },
     freshCases,
   };
 }
@@ -664,14 +673,20 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
   const controllerSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.schemaPath), "CONTROLLER_SCHEMA");
   const plannerCompletionSchema = assertCanonicalPrivateExistingFile(PLANNER_COMPLETION_SCHEMA, "PLANNER_COMPLETION_SCHEMA");
   const controllerCompletionSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.completionSchemaPath), "CONTROLLER_COMPLETION_SCHEMA");
+  const plannerRiskRegistry = assertCanonicalPrivateExistingFile(PLANNER_RISK_CLASS_REGISTRY, "PLANNER_RISK_CLASS_REGISTRY");
+  const controllerRiskRegistry = assertCanonicalPrivateExistingFile(path.join(root, lock.riskClassRegistryPath), "CONTROLLER_RISK_CLASS_REGISTRY");
+  const controllerRuntimeLock = assertCanonicalPrivateExistingFile(path.join(root, "contracts", "runtime-contract-lock.json"), "CONTROLLER_RUNTIME_CONTRACT_LOCK");
   const plannerBytes = fs.readFileSync(plannerSchema);
   const controllerBytes = fs.readFileSync(controllerSchema);
   const plannerCompletionBytes = fs.readFileSync(plannerCompletionSchema);
   const controllerCompletionBytes = fs.readFileSync(controllerCompletionSchema);
+  const plannerRiskBytes = fs.readFileSync(plannerRiskRegistry);
+  const controllerRiskBytes = fs.readFileSync(controllerRiskRegistry);
   const plannerSchemaSha256 = sha256(plannerBytes);
   const controllerSchemaSha256 = sha256(controllerBytes);
   const plannerCompletionSchemaSha256 = sha256(plannerCompletionBytes);
   const controllerCompletionSchemaSha256 = sha256(controllerCompletionBytes);
+  const riskClassRegistrySha256 = sha256(plannerRiskBytes);
   if (!HEX.test(lock.schemaSha256)
     || plannerSchemaSha256 !== lock.schemaSha256
     || controllerSchemaSha256 !== lock.schemaSha256
@@ -680,6 +695,18 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
     || plannerCompletionSchemaSha256 !== lock.completionSchemaSha256
     || controllerCompletionSchemaSha256 !== lock.completionSchemaSha256
     || !plannerCompletionBytes.equals(controllerCompletionBytes)) throw new Error("CONTROLLER_COMPLETION_SCHEMA_DRIFT");
+  const riskRegistry = JSON.parse(plannerRiskBytes.toString("utf8"));
+  const runtimeLock = JSON.parse(fs.readFileSync(controllerRuntimeLock, "utf8"));
+  const { digest: runtimeLockDigest, ...runtimeLockBody } = runtimeLock;
+  if (!HEX.test(lock.riskClassRegistrySha256) || riskClassRegistrySha256 !== lock.riskClassRegistrySha256
+    || sha256(controllerRiskBytes) !== lock.riskClassRegistrySha256 || !plannerRiskBytes.equals(controllerRiskBytes)
+    || riskRegistry.digest !== lock.riskClassRegistryDigest
+    || runtimeLockDigest !== fingerprint(runtimeLockBody)
+    || runtimeLock.plannerRiskRegistry?.commit !== lock.riskClassRegistrySourceCommit
+    || runtimeLock.plannerRiskRegistry?.byteSha256 !== lock.riskClassRegistrySha256
+    || runtimeLock.plannerRiskRegistry?.artifactDigest !== lock.riskClassRegistryDigest) {
+    throw new Error("CONTROLLER_RISK_CLASS_REGISTRY_DRIFT");
+  }
 
   const sourceConfig = fixtureConfig(root);
   if (!sourceConfig) throw new Error("CONTROLLER_CONFIG_FIXTURE_UNAVAILABLE");
@@ -701,7 +728,7 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
     fs.appendFileSync(path.join(built.buildRoot, "README.md"), "\n");
     try { qualifiedCommit(built.buildRoot, lock.commit); throw new Error("CONTROLLER_DIRTY_CHECKOUT_ACCEPTED"); }
     catch (error) { if (error.message !== "CONTROLLER_WORKTREE_DIRTY") throw error; }
-    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, completionSchemaSha256: plannerCompletionSchemaSha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
+    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, completionSchemaSha256: plannerCompletionSchemaSha256, riskClassRegistrySha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
