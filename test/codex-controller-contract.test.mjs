@@ -19,7 +19,7 @@ test("pinned latest Controller lock qualifies only the direct Release Plan v2 ma
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
   const completionSchema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json"));
   const riskRegistry = fs.readFileSync(path.join(ROOT, "contracts", "risk-class-registry.json"));
-  assert.equal(lock.commit, "10ff0db3c4e5cc1dc17384442831231341c2fec2");
+  assert.equal(lock.commit, "7fda8b75bc187b2fe9b121230ae83c85d79a3d8b");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
   assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
