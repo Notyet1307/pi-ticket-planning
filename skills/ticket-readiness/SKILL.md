@@ -30,7 +30,7 @@ Return READY only when every condition holds:
 7. **Scope is explicit.** Out of scope names the adjacent work this ticket intentionally leaves behind.
 8. **Fresh-start sufficiency.** The ticket body names its starting state or available inputs, primary outcome and verification, behavior-defining decisions, and invariants or guardrails. A fresh executor can choose the first correct action from the ticket plus repository policy; parent and decision links provide provenance or detail, never the only copy of behavior or a guardrail required to start.
 9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
-10. **Oracle is frozen.** Every AGENT Ticket embeds exact `pi-ticket-planning:oracle-binding:v1` path/format/base/bytes, an independent owner, an exact reviewed-base `npm run verify:*` script, and a protected path outside its write set.
+10. **Oracle is frozen.** Bind exact `pi-ticket-planning:oracle-binding:v1` bytes, independent owner, and closed manifest for the reviewed-base `npm run verify:*` script plus all source/helper/schema. Globally protect `package.json` and manifest files.
 11. **Execution is bounded.** Declare risks, one seam, file/line budget, at most eight complete write-path families, protected paths, and REPLAN triggers. Controller rejects writes outside `expectedPaths`; Context anchors remain the separate first-action read set. Defaults: two risks, eight files, 1500 lines. Exceptions need exact waiver; four risks always SPLIT; over 2500 lines needs `MECHANICAL_MIGRATION`.
 12. **Integration-only is closed.** Declare no new behavior/schema/duplicate logic and missing behavior as `REPLAN_REQUIRED`.
 
@@ -101,7 +101,7 @@ For one candidate, return exactly:
     Risk classes and count:
     Scope budget:
     Expected paths:
-    Protected Oracle paths:
+    Protected Oracle/verifier paths:
     Oracle binding verdict and digest:
     REPLAN triggers:
     Code hotspot overlap:

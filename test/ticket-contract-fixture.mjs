@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import {
+  buildOracleVerifierManifest,
   oracleBindingDigest,
   REQUIRED_REPLAN_TRIGGERS,
   ticketReviewProjection,
@@ -16,10 +17,11 @@ export function oracleBinding({
   format = "application/json",
   ownerIdentity = "independent-oracle-owner",
   command = "npm run verify:protocol",
+  verifierFiles = ["scripts/verify-protocol.mjs"],
 } = {}) {
   const run = spawnSync("git", ["-C", repo, "show", `${baseSha}:${artifactPath}`], { encoding: null });
   if (run.status !== 0 || !Buffer.isBuffer(run.stdout)) throw new Error(`fixture Oracle is unavailable: ${artifactPath}`);
-  return {
+  const binding = {
     schema: "pi-ticket-planning:oracle-binding:v1",
     id,
     owner: { kind: "INDEPENDENT_VERIFICATION", identity: ownerIdentity },
@@ -32,6 +34,10 @@ export function oracleBinding({
     },
     execution: { command },
     workerMutationAllowed: false,
+  };
+  return {
+    ...binding,
+    verifier: buildOracleVerifierManifest({ repo, baseSha, oracleId: id, command, files: verifierFiles }),
   };
 }
 

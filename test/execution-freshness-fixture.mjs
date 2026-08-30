@@ -87,7 +87,7 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
   const executionBaseSha = git(repo, ["rev-parse", "HEAD"]);
   git(repo, ["push", "origin", "main"]);
 
-  const binding = oracleBinding({ repo, baseSha: executionBaseSha, artifactPath: "fixtures/oracle.json", command: "npm run verify:oracle:o01" });
+  const binding = oracleBinding({ repo, baseSha: executionBaseSha, artifactPath: "fixtures/oracle.json", command: "npm run verify:oracle:o01", verifierFiles: ["scripts/verify-oracle.mjs"] });
   const constraints = executionConstraints({ expectedPaths: ["src/change.ts"], protectedPaths: ["fixtures/oracle.json"], primaryVerificationSeams: ["Run the release scenario."] });
   input.children[0].body = ticketBody({ objective: "Build the safe release.", primaryVerification: "Run the release scenario.", binding, constraints });
   const graph = input.deliveryGraph;
@@ -126,7 +126,7 @@ export function advanceDependencyWithoutManifest(input, repo) {
   const baseSha = git(repo, ["rev-parse", "HEAD"]);
   git(repo, ["push", "origin", "main"]);
   const parsed = parseChildTicket(input.children[0].body);
-  const binding = oracleBinding({ repo, baseSha, artifactPath: parsed.oracleBinding.artifact.path, command: parsed.oracleBinding.execution.command });
+  const binding = oracleBinding({ repo, baseSha, artifactPath: parsed.oracleBinding.artifact.path, command: parsed.oracleBinding.execution.command, verifierFiles: parsed.oracleBinding.verifier.files.map(({ path: file }) => file) });
   input.children[0].body = input.children[0].body.replace(JSON.stringify(parsed.oracleBinding), JSON.stringify(binding));
   input.source.baseSha = baseSha;
   input.deliveryGraph.executionBaseSha = baseSha;

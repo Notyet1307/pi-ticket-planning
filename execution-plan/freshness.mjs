@@ -204,6 +204,12 @@ export function assertFreshExecutionInput(input, { resolveRemoteBase = githubRem
       graphChild,
       graphChildren: graph.children,
     });
+    const verifier = checked.problems.find(({ code }) => [
+      "ORACLE_VERIFIER_MANIFEST_MISSING",
+      "ORACLE_VERIFIER_BINDING_DRIFT",
+      "GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET",
+    ].includes(code));
+    if (verifier) stableError(verifier.code);
     if (checked.problems.some(({ code }) => ORACLE_CODES.test(code))) stableError("ORACLE_BINDING_DRIFT");
   }
   return executionFreshnessProjection(input);

@@ -17,7 +17,7 @@ import { createPlanningCaseApproval } from "../planning-case/cli.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
-import { REQUIRED_REPLAN_TRIGGERS } from "../scripts/check-ticket-contract.mjs";
+import { buildOracleVerifierManifest, REQUIRED_REPLAN_TRIGGERS } from "../scripts/check-ticket-contract.mjs";
 import { createPiRpcSession, readPiSessionHeader } from "../scripts/eval-pi-behavior.mjs";
 import { runHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import {
@@ -225,7 +225,7 @@ export function createLiveAdapter({ env = process.env, execute = spawnSync, revi
     const artifactPath = "fixtures/admission-cases.json";
     const shown = spawnSync("git", ["-C", ready.sourcePath, "show", `${baseSha}:${artifactPath}`], { encoding: null });
     if (shown.status !== 0 || !Buffer.isBuffer(shown.stdout)) throw new Error("E2E_ORACLE_UNAVAILABLE");
-    const oracle = {
+    const oracleBody = {
       schema: "pi-ticket-planning:oracle-binding:v1",
       id: "O01",
       owner: { kind: "INDEPENDENT_VERIFICATION", identity: "e2e-oracle-owner" },
@@ -238,6 +238,16 @@ export function createLiveAdapter({ env = process.env, execute = spawnSync, revi
       },
       execution: { command: "npm run verify:protocol" },
       workerMutationAllowed: false,
+    };
+    const oracle = {
+      ...oracleBody,
+      verifier: buildOracleVerifierManifest({
+        repo: ready.sourcePath,
+        baseSha,
+        oracleId: oracleBody.id,
+        command: oracleBody.execution.command,
+        files: ["context/manifest.mjs", "protocol/kernel.mjs", "protocol/schema-runtime.mjs", "scripts/verify-protocol.mjs"],
+      }),
     };
     const constraints = {
       implementationOwner: "e2e-worker",

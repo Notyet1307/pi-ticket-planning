@@ -42,7 +42,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
 - cheap deterministic repository and environment facts remain in their owning code, configuration, scripts, or tool output; copy only stable behavior, acceptance criteria, invariants, guardrails, decided handoffs, non-obvious first-action pointers, and exact decision authority into the Ticket.
 - when primary verification depends on Docker, Compose, a non-default runtime, or another configured tool, the stable requirement and canonical tracked validation entry are explicit. Live socket, daemon, credential, and machine availability stay out of the Ticket and are proven later by Admission readiness.
-- exact Oracle, risks, scope, expected/protected paths, one verification seam, all REPLAN triggers, integration declaration, and any exact waivers.
+- exact Oracle with a closed verifier manifest whose independent owner lists every source/helper/schema (never inferred), plus risks, scope, expected/protected paths, one seam, REPLAN triggers, integration declaration, and waivers.
 
 Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
 
@@ -180,7 +180,7 @@ Use this child body:
     - [ ] One independently verifiable assertion per item.
 
     ## Oracle binding
-    One JSON fence containing exact `pi-ticket-planning:oracle-binding:v1` bytes/path/base/owner/command fields.
+    One JSON fence with exact `pi-ticket-planning:oracle-binding:v1` fields and a closed `herdr-codex-controller:oracle-verifier-manifest:v1` binding the script plus every source/helper/schema byte.
 
     ## Execution constraints
     One JSON fence containing `implementationOwner`, `riskClasses`, `scopeBudget`, `expectedPaths`, `protectedPaths`, `replanTriggers`, `primaryVerificationSeams`, `integrationOnly`, and `waivers`.
@@ -196,7 +196,7 @@ Use this child body:
 
 Bind exactly one `pi-ticket-planning:delivery-release-graph:v3` artifact in the same Planning Case, using real tracker child identities throughout. The JSON is the durable current-Release Scenario matrix, handoff chain, child order, verifications, and blocker graph. Keep the exact Spec acceptance receipt inside it and leave the accepted Parent title/body untouched. Mapping proposed IDs to newly created tracker identities is mechanical; any changed behavior, mapping, role, verification, order, edge, receipt, or base requires renewed approval.
 
-Re-fetch the exact bundle. `check-admission-state.mjs` re-reads Oracle bytes/base, verifies independent owner and exact reviewed-base `npm run verify:*`, compares body/v3 constraints, and rejects protected/write-set overlap.
+Re-fetch the bundle. `check-admission-state.mjs` re-reads Oracle/verifier bytes and the script definition, checks owner/body/v3 metadata, and rejects Release-global verifier/write overlap.
 
 Any failed graph, coverage, skeleton, or frontier check leaves the parent and children in `needs-triage`. Any candidate, source, matrix, order, or blocker change requires renewed human approval and a rebuilt snapshot.
 

@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
@@ -15,7 +12,6 @@ import {
   controllerBinding,
   executionInput,
 } from "./execution-plan-fixture.mjs";
-import { git, write } from "./execution-freshness-fixture.mjs";
 
 function problemCodes(problems) {
   return problems.map(({ code }) => code);
@@ -71,7 +67,7 @@ test("release closure rejects overlapping expected path ownership", () => {
   assert.ok(codes.includes("PATH_OWNERSHIP_OVERLAP"));
 });
 
-test("Oracle verifier command definition and direct source stay outside the Ticket write set", () => {
+test("explicit Oracle verifier files and package.json stay outside every Ticket write set", () => {
   const input = executionInput();
   assert.deepEqual(oracleVerifierProtectionProblems({
     repositoryPath: input.repositoryPath,
@@ -86,7 +82,7 @@ test("Oracle verifier command definition and direct source stay outside the Tick
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));
-  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
+  assert.ok(codes.includes("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET"));
 
   input.deliveryGraph.children[0].expectedPaths = ["package.json"];
   codes = problemCodes(oracleVerifierProtectionProblems({
@@ -95,31 +91,23 @@ test("Oracle verifier command definition and direct source stay outside the Tick
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));
-  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
+  assert.ok(codes.includes("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET"));
 });
 
-test("Oracle verifier protection normalizes a direct ./ helper operand", (t) => {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "oracle-verifier-relative-"));
-  t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
-  git(repo, ["init", "-q"]);
-  git(repo, ["config", "user.name", "Oracle Verifier Test"]);
-  git(repo, ["config", "user.email", "oracle@example.invalid"]);
-  write(repo, "package.json", `${JSON.stringify({ scripts: { "verify:oracle:o01": "node scripts/runner.mjs ./scripts/oracle-logic.mjs" } })}\n`);
-  write(repo, "scripts/runner.mjs", "// runner\n");
-  write(repo, "scripts/oracle-logic.mjs", "// Oracle logic\n");
-  git(repo, ["add", "."]);
-  git(repo, ["commit", "-qm", "Oracle verifier"]);
-
+test("Ticket B cannot write Ticket A's explicit verifier source", () => {
   const input = executionInput();
-  input.children[0].body = input.children[0].body.replace("npm run verify:protocol", "npm run verify:oracle:o01");
-  input.deliveryGraph.children[0].expectedPaths = ["scripts/oracle-logic.mjs"];
+  input.children.push({ ...structuredClone(input.children[0]), id: "102", title: "Second Ticket" });
+  input.deliveryGraph.children.push({
+    ...structuredClone(input.deliveryGraph.children[0]),
+    id: "102",
+    title: "Second Ticket",
+    expectedPaths: ["scripts/verify-protocol.mjs"],
+  });
   const codes = problemCodes(oracleVerifierProtectionProblems({
-    repositoryPath: repo,
-    baseSha: git(repo, ["rev-parse", "HEAD"]),
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));
-  assert.ok(codes.includes("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET"));
+  assert.ok(codes.includes("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET"));
 });
 
 test("qualified Controller release validation must execute every bound Oracle command", () => {

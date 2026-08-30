@@ -79,7 +79,14 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   if ((input.children ?? []).some((child) => !/^[1-9][0-9]*$/.test(String(child?.id ?? ""))
     || (child.blockedBy ?? []).some((id) => !(input.children ?? []).some((other) => String(other.id) === String(id))))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
   const admission = validateAdmissionState({ repositoryPath: input.repositoryPath, source: input.source, parent: input.parent, parentBody: input.parent.body, specAcceptance: input.specAcceptance, deliveryGraph: graph, roadmapGraph: input.roadmapGraph, roadmapParent: input.roadmapParent, children: input.children, contextChecks: input.contextChecks });
-  if (!admission.ok) throw new Error(`ADMISSION_STATE_NOT_READY:${admission.problems[0]?.code ?? "UNKNOWN"}`);
+  if (!admission.ok) {
+    const verifier = admission.problems.find(({ code }) => [
+      "ORACLE_VERIFIER_MANIFEST_MISSING",
+      "ORACLE_VERIFIER_BINDING_DRIFT",
+      "GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET",
+    ].includes(code));
+    throw new Error(verifier?.code ?? `ADMISSION_STATE_NOT_READY:${admission.problems[0]?.code ?? "UNKNOWN"}`);
+  }
   if (!input.policy || input.policy.accepted !== true || typeof input.policy.identity !== "string" || !input.policy.identity || !/^sha256:[a-f0-9]{64}$/.test(input.policy.digest ?? "")) throw new Error("POLICY_NOT_ACCEPTED");
   let reviewBinding;
   try { reviewBinding = requireExactAdmissionReviewBinding(input); validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw new Error("INVALID_REVIEW_BINDING"); }

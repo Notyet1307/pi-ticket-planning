@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
-import { pathMatches, patternsOverlap, readRegularBaseFile } from "./check-ticket-contract.mjs";
+import { oracleVerifierProtectedPaths, pathMatches, patternsOverlap } from "./check-ticket-contract.mjs";
 
 function issue(code, subject) {
   return subject === undefined ? { code } : { code, subject };
@@ -65,73 +65,19 @@ export function graphReleaseClosureProblems(graph) {
   return problems;
 }
 
-function packageManifest(repositoryPath, baseSha, problems) {
-  const bytes = readRegularBaseFile(repositoryPath, baseSha, "package.json");
-  if (!bytes) {
-    problems.push(issue("ORACLE_VALIDATION_CONFIG_MISSING", "package.json"));
-    return null;
-  }
-  try {
-    const manifest = JSON.parse(bytes.toString("utf8"));
-    if (!manifest || typeof manifest !== "object" || Array.isArray(manifest) || !manifest.scripts || typeof manifest.scripts !== "object") {
-      throw new Error("invalid package manifest");
-    }
-    return manifest;
-  } catch {
-    problems.push(issue("ORACLE_VALIDATION_CONFIG_INVALID", "package.json"));
-    return null;
-  }
-}
-
-function directScriptPaths(repositoryPath, baseSha, source) {
-  const matches = [...String(source).matchAll(/(?:^|[\s"'=])((?:\.\/)?[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*\.(?:cjs|cts|js|json|mjs|mts|sh|ts|txt))(?=$|[\s"';&|)])/gu)]
-    .map((match) => match[1].replace(/^\.\//u, ""))
-    .filter(safeExactPath);
-  return [...new Set(matches.filter((candidate) => readRegularBaseFile(repositoryPath, baseSha, candidate) !== null))];
-}
-
-function verifierPaths(repositoryPath, baseSha, manifest, scriptName, problems, stack = new Set()) {
-  if (stack.has(scriptName)) {
-    problems.push(issue("ORACLE_VERIFIER_SCRIPT_CYCLE", scriptName));
-    return [];
-  }
-  const source = manifest.scripts?.[scriptName];
-  if (typeof source !== "string" || !source.trim()) {
-    problems.push(issue("ORACLE_COMMAND_NOT_ALLOWED", `npm run ${scriptName}`));
-    return [];
-  }
-  const next = new Set(stack);
-  next.add(scriptName);
-  const paths = directScriptPaths(repositoryPath, baseSha, source);
-  for (const match of source.matchAll(/(?:^|&&|\|\||;)\s*npm\s+run\s+([A-Za-z0-9:_-]+)/gu)) {
-    paths.push(...verifierPaths(repositoryPath, baseSha, manifest, match[1], problems, next));
-  }
-  return [...new Set(paths)];
-}
-
-export function oracleVerifierProtectionProblems({ repositoryPath, baseSha, children, graphChildren }) {
+export function oracleVerifierProtectionProblems({ children, graphChildren }) {
   const problems = [];
-  const manifest = packageManifest(repositoryPath, baseSha, problems);
-  if (!manifest) return problems;
   const graphById = new Map((graphChildren ?? []).map((child) => [canonicalId(child.id), child]));
-
+  const bindings = [];
   for (const child of children ?? []) {
-    let parsed;
-    try { parsed = parseChildTicket(child.body); } catch { continue; }
-    const command = parsed.oracleBinding?.execution?.command;
-    const match = typeof command === "string" ? command.match(/^npm run (verify:[A-Za-z0-9:_-]+)$/u) : null;
-    if (!match) {
-      problems.push(issue("ORACLE_COMMAND_NOT_ALLOWED", `${child.id}:${command ?? ""}`));
-      continue;
-    }
-    const sources = verifierPaths(repositoryPath, baseSha, manifest, match[1], problems);
-    if (sources.length === 0) {
-      problems.push(issue("ORACLE_VERIFIER_SOURCE_MISSING", `${child.id}:${command}`));
-    }
+    try { bindings.push(parseChildTicket(child.body).oracleBinding); } catch { /* owned by Ticket validation */ }
+  }
+  const protectedPaths = oracleVerifierProtectedPaths(bindings);
+  for (const child of children ?? []) {
     const graphChild = graphById.get(canonicalId(child.id));
-    for (const verifierPath of ["package.json", ...sources]) {
+    for (const verifierPath of protectedPaths) {
       if ((graphChild?.expectedPaths ?? []).some((pattern) => pathMatches(pattern, verifierPath))) {
-        problems.push(issue("ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET", `${child.id}:${verifierPath}`));
+        problems.push(issue("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET", `${child.id}:${verifierPath}`));
       }
     }
   }

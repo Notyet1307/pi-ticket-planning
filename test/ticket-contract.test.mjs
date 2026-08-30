@@ -36,9 +36,14 @@ function repository(t) {
   git(repo, ["config", "user.name", "Ticket Contract"]);
   fs.mkdirSync(path.join(repo, "fixtures", "oracles", "accord"), { recursive: true });
   fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+  fs.mkdirSync(path.join(repo, "schemas"), { recursive: true });
+  fs.mkdirSync(path.join(repo, "scripts", "lib"), { recursive: true });
   fs.writeFileSync(path.join(repo, "fixtures", "oracles", "accord", "o01.json"), "{\"expected\":\"PASS\"}\n");
   fs.writeFileSync(path.join(repo, "src", "schema.ts"), "export const schema = 1;\n");
-  fs.writeFileSync(path.join(repo, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node --check src/schema.ts" } })}\n`);
+  fs.writeFileSync(path.join(repo, "schemas", "o01.schema.json"), "{\"type\":\"object\"}\n");
+  fs.writeFileSync(path.join(repo, "scripts", "lib", "o01-helper.mjs"), "export const expected = 1;\n");
+  fs.writeFileSync(path.join(repo, "scripts", "verify-o01.mjs"), "import { expected } from './lib/o01-helper.mjs';\nif (expected !== 1) process.exit(1);\n");
+  fs.writeFileSync(path.join(repo, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node scripts/verify-o01.mjs" } })}\n`);
   git(repo, ["add", "."]);
   git(repo, ["commit", "-qm", "ticket contract fixture"]);
   return { repo, baseSha: git(repo, ["rev-parse", "HEAD"]) };
@@ -51,6 +56,7 @@ function readyTicket(t, overrides = {}) {
     artifactPath: "fixtures/oracles/accord/o01.json",
     format: "accord.oracle.schema9/v1",
     command: "npm run verify:oracle:o01",
+    verifierFiles: ["schemas/o01.schema.json", "scripts/lib/o01-helper.mjs", "scripts/verify-o01.mjs"],
   });
   const constraints = executionConstraints({
     riskClasses: ["SCHEMA_MIGRATION", "AUTHORITY_BOUNDARY"],
@@ -127,6 +133,9 @@ test("Oracle binding failures return stable codes", (t) => {
     [(value) => { value.binding.workerMutationAllowed = true; }, "ORACLE_MUTABLE_BY_WORKER"],
     [(value) => { value.binding.owner.identity = value.constraints.implementationOwner; }, "ORACLE_OWNER_NOT_INDEPENDENT"],
     [(value) => { value.binding.execution.command = "npm run admit"; }, "ORACLE_COMMAND_NOT_ALLOWED"],
+    [(value) => { delete value.binding.verifier; }, "ORACLE_VERIFIER_MANIFEST_MISSING"],
+    [(value) => { value.binding.verifier.files[0].sha256 = `sha256:${"0".repeat(64)}`; }, "ORACLE_VERIFIER_BINDING_DRIFT"],
+    [(value) => { value.binding.verifier.packageScript.definitionSha256 = `sha256:${"0".repeat(64)}`; }, "ORACLE_VERIFIER_BINDING_DRIFT"],
   ]) {
     const ready = readyTicket(t);
     mutate(ready);
