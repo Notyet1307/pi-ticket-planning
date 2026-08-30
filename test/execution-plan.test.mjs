@@ -243,6 +243,14 @@ test("execution compiler maps one exact accepted graph and rejects non-executabl
   assert.match(plan.releasePlan.reviewFocus[1], /Walking skeleton handoff/);
   assert.equal(plan.releasePlan.issues[0].order, 1);
   assert.deepEqual(plan.releasePlan.issues[0].dependsOn, []);
+  assert.deepEqual(
+    plan.releasePlan.issues[0].oracleBindings[0].verifier,
+    parseChildTicket(input.children[0].body).oracleBinding.verifier,
+  );
+  assert.equal(
+    plan.freshness.oracleBindingDigests[0].digest,
+    input.deliveryGraph.children[0].oracleBindingDigest,
+  );
   assert.equal(plan.policy.accepted, undefined);
   assert.match(plan.children[0].bodyHash, /^sha256:/);
   for (const [mutate, code] of [[(value) => { value.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].blockedBy = ["999"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
@@ -438,6 +446,21 @@ test("execution compiler keeps executable-release shape fail-closed", () => {
   missingOracle.children[0].body = missingOracle.children[0].body.replace("## Oracle binding", "## Oracle name");
   rewriteGraph(missingOracle, () => {});
   assert.throws(() => compileExecutionPlan(missingOracle, { controller: controllerBinding(missingOracle) }), /MISSING_ORACLE_BINDING/);
+  const missingVerifier = executionInput();
+  const parsed = parseChildTicket(missingVerifier.children[0].body).oracleBinding;
+  const changed = structuredClone(parsed);
+  delete changed.verifier;
+  missingVerifier.children[0].body = missingVerifier.children[0].body.replace(JSON.stringify(parsed), JSON.stringify(changed));
+  rewriteGraph(missingVerifier, () => {});
+  assert.throws(() => compileExecutionPlan(missingVerifier, { controller: controllerBinding(missingVerifier) }), /ORACLE_VERIFIER_MANIFEST_MISSING/);
+  const verifierWrite = executionInput();
+  const ticket = parseChildTicket(verifierWrite.children[0].body);
+  verifierWrite.children[0].body = verifierWrite.children[0].body.replace(
+    JSON.stringify(ticket.executionConstraints),
+    JSON.stringify({ ...ticket.executionConstraints, expectedPaths: ["package.json"] }),
+  );
+  rewriteGraph(verifierWrite, (graph) => { graph.children[0].expectedPaths = ["package.json"]; });
+  assert.throws(() => compileExecutionPlan(verifierWrite, { controller: controllerBinding(verifierWrite) }), /GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET/);
 });
 
 test("execution compiler binds an executable graph to an executable Delivery Spec Parent", () => {

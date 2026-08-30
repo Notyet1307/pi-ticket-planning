@@ -25,10 +25,10 @@ export const digest = (letter) => `sha256:${letter.repeat(64)}`;
 
 export const CONTROLLER_IDENTITY = {
   version: 1,
-  sourceRevision: "50665339dce3fb94c24355fcc56015c3aadf0b36",
-  sourceManifestDigest: "325e2914ec9d529704bdd9833dcc57dcc66c627b5811807f814db113c526be19",
-  buildDigest: "5bf946759b0ed7c4449b7960ad933787e57109cee9aec3ef34833d51b8487c74",
-  digest: "af137f2ab44537588fe54ccf18a18c876b45fc5b6848af5e5babb09d2b23bb64",
+  sourceRevision: "1d59be3f97750f091c2cf7ff756d5e522cd79f2f",
+  sourceManifestDigest: "05ef199aca1bc5ca250f0b0ed7bae62fbf8400ee78628b9bfcdb88ba89dc8516",
+  buildDigest: "db6f752042e5f846686dc0757af5fa369ecc31a47e2496c02e2f9a4613078c93",
+  digest: "39922c5151f8d991a9c19b6f35133fecd34f61df15ba004bef0c209f98446688",
 };
 
 export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY) {
@@ -73,8 +73,6 @@ export function executionInput() {
     expectedPaths: ["execution-plan/compiler.mjs"],
     protectedPaths: [
       "fixtures/admission-cases.json",
-      "package.json",
-      "scripts/verify-protocol.mjs",
       "evidence/spec-acceptance.json",
       "evidence/decision-manifest.json",
       "AGENTS.md",

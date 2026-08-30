@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("pinned latest Controller lock qualifies only the direct Release Plan v2 mainline", () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  assert.equal(lock.commit, "50665339dce3fb94c24355fcc56015c3aadf0b36");
+  assert.equal(lock.commit, "1d59be3f97750f091c2cf7ff756d5e522cd79f2f");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
   assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
@@ -84,6 +84,7 @@ if (args[0] === "config") {
   assert.equal(result.vectors.oracleValidationCommandMissing, "REJECTED");
   assert.equal(result.freshCases["c2-stale-base-a"], "EXECUTION_BASE_DRIFT");
   assert.equal(result.freshCases["c2-fresh-base-b"], "PASS");
+  assert.equal(result.freshCases["verifier-byte-drift"], "ORACLE_VERIFIER_BINDING_DRIFT");
   const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);
   assert.equal(calls.some(([first, second]) => `${first}:${second}` === "config:validate"), true);
   assert.equal(calls.some(([first, second]) => `${first}:${second}` === "plan:validate"), true);

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { fingerprint } from "../execution-plan/domain.mjs";
 import { assertFreshExecutionInput, executionFreshnessProjection, gitRemoteBase } from "../execution-plan/freshness.mjs";
+import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { advanceDependencyWithoutManifest, createFreshnessFixture, git, write } from "./execution-freshness-fixture.mjs";
 
 const fresh = (input) => assertFreshExecutionInput(input, { resolveRemoteBase: gitRemoteBase });
@@ -20,6 +22,14 @@ test("fresh execution input returns each stable drift code", (t) => {
     ["PREDECESSOR_RECEIPT_DRIFT", true, (input) => { input.deliveryGraph.predecessorReceiptBinding.sha256 = `sha256:${"0".repeat(64)}`; }],
     ["DEPENDENCY_HANDOFF_DRIFT", true, (input, repo) => { advanceDependencyWithoutManifest(input, repo); }],
     ["ORACLE_BINDING_DRIFT", false, (input) => { input.children[0].body = input.children[0].body.replace(/"sha256":"sha256:[a-f0-9]{64}"/u, `"sha256":"sha256:${"0".repeat(64)}"`); }],
+    ["ORACLE_VERIFIER_BINDING_DRIFT", false, (input) => {
+      const original = parseChildTicket(input.children[0].body).oracleBinding;
+      const changed = structuredClone(original);
+      changed.verifier.files[0].sha256 = `sha256:${"0".repeat(64)}`;
+      const { digest: _digest, ...body } = changed.verifier;
+      changed.verifier.digest = fingerprint(body);
+      input.children[0].body = input.children[0].body.replace(JSON.stringify(original), JSON.stringify(changed));
+    }],
   ];
   for (const [code, downstream, mutate] of cases) {
     const { input, repo } = createFreshnessFixture(t, { downstream });

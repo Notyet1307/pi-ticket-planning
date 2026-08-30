@@ -18,6 +18,7 @@ import { validateArtifact } from "../protocol/kernel.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "./check-delivery-graph.mjs";
 import { checkTicketContext } from "./check-ticket-context.mjs";
 import {
+  buildOracleVerifierManifest,
   oracleBindingDigest,
   REQUIRED_REPLAN_TRIGGERS,
   ticketReviewProjection,
@@ -65,7 +66,7 @@ function fixtureConfig(root) {
 
 function reviewedInput({ repositoryPath, baseSha, repo, baseRef }) {
   const oracleBytes = fs.readFileSync(path.join(repositoryPath, "seed.txt"));
-  const oracle = {
+  const oracleBody = {
     schema: "pi-ticket-planning:oracle-binding:v1",
     id: "O01",
     owner: { kind: "INDEPENDENT_VERIFICATION", identity: "contract-canary-oracle" },
@@ -78,6 +79,16 @@ function reviewedInput({ repositoryPath, baseSha, repo, baseRef }) {
     },
     execution: { command: "npm run verify:oracle:o01" },
     workerMutationAllowed: false,
+  };
+  const oracle = {
+    ...oracleBody,
+    verifier: buildOracleVerifierManifest({
+      repo: repositoryPath,
+      baseSha,
+      oracleId: oracleBody.id,
+      command: oracleBody.execution.command,
+      files: ["scripts/verify-o01.mjs"],
+    }),
   };
   const constraints = {
     implementationOwner: "contract-canary-worker",
@@ -405,6 +416,27 @@ function controllerCli(root, temporary, commit) {
   return { buildRoot, cli: assertCanonicalPrivateExistingFile(cli, "CONTROLLER_CLI") };
 }
 
+function controllerOracleRuntimeTests(buildRoot) {
+  const names = [
+    "each Issue Oracle runs before commit and release validation runs every Oracle again",
+    "every Worker globally protects other Tickets' verifier files and package scripts",
+    "verifier manifest byte drift and hardening drift are REPLAN_REQUIRED",
+  ];
+  const testFile = assertCanonicalPrivateExistingFile(
+    path.join(buildRoot, "dist", "test", "oracle-verifier.test.js"),
+    "CONTROLLER_ORACLE_RUNTIME_TEST",
+  );
+  const result = run(process.execPath, [
+    "--test",
+    `--test-name-pattern=${names.join("|")}`,
+    testFile,
+  ], { cwd: buildRoot, timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
+  if (result.error || result.signal || result.status !== 0 || names.some((name) => !result.stdout.includes(name))) {
+    throw new Error("CONTROLLER_ORACLE_RUNTIME_TEST_FAILED");
+  }
+  return { status: "PASS", tests: names, evidence: "deterministic-controller-runtime-tests" };
+}
+
 function contractRoot(value) {
   if (typeof value !== "string" || !path.isAbsolute(value) || !fs.existsSync(value)) {
     throw new Error("CONTROLLER_UNAVAILABLE: an absolute Controller checkout is required; no canary was run");
@@ -444,8 +476,10 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   git(repository, ["config", "user.name", "Contract Canary"]);
   fs.writeFileSync(path.join(repository, "seed.txt"), "contract canary\n", { mode: 0o600 });
   fs.writeFileSync(path.join(repository, "handoff.txt"), "C1 handoff\n", { mode: 0o600 });
-  fs.writeFileSync(path.join(repository, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node --check seed.txt" } })}\n`, { mode: 0o600 });
-  git(repository, ["add", "seed.txt", "handoff.txt", "package.json"]);
+  fs.mkdirSync(path.join(repository, "scripts"), { mode: 0o700 });
+  fs.writeFileSync(path.join(repository, "scripts", "verify-o01.mjs"), "import fs from 'node:fs';\nif (fs.readFileSync('seed.txt', 'utf8') !== 'contract canary\\n') process.exit(1);\n", { mode: 0o600 });
+  fs.writeFileSync(path.join(repository, "package.json"), `${JSON.stringify({ scripts: { "verify:oracle:o01": "node scripts/verify-o01.mjs" } })}\n`, { mode: 0o600 });
+  git(repository, ["add", "seed.txt", "handoff.txt", "package.json", "scripts/verify-o01.mjs"]);
   requireRun(run("git", ["-C", repository, "commit", "-qm", "contract canary"], {
     env: { ...process.env, GIT_AUTHOR_DATE: "2026-08-20T00:00:00Z", GIT_COMMITTER_DATE: "2026-08-20T00:00:00Z" },
   }), "TEMP_GIT_FAILED");
@@ -528,6 +562,17 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   oracleDrift.children[0].body = oracleDrift.children[0].body.replace(/"sha256":"sha256:[a-f0-9]{64}"/u, `"sha256":"sha256:${"0".repeat(64)}"`);
   try { readFresh(oracleDrift); freshCases["oracle-drift"] = "UNEXPECTED_PASS"; }
   catch (error) { freshCases["oracle-drift"] = error.message; }
+  const verifierDrift = structuredClone(c2);
+  const parsedVerifier = parseChildTicket(verifierDrift.children[0].body).oracleBinding;
+  const driftedVerifier = structuredClone(parsedVerifier);
+  driftedVerifier.verifier.files[0].sha256 = `sha256:${"0".repeat(64)}`;
+  const { digest: _verifierDigest, ...verifierBody } = driftedVerifier.verifier;
+  driftedVerifier.verifier.digest = fingerprint(verifierBody);
+  verifierDrift.children[0].body = verifierDrift.children[0].body
+    .replace(JSON.stringify(parsedVerifier), JSON.stringify(driftedVerifier));
+  rebindExecutionInput(verifierDrift, verifierDrift.source.baseSha);
+  try { readFresh(verifierDrift); freshCases["verifier-byte-drift"] = "UNEXPECTED_PASS"; }
+  catch (error) { freshCases["verifier-byte-drift"] = error.message; }
 
   const parentDrift = structuredClone(c2);
   parentDrift.parent.body += "\nchanged";
@@ -618,10 +663,11 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
       || vectors.controllerSourceManifestDigest !== lock.sourceManifestDigest
       || vectors.controllerBuildDigest !== lock.buildDigest
       || vectors.controllerIdentityDigest !== lock.identityDigest) throw new Error("CONTROLLER_IDENTITY_READBACK_DRIFT");
+    const oracleRuntime = controllerOracleRuntimeTests(built.buildRoot);
     fs.appendFileSync(path.join(built.buildRoot, "README.md"), "\n");
     try { qualifiedCommit(built.buildRoot, lock.commit); throw new Error("CONTROLLER_DIRTY_CHECKOUT_ACCEPTED"); }
     catch (error) { if (error.message !== "CONTROLLER_WORKTREE_DIRTY") throw error; }
-    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, controllerReadback: "MATCHED", dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
+    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }

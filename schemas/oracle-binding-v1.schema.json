@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/oracle-binding-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "id", "owner", "artifact", "execution", "workerMutationAllowed"],
+  "required": ["schema", "id", "owner", "artifact", "execution", "verifier", "workerMutationAllowed"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:oracle-binding:v1" },
     "id": { "type": "string", "pattern": "^O(?:0[1-9][0-9]*|[1-9][0-9]*)$" },
@@ -36,6 +36,7 @@
         "command": { "$ref": "common-v1.schema.json#/$defs/safeText" }
       }
     },
+    "verifier": { "$ref": "oracle-verifier-manifest-v1.schema.json" },
     "workerMutationAllowed": { "const": false }
   }
 }

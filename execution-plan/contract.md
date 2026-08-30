@@ -4,7 +4,7 @@ Use the immutable accepted Delivery Spec, exact `spec-acceptance:v1` receipt, se
 
 ## Qualified Controller mainline
 
-`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, and integration scope. The currently qualified revision is `50665339dce3fb94c24355fcc56015c3aadf0b36`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
+`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, and integration scope. The currently qualified revision is `1d59be3f97750f091c2cf7ff756d5e522cd79f2f`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
 
 This contract qualifies only the direct path:
 
@@ -18,14 +18,14 @@ approved Delivery Graph
 
 The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
 
-The v3 artifact represents one bounded all-AGENT Release. Before compilation, each Ticket passes Oracle/risk/scope/protected-write-set/replan and exact reviewer checks. Build and apply also fresh-read the remote base, tracked Spec receipt, decision manifest sources, predecessor receipt, dependency handoffs, Parent/Children, Oracle bytes, and Controller provenance. Approval binds that projection, the Graph/review, projected Plan, and handoff fingerprint.
+The v3 artifact represents one bounded all-AGENT Release. Before compilation, each Ticket passes Oracle/risk/scope/protected-write-set/replan and exact reviewer checks. Build and apply also fresh-read the remote base, tracked Spec receipt, decision manifest sources, predecessor receipt, dependency handoffs, Parent/Children, Oracle data, explicit verifier source/helper/schema bytes, package script definition, and Controller provenance. Approval binds that projection, the Graph/review, projected Plan, and handoff fingerprint.
 
 Release Plan v2 binds:
 
 - target repository, accepted base ref, and exact 40-hex base commit;
 - open Parent number, exact title, and UTF-8 body hash;
 - Delivery Spec content hash and canonical Delivery Graph digest;
-- decision-manifest, predecessor-receipt, dependency-handoff, and Oracle binding digests;
+- decision-manifest, predecessor-receipt, dependency-handoff, and full Oracle binding digests (including each verifier manifest digest);
 - every open Child number, order, internal dependencies, exact title/body hash, one-sentence objective, and 3–8 exact assertions;
 - every Child Oracle binding, risk classes, scope budget, expected/protected paths, REPLAN triggers, integration-only declaration, and waiver digests;
 - scenario-observable Release acceptance plus the walking-skeleton target;

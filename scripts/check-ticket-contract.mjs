@@ -131,6 +131,84 @@ export function readRegularBaseFile(repo, baseSha, file) {
   return shown.ok && Buffer.isBuffer(shown.stdout) ? shown.stdout : null;
 }
 
+function digestBytes(bytes) {
+  return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+function exactKeys(value, keys) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).sort().join("\n") === [...keys].sort().join("\n");
+}
+
+export function buildOracleVerifierManifest({ repo, baseSha, oracleId, command, files }) {
+  const commandMatch = typeof command === "string" ? command.match(/^npm run (verify:[A-Za-z0-9:_-]+)$/u) : null;
+  const packageBytes = readRegularBaseFile(repo, baseSha, "package.json");
+  let packageJson;
+  try { packageJson = JSON.parse(packageBytes?.toString("utf8")); } catch { throw new Error("ORACLE_VERIFIER_BINDING_DRIFT"); }
+  const definition = commandMatch ? packageJson?.scripts?.[commandMatch[1]] : null;
+  if (typeof definition !== "string" || !Array.isArray(files) || files.length === 0
+    || new Set(files).size !== files.length) {
+    throw new Error("ORACLE_VERIFIER_BINDING_DRIFT");
+  }
+  const bindings = [...new Set(files)].sort().map((file) => {
+    if (file === "package.json" || !safeExactPath(file)) throw new Error("ORACLE_VERIFIER_BINDING_DRIFT");
+    const bytes = readRegularBaseFile(repo, baseSha, file);
+    if (!bytes) throw new Error("ORACLE_VERIFIER_BINDING_DRIFT");
+    return { path: file, sha256: digestBytes(bytes), byteCount: bytes.length };
+  });
+  const body = {
+    schema: "herdr-codex-controller:oracle-verifier-manifest:v1",
+    oracleId,
+    command,
+    packageScript: { name: commandMatch[1], definitionSha256: digestBytes(Buffer.from(definition, "utf8")) },
+    files: bindings,
+  };
+  return { ...body, digest: ticketContractDigest(body) };
+}
+
+export function oracleVerifierProtectedPaths(bindings) {
+  return [...new Set([
+    "package.json",
+    ...(bindings ?? []).flatMap((binding) => binding?.verifier?.files?.map(({ path: file }) => file) ?? []),
+  ])].sort();
+}
+
+function validateOracleVerifier(binding, { repo, baseSha }, problems) {
+  const verifier = binding?.verifier;
+  if (!exactKeys(verifier, ["schema", "oracleId", "command", "packageScript", "files", "digest"])
+    || verifier.schema !== "herdr-codex-controller:oracle-verifier-manifest:v1"
+    || !exactKeys(verifier.packageScript, ["name", "definitionSha256"])
+    || !Array.isArray(verifier.files) || verifier.files.length === 0 || verifier.files.length > 100
+    || verifier.files.some((file) => !exactKeys(file, ["path", "sha256", "byteCount"]))) {
+    problems.push(issue("ORACLE_VERIFIER_MANIFEST_MISSING", binding?.id));
+    return null;
+  }
+  const command = typeof binding.execution?.command === "string" ? binding.execution.command : "";
+  const commandMatch = command.match(/^npm run (verify:[A-Za-z0-9:_-]+)$/u);
+  const paths = verifier.files.map(({ path: file }) => file);
+  const { digest: _digest, ...verifierBody } = verifier;
+  let drift = verifier.oracleId !== binding.id
+    || verifier.command !== command
+    || !commandMatch || verifier.packageScript.name !== commandMatch?.[1]
+    || !DIGEST.test(verifier.packageScript.definitionSha256 ?? "")
+    || !DIGEST.test(verifier.digest ?? "") || ticketContractDigest(verifierBody) !== verifier.digest
+    || paths.includes("package.json") || new Set(paths).size !== paths.length
+    || paths.join("\n") !== [...paths].sort().join("\n")
+    || verifier.files.some((file) => !safeExactPath(file.path) || !DIGEST.test(file.sha256 ?? "")
+      || !Number.isInteger(file.byteCount) || file.byteCount < 0 || file.byteCount > 64 * 1024 * 1024);
+  const packageBytes = readRegularBaseFile(repo, baseSha, "package.json");
+  let definition = null;
+  try { definition = JSON.parse(packageBytes?.toString("utf8"))?.scripts?.[verifier.packageScript.name]; } catch { /* drift below */ }
+  if (typeof definition !== "string"
+    || digestBytes(Buffer.from(definition, "utf8")) !== verifier.packageScript.definitionSha256) drift = true;
+  for (const file of verifier.files) {
+    const bytes = readRegularBaseFile(repo, baseSha, file.path);
+    if (!bytes || bytes.length !== file.byteCount || digestBytes(bytes) !== file.sha256) drift = true;
+  }
+  if (drift) problems.push(issue("ORACLE_VERIFIER_BINDING_DRIFT", binding.id));
+  return verifier;
+}
+
 function allowedOracleCommand(repo, baseSha, command, problems) {
   const bytes = readRegularBaseFile(repo, baseSha, "package.json");
   if (!bytes) {
@@ -182,6 +260,7 @@ function validateOracleBinding(binding, { repo, baseSha, implementationOwner }, 
     }
   }
   allowedOracleCommand(repo, baseSha, binding.execution?.command, problems);
+  validateOracleVerifier(binding, { repo, baseSha }, problems);
   return binding;
 }
 
@@ -390,6 +469,11 @@ export function validateTicketContract({ repositoryPath, baseSha, child, graphCh
     implementationOwner: constraints.implementationOwner,
   }, problems);
   problems.push(...staticConstraintsProblems(constraints, child.id, oracle?.artifact?.path));
+  for (const verifierPath of oracleVerifierProtectedPaths(oracle ? [oracle] : [])) {
+    if ((constraints.expectedPaths ?? []).some((expected) => pathMatches(expected, verifierPath))) {
+      problems.push(issue("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET", `${child.id}:${verifierPath}`));
+    }
+  }
   if (graphChild) {
     try {
       const projected = graphProjection(parsed);

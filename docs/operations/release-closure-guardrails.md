@@ -20,9 +20,9 @@ The Oracle artifact itself remains explicitly listed in `protectedPaths` under t
 
 ## Oracle verifier write exclusion
 
-For each bound `npm run verify:*` Oracle command, the Planner reads the exact reviewed-base `package.json`, follows directly invoked repository scripts, and resolves their direct tracked file operands. `package.json` and those verifier sources must remain outside the Ticket's `expectedPaths`. A match fails with `ORACLE_VERIFIER_PATH_IN_EXPECTED_WRITE_SET`.
+Each Oracle binding carries a closed `herdr-codex-controller:oracle-verifier-manifest:v1`. The independent verification owner explicitly lists the exact package script definition plus every verifier source, helper, and schema byte; the Planner does not infer this closure from imports or command text. Across the whole Release, `package.json` and every declared verifier file must remain outside every Ticket's `expectedPaths`. A match fails with `GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET`.
 
-This protects the Oracle data and the direct repository-owned command definition from being rewritten by the implementation Ticket. It is intentionally a bounded direct-source check, not a general JavaScript dependency resolver.
+Missing manifest shape fails with `ORACLE_VERIFIER_MANIFEST_MISSING`; manifest digest, package script, or declared file byte drift fails with `ORACLE_VERIFIER_BINDING_DRIFT`.
 
 ## One write owner
 
@@ -32,7 +32,7 @@ Within one executable Release, every `expectedPaths` family has one Ticket owner
 
 Binding immutable Oracle bytes is not enough. Every bound Oracle command must also appear exactly in the qualified Controller configuration's `validation.release` command list. Missing coverage fails the qualified build, verify, or apply path with `ORACLE_VALIDATION_COMMAND_MISSING`.
 
-The Controller config digest and provenance bind that command set through handoff and `start`; the Controller then executes it during authoritative Release validation.
+The Controller config digest and provenance bind that command set through handoff and `start`. The Controller executes each Ticket's Oracle before its commit, records a durable Validation Receipt v2, and runs every Oracle again during authoritative Release validation.
 
 ## Roadmap continuity
 
