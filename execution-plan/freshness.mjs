@@ -156,16 +156,13 @@ export function freshnessDriftCode(expected, actual) {
   return null;
 }
 
-export function assertFreshExecutionInput(input, { resolveRemoteBase = githubRemoteBase } = {}) {
+export function assertTrackedReleaseBindings(input) {
   const graph = graphOf(input);
   const repo = input.repositoryPath;
+  const current = graph.executionBaseSha;
   if (!repositoryDirectory(repo)) stableError("EXECUTION_BASE_DRIFT");
-  const current = resolveRemoteBase({ repositoryPath: repo, repo: input.repo, baseRef: input.source?.baseRef });
   const local = runGit(repo, ["rev-parse", "--verify", `${current}^{commit}`]);
   if (!local.ok || local.stdout.trim() !== current) stableError("EXECUTION_BASE_DRIFT");
-  if (current !== graph.executionBaseSha || current !== input.source?.baseSha) stableError("EXECUTION_BASE_DRIFT");
-  if (graph.releaseOrdinal === 1 && (graph.executionBasePolicy !== "PLANNING_BASE_OR_DESCENDANT"
-    || !isGitAncestor(repo, graph.planningBaseSha, current))) stableError("EXECUTION_BASE_DRIFT");
 
   const acceptance = boundJson(repo, current, graph.specAcceptanceBinding, graph.specAcceptance, "SPEC_ACCEPTANCE_DRIFT");
   if (validateSpecAcceptance(acceptance).length > 0) stableError("SPEC_ACCEPTANCE_DRIFT");
@@ -184,6 +181,18 @@ export function assertFreshExecutionInput(input, { resolveRemoteBase = githubRem
     const actualHandoffs = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256).sort();
     if (!same(expectedHandoffs, actualHandoffs)) stableError("DEPENDENCY_HANDOFF_DRIFT");
   }
+  return true;
+}
+
+export function assertFreshExecutionInput(input, { resolveRemoteBase = githubRemoteBase } = {}) {
+  const graph = graphOf(input);
+  const repo = input.repositoryPath;
+  if (!repositoryDirectory(repo)) stableError("EXECUTION_BASE_DRIFT");
+  const current = resolveRemoteBase({ repositoryPath: repo, repo: input.repo, baseRef: input.source?.baseRef });
+  if (current !== graph.executionBaseSha || current !== input.source?.baseSha) stableError("EXECUTION_BASE_DRIFT");
+  if (graph.releaseOrdinal === 1 && (graph.executionBasePolicy !== "PLANNING_BASE_OR_DESCENDANT"
+    || !isGitAncestor(repo, graph.planningBaseSha, current))) stableError("EXECUTION_BASE_DRIFT");
+  assertTrackedReleaseBindings(input);
 
   const live = new Map((input.children ?? []).map((child) => [String(child.id), child]));
   for (const graphChild of graph.children) {

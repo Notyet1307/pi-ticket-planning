@@ -12,8 +12,6 @@ import {
   roadmapReleaseBindingProblems,
 } from "../scripts/check-release-closure.mjs";
 import {
-  BASE_SHA,
-  ROOT,
   controllerBinding,
   executionInput,
 } from "./execution-plan-fixture.mjs";
@@ -76,15 +74,15 @@ test("release closure rejects overlapping expected path ownership", () => {
 test("Oracle verifier command definition and direct source stay outside the Ticket write set", () => {
   const input = executionInput();
   assert.deepEqual(oracleVerifierProtectionProblems({
-    repositoryPath: ROOT,
-    baseSha: BASE_SHA,
+    repositoryPath: input.repositoryPath,
+    baseSha: input.source.baseSha,
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }), []);
   input.deliveryGraph.children[0].expectedPaths = ["scripts/verify-protocol.mjs"];
   let codes = problemCodes(oracleVerifierProtectionProblems({
-    repositoryPath: ROOT,
-    baseSha: BASE_SHA,
+    repositoryPath: input.repositoryPath,
+    baseSha: input.source.baseSha,
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));
@@ -92,8 +90,8 @@ test("Oracle verifier command definition and direct source stay outside the Tick
 
   input.deliveryGraph.children[0].expectedPaths = ["package.json"];
   codes = problemCodes(oracleVerifierProtectionProblems({
-    repositoryPath: ROOT,
-    baseSha: BASE_SHA,
+    repositoryPath: input.repositoryPath,
+    baseSha: input.source.baseSha,
     children: input.children,
     graphChildren: input.deliveryGraph.children,
   }));

@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("pinned latest Controller lock qualifies only the direct Release Plan v2 mainline", () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  assert.equal(lock.commit, "987a30872494e50987f17d1cc74304763bc74a28");
+  assert.equal(lock.commit, "50665339dce3fb94c24355fcc56015c3aadf0b36");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
   assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
@@ -60,7 +60,7 @@ if (args[0] === "config") {
     || Object.keys(plan.issues?.[0] ?? {}).sort().join("\\n") !== issue.sort().join("\\n")) {
     console.log(JSON.stringify({ok:false,problems:[{code:"INVALID_PLAN_KEYS"}]}));
     process.exitCode = 1;
-  } else { const planDigest=digest(plan); const config=JSON.parse(fs.readFileSync(args[args.indexOf("--config") + 1], "utf8")); const body={version:1,controller,executionMode:config.executionMode,configDigest:digest(config),releasePlan:{version:2,digest:planDigest}}; console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}})); }
+  } else { const config=JSON.parse(fs.readFileSync(args[args.indexOf("--config") + 1], "utf8")); const release=new Set((config.validation?.release??[]).map((entry)=>typeof entry==='string'?entry:entry.command)); const missing=plan.issues?.some((issue)=>issue.oracleBindings?.some((binding)=>!release.has(binding.execution.command))); if(missing){console.error('oracle_validation_command_missing');process.exitCode=1}else{const planDigest=digest(plan);const body={version:1,controller,executionMode:config.executionMode,configDigest:digest(config),releasePlan:{version:2,digest:planDigest}};console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}}));} }
 } else process.exit(90);
 `, { mode: 0o700 });
 
@@ -81,6 +81,7 @@ if (args[0] === "config") {
   assert.equal(result.controllerRevision, CONTROLLER_IDENTITY.sourceRevision);
   assert.equal(result.controllerIdentityDigest, CONTROLLER_IDENTITY.digest);
   assert.equal(result.handoffScope.dispatch, "OUT_OF_SCOPE");
+  assert.equal(result.vectors.oracleValidationCommandMissing, "REJECTED");
   assert.equal(result.freshCases["c2-stale-base-a"], "EXECUTION_BASE_DRIFT");
   assert.equal(result.freshCases["c2-fresh-base-b"], "PASS");
   const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);

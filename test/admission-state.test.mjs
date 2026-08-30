@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import test from "node:test";
-import { fileURLToPath } from "node:url";
+import test, { after } from "node:test";
 import { fingerprint } from "../execution-plan/domain.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
@@ -15,21 +13,41 @@ import {
   oracleBinding,
   ticketBody,
 } from "./ticket-contract-fixture.mjs";
+import { createAdmissionBindingFixture } from "./admission-binding-fixture.mjs";
 
-const repositoryPath = fileURLToPath(new URL("..", import.meta.url));
-const baseSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).stdout.trim();
+const specBody = [
+  "# Delivery Spec",
+  "",
+  "## Behavioral scenarios",
+  "### S1: Accept input",
+  "The user submits input.",
+  "",
+  "### S2: Return result",
+  "The user receives a result.",
+].join("\n");
+const parent = { id: "100", title: "Delivery Spec", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}` };
+const bindings = createAdmissionBindingFixture({
+  registerCleanup: after,
+  parent,
+  specBody,
+  caseId: "PC-R1",
+  approvalId: "F-spec-approval",
+  acceptedAt: "2026-08-29T01:00:00Z",
+  productReleaseIdentity: "R1/r2",
+});
+const {
+  repositoryPath,
+  planningBaseSha,
+  executionBaseSha: baseSha,
+  specAcceptance,
+  specAcceptanceBinding,
+  decisionManifest,
+  decisionManifestBinding,
+  predecessorReceipt,
+  predecessorReceiptBinding,
+} = bindings;
 
 function readyBundle() {
-  const specBody = [
-    "# Delivery Spec",
-    "",
-    "## Behavioral scenarios",
-    "### S1: Accept input",
-    "The user submits input.",
-    "",
-    "### S2: Return result",
-    "The user receives a result.",
-  ].join("\n");
   const binding = oracleBinding({ repo: repositoryPath, baseSha });
   const children = [
     {
@@ -59,21 +77,6 @@ function readyBundle() {
       blockedBy: ["101"],
     },
   ];
-  const parent = { id: "100", title: "Delivery Spec", body: `${specBody}\n\n${EXECUTABLE_DELIVERY_SPEC_MARKER}` };
-  const acceptanceBody = {
-    schema: "pi-ticket-planning:spec-acceptance:v1",
-    parent: { number: 100, title: parent.title, bodyHash: hashText(parent.body) },
-    source: { baseSha, specContentHash: hashText(specBody) },
-    decision: { caseId: "PC-R1", approvalId: "F-spec-approval", acceptedAt: "2026-08-29T00:00:00Z" },
-  };
-  const decisionManifestBody = {
-    schema: "pi-ticket-planning:decision-manifest:v1",
-    baseSha,
-    policy: { identity: "AGENTS.md", path: "AGENTS.md", sha256: `sha256:${"a".repeat(64)}`, byteCount: 1 },
-    productRelease: { identity: "R1/r2", path: "README.md", sha256: `sha256:${"b".repeat(64)}`, byteCount: 1 },
-    decisions: [],
-    dependencyHandoffs: [],
-  };
   const snapshot = {
     schema: "pi-ticket-planning:delivery-release-graph:v3",
     kind: "EXECUTABLE_RELEASE",
@@ -81,18 +84,18 @@ function readyBundle() {
     readinessState: "GRAPH_REVIEWED",
     releaseId: "R1-C1-r1",
     releaseOrdinal: 1,
-    planningBaseSha: baseSha,
+    planningBaseSha,
     executionBaseSha: baseSha,
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
-    specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
-    specAcceptanceBinding: { path: "evidence/spec-acceptance.json", baseSha, sha256: `sha256:${"c".repeat(64)}`, byteCount: 1 },
-    decisionManifest: { ...decisionManifestBody, digest: fingerprint(decisionManifestBody) },
-    decisionManifestBinding: { path: "evidence/decision-manifest.json", baseSha, sha256: `sha256:${"d".repeat(64)}`, byteCount: 1 },
-    decisionManifestDigest: `sha256:${"d".repeat(64)}`,
+    specAcceptance: structuredClone(specAcceptance),
+    specAcceptanceBinding: structuredClone(specAcceptanceBinding),
+    decisionManifest: structuredClone(decisionManifest),
+    decisionManifestBinding: structuredClone(decisionManifestBinding),
+    decisionManifestDigest: decisionManifestBinding.sha256,
     source: {
       identity: "PRODUCT_RELEASE R1",
       revision: "r2",
@@ -240,6 +243,18 @@ test("acceptance receipt fails closed on Parent contradiction or body drift", ()
   assert.equal(validateAdmissionState(childClaim).problems.some(({ code }) => code === "CHILD_ACCEPTANCE_WITHOUT_EXACT_RECEIPT"), true);
 });
 
+test("Admission dereferences tracked receipt and decision bytes at the execution base", () => {
+  const receiptDrift = readyBundle();
+  receiptDrift.deliveryGraph.specAcceptanceBinding.sha256 = `sha256:${"0".repeat(64)}`;
+  assert.equal(validateAdmissionState(receiptDrift).problems.some(({ code }) => code === "SPEC_ACCEPTANCE_DRIFT"), true);
+
+  const decisionDrift = readyBundle();
+  decisionDrift.deliveryGraph.decisionManifest.policy.sha256 = `sha256:${"0".repeat(64)}`;
+  const { digest: _digest, ...decisionBody } = decisionDrift.deliveryGraph.decisionManifest;
+  decisionDrift.deliveryGraph.decisionManifest.digest = fingerprint(decisionBody);
+  assert.equal(validateAdmissionState(decisionDrift).problems.some(({ code }) => code === "DECISION_MANIFEST_DRIFT"), true);
+});
+
 test("Admission rejects a natural-language Oracle without an exact binding", () => {
   const bundle = readyBundle();
   bundle.children[0].body = bundle.children[0].body.replace("## Oracle binding", "## Oracle name");
@@ -251,21 +266,13 @@ test("Admission rejects a natural-language Oracle without an exact binding", () 
 test("downstream release binds its predecessor receipt to the exact Roadmap sequence", () => {
   const bundle = readyBundle();
   bundle.roadmapParent = { id: "99", title: "R1 Roadmap", body: `# R1 Roadmap\n\n${ROADMAP_PARENT_MARKER}` };
-  const receiptBody = {
-    schema: "pi-ticket-planning:release-predecessor-receipt:v1",
-    releaseId: "R1-C1-r1",
-    mergedMainSha: baseSha,
-    handoffDigests: [],
-    validationDigest: `sha256:${"7".repeat(64)}`,
-    completedAt: "2026-08-29T01:00:00Z",
-  };
   const roadmapBody = {
     schema: "pi-ticket-planning:roadmap-graph:v1",
     kind: "ROADMAP",
     executable: false,
     readinessState: "PLANNED",
     roadmapId: "R1",
-    planningBaseSha: baseSha,
+    planningBaseSha,
     parent: { number: 99, title: bundle.roadmapParent.title, bodyHash: hashText(bundle.roadmapParent.body) },
     plannedReleases: [
       { releaseId: "R1-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
@@ -292,10 +299,14 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
     executionBasePolicy: "PREDECESSOR_MERGE_OR_DESCENDANT",
     roadmapDigest: bundle.roadmapGraph.digest,
     predecessorReleaseId: "R1-C1-r1",
-    predecessorReceipt: { ...receiptBody, digest: fingerprint(receiptBody) },
-    predecessorReceiptBinding: { path: "evidence/c1-completion.json", baseSha, sha256: `sha256:${"6".repeat(64)}`, byteCount: 1 },
+    predecessorReceipt: structuredClone(predecessorReceipt),
+    predecessorReceiptBinding: structuredClone(predecessorReceiptBinding),
   });
   assert.equal(validateAdmissionState(bundle).ok, true);
+
+  const receiptDrift = structuredClone(bundle);
+  receiptDrift.deliveryGraph.predecessorReceiptBinding.sha256 = `sha256:${"0".repeat(64)}`;
+  assert.equal(validateAdmissionState(receiptDrift).problems.some(({ code }) => code === "PREDECESSOR_RECEIPT_DRIFT"), true);
 
   const forged = structuredClone(bundle);
   forged.roadmapGraph.plannedReleases[0].releaseId = "R999";

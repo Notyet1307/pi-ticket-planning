@@ -10,11 +10,10 @@ import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
+import { compileExecutionPlan, reviewFocusForSpec } from "../execution-plan/compiler.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import {
-  BASE_SHA as baseSha,
   CONTROLLER_IDENTITY,
   PARENT_SPEC as parent,
   ROOT as root,
@@ -35,7 +34,7 @@ import {
 function rebind(input) {
   const reviewSource = (({ identity, revision, baseSha, specContentHash }) => ({ identity, revision, baseSha, ...(specContentHash ? { specContentHash } : {}) }))(input.source);
   input.review.source = reviewSource;
-  input.contextChecks = input.children.map((child) => ({ candidateId: child.id, result: checkTicketContext({ repo: root, base: input.source.baseSha, body: child.body }) }));
+  input.contextChecks = input.children.map((child) => ({ candidateId: child.id, result: checkTicketContext({ repo: input.repositoryPath, base: input.source.baseSha, body: child.body }) }));
   return attachReviewBinding(input);
 }
 
@@ -262,9 +261,7 @@ test("execution compiler preserves multilingual accepted review focus and fails 
     .replace("- Preserve compatibility for legacy input.", "- 保留旧输入兼容性。")
     .replace("- No partial writes.", "- 不允许部分写入。\n- 不允许部分写入。")
     .replace("## Out of scope\nNone.", "## Out of scope\nDepth, Locality, Real seam, Deletion test, Interface as verification surface, and src/cache.js are not Release constraints.");
-  rewriteGraph(input, () => {});
-  const controller = controllerBinding(input);
-  const reviewFocus = compileExecutionPlan(input, { controller }).releasePlan.reviewFocus;
+  const reviewFocus = reviewFocusForSpec(parseParentDeliverySpec(input.parent.body));
   assert.deepEqual(reviewFocus, [
     "S1 failure path: 写入失败时不留下部分状态。",
     "Walking skeleton handoff: The first path produces the release artifact.",
@@ -277,13 +274,11 @@ test("execution compiler preserves multilingual accepted review focus and fails 
 
   const tooMany = executionInput();
   tooMany.parent.body = tooMany.parent.body.replace("- No partial writes.", Array.from({ length: 17 }, (_, index) => `- Constraint ${index + 1}`).join("\n"));
-  rewriteGraph(tooMany, () => {});
-  assert.throws(() => compileExecutionPlan(tooMany, { controller: { ...controller, config: { ...controller.config, repo: tooMany.repo } } }), /REVIEW_FOCUS_TOO_LARGE/);
+  assert.throws(() => reviewFocusForSpec(parseParentDeliverySpec(tooMany.parent.body)), /REVIEW_FOCUS_TOO_LARGE/);
 
   const tooLarge = executionInput();
   tooLarge.parent.body = tooLarge.parent.body.replace("- No partial writes.", `- ${"界".repeat(700)}`);
-  rewriteGraph(tooLarge, () => {});
-  assert.throws(() => compileExecutionPlan(tooLarge, { controller: { ...controller, config: { ...controller.config, repo: tooLarge.repo } } }), /REVIEW_FOCUS_TOO_LARGE/);
+  assert.throws(() => reviewFocusForSpec(parseParentDeliverySpec(tooLarge.parent.body)), /REVIEW_FOCUS_TOO_LARGE/);
 });
 
 test("execution verification binds doctor to the validated config digest", () => {

@@ -21,7 +21,7 @@ function safeId(input, parent, graph) {
     : `release-${parent.id}-${fingerprint(graph).slice(7, 19)}`;
 }
 
-function focus(spec) {
+export function reviewFocusForSpec(spec) {
   const lines = spec.scenarios.map((scenario) => `${scenario.id} failure path: ${scenario.failure}`);
   lines.push(`Walking skeleton handoff: ${spec.walkingSkeleton}`);
   for (const [prefix, text] of [
@@ -119,7 +119,7 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   const oracleCoverage = oracleValidationCoverageProblems({ controllerConfig: config, children: input.children });
   if (oracleCoverage.length > 0) throw new Error(oracleCoverage[0].code);
   const dependencyHandoffDigests = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256);
-  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: focus(spec) };
+  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: reviewFocusForSpec(spec) };
   if (releasePlan.releaseAcceptanceCriteria.length > 50 || releasePlan.releaseAcceptanceCriteria.some((value) => value.length > 2000)) throw new Error("RELEASE_PLAN_TOO_LARGE");
   const controllerPlanDigest = controller?.planDigest ?? releasePlanDigest(releasePlan);
   const provenance = runtimeProvenance(controller, config, releasePlan, controllerPlanDigest);

@@ -484,6 +484,14 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     || JSON.stringify(canonical(validated.provenance.controller)) !== JSON.stringify(canonical(controller.controllerIdentity))) throw new Error("CONTROLLER_PLAN_VECTOR_MISMATCH");
 
   const vectorFile = path.join(temporary, "release-plan-vector.json");
+  const uncoveredConfig = structuredClone(canaryConfig);
+  uncoveredConfig.validation.release = uncoveredConfig.validation.release
+    .filter((entry) => (typeof entry === "string" ? entry : entry?.command) !== "npm run verify:oracle:o01");
+  const uncoveredConfigFile = path.join(temporary, "controller-without-oracle.json");
+  fs.writeFileSync(uncoveredConfigFile, `${JSON.stringify(uncoveredConfig)}\n`, { mode: 0o600 });
+  if (!invalidPlanRejected(cli, uncoveredConfigFile, vectorFile, draft.releasePlan, nodeArgs)) {
+    throw new Error("CONTROLLER_ORACLE_VALIDATION_COVERAGE_MISMATCH");
+  }
   const { parentIssue: _parentIssue, ...missingRequired } = draft.releasePlan;
   const vectors = [
     ["extraTopLevel", { ...draft.releasePlan, unexpected: true }],
@@ -563,7 +571,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
     controllerIdentityDigest: validated.provenance.controller.digest,
     releasePlanFingerprint: fingerprint(draft.releasePlan),
     handoffScope: { releasePlanV2Direct: "ACCEPTED", releasePlanV1: "REJECTED", dispatch: "OUT_OF_SCOPE" },
-    vectors: Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])),
+    vectors: { ...Object.fromEntries(vectors.map(([name]) => [name, "REJECTED"])), oracleValidationCommandMissing: "REJECTED" },
     freshCases,
   };
 }
