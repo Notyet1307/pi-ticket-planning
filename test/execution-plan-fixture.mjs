@@ -25,10 +25,10 @@ export const digest = (letter) => `sha256:${letter.repeat(64)}`;
 
 export const CONTROLLER_IDENTITY = {
   version: 1,
-  sourceRevision: "10ff0db3c4e5cc1dc17384442831231341c2fec2",
-  sourceManifestDigest: "898592d87dfeb8afc4a7416ce731aa71b3c9b94335358de87566324a2d52680d",
-  buildDigest: "badc47205a075447c0ee083c811e2b2cc0c4cc48b2c119b3f4448c0df207e721",
-  digest: "0118449447e8e44604f6f4ce2ccabef9262a2a855c6c6ae8fbdd98ecb36ca229",
+  sourceRevision: "7fda8b75bc187b2fe9b121230ae83c85d79a3d8b",
+  sourceManifestDigest: "4c7f63241ebb37b55deb5232cc19c0ead802de48a87bee05337017d9d2392e21",
+  buildDigest: "3fd5eccf6f9d36206b1216704af5bb6f2058ea7f8845b49856083b8861f2e16e",
+  digest: "c0567aff6266120fea08c3565461f56a949b2cbd4941968164fc81e3d92d371a",
 };
 
 export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY) {
