@@ -438,6 +438,10 @@ test("execution compiler keeps executable-release shape fail-closed", () => {
   assert.throws(() => compileExecutionPlan(humanDependency, { controller: controllerBinding(humanDependency) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
   const external = rewriteGraph(executionInput(), (graph) => { graph.children[0].externalBlockers = ["external"]; });
   assert.throws(() => compileExecutionPlan(external, { controller: controllerBinding(external) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
+  const unknownRisk = rewriteGraph(executionInput(), (graph) => { graph.children[0].riskClasses = ["UNREGISTERED_RISK"]; });
+  assert.throws(() => compileExecutionPlan(unknownRisk, { controller: controllerBinding(unknownRisk) }), /UNKNOWN_RISK_CLASS/);
+  const rootWildcard = rewriteGraph(executionInput(), (graph) => { graph.children[0].expectedPaths = ["*.ts"]; });
+  assert.throws(() => compileExecutionPlan(rootWildcard, { controller: controllerBinding(rootWildcard) }), /INVALID_EXPECTED_PATH_PATTERN/);
 
   const early = rewriteGraph(executionInput(), (graph) => { graph.readinessState = "SPEC_ACCEPTED"; });
   assert.throws(() => compileExecutionPlan(early, { controller: controllerBinding(early) }), /RELEASE_NOT_GRAPH_REVIEWED/);

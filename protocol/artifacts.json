@@ -260,6 +260,18 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "risk-class-registry",
+      "schemaIdentity": "pi-ticket-planning:risk-class-registry:v1",
+      "schemaPath": "schemas/risk-class-registry-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "repository-maintainer",
+      "readers": ["risk-class-registry", "ticket-contract-checker", "ticket-readiness-reviewer", "execution-plan-compiler", "herdr-codex-controller"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "ticket-readiness-waiver",
       "schemaIdentity": "pi-ticket-planning:ticket-readiness-waiver:v1",
       "schemaPath": "schemas/ticket-readiness-waiver-v1.schema.json",

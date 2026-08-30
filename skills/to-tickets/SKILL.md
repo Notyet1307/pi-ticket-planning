@@ -115,7 +115,7 @@ Graph review binds public Spec, decision, predecessor, and handoff bytes on the 
 
 Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT` with exact Roadmap/predecessor identity; v2 embeds Controller completion, and the base is `mergedMainSha` or descendant. v1 returns `PREDECESSOR_COMPLETION_EXPORT_REQUIRED`.
 
-`decision-manifest:v1` binds policy, product Release, applicable `ACCEPTED` ADRs, and dependency handoffs by path/bytes. `expectedPaths` are complete Controller write families; Context anchors remain the separate first-action read set.
+`decision-manifest:v1` binds policy, product Release, `ACCEPTED` ADRs, and handoffs by bytes. Risk classes come from `contracts/risk-class-registry.json`; `expectedPaths` are complete write families with literal first segments, distinct from Context anchors.
 
 ```sh
 node "$PI_TICKET_PLANNING_ROOT/scripts/check-delivery-graph.mjs" --input -

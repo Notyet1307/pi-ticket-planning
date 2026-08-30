@@ -68,7 +68,16 @@
               }
             ]
           },
-          "expectedPaths": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
+          "expectedPaths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.\\.?(?:/|$))(?!.*(?:/\\.\\.?)(?:/|$))(?!.*//)(?!.*\\*\\*)(?![^/]*\\*)(?!.*[\\\\?\\[\\]{}\\u0000\\r\\n])[^/]+(?:/[^/]+)*$"
+            }
+          },
           "protectedOraclePaths": { "type": "array", "uniqueItems": true, "items": { "$ref": "common-v1.schema.json#/$defs/safeText" } },
           "oracleBindingDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
           "oracleBindingVerdict": { "enum": ["PASS", "FAIL", "NOT_APPLICABLE"] },

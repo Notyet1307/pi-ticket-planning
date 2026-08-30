@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
 import { validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
+import { validateRiskClassRegistry } from "./risk-classes.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
 const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/;
@@ -52,6 +53,7 @@ const REQUIRED_FILES = [
   "SECURITY.md",
   "agents/ticket-readiness-reviewer.md",
   "contracts/authority.json",
+  "contracts/risk-class-registry.json",
   "contracts/workflow.json",
   "docs/README.md",
   "docs/security/threat-model.md",
@@ -70,6 +72,7 @@ const REQUIRED_FILES = [
   "profile/pi-ticket-plan",
   "profile/settings.template.json",
   "schemas/project-readiness-v1.schema.json",
+  "schemas/risk-class-registry-v1.schema.json",
   "schemas/codex-controller-contract-v1.schema.json",
   "schemas/herdr-codex-release-plan-v2.schema.json",
   "schemas/herdr-codex-release-completion-v1.schema.json",
@@ -123,6 +126,7 @@ const REQUIRED_FILES = [
   "scripts/workflow-contract.mjs",
   "scripts/verify-protocol.mjs",
   "scripts/verify-context.mjs",
+  "scripts/risk-classes.mjs",
   "scripts/migrate-artifacts.mjs",
   "scripts/migrate-planning-case.mjs",
   "scripts/migrate-evidence-reports.mjs",
@@ -202,6 +206,9 @@ export function validatePackage(root) {
   const contractCheck = validateContracts();
   for (const problem of contractCheck.problems) {
     errors.push(`machine workflow contract: ${problem.code}${problem.subject ? ` ${problem.subject}` : ""}`);
+  }
+  for (const problem of validateRiskClassRegistry(readJson(path.join(root, "contracts", "risk-class-registry.json")))) {
+    errors.push(`risk class registry: ${problem.code}`);
   }
 
   const pkg = readJson(path.join(root, "package.json"));

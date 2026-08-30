@@ -31,7 +31,7 @@ Return READY only when every condition holds:
 8. **Fresh-start sufficiency.** The ticket body names its starting state or available inputs, primary outcome and verification, behavior-defining decisions, and invariants or guardrails. A fresh executor can choose the first correct action from the ticket plus repository policy; parent and decision links provide provenance or detail, never the only copy of behavior or a guardrail required to start.
 9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
 10. **Oracle is frozen.** Bind exact `pi-ticket-planning:oracle-binding:v1` bytes, independent owner, and closed manifest for the reviewed-base `npm run verify:*` script plus all source/helper/schema. Globally protect `package.json` and manifest files.
-11. **Execution is bounded.** Declare risks, one seam, file/line budget, at most eight complete write-path families, protected paths, and REPLAN triggers. Controller rejects writes outside `expectedPaths`; Context anchors remain the separate first-action read set. Defaults: two risks, eight files, 1500 lines. Exceptions need exact waiver; four risks always SPLIT; over 2500 lines needs `MECHANICAL_MIGRATION`.
+11. **Execution is bounded.** Use only `contracts/risk-class-registry.json`; alias/unknown is `UNKNOWN_RISK_CLASS`/NEEDS_INFO. Declare one seam, at most eight write families with a literal first segment, protected paths, REPLAN triggers, and an eight-file/1500-line budget. Exceptions need exact waiver; four risks SPLIT; over 2500 lines needs `MECHANICAL_MIGRATION`.
 12. **Integration-only is closed.** Declare no new behavior/schema/duplicate logic and missing behavior as `REPLAN_REQUIRED`.
 
 Prefer a vertical slice through only the layers needed for the observable result. Preserve wide mechanical refactors as expand–migrate–contract sequences when no independently green vertical slice exists.
@@ -57,8 +57,8 @@ An older accepted ADR remains authoritative until a valid supersession, same-con
 ## Verdicts
 
 - **READY** — the candidate satisfies the full contract.
-- **SPLIT** — the objective is decided, but the candidate contains multiple outcomes or verification seams, four or more risks/surfaces, work that can land independently, Provider Attempt recovery plus Publication recovery, Provider boundary plus persistence plus UI, Reviewer plus Writer plus Artifact eligibility, or Approval plus publication plus crash recovery.
-- **NEEDS_INFO** — a product or architecture decision, contradictory source, missing behavior, unavailable required input, or unclear blocker prevents a stable ticket.
+- **SPLIT** — the objective is decided, but the candidate contains multiple outcomes or seams, four or more canonical risks, a registry split combination, or independently landable work.
+- **NEEDS_INFO** — a decision, contradiction, missing input/behavior, unclear blocker, or unknown/alias risk prevents a stable ticket.
 
 Use NEEDS_INFO before SPLIT when the missing decision prevents a trustworthy split.
 

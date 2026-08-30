@@ -103,7 +103,7 @@ test("Delivery Graph v2 migration emits deterministic approval-only v3 or Roadma
     },
     childContracts: {
       C1: {
-        primaryVerificationSeams: ["v"], implementationOwner: "worker", riskClasses: ["BOUNDED_CHANGE"],
+        primaryVerificationSeams: ["v"], implementationOwner: "worker", riskClasses: ["BOUNDED_BEHAVIOR_CHANGE"],
         scopeBudget: { maxFiles: 2, maxChangedLines: 100 }, expectedPaths: ["src/c1.ts"], protectedPaths: ["fixtures/o1.json"],
         replanTriggers: ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"],
         oracleBindingDigest: `sha256:${"2".repeat(64)}`, integrationOnly: null, waiverDigests: [],
