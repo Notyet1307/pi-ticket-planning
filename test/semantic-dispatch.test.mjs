@@ -6,6 +6,7 @@ import { validateRegisteredArtifactSemantics } from "../protocol/semantic-dispat
 import { fingerprint } from "../execution-plan/domain.mjs";
 import { ingestControllerCompletion } from "../execution-plan/completion-ingest.mjs";
 import { controllerCompletionFixture } from "./controller-completion-fixture.mjs";
+import { RISK_CLASS_REGISTRY } from "../scripts/risk-classes.mjs";
 
 const identity = (name) => ({ namespace: "pi-ticket-planning", name, major: 1 });
 const problems = async (name, value) => (await validateRegisteredArtifactSemantics(value, identity(name))).problems;
@@ -65,6 +66,7 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   const completion = controllerCompletionFixture();
   assert.deepEqual(await problems("release-completion", completion), []);
   assert.deepEqual(await problems("release-predecessor-receipt", ingestControllerCompletion(completion)), []);
+  assert.deepEqual(await problems("risk-class-registry", RISK_CLASS_REGISTRY), []);
   assert.equal((await problems("release-completion", { ...completion, digest: digest("bad") }))[0].code, "CONTROLLER_COMPLETION_DIGEST_MISMATCH");
   assert.deepEqual(await problems("unmapped-structural-artifact", {}), []);
 

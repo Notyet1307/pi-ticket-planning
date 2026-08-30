@@ -223,6 +223,14 @@ test("delivery release v3 represents exactly one bounded AGENT release", () => {
   assert.equal(validateDeliveryGraph(tooLarge).problems.some(({ code }) => code === "CHILD_COUNT_POLICY_EXCEEDED"), true);
 });
 
+test("delivery release rejects a leading-wildcard expected path", () => {
+  const release = executableGraph();
+  release.children[0].expectedPaths = ["*.ts"];
+  const problems = validateDeliveryGraph(release).problems.map(({ code }) => code);
+  assert.equal(problems.includes("INVALID_EXPECTED_PATH_PATTERN"), true);
+  assert.equal(problems.includes("ARTIFACT_SCHEMA_INVALID"), true);
+});
+
 test("Roadmap can hold future releases and HUMAN work but is never executable", () => {
   const roadmap = roadmapGraph(Array.from({ length: 5 }, (_, index) => ({
       releaseId: `R001-C${index + 1}`,

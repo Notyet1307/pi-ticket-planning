@@ -1,7 +1,8 @@
 import { hashText } from "../scripts/check-delivery-graph.mjs";
 import { evaluateTransition } from "../protocol/kernel.mjs";
 import { MAX_RECEIPT_AGE_MS, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
-import { reviewProjectionRequiresSplit } from "../scripts/check-ticket-contract.mjs";
+import { reviewProjectionRequiresSplit, safeExpectedPath } from "../scripts/check-ticket-contract.mjs";
+import { unknownRiskClasses } from "../scripts/risk-classes.mjs";
 
 export const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
 export const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1";
@@ -108,6 +109,8 @@ export function validateReviewArtifact(review) {
     const arrays = ["riskClasses", "primaryVerificationSeams", "expectedPaths", "protectedOraclePaths", "replanTriggers", "codeHotspotOverlap", "waiverDigests"];
     if (arrays.some((key) => !Array.isArray(candidate?.[key]) || new Set(candidate[key]).size !== candidate[key].length)
       || candidate.riskCount !== candidate.riskClasses.length
+      || unknownRiskClasses(candidate.riskClasses).length > 0 && candidate.verdict !== "NEEDS_INFO"
+      || candidate.expectedPaths.some((value) => !safeExpectedPath(value))
       || !["PASS", "FAIL", "NOT_APPLICABLE"].includes(candidate.oracleBindingVerdict)
       || !["PASS", "FAIL", "NOT_APPLICABLE"].includes(candidate.integrationOnlyVerdict)) return false;
     if (candidate.executionLane === "HUMAN") {

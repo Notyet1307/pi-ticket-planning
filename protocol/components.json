@@ -50,6 +50,7 @@
     "reviewer-one-shot-gate": { "kind": "module", "path": "extensions/reviewer-one-shot-gate.mjs", "export": "buildReviewerDispatchBinding" },
     "repository-maintainer": { "kind": "actor" },
     "route-owner": { "kind": "module", "path": "context/manifest.mjs", "export": "loadContextManifest" },
+    "risk-class-registry": { "kind": "module", "path": "scripts/risk-classes.mjs", "export": "validateRiskClassRegistry" },
     "spec-projector": { "kind": "module", "path": "protocol/projections.mjs", "export": "projectSpec" },
     "spec-publication-plan": { "kind": "module", "path": "spec-publication/publication.mjs", "export": "buildSpecPublicationPlan" },
     "spec-publication-apply": { "kind": "module", "path": "spec-publication/publication.mjs", "export": "applySpecPublication" },

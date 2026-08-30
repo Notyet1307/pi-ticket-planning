@@ -19,6 +19,7 @@ import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs
 import { ticketContractDigest } from "../scripts/check-ticket-contract.mjs";
 import { decisionManifestProblems } from "../execution-plan/freshness.mjs";
 import { validateControllerCompletion } from "../execution-plan/completion-ingest.mjs";
+import { validateRiskClassRegistry } from "../scripts/risk-classes.mjs";
 
 function problem(code, subject) {
   return subject === undefined ? { code } : { code, subject };
@@ -85,6 +86,7 @@ export async function validateRegisteredArtifactSemantics(value, identity) {
   if (name === "spec-acceptance") return { problems: validateSpecAcceptance(value) };
   if (name === "release-predecessor-receipt") return { problems: validatePredecessorReceipt(value) };
   if (name === "release-completion") return { problems: validateControllerCompletion(value) };
+  if (name === "risk-class-registry") return { problems: validateRiskClassRegistry(value) };
   if (name === "decision-manifest") return { problems: decisionManifestProblems(value) };
   if (name === "ticket-context-check") return { problems: validateTicketContextResult(value) };
   if (name === "admission-review") return { problems: validateReviewArtifact(value) ? [] : [problem("ADMISSION_REVIEW_INVALID")] };

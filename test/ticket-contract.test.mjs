@@ -8,6 +8,7 @@ import test from "node:test";
 import { validateReviewArtifact } from "../admission/domain.mjs";
 import {
   reviewCandidateMatchesTicketContract,
+  patternsOverlap,
   ticketContractDigest,
   ticketContractVerdict,
   validateTicketContract,
@@ -93,6 +94,18 @@ test("small schema migration with a frozen Oracle is READY", (t) => {
   assert.equal(reviewCandidateMatchesTicketContract({ verdict: "READY", ...reviewContractFields(ready.body, ready.graphChild, [ready.graphChild]) }, checked.projection), true);
 });
 
+test("expected path patterns reject root wildcards and allow bounded child-segment wildcards", (t) => {
+  assert.equal(patternsOverlap("*.ts", "foo*.ts"), true);
+  for (const expectedPaths of [["*.ts"], ["foo*.ts"], ["*/x.ts"]]) {
+    const ready = readyTicket(t, { constraints: { expectedPaths } });
+    const checked = validateTicketContract({ repositoryPath: ready.repo, baseSha: ready.baseSha, child: ready.child });
+    assert.equal(checked.problems.some(({ code }) => code === "INVALID_EXPECTED_PATH_PATTERN"), true);
+  }
+  const bounded = readyTicket(t, { constraints: { expectedPaths: ["src/*.ts"] } });
+  const checked = validateTicketContract({ repositoryPath: bounded.repo, baseSha: bounded.baseSha, child: bounded.child });
+  assert.equal(checked.problems.some(({ code }) => code === "INVALID_EXPECTED_PATH_PATTERN"), false);
+});
+
 test("review projection reports exact code-hotspot overlap", (t) => {
   const ready = readyTicket(t);
   const sibling = { ...structuredClone(ready.graphChild), id: "C2" };
@@ -121,6 +134,9 @@ test("machine review cannot downgrade a deterministic SPLIT to NEEDS_INFO", (t) 
     inputBinding: {},
   };
   assert.equal(validateReviewArtifact(review), true);
+  const rootWildcard = structuredClone(review);
+  rootWildcard.candidates[0].expectedPaths = ["*.ts"];
+  assert.equal(validateReviewArtifact(rootWildcard), false);
   review.candidates[0].verdict = "NEEDS_INFO";
   assert.equal(validateReviewArtifact(review), false);
 });

@@ -150,7 +150,12 @@
           "minItems": 1,
           "maxItems": 100,
           "uniqueItems": true,
-          "items": { "$ref": "common-v1.schema.json#/$defs/safeText" }
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!\\.\\.?(?:/|$))(?!.*(?:/\\.\\.?)(?:/|$))(?!.*//)(?!.*\\*\\*)(?![^/]*\\*)(?!.*[\\\\?\\[\\]{}\\u0000\\r\\n])[^/]+(?:/[^/]+)*$"
+          }
         },
         "protectedPaths": {
           "type": "array",

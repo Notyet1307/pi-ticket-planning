@@ -58,7 +58,9 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
     const stable = graphCheck.problems.find(({ code }) => [
       "MISSING_ORACLE_BINDING",
       "TOO_MANY_RISK_CLASSES",
+      "UNKNOWN_RISK_CLASS",
       "SCOPE_BUDGET_TOO_LARGE",
+      "INVALID_EXPECTED_PATH_PATTERN",
       "MISSING_REPLAN_TRIGGERS",
       "PROTECTED_PATH_IN_EXPECTED_WRITE_SET",
       "TICKET_REQUIRES_SPLIT",

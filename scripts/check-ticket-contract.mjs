@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
+import { riskClassesRequireSplit, unknownRiskClasses } from "./risk-classes.mjs";
 
 export const REQUIRED_REPLAN_TRIGGERS = [
   "ACCEPTED_DECISION_CHANGE_REQUIRED",
@@ -26,13 +27,6 @@ const CONSTRAINT_KEYS = [
   "integrationOnly",
   "waivers",
 ];
-const SPLIT_RISK_COMBINATIONS = [
-  ["PROVIDER_ATTEMPT_RECOVERY", "PUBLICATION_RECOVERY"],
-  ["PROVIDER_BOUNDARY", "DOMAIN_PERSISTENCE", "UI_BEHAVIOR"],
-  ["REVIEWER_ELIGIBILITY", "WRITER_ELIGIBILITY", "ARTIFACT_ELIGIBILITY"],
-  ["APPROVAL_BOUNDARY", "PUBLICATION_RECOVERY", "CRASH_RECOVERY"],
-];
-
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
 }
@@ -64,10 +58,11 @@ function safeExactPath(value) {
     && path.posix.normalize(value) === value;
 }
 
-function safeExpectedPath(value) {
+export function safeExpectedPath(value) {
   return typeof value === "string" && value.length > 0
     && !path.posix.isAbsolute(value) && !path.win32.isAbsolute(value)
     && !value.includes("\\") && !value.split("/").includes("..")
+    && !value.split("/", 1)[0].includes("*")
     && !/[?[\]{}\u0000\r\n]/u.test(value) && !value.includes("**")
     && path.posix.normalize(value.replaceAll("*", "x")) === value.replaceAll("*", "x");
 }
@@ -82,6 +77,7 @@ export function pathMatches(pattern, value) {
 
 export function patternsOverlap(left, right) {
   if (left === right) return true;
+  if (!safeExpectedPath(left) || !safeExpectedPath(right)) return true;
   if (!left.includes("*") && pathMatches(right, left)) return true;
   if (!right.includes("*") && pathMatches(left, right)) return true;
   const leftPrefix = left.split("*", 1)[0];
@@ -295,16 +291,19 @@ function staticConstraintsProblems(constraints, childId, oraclePath = null, { de
     || constraints.riskClasses.some((risk) => !/^[A-Z][A-Z0-9_]{0,63}$/u.test(risk))
     || !Array.isArray(constraints.waivers)) problems.push(issue("INVALID_EXECUTION_CONSTRAINTS", String(childId)));
   const risks = Array.isArray(constraints.riskClasses) ? constraints.riskClasses : [];
+  const unknownRisks = unknownRiskClasses(risks);
+  for (const risk of unknownRisks) problems.push(issue("UNKNOWN_RISK_CLASS", `${childId}:${risk}`));
   const waivers = validateWaivers(constraints.waivers, childId, problems);
-  if (risks.length >= 4 || risks.length === 3 && !(deferWaiverValidation
-    ? waiverDigests.length > 0
-    : exactWaiver(waivers, "RISK_CLASS_LIMIT", childId, { riskClasses: risks }))) {
-    problems.push(issue("TOO_MANY_RISK_CLASSES", String(childId)));
-  }
-  if (risks.length >= 4) problems.push(issue("TICKET_REQUIRES_SPLIT", String(childId)));
-  if (SPLIT_RISK_COMBINATIONS.some((combination) => combination.every((risk) => risks.includes(risk)))
-    || !Array.isArray(constraints.primaryVerificationSeams) || constraints.primaryVerificationSeams.length !== 1) {
-    problems.push(issue("TICKET_REQUIRES_SPLIT", String(childId)));
+  if (unknownRisks.length === 0) {
+    if (risks.length >= 4 || risks.length === 3 && !(deferWaiverValidation
+      ? waiverDigests.length > 0
+      : exactWaiver(waivers, "RISK_CLASS_LIMIT", childId, { riskClasses: risks }))) {
+      problems.push(issue("TOO_MANY_RISK_CLASSES", String(childId)));
+    }
+    if (risks.length >= 4 || riskClassesRequireSplit(risks)
+      || !Array.isArray(constraints.primaryVerificationSeams) || constraints.primaryVerificationSeams.length !== 1) {
+      problems.push(issue("TICKET_REQUIRES_SPLIT", String(childId)));
+    }
   }
   const budget = constraints.scopeBudget ?? {};
   if (!Number.isInteger(budget.maxFiles) || budget.maxFiles < 1
@@ -319,9 +318,10 @@ function staticConstraintsProblems(constraints, childId, oraclePath = null, { de
       : exactWaiver(waivers, "SCOPE_BUDGET", childId, scopeException));
     if (!allowed) problems.push(issue("SCOPE_BUDGET_TOO_LARGE", String(childId)));
   }
-  if (!Array.isArray(constraints.expectedPaths) || constraints.expectedPaths.length === 0 || constraints.expectedPaths.length > 8
-    || constraints.expectedPaths.some((value) => !safeExpectedPath(value))) {
+  if (!Array.isArray(constraints.expectedPaths) || constraints.expectedPaths.length === 0 || constraints.expectedPaths.length > 8) {
     problems.push(issue("SCOPE_BUDGET_TOO_LARGE", String(childId)));
+  } else if (constraints.expectedPaths.some((value) => !safeExpectedPath(value))) {
+    problems.push(issue("INVALID_EXPECTED_PATH_PATTERN", String(childId)));
   }
   if (!Array.isArray(constraints.replanTriggers)
     || REQUIRED_REPLAN_TRIGGERS.some((trigger) => !constraints.replanTriggers.includes(trigger))) {
@@ -406,9 +406,9 @@ export function humanTicketReviewProjection() {
 
 export function reviewProjectionRequiresSplit(projection) {
   const risks = projection?.riskClasses ?? [];
-  return risks.length >= 4
-    || SPLIT_RISK_COMBINATIONS.some((combination) => combination.every((risk) => risks.includes(risk)))
-    || !Array.isArray(projection?.primaryVerificationSeams) || projection.primaryVerificationSeams.length !== 1;
+  return unknownRiskClasses(risks).length === 0 && (risks.length >= 4
+    || riskClassesRequireSplit(risks)
+    || !Array.isArray(projection?.primaryVerificationSeams) || projection.primaryVerificationSeams.length !== 1);
 }
 
 export function reviewCandidateMatchesTicketContract(candidate, projection, problems = []) {

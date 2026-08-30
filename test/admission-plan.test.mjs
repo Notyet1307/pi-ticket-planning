@@ -294,7 +294,7 @@ test("Admission Plan rejects forged Oracle/risk review metadata", () => {
   const input = readyInput();
   input.review.candidates[0].riskClasses = ["FORGED_RISK_CLASS"];
   attachReviewBinding(input);
-  assert.throws(() => buildAdmissionPlan(input), /review Ticket contract drifted/);
+  assert.throws(() => buildAdmissionPlan(input), /fresh reviewer contract/);
 });
 
 test("Admission Plan requires the exact activation checkpoint", () => {
