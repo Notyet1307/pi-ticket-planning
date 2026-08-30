@@ -226,7 +226,7 @@ export function validateAdmissionState(bundle) {
   }
 
   if (graph.ok) {
-    try { assertTrackedReleaseBindings({ repositoryPath: bundle.repositoryPath, deliveryGraph: snapshot }); }
+    try { assertTrackedReleaseBindings({ repositoryPath: bundle.repositoryPath, deliveryGraph: snapshot, repo: bundle.repo, source: bundle.source }); }
     catch (error) { problems.push(issue(error instanceof Error ? error.message : "EXECUTION_BASE_DRIFT")); }
   }
 

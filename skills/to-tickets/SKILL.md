@@ -78,7 +78,7 @@ Then name the earliest candidate chain that closes the Spec's smallest trigger-t
 
 Represent only the current executable Release. Put multi-Release/HUMAN work in a separate non-executable `pi-ticket-planning:roadmap-graph:v1`: `PLANNED`, no future base, no Admission/compiler route. Bind its `parent` to a separate fresh Umbrella containing one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; never reuse the Delivery Spec Parent.
 
-Graph review requires public regular-file bindings for the Spec receipt, decisions, predecessor receipt, and dependency handoffs on the execution base or verified descendant. A private Case copy is insufficient; publish through the repository's human-reviewed path, then rebuild.
+Graph review binds public Spec, decision, predecessor, and handoff bytes on the execution base or descendant. Ordinal 2+ generates predecessor v2 only via `npm run ingest:release-completion`; publish it, then rebuild.
 
 ```json
 {
@@ -113,7 +113,7 @@ Graph review requires public regular-file bindings for the Spec receipt, decisio
 
 `blockedBy` contains only current-Release children; `externalBlockers` is empty. ENABLER adds consumers and exit. Default child limit is four, hard cap six. Hash exact child bodies; never modify the accepted Parent body.
 
-Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT`, exact Roadmap/predecessor identity, and a bound completion receipt; its execution base is `mergedMainSha` or a verified descendant containing that receipt. Mismatch returns the named Roadmap/predecessor code.
+Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT` with exact Roadmap/predecessor identity; v2 embeds Controller completion, and the base is `mergedMainSha` or descendant. v1 returns `PREDECESSOR_COMPLETION_EXPORT_REQUIRED`.
 
 `decision-manifest:v1` binds policy, product Release, applicable `ACCEPTED` ADRs, and dependency handoffs by path/bytes. `expectedPaths` are complete Controller write families; Context anchors remain the separate first-action read set.
 

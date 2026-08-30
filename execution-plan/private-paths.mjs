@@ -47,6 +47,14 @@ export function assertCanonicalPrivateExistingFile(value, name = "FILE", { mode 
   return found.path;
 }
 
+export function assertCanonicalPublicExistingFile(value, name = "FILE") {
+  const found = existing(value, name);
+  if (!found.stat.isFile() || found.stat.nlink !== 1 || (found.stat.mode & 0o777) !== 0o644) {
+    throw new Error(`${name}_MUST_BE_PUBLIC_FILE`);
+  }
+  return found.path;
+}
+
 export function assertCanonicalPrivateOutputParent(value, name = "OUTPUT_PARENT") {
   return assertCanonicalPrivateExistingDirectory(value, name);
 }

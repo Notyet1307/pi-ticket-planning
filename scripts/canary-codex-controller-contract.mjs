@@ -9,6 +9,7 @@ import { reviewBindingForAdmission } from "../admission/review-transport.mjs";
 import { compileExecutionPlan } from "../execution-plan/compiler.mjs";
 import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
 import { canonical, fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
+import { ingestControllerCompletion } from "../execution-plan/completion-ingest.mjs";
 import {
   assertCanonicalExistingDirectory,
   assertCanonicalPrivateExistingFile,
@@ -31,6 +32,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
 const CONTRACT_LOCK = path.join(ROOT, "compatibility", "codex-controller-contract.json");
 const PLANNER_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json");
+const PLANNER_COMPLETION_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json");
 const HEX = /^[a-f0-9]{64}$/;
 const REVISION = /^[a-f0-9]{40}$/;
 
@@ -346,8 +348,30 @@ function freshC1(repository, planningBaseSha, input) {
 
 function freshC2(repository, c1, mergedMainSha) {
   const handoff = trackedBinding(repository, mergedMainSha, "C1-handoff", "handoff.txt");
-  const receiptBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: c1.deliveryGraph.releaseId, mergedMainSha, handoffDigests: [handoff.sha256], validationDigest: fingerprint("C1-validation"), completedAt: "2026-08-20T01:00:00.000Z" };
-  const receipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+  const lock = JSON.parse(fs.readFileSync(CONTRACT_LOCK, "utf8"));
+  const controller = { version: 1, sourceRevision: lock.commit, sourceManifestDigest: lock.sourceManifestDigest, buildDigest: lock.buildDigest, digest: lock.identityDigest };
+  const planDigest = fingerprint(c1.deliveryGraph).slice(7);
+  const provenanceBody = { version: 1, controller, executionMode: "release-plan-v2-direct", configDigest: fingerprint("C1-config").slice(7), releasePlan: { version: 2, digest: planDigest } };
+  const completionBody = {
+    schema: "herdr-codex-controller:release-completion:v1",
+    releaseId: c1.deliveryGraph.releaseId,
+    repo: c1.repo,
+    baseRef: c1.source.baseRef,
+    planDigest,
+    sourceBaseSha: c1.deliveryGraph.planningBaseSha,
+    candidateSha: c1.source.baseSha,
+    issueCommits: [{ issueNumber: Number(c1.children[0].id), sha: c1.source.baseSha }],
+    releaseValidationDigest: fingerprint("C1-validation").slice(7),
+    reviewResultDigest: fingerprint("C1-review").slice(7),
+    pullRequest: { number: 1, headRef: "agent/contract-canary-r1", headSha: c1.source.baseSha, baseRef: c1.source.baseRef, mergeSha: mergedMainSha, mergedAt: "2026-08-20T00:59:00.000Z" },
+    requiredChecks: ["verify"],
+    mergedMainSha,
+    dependencyHandoffDigests: [handoff.sha256],
+    controllerProvenance: { ...provenanceBody, digest: fingerprint(provenanceBody).slice(7) },
+    completedAt: "2026-08-20T01:00:00.000Z",
+  };
+  const completion = { ...completionBody, digest: fingerprint(completionBody) };
+  const receipt = ingestControllerCompletion(completion);
   fs.writeFileSync(path.join(repository, "evidence", "predecessor.json"), `${JSON.stringify(receipt)}\n`);
   const decisionBody = {
     schema: "pi-ticket-planning:decision-manifest:v1",
@@ -638,14 +662,24 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
 
   const plannerSchema = assertCanonicalPrivateExistingFile(PLANNER_SCHEMA, "PLANNER_SCHEMA");
   const controllerSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.schemaPath), "CONTROLLER_SCHEMA");
+  const plannerCompletionSchema = assertCanonicalPrivateExistingFile(PLANNER_COMPLETION_SCHEMA, "PLANNER_COMPLETION_SCHEMA");
+  const controllerCompletionSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.completionSchemaPath), "CONTROLLER_COMPLETION_SCHEMA");
   const plannerBytes = fs.readFileSync(plannerSchema);
   const controllerBytes = fs.readFileSync(controllerSchema);
+  const plannerCompletionBytes = fs.readFileSync(plannerCompletionSchema);
+  const controllerCompletionBytes = fs.readFileSync(controllerCompletionSchema);
   const plannerSchemaSha256 = sha256(plannerBytes);
   const controllerSchemaSha256 = sha256(controllerBytes);
+  const plannerCompletionSchemaSha256 = sha256(plannerCompletionBytes);
+  const controllerCompletionSchemaSha256 = sha256(controllerCompletionBytes);
   if (!HEX.test(lock.schemaSha256)
     || plannerSchemaSha256 !== lock.schemaSha256
     || controllerSchemaSha256 !== lock.schemaSha256
     || !plannerBytes.equals(controllerBytes)) throw new Error("CONTROLLER_SCHEMA_DRIFT");
+  if (!HEX.test(lock.completionSchemaSha256)
+    || plannerCompletionSchemaSha256 !== lock.completionSchemaSha256
+    || controllerCompletionSchemaSha256 !== lock.completionSchemaSha256
+    || !plannerCompletionBytes.equals(controllerCompletionBytes)) throw new Error("CONTROLLER_COMPLETION_SCHEMA_DRIFT");
 
   const sourceConfig = fixtureConfig(root);
   if (!sourceConfig) throw new Error("CONTROLLER_CONFIG_FIXTURE_UNAVAILABLE");
@@ -667,7 +701,7 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
     fs.appendFileSync(path.join(built.buildRoot, "README.md"), "\n");
     try { qualifiedCommit(built.buildRoot, lock.commit); throw new Error("CONTROLLER_DIRTY_CHECKOUT_ACCEPTED"); }
     catch (error) { if (error.message !== "CONTROLLER_WORKTREE_DIRTY") throw error; }
-    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
+    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, completionSchemaSha256: plannerCompletionSchemaSha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }

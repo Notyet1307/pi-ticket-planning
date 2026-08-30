@@ -177,6 +177,11 @@ export function assertTrackedReleaseBindings(input) {
     const receipt = boundJson(repo, current, graph.predecessorReceiptBinding, graph.predecessorReceipt, "PREDECESSOR_RECEIPT_DRIFT");
     if (graph.executionBasePolicy !== "PREDECESSOR_MERGE_OR_DESCENDANT"
       || validatePredecessorReceipt(receipt).length > 0 || !isGitAncestor(repo, receipt.mergedMainSha, current)) stableError("PREDECESSOR_RECEIPT_DRIFT");
+    if (typeof input.repo !== "string" || typeof input.source?.baseRef !== "string"
+      || receipt.controllerCompletion.repo !== input.repo
+      || receipt.controllerCompletion.baseRef !== input.source.baseRef) {
+      stableError("CONTROLLER_COMPLETION_TARGET_MISMATCH");
+    }
     const expectedHandoffs = [...receipt.handoffDigests].sort();
     const actualHandoffs = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256).sort();
     if (!same(expectedHandoffs, actualHandoffs)) stableError("DEPENDENCY_HANDOFF_DRIFT");

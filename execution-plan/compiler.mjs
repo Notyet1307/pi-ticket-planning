@@ -63,8 +63,12 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
       "PROTECTED_PATH_IN_EXPECTED_WRITE_SET",
       "TICKET_REQUIRES_SPLIT",
       "INTEGRATION_ONLY_CONTRACT_VIOLATION",
-    ].includes(code));
+    ].includes(code) || code === "PREDECESSOR_COMPLETION_EXPORT_REQUIRED" || code.startsWith("CONTROLLER_COMPLETION_"));
     throw new Error(stable?.code ?? "CODEX_RELEASE_NOT_EXECUTABLE");
+  }
+  if (graph.releaseOrdinal > 1 && (graph.predecessorReceipt.controllerCompletion.repo !== input.repo
+    || graph.predecessorReceipt.controllerCompletion.baseRef !== input.source?.baseRef)) {
+    throw new Error("CONTROLLER_COMPLETION_TARGET_MISMATCH");
   }
   if (!["GRAPH_REVIEWED", "HANDOFF_APPROVED", "HANDOFF_READY"].includes(graph.readinessState)) throw new Error("RELEASE_NOT_GRAPH_REVIEWED");
   const maxChildren = graph.childPolicy?.maxChildren ?? 4;
@@ -78,7 +82,7 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   if (!SHA.test(graph.executionBaseSha ?? "") || typeof input.source?.baseRef !== "string" || !input.source.baseRef) throw new Error("INVALID_DELIVERY_GRAPH_SOURCE");
   if ((input.children ?? []).some((child) => !/^[1-9][0-9]*$/.test(String(child?.id ?? ""))
     || (child.blockedBy ?? []).some((id) => !(input.children ?? []).some((other) => String(other.id) === String(id))))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
-  const admission = validateAdmissionState({ repositoryPath: input.repositoryPath, source: input.source, parent: input.parent, parentBody: input.parent.body, specAcceptance: input.specAcceptance, deliveryGraph: graph, roadmapGraph: input.roadmapGraph, roadmapParent: input.roadmapParent, children: input.children, contextChecks: input.contextChecks });
+  const admission = validateAdmissionState({ repo: input.repo, repositoryPath: input.repositoryPath, source: input.source, parent: input.parent, parentBody: input.parent.body, specAcceptance: input.specAcceptance, deliveryGraph: graph, roadmapGraph: input.roadmapGraph, roadmapParent: input.roadmapParent, children: input.children, contextChecks: input.contextChecks });
   if (!admission.ok) {
     const verifier = admission.problems.find(({ code }) => [
       "ORACLE_VERIFIER_MANIFEST_MISSING",

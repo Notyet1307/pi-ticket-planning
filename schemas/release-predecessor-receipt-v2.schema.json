@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.pi-ticket-planning.invalid/release-predecessor-receipt-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "releaseId", "controllerCompletion", "controllerCompletionDigest", "planDigest", "candidateSha", "mergeSha", "mergedMainSha", "handoffDigests", "validationDigest", "reviewResultDigest", "controllerProvenanceDigest", "completedAt", "digest"],
+  "properties": {
+    "schema": { "const": "pi-ticket-planning:release-predecessor-receipt:v2" },
+    "releaseId": { "$ref": "common-v1.schema.json#/$defs/safeText" },
+    "controllerCompletion": { "$ref": "herdr-codex-release-completion-v1.schema.json" },
+    "controllerCompletionDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "planDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "candidateSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "mergeSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "mergedMainSha": { "$ref": "common-v1.schema.json#/$defs/gitSha" },
+    "handoffDigests": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": { "$ref": "common-v1.schema.json#/$defs/digest" }
+    },
+    "validationDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "reviewResultDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "controllerProvenanceDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+    "completedAt": { "$ref": "common-v1.schema.json#/$defs/time" },
+    "digest": { "$ref": "common-v1.schema.json#/$defs/digest" }
+  }
+}

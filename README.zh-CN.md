@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget；graph 还绑定 tracked Spec/predecessor receipt，以及覆盖 policy、product Release、accepted ADR 和 dependency handoff 的 decision manifest。Build/verify/apply 都会 fresh-read remote base 与全部 binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 artifact 都不会进入 Controller input：
+已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget。Ordinal 2+ 先运行 `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`，把 Controller public completion export 确定性摄取为 tracked predecessor receipt v2；receipt 内嵌并重新验证 exact export。旧的 release-manager v1 self-digest 不再是自动执行证据。Build/verify/apply 都会 fresh-read remote base 与全部 Spec/receipt/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \

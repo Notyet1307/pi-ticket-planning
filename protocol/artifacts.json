@@ -199,13 +199,25 @@
       "migrationPath": null
     },
     {
-      "namespace": "pi-ticket-planning",
-      "name": "release-predecessor-receipt",
-      "schemaIdentity": "pi-ticket-planning:release-predecessor-receipt:v1",
-      "schemaPath": "schemas/release-predecessor-receipt-v1.schema.json",
+      "namespace": "herdr-codex-controller",
+      "name": "release-completion",
+      "schemaIdentity": "herdr-codex-controller:release-completion:v1",
+      "schemaPath": "schemas/herdr-codex-release-completion-v1.schema.json",
       "currentMajor": 1,
       "readableMajors": [1],
-      "writer": "release-manager",
+      "writer": "herdr-codex-controller",
+      "readers": ["controller-completion-ingestion", "delivery-graph-checker", "execution-plan-compiler"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "release-predecessor-receipt",
+      "schemaIdentity": "pi-ticket-planning:release-predecessor-receipt:v2",
+      "schemaPath": "schemas/release-predecessor-receipt-v2.schema.json",
+      "currentMajor": 2,
+      "readableMajors": [2],
+      "writer": "controller-completion-ingestion",
       "readers": ["to-tickets", "delivery-graph-checker", "execution-plan-compiler"],
       "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
       "migrationPath": null

@@ -153,9 +153,11 @@ function readyBundle() {
     identity: "PRODUCT_RELEASE R1",
     revision: "r2",
     baseSha,
+    baseRef: "main",
     specContentHash: hashText(specBody),
   };
   return {
+    repo: "acme/product",
     repositoryPath,
     source,
     parent,
@@ -275,14 +277,14 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
     planningBaseSha,
     parent: { number: 99, title: bundle.roadmapParent.title, bodyHash: hashText(bundle.roadmapParent.body) },
     plannedReleases: [
-      { releaseId: "R1-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
+      { releaseId: "r1-c1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
       {
         releaseId: "R1-C2-r1",
         releaseOrdinal: 2,
         readinessState: "PLANNED",
         objective: "C2",
         scenarioCoverage: bundle.deliveryGraph.scenarios.map(({ id }) => id),
-        predecessors: ["R1-C1-r1"],
+        predecessors: ["r1-c1-r1"],
         candidateTickets: bundle.deliveryGraph.children.map((child) => ({
           id: child.id,
           title: child.title,
@@ -298,11 +300,18 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
     releaseOrdinal: 2,
     executionBasePolicy: "PREDECESSOR_MERGE_OR_DESCENDANT",
     roadmapDigest: bundle.roadmapGraph.digest,
-    predecessorReleaseId: "R1-C1-r1",
+    predecessorReleaseId: "r1-c1-r1",
     predecessorReceipt: structuredClone(predecessorReceipt),
     predecessorReceiptBinding: structuredClone(predecessorReceiptBinding),
   });
   assert.equal(validateAdmissionState(bundle).ok, true);
+
+  const wrongRepo = structuredClone(bundle);
+  wrongRepo.repo = "acme/other";
+  assert.equal(validateAdmissionState(wrongRepo).problems.some(({ code }) => code === "CONTROLLER_COMPLETION_TARGET_MISMATCH"), true);
+  const wrongBaseRef = structuredClone(bundle);
+  wrongBaseRef.source.baseRef = "trunk";
+  assert.equal(validateAdmissionState(wrongBaseRef).problems.some(({ code }) => code === "CONTROLLER_COMPLETION_TARGET_MISMATCH"), true);
 
   const receiptDrift = structuredClone(bundle);
   receiptDrift.deliveryGraph.predecessorReceiptBinding.sha256 = `sha256:${"0".repeat(64)}`;

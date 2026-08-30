@@ -10,6 +10,7 @@ import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
 import { executionInput } from "./execution-plan-fixture.mjs";
+import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
 import {
   executionConstraints,
   graphContractFields,
@@ -78,8 +79,7 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
   write(repo, "evidence/decision-manifest.json", `${JSON.stringify(decisionManifest)}\n`);
   let predecessorReceipt = null;
   if (downstream) {
-    const receiptBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: "R1-C1-r1", mergedMainSha: planningBaseSha, handoffDigests: [handoff.sha256], validationDigest: `sha256:${"7".repeat(64)}`, completedAt: "2026-08-29T00:10:00Z" };
-    predecessorReceipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+    predecessorReceipt = predecessorReceiptFixture({ releaseId: "r1-c1-r1", repo: input.repo, baseRef: input.source.baseRef, sourceBaseSha: planningBaseSha, candidateSha: planningBaseSha, mergedMainSha: planningBaseSha, handoffDigests: [handoff.sha256] });
     write(repo, "evidence/predecessor.json", `${JSON.stringify(predecessorReceipt)}\n`);
   }
   git(repo, ["add", "."]);
@@ -92,13 +92,13 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
   input.children[0].body = ticketBody({ objective: "Build the safe release.", primaryVerification: "Run the release scenario.", binding, constraints });
   const graph = input.deliveryGraph;
   Object.assign(graph, {
-    releaseId: downstream ? "R1-C2-r1" : "R1-C1-r1",
+    releaseId: downstream ? "r1-c2-r1" : "r1-c1-r1",
     releaseOrdinal: downstream ? 2 : 1,
     planningBaseSha,
     executionBaseSha,
     executionBasePolicy: downstream ? "PREDECESSOR_MERGE_OR_DESCENDANT" : "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: downstream ? `sha256:${"8".repeat(64)}` : null,
-    predecessorReleaseId: downstream ? "R1-C1-r1" : null,
+    predecessorReleaseId: downstream ? "r1-c1-r1" : null,
     predecessorReceipt,
     predecessorReceiptBinding: downstream ? artifactBinding(bytesBinding(repo, executionBaseSha, "predecessor", "evidence/predecessor.json"), executionBaseSha) : null,
     specAcceptance: acceptance,

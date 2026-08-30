@@ -4,7 +4,7 @@ Use the immutable accepted Delivery Spec, exact `spec-acceptance:v1` receipt, se
 
 ## Qualified Controller mainline
 
-`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, and integration scope. The currently qualified revision is `1d59be3f97750f091c2cf7ff756d5e522cd79f2f`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
+`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, Release Plan/completion schemas, and integration scope. The currently qualified revision is `0ddfc71d42d8a732099554f866a650aba18c581b`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
 
 This contract qualifies only the direct path:
 
@@ -18,7 +18,7 @@ approved Delivery Graph
 
 The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
 
-The v3 artifact represents one bounded all-AGENT Release. Before compilation, each Ticket passes Oracle/risk/scope/protected-write-set/replan and exact reviewer checks. Build and apply also fresh-read the remote base, tracked Spec receipt, decision manifest sources, predecessor receipt, dependency handoffs, Parent/Children, Oracle data, explicit verifier source/helper/schema bytes, package script definition, and Controller provenance. Approval binds that projection, the Graph/review, projected Plan, and handoff fingerprint.
+The v3 artifact represents one bounded all-AGENT Release. Before compilation, each Ticket passes Oracle/risk/scope/protected-write-set/replan and exact reviewer checks. An ordinal 2+ predecessor receipt must be v2 from deterministic Controller completion ingestion; it embeds the exact public completion export and binds its candidate, merge, validation/review, provenance, and handoffs. Legacy release-manager v1 self-digests are rejected. Build and apply also fresh-read the remote base, tracked Spec/receipt bytes, decision manifest sources, dependency handoffs, Parent/Children, Oracle data, explicit verifier source/helper/schema bytes, package script definition, and Controller provenance. Approval binds that projection, the Graph/review, projected Plan, and handoff fingerprint.
 
 Release Plan v2 binds:
 

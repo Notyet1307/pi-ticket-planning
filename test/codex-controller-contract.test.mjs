@@ -15,12 +15,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("pinned latest Controller lock qualifies only the direct Release Plan v2 mainline", () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
   const schema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  assert.equal(lock.commit, "1d59be3f97750f091c2cf7ff756d5e522cd79f2f");
+  const completionSchema = fs.readFileSync(path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json"));
+  assert.equal(lock.commit, "0ddfc71d42d8a732099554f866a650aba18c581b");
   assert.equal(lock.commit.startsWith("ff60e69b"), false);
   assert.equal(lock.sourceManifestDigest, CONTROLLER_IDENTITY.sourceManifestDigest);
   assert.equal(lock.buildDigest, CONTROLLER_IDENTITY.buildDigest);
   assert.equal(lock.identityDigest, CONTROLLER_IDENTITY.digest);
   assert.equal(lock.schemaSha256, createHash("sha256").update(schema).digest("hex"));
+  assert.equal(lock.completionSchemaSha256, createHash("sha256").update(completionSchema).digest("hex"));
   assert.equal(lock.digestAlgorithm, "canonical-json-v1+sha256-hex");
   assert.equal(lock.integrationMode, "release-plan-v2-direct");
   assert.equal(lock.dispatcherQualified, false);
@@ -34,11 +36,13 @@ test("fake Controller unit exercises all fixed vectors without execution command
   const cli = path.join(controller, "dist", "src", "cli.js");
   const fixtures = path.join(controller, "fixtures");
   const controllerSchema = path.join(controller, "schemas", "release-plan-v2.schema.json");
+  const controllerCompletionSchema = path.join(controller, "schemas", "release-completion-v1.schema.json");
   const record = path.join(directory, "argv.jsonl");
   fs.mkdirSync(path.dirname(cli), { recursive: true });
   fs.mkdirSync(fixtures, { recursive: true });
   fs.mkdirSync(path.dirname(controllerSchema), { recursive: true });
   fs.copyFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"), controllerSchema);
+  fs.copyFileSync(path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json"), controllerCompletionSchema);
   fs.writeFileSync(path.join(fixtures, "config.json"), `${JSON.stringify({ repo: "acme/product", baseRef: "main", executionMode: "release-plan-v2-direct", policy: { maxIssues: 2 }, review: { enabled: true } })}\n`);
   fs.writeFileSync(cli, `const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -70,7 +74,8 @@ if (args[0] === "config") {
   }
   const commit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const schemaSha256 = createHash("sha256").update(fs.readFileSync(controllerSchema)).digest("hex");
-  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, sourceManifestDigest: CONTROLLER_IDENTITY.sourceManifestDigest, buildDigest: CONTROLLER_IDENTITY.buildDigest, identityDigest: CONTROLLER_IDENTITY.digest, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
+  const completionSchemaSha256 = createHash("sha256").update(fs.readFileSync(controllerCompletionSchema)).digest("hex");
+  const lock = { schema: "pi-ticket-planning:codex-controller-contract:v1", repository: "https://github.com/Notyet1307/herdr-codex-controller.git", commit, sourceManifestDigest: CONTROLLER_IDENTITY.sourceManifestDigest, buildDigest: CONTROLLER_IDENTITY.buildDigest, identityDigest: CONTROLLER_IDENTITY.digest, releasePlanVersion: 2, schemaPath: "schemas/release-plan-v2.schema.json", schemaSha256, completionSchemaPath: "schemas/release-completion-v1.schema.json", completionSchemaSha256, digestAlgorithm: "canonical-json-v1+sha256-hex", integrationMode: "release-plan-v2-direct", dispatcherQualified: false, operatorStartRequired: true };
   const prior = process.env.TEST_CANARY_RECORD;
   process.env.TEST_CANARY_RECORD = record;
   let result;
@@ -99,6 +104,16 @@ if (args[0] === "config") {
   const driftCommit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const driftSchemaSha256 = createHash("sha256").update(fs.readFileSync(controllerSchema)).digest("hex");
   assert.throws(() => runControllerContractCanary({ controllerRoot: controller, lock: { ...lock, commit: driftCommit, schemaSha256: driftSchemaSha256 } }), /CONTROLLER_SCHEMA_DRIFT/);
+
+  fs.copyFileSync(path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json"), controllerSchema);
+  fs.appendFileSync(controllerCompletionSchema, "\n");
+  for (const args of [["add", controllerSchema, controllerCompletionSchema], ["commit", "-qm", "drift completion schema"]]) {
+    const committed = spawnSync("git", ["-C", controller, ...args], { encoding: "utf8" });
+    assert.equal(committed.status, 0, committed.stderr);
+  }
+  const completionDriftCommit = spawnSync("git", ["-C", controller, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+  const completionDriftSha256 = createHash("sha256").update(fs.readFileSync(controllerCompletionSchema)).digest("hex");
+  assert.throws(() => runControllerContractCanary({ controllerRoot: controller, lock: { ...lock, commit: completionDriftCommit, completionSchemaSha256: completionDriftSha256 } }), /CONTROLLER_COMPLETION_SCHEMA_DRIFT/);
 });
 
 test("Codex Controller contract canary fails closed when the checkout is absent", () => {

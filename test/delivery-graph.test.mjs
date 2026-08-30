@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { fingerprint } from "../execution-plan/domain.mjs";
+import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
 import {
   DELIVERY_RELEASE_GRAPH_MARKER,
   DELIVERY_GRAPH_MARKER,
@@ -243,25 +244,20 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   release.releaseId = "R001-C2-r1";
   release.releaseOrdinal = 2;
   release.executionBasePolicy = "PREDECESSOR_MERGE_OR_DESCENDANT";
-  release.predecessorReleaseId = "R001-C1-r1";
+  release.predecessorReleaseId = "r001-c1-r1";
   const roadmap = roadmapGraph([
-    { releaseId: "R001-C1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
-    { releaseId: "R001-C2-r1", releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S1"], predecessors: ["R001-C1-r1"], candidateTickets: [] },
+    { releaseId: "r001-c1-r1", releaseOrdinal: 1, readinessState: "PLANNED", objective: "C1", scenarioCoverage: ["S1"], predecessors: [], candidateTickets: [] },
+    { releaseId: "R001-C2-r1", releaseOrdinal: 2, readinessState: "PLANNED", objective: "C2", scenarioCoverage: ["S1"], predecessors: ["r001-c1-r1"], candidateTickets: [] },
   ]);
   release.roadmapDigest = roadmap.digest;
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "MISSING_PREDECESSOR_RECEIPT"), true);
-  const receiptBody = {
-    schema: "pi-ticket-planning:release-predecessor-receipt:v1",
-    releaseId: "R001-C1-r1",
-    mergedMainSha: "2".repeat(40),
-    handoffDigests: [],
-    validationDigest: `sha256:${"2".repeat(64)}`,
-    completedAt: "2026-08-29T01:00:00Z",
-  };
-  release.predecessorReceipt = { ...receiptBody, digest: fingerprint(receiptBody) };
+  const legacyBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: "r001-c1-r1", mergedMainSha: "2".repeat(40), handoffDigests: [], validationDigest: `sha256:${"2".repeat(64)}`, completedAt: "2026-08-29T01:00:00Z" };
+  release.predecessorReceipt = { ...legacyBody, digest: fingerprint(legacyBody) };
   release.predecessorReceiptBinding = { path: "evidence/c1-completion.json", baseSha: release.executionBaseSha, sha256: `sha256:${"4".repeat(64)}`, byteCount: 1 };
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_COMPLETION_EXPORT_REQUIRED"), true);
+  release.predecessorReceipt = predecessorReceiptFixture({ releaseId: "r001-c1-r1", sourceBaseSha: "1".repeat(40), candidateSha: "1".repeat(40), mergedMainSha: "2".repeat(40) });
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_EXECUTION_BASE_MISMATCH"), true);
-  release.executionBaseSha = receiptBody.mergedMainSha;
+  release.executionBaseSha = release.predecessorReceipt.mergedMainSha;
   release.predecessorReceiptBinding.baseSha = release.executionBaseSha;
   release.specAcceptanceBinding.baseSha = release.executionBaseSha;
   const { digest: _decisionDigest, ...decisionBody } = release.decisionManifest;
