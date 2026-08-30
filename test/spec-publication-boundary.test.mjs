@@ -12,6 +12,7 @@ import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { verifyPlanningCaseBindings } from "../planning-case/bindings.mjs";
 import { createFactAttestation, loadProtocol, producerAttestationSource } from "../protocol/kernel.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER } from "../scripts/check-delivery-graph.mjs";
+import { runSpecPublicationCli } from "../spec-publication/cli.mjs";
 import {
   applySpecPublication,
   buildSpecPublicationPlan,
@@ -287,6 +288,35 @@ test("Spec publication uses the latest attestation when an older duplicate was s
   }
 
   assert.equal(ready.apply().status, "COMPLETE");
+});
+
+test("Spec publication approval can be refreshed after its producer binding becomes invalid", (t) => {
+  const ready = publicationSetup(t);
+  const snapshot = ready.store.get({ caseId: ready.caseId, target: TARGET });
+  const invalid = structuredClone(ready.approval);
+  invalid.source.producerDigest = `sha256:${"0".repeat(64)}`;
+  snapshot.approvals = { pending: [invalid], consumed: [] };
+  let refreshed = null;
+  const store = {
+    get: () => structuredClone(snapshot),
+    addApproval: ({ approval }) => { refreshed = approval; },
+  };
+  let output = "";
+  const originalWrite = process.stdout.write;
+  process.stdout.write = (chunk) => { output += chunk; return true; };
+  try {
+    assert.equal(runSpecPublicationCli([
+      "approve",
+      "--plan", ready.planPath,
+      "--expected-fingerprint", ready.plan.planFingerprint,
+      "--case-id", ready.caseId,
+      "--json",
+    ], { storeFactory: () => store, clock: () => NOW, correlationId: "C-refreshed-spec-approval" }), 0);
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+  assert.equal(JSON.parse(output).status, "COMPLETE");
+  assert.equal(refreshed.subject.digest, ready.plan.planFingerprint);
 });
 
 test("Delivery Spec publication excludes Legacy Admission qualification and runtime review", (t) => {
