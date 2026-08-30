@@ -4,7 +4,7 @@ Use the immutable accepted Delivery Spec, exact `spec-acceptance:v1` receipt, se
 
 ## Qualified Controller mainline
 
-`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, and integration scope. The currently qualified revision is `987a30872494e50987f17d1cc74304763bc74a28`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
+`compatibility/codex-controller-contract.json` is the machine owner of the exact Controller revision, source-manifest/build identity digests, and integration scope. The currently qualified revision is `50665339dce3fb94c24355fcc56015c3aadf0b36`, with `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`.
 
 This contract qualifies only the direct path:
 
