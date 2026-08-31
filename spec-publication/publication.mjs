@@ -29,6 +29,7 @@ const SHA = /^[a-f0-9]{40,64}$/;
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const REQUIRED_SECTIONS = ["Source", "Problem statement", "Delivery outcome", "Behavioral scenarios", "Release signal mapping", "Walking skeleton target", "Decisions", "Verification strategy", "Constraints and dependencies", "Out of scope", "Unresolved decisions"];
+const ACCEPTED_ADR_STATUS = /(?:Status\**:?\s*ACCEPTED|状态\**[：:]?\s*已接受)/iu;
 
 function exactUtf8(value) {
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value ?? "");
@@ -179,7 +180,7 @@ export function verifySpecPublicationContext({ context, repositoryPath, adapter,
   if (digestBytes(blob(exact.policy)) !== exact.policy.digest) throw new Error("SPEC_POLICY_DRIFT");
   for (const adr of exact.adrs) {
     const bytes = blob(adr);
-    if (digestBytes(bytes) !== adr.digest || !/Status\**:?\s*ACCEPTED/iu.test(bytes.toString("utf8"))) throw new Error("SPEC_ADR_DRIFT");
+    if (digestBytes(bytes) !== adr.digest || !ACCEPTED_ADR_STATUS.test(bytes.toString("utf8"))) throw new Error("SPEC_ADR_DRIFT");
   }
   const issueTracker = blob(exact.tracker.issueTracker);
   const triageLabels = blob(exact.tracker.triageLabels);
@@ -327,9 +328,9 @@ export function createGitHubSpecPublicationAdapter({ repo, runJson = runGhJson }
 }
 
 function matchingFact(snapshot, name, subject, now) {
-  const matches = snapshot.facts.filter((fact) => fact.fact === name && Object.entries(subject).every(([key, value]) => fact.subject?.[key] === value));
-  if (matches.length === 0 || matches.some((fact) => fact.value !== true || !validateFactAttestation(fact, { now }).ok)) throw new Error(`SPEC_PUBLICATION_FACT_INVALID:${name}`);
-  return matches.at(-1);
+  const match = snapshot.facts.filter((fact) => fact.fact === name && Object.entries(subject).every(([key, value]) => fact.subject?.[key] === value)).at(-1);
+  if (!match || match.value !== true || !validateFactAttestation(match, { now }).ok) throw new Error(`SPEC_PUBLICATION_FACT_INVALID:${name}`);
+  return match;
 }
 
 function same(left, right) { return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right)); }
@@ -397,8 +398,11 @@ export function applySpecPublication({ plan, current, preflight, adapter, store,
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
   const approval = approvals.find(({ id }) => id === approvalId);
   const matches = approvals.filter((item) => item.fact === "human.specPublication" && item.subject?.digest === plan.planFingerprint);
+  const consumedApprovalIds = new Set(snapshot.approvals.consumed.map(({ id }) => id));
+  const competingApproval = matches.some((item) => item.id !== approvalId
+    && (consumedApprovalIds.has(item.id) || validateFactAttestation(item, { now }).ok));
   const approvalSubject = { target, kind: "spec-publication-plan", id: plan.planFingerprint, revision: plan.source.revision, digest: plan.planFingerprint };
-  if (!approval || matches.length !== 1 || approval.fact !== "human.specPublication" || !same(approval.subject, approvalSubject)
+  if (!approval || competingApproval || approval.fact !== "human.specPublication" || !same(approval.subject, approvalSubject)
     || !validateFactAttestation(approval).ok) throw new Error("INVALID_SPEC_PUBLICATION_APPROVAL");
   const preAccepted = snapshot.checkpoint.stage === "SPEC" && snapshot.checkpoint.verdict === "SPEC_ACCEPTED";
   const preInProgress = snapshot.checkpoint.stage === "SPEC" && snapshot.checkpoint.verdict === "SPEC_IN_PROGRESS";

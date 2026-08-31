@@ -226,7 +226,7 @@ pi-ticket-plan -r
 
 ### 专用 PI Profile 与固定 Release
 
-安装器在 `$HOME/.pi/ticket-planning` 创建专用 Profile，使用 checkout 的真实路径生成 settings，固定所记录的 Matt Pocock Skill commit、`pi-interactive-subagents` commit 和 `pi-fff` 版本，并把 `$HOME/.local/bin/pi-ticket-plan` 安装为指向当前 checkout 的符号链接。`pi-fff` 通过 `override` 模式替换内置 `find` 和 `grep`；交互式 subagent 在 `HERDR_ENV=1` 时使用 Herdr，否则使用 tmux。它们需要持久 PI session 并异步回传，因此启动确认本身不是 review 证据。默认 Profile 已有 `auth.json` 和 `models.json` 时会通过符号链接共享。替换受管文件前会备份；凭证、sessions、trust 决策、缓存和运行时状态不进入本仓库。
+安装器在 `$HOME/.pi/ticket-planning` 创建专用 Profile，使用 checkout 的真实路径生成 settings，固定所记录的 Matt Pocock Skill commit、`pi-interactive-subagents` commit、`pi-fff` 版本和 `@juicesharp/rpiv-todo@2.7.1`，并把 `$HOME/.local/bin/pi-ticket-plan` 安装为指向当前 checkout 的符号链接。`pi-fff` 通过 `override` 模式替换内置 `find` 和 `grep`；`rpiv-todo` 为顶层会话增加 `todo` 工具、`/todos` 命令和交互 overlay，受限 Reviewer subagent 不继承该扩展。交互式 subagent 在 `HERDR_ENV=1` 时使用 Herdr，否则使用 tmux。它们需要持久 PI session 并异步回传，因此启动确认本身不是 review 证据。默认 Profile 已有 `auth.json` 和 `models.json` 时会通过符号链接共享。替换受管文件前会备份；凭证、sessions、trust 决策、缓存和运行时状态不进入本仓库。
 
 启动器在 PI 启动前选择 Profile：
 

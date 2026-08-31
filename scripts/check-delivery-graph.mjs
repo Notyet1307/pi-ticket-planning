@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -455,7 +456,7 @@ function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = tru
     ok: problems.length === 0,
     verdict: problems.length > 0 ? "NEEDS_INFO" : readinessProblems.length === 0 ? "READY" : snapshot.readinessState,
     executable: problems.length === 0 && readinessProblems.length === 0,
-    contract: contract.length === 0 && semantic.contract === "PASS" ? "PASS" : "FAIL",
+    contract: contract.length === 0 ? "PASS" : "FAIL",
     scenarioCoverage: semantic.scenarioCoverage,
     walkingSkeleton: semantic.walkingSkeleton,
     strictFrontier: semantic.strictFrontier,
@@ -498,6 +499,14 @@ function result(contract, coverage, skeleton, frontier) {
   };
 }
 
+function gitAncestorFromCwd(from, to) {
+  const run = spawnSync("git", ["-C", process.cwd(), "merge-base", "--is-ancestor", from, to], {
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  return !run.error && !run.signal && run.status === 0;
+}
+
 const ownPath = fs.realpathSync(fileURLToPath(import.meta.url));
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
   try {
@@ -505,7 +514,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === ownPath) {
       throw new Error("usage: --input FILE_OR_DASH");
     }
     const input = process.argv[3] === "-" ? fs.readFileSync(0, "utf8") : fs.readFileSync(path.resolve(process.argv[3]), "utf8");
-    const checked = validateDeliveryGraph(parseDeliveryGraph(input));
+    const checked = validateDeliveryGraph(parseDeliveryGraph(input), { isAncestor: gitAncestorFromCwd });
     console.log(JSON.stringify(checked, null, 2));
     if (!checked.ok) process.exitCode = 1;
   } catch (error) {

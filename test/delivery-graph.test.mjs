@@ -193,7 +193,19 @@ test("delivery graph v2 requires stable Spec and child body identities", () => {
 
 test("delivery release v3 represents exactly one bounded AGENT release", () => {
   const ready = executableGraph();
-  assert.equal(validateDeliveryGraph(ready).ok, true);
+  const checkedReady = validateDeliveryGraph(ready);
+  assert.equal(checkedReady.ok, true);
+  assert.equal(checkedReady.contract, "PASS");
+
+  const descendant = structuredClone(ready);
+  descendant.executionBaseSha = "2".repeat(40);
+  descendant.specAcceptanceBinding.baseSha = descendant.executionBaseSha;
+  descendant.decisionManifestBinding.baseSha = descendant.executionBaseSha;
+  const checkedDescendant = validateDeliveryGraph(descendant, {
+    isAncestor: (from, to) => from === ready.planningBaseSha && to === descendant.executionBaseSha,
+  });
+  assert.equal(checkedDescendant.ok, true);
+  assert.equal(checkedDescendant.contract, "PASS");
 
   const human = structuredClone(ready);
   human.children[0].executionLane = "HUMAN";

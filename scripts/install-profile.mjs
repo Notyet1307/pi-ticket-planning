@@ -25,6 +25,7 @@ const PROFILE_TEMPLATE = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "profil
 const UPSTREAM_SOURCE = `git:github.com/mattpocock/skills@${PACKAGE_METADATA.mattpocockUpstream.commit}`;
 const SUBAGENTS_SOURCE = configuredSubagentSource(PACKAGE_ROOT);
 const FFF_SOURCE = PROFILE_TEMPLATE.packages.find((entry) => /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
+const TODO_SOURCE = PROFILE_TEMPLATE.packages.find((entry) => /^npm:@juicesharp\/rpiv-todo@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
 const REVIEWER_READ_GUARD = path.join("extensions", "ticket-readiness-read-guard.mjs");
 const REVIEWER_AGENT = path.join("agents", "ticket-readiness-reviewer.md");
 
@@ -238,6 +239,8 @@ function main(argv) {
   run(piBin, ["install", SUBAGENTS_SOURCE], runtimeEnv);
   if (!FFF_SOURCE) throw new Error("pi-fff source is unavailable");
   run(piBin, ["install", FFF_SOURCE], runtimeEnv);
+  if (!TODO_SOURCE) throw new Error("rpiv-todo source is unavailable");
+  run(piBin, ["install", TODO_SOURCE], runtimeEnv);
   run(piBin, ["update", "--extensions"], runtimeEnv);
   chmodSync(path.join(installed.profileDir, "settings.json"), 0o600);
   const verification = run(process.execPath, [path.join(PACKAGE_ROOT, "scripts", "check-profile.mjs")], runtimeEnv);
