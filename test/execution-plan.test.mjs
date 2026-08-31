@@ -114,6 +114,14 @@ test("execution-plan parser preserves only controlled parent fields", () => {
   const parsed = parseParentDeliverySpec(parent);
   assert.equal(parsed.objective, "Release a safe change");
   assert.deepEqual(parsed.scenarios.map(({ id }) => id), ["S1"]);
+  const detailedSkeleton = parent.replace(
+    "The first path produces the release artifact.",
+    "The first path produces the release artifact.\n\n1. The external input enters S1.\n2. S1 emits the durable release artifact.",
+  );
+  assert.equal(
+    parseParentDeliverySpec(detailedSkeleton).walkingSkeleton,
+    "The first path produces the release artifact.",
+  );
   assert.throws(() => parseParentDeliverySpec(parent.replace("## Out of scope", "## Decisions")), /DUPLICATE_SECTION/);
   assert.deepEqual(parseControlledLines("First paragraph\ncontinues here.\n\n- First item\n2. Second item"), ["First paragraph\ncontinues here.", "First item", "Second item"]);
 });

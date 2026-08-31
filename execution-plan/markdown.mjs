@@ -70,7 +70,8 @@ export function parseParentDeliverySpec(body) {
     return { id, observable: field("Observable result"), failure: field("Important failure behavior"), exit: field("Exit state or produced artifact") };
   });
   if (scenarios.length === 0 || new Set(scenarios.map(({ id }) => id)).size !== scenarios.length) throw new Error("INVALID_SCENARIOS");
-  return { objective: oneLine(values["Delivery outcome"], "EMPTY_DELIVERY_OUTCOME"), scenarios, walkingSkeleton: oneLine(values["Walking skeleton target"], "EMPTY_WALKING_SKELETON"), releaseSignals: values["Release signal mapping"], decisions: values.Decisions, constraints: values["Constraints and dependencies"] };
+  const walkingSkeleton = parseControlledLines(values["Walking skeleton target"])[0] ?? "";
+  return { objective: oneLine(values["Delivery outcome"], "EMPTY_DELIVERY_OUTCOME"), scenarios, walkingSkeleton: oneLine(walkingSkeleton, "EMPTY_WALKING_SKELETON"), releaseSignals: values["Release signal mapping"], decisions: values.Decisions, constraints: values["Constraints and dependencies"] };
 }
 
 export function parseChildTicket(body) {
