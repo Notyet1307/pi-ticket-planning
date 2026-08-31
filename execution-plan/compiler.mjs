@@ -36,16 +36,26 @@ export function reviewFocusForSpec(spec) {
   return result;
 }
 
-function runtimeProvenance(controller, config, releasePlan, planDigest) {
-  const identity = controller?.controllerIdentity ?? controller?.provenance?.controller;
-  if (!identity) throw new Error("CONTROLLER_PROVENANCE_REQUIRED");
-  const body = { version: 1, controller: identity, executionMode: config.executionMode, configDigest: controller.configDigest, releasePlan: { version: 2, digest: planDigest } };
-  const expected = { ...body, digest: releasePlanDigest(body) };
-  if (controller.provenance && JSON.stringify(canonical(controller.provenance)) !== JSON.stringify(canonical(expected))) throw new Error("CONTROLLER_PROVENANCE_MISMATCH");
-  return expected;
+function runtimeProvenance(controller, config, planDigest, { draft }) {
+  if (!controller?.provenance) {
+    if (draft) return null;
+    throw new Error("CONTROLLER_PROVENANCE_REQUIRED");
+  }
+  const provenance = controller.provenance;
+  const { digest, ...body } = provenance;
+  const identity = controller.controllerIdentity ?? provenance.controller;
+  if (provenance.version !== 3 || provenance.executionMode !== config.executionMode
+    || provenance.configDigest !== controller.configDigest || provenance.releasePlan?.version !== 2
+    || provenance.releasePlan.digest !== planDigest || digest !== releasePlanDigest(body)
+    || JSON.stringify(canonical(provenance.controller)) !== JSON.stringify(canonical(identity))
+    || controller.requiredCheckContractDigest && provenance.requiredCheckContractDigest !== controller.requiredCheckContractDigest
+    || controller.mergeAuthorityDigest && provenance.mergeAuthorityDigest !== controller.mergeAuthorityDigest) {
+    throw new Error("CONTROLLER_PROVENANCE_MISMATCH");
+  }
+  return structuredClone(provenance);
 }
 
-export function compileExecutionPlan(input, { controller = null } = {}) {
+export function compileExecutionPlan(input, { controller = null, draft = false } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !REPO.test(input.repo ?? "")) throw new Error("INVALID_EXECUTION_PLAN_INPUT");
   if (input.kind !== "DELIVERY_GRAPH" || !/^[1-9][0-9]*$/.test(String(input.parent?.id ?? "")) || input.parent.state !== "open" || typeof input.parent.body !== "string") throw new Error("PARENT_NOT_OPEN");
   let graph;
@@ -135,10 +145,10 @@ export function compileExecutionPlan(input, { controller = null } = {}) {
   const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: reviewFocusForSpec(spec) };
   if (releasePlan.releaseAcceptanceCriteria.length > 50 || releasePlan.releaseAcceptanceCriteria.some((value) => value.length > 2000)) throw new Error("RELEASE_PLAN_TOO_LARGE");
   const controllerPlanDigest = controller?.planDigest ?? releasePlanDigest(releasePlan);
-  const provenance = runtimeProvenance(controller, config, releasePlan, controllerPlanDigest);
+  const provenance = runtimeProvenance(controller, config, controllerPlanDigest, { draft });
   const plan = { schema: HANDOFF_PLAN_SCHEMA, kind: "CODEX_RELEASE", repo: input.repo, target: String(input.parent.id), source: { identity: graph.source.identity, revision: graph.source.revision, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), parentBodyHash: hashText(input.parent.body), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, children: children.map(({ issue, title, bodyHash, executionLane, blockedBy }) => ({ issue, title, bodyHash, executionLane, blockedBy })), freshness: executionFreshnessProjection(input), reviewedFingerprint: fingerprint({ source: reviewSource, review: input.review, reviewBinding, reviewDispatchBinding: input.reviewDispatchBinding }), policy: { identity: input.policy.identity, digest: input.policy.digest }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: controller?.configDigest ?? "", provenance, repo: config.repo, baseRef: config.baseRef, maxIssues: config.policy.maxIssues, reviewEnabled }, releasePlan, controllerPlanDigest, recovery: { strategy: "rebuild-on-source-drift", conflict: "Rebuild and re-approve on any fresh source, receipt, decision, dependency handoff, Oracle, review, policy, Controller config, provenance, or Plan drift." } };
   const complete = { ...plan, planFingerprint: fingerprint(handoffProjection(plan)) };
-  if (!validateArtifact(releasePlan, { identity: RELEASE_PLAN_SCHEMA }).ok || !validateArtifact(complete).ok) throw new Error("INVALID_EXECUTION_HANDOFF_ARTIFACT");
+  if (!validateArtifact(releasePlan, { identity: RELEASE_PLAN_SCHEMA }).ok || !draft && !validateArtifact(complete).ok) throw new Error("INVALID_EXECUTION_HANDOFF_ARTIFACT");
   return complete;
 }
 

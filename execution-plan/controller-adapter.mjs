@@ -45,13 +45,19 @@ function controllerIdentity(value) {
   return identity;
 }
 
-function controllerProvenance(value) {
-  const provenance = exactObject(value, ["version", "controller", "executionMode", "configDigest", "releasePlan", "digest"], "PROVENANCE");
+function controllerProvenance(value, expectedRepo) {
+  const provenance = exactObject(value, ["version", "controller", "executionRuntime", "remoteIdentity", "validationSandbox", "requiredCheckContractDigest", "mergeAuthorityDigest", "identityHistoryDigest", "executionMode", "configDigest", "releasePlan", "digest"], "PROVENANCE");
   const releasePlan = exactObject(provenance.releasePlan, ["version", "digest"], "PROVENANCE");
   const { digest: provenanceDigest, ...body } = provenance;
   controllerIdentity(provenance.controller);
-  if (provenance.version !== 1 || provenance.executionMode !== DIRECT_MODE || releasePlan.version !== 2
+  if (provenance.version !== 3 || provenance.executionMode !== DIRECT_MODE || releasePlan.version !== 2
     || digest(provenance.configDigest, "CONFIG_DIGEST") !== provenance.configDigest
+    || digest(provenance.requiredCheckContractDigest, "CHECK_CONTRACT_DIGEST") !== provenance.requiredCheckContractDigest
+    || digest(provenance.mergeAuthorityDigest, "MERGE_AUTHORITY_DIGEST") !== provenance.mergeAuthorityDigest
+    || provenance.identityHistoryDigest !== CONTRACT_LOCK.controllerIdentityHistoryDigest
+    || provenance.executionRuntime?.version !== 1 || provenance.executionRuntime?.profilesDisabled !== true
+    || provenance.remoteIdentity?.version !== 1 || provenance.remoteIdentity?.repo !== expectedRepo.toLowerCase()
+    || provenance.validationSandbox?.version !== 1 || provenance.validationSandbox?.provider !== "codex-permission-profile"
     || digest(releasePlan.digest, "PLAN_DIGEST") !== releasePlan.digest
     || digest(provenanceDigest, "PROVENANCE_DIGEST") !== fingerprint(body).slice("sha256:".length)) throw new Error("CONTROLLER_INVALID_PROVENANCE");
   return provenance;
@@ -74,8 +80,21 @@ export function createControllerAdapter({ cli, config, nodeArgs = [] }) {
     const after = configIdentity(controllerConfig);
     if (before !== after) throw new Error("CONTROLLER_CONFIG_DRIFT");
     const config = result.config ?? result.value ?? result;
-    if (config?.executionMode !== DIRECT_MODE) throw new Error("CONTROLLER_MODE_NOT_QUALIFIED");
-    return { config, configDigest: digest(result.configDigest, "CONFIG_DIGEST"), configIdentity: after, controllerIdentity: controllerIdentity(result.controller) };
+    const checks = config?.delivery?.requiredChecks;
+    if (config?.version !== 3 || config.executionMode !== DIRECT_MODE
+      || config.review?.enabled !== true || !same(config.review.blockingSeverities, ["critical", "major"])
+      || config.delivery?.createPullRequest !== true || config.delivery?.autoMerge !== true || config.delivery?.allowNoChecks !== false
+      || checks?.version !== 1 || !Array.isArray(checks.checks) || checks.checks.filter((check) => check.required).length === 0
+      || checks.checks.some((check) => check.required && check.appId === null && check.workflowName === null)
+      || !same(config.delivery.mergeAuthority, CONTRACT_LOCK.mergeAuthorityContract)) throw new Error("CONTROLLER_MODE_NOT_QUALIFIED");
+    return {
+      config,
+      configDigest: digest(result.configDigest, "CONFIG_DIGEST"),
+      configIdentity: after,
+      controllerIdentity: controllerIdentity(result.controller),
+      requiredCheckContractDigest: fingerprint(checks).slice("sha256:".length),
+      mergeAuthorityDigest: fingerprint(config.delivery.mergeAuthority).slice("sha256:".length),
+    };
   };
   return {
     config: readConfig,
@@ -94,15 +113,17 @@ export function createControllerAdapter({ cli, config, nodeArgs = [] }) {
         if (result?.ok !== true) throw new Error("CONTROLLER_PLAN_INVALID");
         if (!result.plan || JSON.stringify(canonical(result.plan)) !== JSON.stringify(canonical(plan))) throw new Error("CONTROLLER_PLAN_ECHO_MISMATCH");
         const planDigest = digest(result.planDigest, "PLAN_DIGEST");
-        const provenance = controllerProvenance(result.provenance);
+        const provenance = controllerProvenance(result.provenance, after.config.repo);
         if (planDigest !== releasePlanDigest(plan) || provenance.configDigest !== expectedDigest
-          || provenance.releasePlan.digest !== planDigest || !same(provenance.controller, after.controllerIdentity)) throw new Error("CONTROLLER_PROVENANCE_DRIFT");
+          || provenance.releasePlan.digest !== planDigest || !same(provenance.controller, after.controllerIdentity)
+          || provenance.requiredCheckContractDigest !== after.requiredCheckContractDigest
+          || provenance.mergeAuthorityDigest !== after.mergeAuthorityDigest) throw new Error("CONTROLLER_PROVENANCE_DRIFT");
         return { planDigest, plan: result.plan, configDigest: after.configDigest, provenance };
       } finally {
         fs.rmSync(directory, { recursive: true, force: true });
       }
     },
-    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity) {
+    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity, expectedProvenance = null) {
       const expected = digest(expectedConfigDigest, "CONFIG_DIGEST");
       if (typeof expectedConfigIdentity !== "string" || configIdentity(controllerConfig) !== expectedConfigIdentity) throw new Error("CONTROLLER_CONFIG_DRIFT");
       const result = invoke(controllerCli, ["doctor", "--config", controllerConfig, "--json"], { failureCode: "CONTROLLER_DOCTOR_FAILED", nodeArgs });
@@ -110,6 +131,16 @@ export function createControllerAdapter({ cli, config, nodeArgs = [] }) {
       if (result?.ok !== true) throw new Error("CONTROLLER_DOCTOR_FAILED");
       if (digest(result.configDigest, "CONFIG_DIGEST") !== expected) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
       if (!same(controllerIdentity(result.controller), controllerIdentity(expectedControllerIdentity))) throw new Error("CONTROLLER_IDENTITY_DRIFT");
+      const current = readConfig();
+      if (result.mergePolicyVerified !== true || result.validationSandbox?.verified !== true
+        || result.requiredCheckContractDigest !== current.requiredCheckContractDigest
+        || result.mergeAuthorityDigest !== current.mergeAuthorityDigest
+        || result.identityHistoryDigest !== CONTRACT_LOCK.controllerIdentityHistoryDigest
+        || !result.remoteIdentity || !result.validationSandbox) throw new Error("CONTROLLER_DOCTOR_POLICY_DRIFT");
+      if (expectedProvenance && (result.remoteIdentity.digest !== expectedProvenance.remoteIdentity?.digest
+        || result.validationSandbox.policyDigest !== expectedProvenance.validationSandbox?.policyDigest)) {
+        throw new Error("CONTROLLER_DOCTOR_POLICY_DRIFT");
+      }
       return result;
     },
   };

@@ -29,7 +29,7 @@
     "predecessorReceipt": {
       "oneOf": [
         { "type": "null" },
-        { "$ref": "release-predecessor-receipt-v2.schema.json" }
+        { "$ref": "release-predecessor-receipt-v3.schema.json" }
       ]
     },
     "predecessorReceiptBinding": {

@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
-import { validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
+import { validateArtifact, validateProtocolDefinition as validateContracts } from "../protocol/kernel.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 import { RISK_CLASS_REGISTRY, validateRiskClassRegistry } from "./risk-classes.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
@@ -74,9 +75,16 @@ const REQUIRED_FILES = [
   "schemas/project-readiness-v1.schema.json",
   "schemas/risk-class-registry-v1.schema.json",
   "schemas/codex-controller-contract-v1.schema.json",
+  "schemas/codex-controller-contract-v2.schema.json",
+  "schemas/codex-controller-trust-v1.schema.json",
   "schemas/herdr-codex-release-plan-v2.schema.json",
   "schemas/herdr-codex-release-completion-v1.schema.json",
+  "schemas/herdr-codex-release-completion-v2.schema.json",
+  "schemas/herdr-codex-release-completion-v3.schema.json",
+  "schemas/herdr-codex-controller-config-v3.schema.json",
+  "schemas/herdr-codex-controller-identity-history-v1.schema.json",
   "schemas/execution-handoff-plan-v1.schema.json",
+  "schemas/execution-handoff-plan-v2.schema.json",
   "schemas/execution-handoff-receipt-v1.schema.json",
   "schemas/spec-publication-plan-v1.schema.json",
   "schemas/spec-acceptance-v1.schema.json",
@@ -84,6 +92,7 @@ const REQUIRED_FILES = [
   "schemas/delivery-release-graph-v3.schema.json",
   "schemas/release-predecessor-receipt-v1.schema.json",
   "schemas/release-predecessor-receipt-v2.schema.json",
+  "schemas/release-predecessor-receipt-v3.schema.json",
   "schemas/decision-manifest-v1.schema.json",
   "schemas/oracle-binding-v1.schema.json",
   "schemas/oracle-verifier-manifest-v1.schema.json",
@@ -94,6 +103,7 @@ const REQUIRED_FILES = [
   "execution-plan/markdown.mjs",
   "execution-plan/compiler.mjs",
   "execution-plan/controller-adapter.mjs",
+  "execution-plan/completion-ingest.mjs",
   "execution-plan/private-paths.mjs",
   "execution-plan/validate.mjs",
   "execution-plan/handoff-apply.mjs",
@@ -119,6 +129,7 @@ const REQUIRED_FILES = [
   "scripts/check-ticket-contract.mjs",
   "scripts/canary-execution-readiness.mjs",
   "scripts/canary-codex-controller-contract.mjs",
+  "scripts/generate-codex-controller-contract.mjs",
   "scripts/execution-plan.mjs",
   "scripts/install-profile.mjs",
   "scripts/planctl.mjs",
@@ -145,6 +156,8 @@ const REQUIRED_FILES = [
   "capabilities/required.mjs",
   "compatibility/matrix.json",
   "compatibility/codex-controller-contract.json",
+  "compatibility/codex-controller-trust.json",
+  "compatibility/controller-identity-history.json",
   "docs/operations/compatibility-matrix.md",
   "installation/cli.mjs",
   "installation/build-metadata.mjs",
@@ -244,6 +257,7 @@ export function validatePackage(root) {
     "ingest:release-completion": "node execution-plan/completion-ingest.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
+    "generate:codex-controller-contract": "node scripts/generate-codex-controller-contract.mjs",
     "e2e:cleanup": "node integration/cleanup.mjs",
     planctl: "node scripts/planctl.mjs",
     "release:qualify": "node integration/qualify.mjs",
@@ -285,6 +299,7 @@ export function validatePackage(root) {
     "ref: ${{ steps.lock.outputs.commit }}",
     "node-version: 26.x",
     "npm run verify",
+    "npm run generate:codex-controller-contract",
     "npm run check:codex-controller-contract",
     "npm run canary:codex-controller-contract",
   ]);
@@ -292,15 +307,30 @@ export function validatePackage(root) {
     errors.push("Controller contract workflow must remain read-only and secret-free");
   }
   const controllerContractLock = readJson(path.join(root, "compatibility", "codex-controller-contract.json"));
+  const controllerTrust = readJson(path.join(root, "compatibility", "codex-controller-trust.json"));
+  const controllerHistory = fs.readFileSync(path.join(root, "compatibility", "controller-identity-history.json"));
   const controllerSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-plan-v2.schema.json"));
-  const completionSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-completion-v1.schema.json"));
+  const completionSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-completion-v3.schema.json"));
+  const historicalCompletionSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-release-completion-v2.schema.json"));
+  const configSchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-controller-config-v3.schema.json"));
+  const historySchema = fs.readFileSync(path.join(root, "schemas", "herdr-codex-controller-identity-history-v1.schema.json"));
   const riskClassRegistry = fs.readFileSync(path.join(root, "contracts", "risk-class-registry.json"));
+  if (!validateArtifact(controllerContractLock).ok) errors.push("Controller contract lock schema is invalid");
+  if (!validateArtifact(controllerTrust).ok) errors.push("Controller trust registry schema is invalid");
   if (controllerContractLock.commit?.startsWith("d450f6a6") || !/^[a-f0-9]{40}$/.test(controllerContractLock.commit ?? "")) errors.push("Controller contract commit is not exact");
   if (![controllerContractLock.sourceManifestDigest, controllerContractLock.buildDigest, controllerContractLock.identityDigest].every((value) => /^[a-f0-9]{64}$/.test(value ?? ""))) errors.push("Controller contract runtime identity is not exact");
   const controllerIdentityDigest = createHash("sha256").update(JSON.stringify({ buildDigest: controllerContractLock.buildDigest, sourceManifestDigest: controllerContractLock.sourceManifestDigest, sourceRevision: controllerContractLock.commit, version: 1 })).digest("hex");
   if (controllerContractLock.identityDigest !== controllerIdentityDigest) errors.push("Controller contract runtime identity digest drifted");
+  const { digest: lockDigest, ...lockBody } = controllerContractLock;
+  if (lockDigest !== fingerprint(lockBody)) errors.push("Controller contract lock digest drifted");
   if (controllerContractLock.schemaSha256 !== createHash("sha256").update(controllerSchema).digest("hex")) errors.push("Controller schema mirror drifted from its lock");
   if (controllerContractLock.completionSchemaSha256 !== createHash("sha256").update(completionSchema).digest("hex")) errors.push("Controller completion schema mirror drifted from its lock");
+  if (controllerContractLock.historicalCompletionSchemas?.[0]?.sha256 !== createHash("sha256").update(historicalCompletionSchema).digest("hex")) errors.push("Controller historical completion schema mirror drifted from its lock");
+  if (controllerContractLock.configSchemaSha256 !== createHash("sha256").update(configSchema).digest("hex")) errors.push("Controller config schema mirror drifted from its lock");
+  if (controllerContractLock.controllerIdentityHistorySchemaSha256 !== createHash("sha256").update(historySchema).digest("hex")) errors.push("Controller identity history schema mirror drifted from its lock");
+  if (controllerContractLock.controllerIdentityHistorySha256 !== createHash("sha256").update(controllerHistory).digest("hex")) errors.push("Controller identity history mirror drifted from its lock");
+  if (controllerContractLock.controllerIdentityHistoryDigest !== JSON.parse(controllerHistory).digest) errors.push("Controller identity history digest drifted from its lock");
+  if (controllerContractLock.trustRegistryDigest !== controllerTrust.digest || controllerTrust.activeIdentityDigest !== controllerContractLock.identityDigest) errors.push("Controller trust registry drifted from its lock");
   if (controllerContractLock.riskClassRegistrySha256 !== createHash("sha256").update(riskClassRegistry).digest("hex")) errors.push("Controller risk registry mirror drifted from its lock");
   if (controllerContractLock.riskClassRegistryDigest !== RISK_CLASS_REGISTRY.digest) errors.push("Controller risk registry artifact digest drifted from its lock");
 

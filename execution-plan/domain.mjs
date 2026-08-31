@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const HANDOFF_PLAN_SCHEMA = "pi-ticket-planning:execution-handoff-plan:v1";
+export const HANDOFF_PLAN_SCHEMA = "pi-ticket-planning:execution-handoff-plan:v2";
 export const HANDOFF_RECEIPT_SCHEMA = "pi-ticket-planning:execution-handoff-receipt:v1";
 export const RELEASE_PLAN_SCHEMA = "herdr-codex-controller:release-plan:v2";
 export const SHA256 = /^sha256:[a-f0-9]{64}$/;
