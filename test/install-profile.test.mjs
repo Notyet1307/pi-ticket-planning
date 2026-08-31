@@ -34,7 +34,7 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
     assert.equal(settings.packages.find((entry) => entry.source === PACKAGE_ROOT)?.source, PACKAGE_ROOT);
     assert.equal(settings.subagents, undefined);
-    assert.equal(settings.packages.some((entry) => /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry.source)), true);
+    assert.equal(settings.packages.some((entry) => /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry.source)), true);
     assert.equal(settings.packages.some((entry) => entry.source === "npm:@ff-labs/pi-fff@0.10.5"), true);
     assert.equal(
       readFileSync(path.join(profileDir, "agents", "ticket-readiness-reviewer.md"), "utf8"),
