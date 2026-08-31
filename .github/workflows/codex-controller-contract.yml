@@ -27,10 +27,13 @@ jobs:
           node-version: 26.x
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: herdr-codex-controller
-      - name: Prepare sandbox-visible Node
-        run: sudo install -m 0755 "$(command -v node)" /usr/local/bin/node
+      - name: Prepare sandbox-visible Node runtime
+        run: |
+          NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          sudo mkdir -p /usr/local/lib/herdr-node
+          sudo cp -R "$NODE_ROOT/." /usr/local/lib/herdr-node/
       - run: |
-          export PATH="/usr/local/bin:$PATH"
+          export PATH="/usr/local/lib/herdr-node/bin:/usr/bin:/bin"
           npm run verify
         working-directory: herdr-codex-controller
       - run: npm ci --ignore-scripts --no-audit --no-fund
