@@ -30,9 +30,9 @@ Within one executable Release, every `expectedPaths` family has one Ticket owner
 
 ## Oracle execution
 
-Binding immutable Oracle bytes is not enough. Every bound Oracle command must also appear exactly in the qualified Controller configuration's `validation.release` command list. Missing coverage fails the qualified build, verify, or apply path with `ORACLE_VALIDATION_COMMAND_MISSING`.
+Binding immutable Oracle bytes is not enough. A high-risk Issue projects its trusted Oracle command into the semantic Plan. Controller accepts it only when it matches exactly one trusted `validation.release` command; missing coverage fails before execution with `oracle_validation_command_missing`.
 
-The Controller config digest and provenance bind that command set through handoff and `start`. The Controller executes each Ticket's Oracle before its commit, records a durable Validation Receipt v2, and runs every Oracle again during authoritative Release validation.
+Controller config stays Controller-owned and outside the Planner contract. Controller executes the projected Oracle during Issue validation and again during authoritative Release validation, recording its ordinary bounded validation receipts.
 
 ## Roadmap continuity
 

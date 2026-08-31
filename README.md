@@ -6,7 +6,7 @@ PI Ticket Planning turns a rough product idea, a feature request for an existing
 
 The input can be one natural-language sentence or an Issue reference. The durable planning output is a decision-complete standalone Ticket or accepted Delivery Graph linked to an accepted product goal, technical decisions, and verification. Starting an agent immediately would hide unresolved product, architecture, dependency, or risk choices inside implementation; this package closes those choices first.
 
-For an accepted Delivery Graph, the recommended execution exit is one **Codex Controller Release Handoff**: compile an exact Release Plan v2, approve its fingerprint once, materialize three private input files, then let the operator start the Controller. Legacy `admit` remains the explicit Herdr per-ticket ready-label path.
+For an accepted Delivery Graph, the recommended execution exit is one **Codex Controller Release Handoff**: compile `release-plan.json`, approve its fingerprint once, materialize that one file, then let the operator start Controller. Legacy `admit` remains the explicit Herdr per-ticket ready-label path.
 
 > The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and authorize the exact execution handoff. It never starts the Controller; GitHub ready labels belong only to explicit Legacy Herdr admission.
 
@@ -145,7 +145,7 @@ At this point the system does not initialize Git, select a stack, or create appl
 | Choose one bounded Evidence method and form a Candidate Frame. | Consent, access, privacy boundaries, and any result that only a real participant or environment can supply. |
 | After Commitment, check required technical decisions and compile a Delivery Spec. | Commitment, load-bearing architecture choices, data ownership, shared interfaces, and risk acceptance. |
 | Generate scenario coverage, a walking skeleton, candidate Tickets, and their dependency graph. | Approval of the exact Ticket graph. |
-| Run one fresh graph-readiness review and compile an exact Controller Release Plan v2. | Confirmation of the exact Release Handoff fingerprint. |
+| Run one fresh graph-readiness review and compile the semantic Controller Release Plan. | Confirmation of the exact Plan fingerprint. |
 | Reconstruct persisted authority and resume at the first open gate. | Production enablement, rollback decisions, and the final Outcome judgment. |
 
 The system recommends, but it never disguises a non-delegable human tradeoff as an automated conclusion.
@@ -201,8 +201,8 @@ Conversation, durable artifacts, and activation are separate:
 4. Formal Evidence stores only an approved redacted result; raw answers stay outside the repository.
 5. An exact accepted Release and any required accepted ADR must reach the accepted code base before the Delivery Spec can become authoritative.
 6. Candidate Tickets begin as `needs-triage`.
-7. The recommended Codex path shows the exact source, graph, Controller Plan, config digest, fingerprint, and invariants before handoff. A general “continue” is not approval.
-8. Confirmed Codex handoff atomically writes three private local files and keeps every Ticket in `needs-triage`; it does not start the Controller. Ready-label writes exist only in the explicitly selected Legacy Herdr path.
+7. The recommended Codex path shows the exact source, graph, semantic Plan, fingerprint, and invariants before handoff. A general “continue” is not approval.
+8. Confirmed Codex handoff atomically writes one private `release-plan.json` and keeps every Ticket in `needs-triage`; it does not start Controller. Ready-label writes exist only in the explicitly selected Legacy Herdr path.
 
 Current behavior is owned by [`contracts/`](contracts/), [`scripts/`](scripts/), and the owning [`skills/`](skills/) or reference. [`fixtures/`](fixtures/) and `test/` are regression evidence, not contracts. This README and the guides are explanatory.
 
@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. Ordinal 2+ first ingests the Controller public completion export with `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`; the resulting tracked predecessor receipt v3 embeds and revalidates that exact export, its active or historically qualified Controller identity, owned completion schema, and immutable qualification-entry digest. Unknown/revoked identities fail closed, and receipt v2 requires explicit migration. A legacy release-manager v1 self-digest is not automatic execution evidence. Build/verify/apply fresh-read the remote base and every Spec/receipt/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
+For an accepted GitHub v3 Release, Planner keeps its detailed Oracle, risk, scope, protected-path, review, and approval facts internally. The Controller boundary contains only one semantic `release-plan.json`. Ordinal 2+ validates a public Controller result against its approved Plan with `npm run ingest:release-result -- --result /public/release-result.json --plan /private/release-plan.json --out /private/accepted-result.json --json`. Build/verify/apply fresh-read the remote base and every internal Spec/result/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -298,17 +298,15 @@ pi-ticket-plan execution-plan build \
   --review-binding /private/review-binding.json \
   --review-dispatch-binding /private/review-dispatch.json \
   --context /private/context.json \
-  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
-  --controller-config /private/controller.json \
-  --out /private/execution-handoff-plan.json --json
+  --out /private/release-plan.json --json
 
 pi-ticket-planctl case approve-handoff PC-release-90 \
-  --plan /private/execution-handoff-plan.json \
-  --expected-fingerprint sha256:<confirmed-handoff-hash> --json
+  --plan /private/release-plan.json \
+  --expected-fingerprint sha256:<confirmed-plan-hash> --json
 
 pi-ticket-plan execution-plan apply \
-  --plan /private/execution-handoff-plan.json \
-  --expected-fingerprint sha256:<confirmed-handoff-hash> \
+  --plan /private/release-plan.json \
+  --expected-fingerprint sha256:<confirmed-plan-hash> \
   --case-id PC-release-90 --approval-id F-<id-from-approve-handoff> \
   --context /private/fresh-context.json \
   --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
@@ -316,7 +314,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build calls only Controller `config validate` and `plan validate`; apply also calls `doctor`. Both recheck every binding. Apply durably records `HANDOFF_APPROVED` with approval pending, materializes exactly three private files, records `HANDOFF_READY`, consumes approval last, and only prints the bound Controller `start` command.
+Build and verify do not inspect a Controller checkout. Apply rechecks Planner-owned bindings, durably records `HANDOFF_APPROVED`, materializes only `release-plan.json`, records `HANDOFF_READY`, consumes approval last, and prints `start --approve-plan <planDigest>`. Controller config, runtime policy, validation, PR, CI, and merge authority remain Controller-owned.
 
 Legacy v2 migration is dry-run only: `node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`. A single Release requires exact `releaseMembership`; otherwise Roadmap/current membership is mandatory. Output is `PLANNED`, human-approved, never writes Issues/labels, and cannot hand off directly.
 
@@ -357,7 +355,7 @@ A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMA
 
 Controller execution, aggregate review, PR/CI/merge, real enablement, health, and Outcome remain distinct. Planner handoff never polls execution. Legacy Harness claim semantics remain confined to the explicit `admit` path.
 
-Controller public completion v2/v3 ingestion is supported only through the versioned trust registry and produces predecessor receipt v3. The Planner never reads private `job.json` state, polls execution, or treats a status summary as completion evidence.
+Planner accepts only `herdr-codex-controller:release-result:v1`; it never reads private `job.json`, polls execution, or treats a status summary as a merged result.
 
 ## Development and release verification
 
@@ -382,13 +380,13 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 
 It uses a temporary Git repository, bare origin, Harness config, Pi agent directory, and fake GitHub/Docker/Pi commands. It exercises one passing receipt plus missing gate, Docker, and tracked validation environment failures, then runs the Harness exact-HEAD/auto-merge guard tests. It does not use a real Provider, GitHub repository, production Docker daemon, Issue, label, PR, or Harness ledger.
 
-With the matching Codex Controller checkout available, run its deterministic public-contract canary:
+With a current Codex Controller checkout available, run the semantic fixture contract:
 
 ```sh
-npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
+HERDR_CONTROLLER_ROOT=/absolute/herdr-codex-controller npm run check:codex-controller-contract
 ```
 
-This canary regenerates and checks the exact Controller commit, active/historical identities, runtime lock, risk registry, and Plan/config/completion/history schema bytes; rejects dirty checkout state; and rebuilds an exact local clone under Node 26 permission isolation with network denied. It validates current and ordinal-2 Plan vectors and runs selected exact-build P0 runtime tests for sandbox containment, runtime/profile binding, prompt envelopes, canonical review, required-check deadlines/budgets, remote binding, authority quarantine, completion/history, and Oracle protection. Dispatcher is out of scope and never called. The canary does not invoke the environment-bound live `doctor` and never calls `start`, Codex, or a GitHub write; the real handoff must still pass doctor. PASS is deterministic L1 evidence, not live Provider/GitHub execution or L2/L3/L4 qualification. A missing checkout is `CONTROLLER_UNAVAILABLE`, and missing build dependencies are `CONTROLLER_NOT_BUILT`, never PASS.
+This check proves that Planner's canonical Plan fixture validates in the checked-out Controller, both repositories use identical Plan/Result schemas, Controller's Result fixture ingests in Planner, and unsupported contract majors fail. It does not pin or hash Controller source/build bytes and does not start a Job or mutate GitHub.
 
 The expected Profile smoke result includes the package-owned `prepare-codex-release` skill; the command reports the exact current skill count.
 

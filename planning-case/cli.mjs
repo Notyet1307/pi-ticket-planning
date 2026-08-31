@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
-import { createFactAttestation, producerAttestationSource, validateArtifact } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { runtimeMetadata } from "../installation/build-metadata.mjs";
+import { validateReleasePlan } from "../execution-plan/release-contract.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
@@ -83,20 +84,9 @@ function readAdmissionPlan(file) {
   }
 }
 
-function readExecutionHandoffPlan(file) {
-  const plan = readJsonInput(file, "INVALID_EXECUTION_HANDOFF_PLAN");
-  if (plan.schema === "pi-ticket-planning:execution-handoff-plan:v1") {
-    throw new PlanningCaseError("EXECUTION_HANDOFF_PLAN_NEEDS_MIGRATION");
-  }
-  if (plan.schema !== "pi-ticket-planning:execution-handoff-plan:v2"
-    || plan.kind !== "CODEX_RELEASE"
-    || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(plan.repo ?? "")
-    || !SHA256.test(plan.planFingerprint ?? "")
-    || typeof plan.source?.revision !== "string"
-    || !validateArtifact(plan).ok
-    || fingerprint(((value) => { const { planFingerprint, ...rest } = value; return rest; })(plan)) !== plan.planFingerprint) {
-    throw new PlanningCaseError("INVALID_EXECUTION_HANDOFF_PLAN");
-  }
+function readReleasePlan(file) {
+  const plan = readJsonInput(file, "INVALID_RELEASE_PLAN");
+  if (validateReleasePlan(plan).length > 0) throw new PlanningCaseError("INVALID_RELEASE_PLAN");
   return plan;
 }
 
@@ -130,8 +120,9 @@ export function createPlanningCaseApproval({ plan, caseId, correlationId, observ
   });
 }
 
-export function createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt }) {
-  const subject = { target: `github:${plan.repo}`, kind: "execution-handoff-plan", id: plan.planFingerprint, revision: plan.source.revision, digest: plan.planFingerprint };
+export function createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt, revision }) {
+  const digest = fingerprint(plan);
+  const subject = { target: `github:${plan.repo}`, kind: "release-plan", id: digest, revision, digest };
   return createFactAttestation({
     id: `F-human-execution-handoff-${correlationId.slice(2)}`,
     fact: "human.executionHandoff",
@@ -140,7 +131,7 @@ export function createExecutionHandoffApproval({ plan, caseId, correlationId, ob
     source: producerAttestationSource("operator-asserted", "pi-ticket-planctl"),
     observedAt,
     expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
-    evidence: { kind: "operator", ref: `case:${caseId}:execution-plan.apply`, digest: plan.planFingerprint },
+    evidence: { kind: "operator", ref: `case:${caseId}:execution-plan.apply`, digest },
   });
 }
 
@@ -240,14 +231,15 @@ export function runPlanningCaseCli(argv, {
     } else if (parsed.command === "approve-handoff") {
       requireShape(parsed, { allowed: ["plan", "expected-fingerprint"], required: ["plan", "expected-fingerprint"], positionals: 1 });
       [caseId] = parsed.positionals;
-      const plan = readExecutionHandoffPlan(parsed.options.get("plan"));
-      if (parsed.options.get("expected-fingerprint") !== plan.planFingerprint) throw new PlanningCaseError("EXPECTED_FINGERPRINT_MISMATCH");
+      const plan = readReleasePlan(parsed.options.get("plan"));
+      const planFingerprint = fingerprint(plan);
+      if (parsed.options.get("expected-fingerprint") !== planFingerprint) throw new PlanningCaseError("EXPECTED_FINGERPRINT_MISMATCH");
       const target = `github:${plan.repo}`;
       const snapshot = store.get({ caseId, target });
       if (snapshot.target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
       if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.executionHandoff"
-        && item.subject?.digest === plan.planFingerprint)) throw new PlanningCaseError("HANDOFF_APPROVAL_ALREADY_EXISTS");
-      const approval = createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt: clock() });
+        && item.subject?.digest === planFingerprint)) throw new PlanningCaseError("HANDOFF_APPROVAL_ALREADY_EXISTS");
+      const approval = createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt: clock(), revision: snapshot.checkpoint.subject?.revision });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "resume") {

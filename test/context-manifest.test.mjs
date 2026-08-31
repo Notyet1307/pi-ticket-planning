@@ -28,7 +28,7 @@ test("route Context Manifests stay bounded and keep Reviewer input isolated", ()
   const handoffContract = fs.readFileSync(path.join(ROOT, "skills", "ask-yet", "references", "handoff-ready.md"), "utf8");
   assert.match(handoffContract, /source\.kind == execution-plan-apply/);
   assert.match(handoffContract, /source\.kind == admission-cli/);
-  assert.match(handoffContract, /do not project Controller `IN_PROGRESS`|keep the Planning Case at `HANDOFF_READY`/);
+  assert.match(handoffContract, /Keep the Planning Case at `HANDOFF_READY`.*`release-result:v1`/);
 });
 
 test("Context verifier rejects missing, over-budget, and author-reasoning inputs", (t) => {

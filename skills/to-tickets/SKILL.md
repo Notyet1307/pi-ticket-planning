@@ -42,7 +42,7 @@ Each candidate must satisfy `/ticket-readiness`:
 - enough durable context in the candidate body for a fresh executor to choose the first correct action from it and repository policy; links provide provenance or detail, not the only copy of required behavior or guardrails.
 - cheap deterministic repository and environment facts remain in their owning code, configuration, scripts, or tool output; copy only stable behavior, acceptance criteria, invariants, guardrails, decided handoffs, non-obvious first-action pointers, and exact decision authority into the Ticket.
 - when primary verification depends on Docker, Compose, a non-default runtime, or another configured tool, the stable requirement and canonical tracked validation entry are explicit. Live socket, daemon, credential, and machine availability stay out of the Ticket and are proven later by Admission readiness.
-- exact Oracle with a closed verifier manifest whose independent owner lists every source/helper/schema (never inferred), plus risks, scope, expected/protected paths, one seam, REPLAN triggers, integration declaration, and waivers.
+- explicit risks, scope, expected/protected paths, one seam, REPLAN triggers, integration declaration, and waivers; high-risk work additionally requires an exact Oracle with a closed independent verifier manifest, while normal/low work omits the Oracle section.
 
 Add `## Context anchors` only when the first action has a non-obvious repository entry. Use zero to five bullets in this exact form:
 
@@ -78,7 +78,7 @@ Then name the earliest candidate chain that closes the Spec's smallest trigger-t
 
 Represent only the current executable Release. Put multi-Release/HUMAN work in a separate non-executable `pi-ticket-planning:roadmap-graph:v1`: `PLANNED`, no future base, no Admission/compiler route. Bind its `parent` to a separate fresh Umbrella containing one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; never reuse the Delivery Spec Parent.
 
-Graph review binds public Spec, decision, predecessor, and handoff bytes on the execution base or descendant. Ordinal 2+ generates predecessor v2 only via `npm run ingest:release-completion`; publish it, then rebuild.
+Graph review binds public Spec, result, decision, and handoff bytes on the execution base or descendant. Ordinal 2+ accepts only `release-result:v1` through `npm run ingest:release-result -- --result ... --plan <approved release-plan.json>`; persist its Plan digest in the next graph, then rebuild.
 
 ```json
 {
@@ -93,6 +93,7 @@ Graph review binds public Spec, decision, predecessor, and handoff bytes on the 
   "executionBasePolicy": "PLANNING_BASE_OR_DESCENDANT",
   "roadmapDigest": null,
   "predecessorReleaseId": null,
+  "predecessorPlanDigest": null,
   "predecessorReceipt": null,
   "predecessorReceiptBinding": null,
   "specAcceptance": { "schema": "pi-ticket-planning:spec-acceptance:v1", "parent": {}, "source": {}, "decision": {}, "digest": "sha256:<exact receipt>" },
@@ -113,7 +114,7 @@ Graph review binds public Spec, decision, predecessor, and handoff bytes on the 
 
 `blockedBy` contains only current-Release children; `externalBlockers` is empty. ENABLER adds consumers and exit. Default child limit is four, hard cap six. Hash exact child bodies; never modify the accepted Parent body.
 
-Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT` with exact Roadmap/predecessor identity; v2 embeds Controller completion, and the base is `mergedMainSha` or descendant. v1 returns `PREDECESSOR_COMPLETION_EXPORT_REQUIRED`.
+Ordinal 2+ uses `PREDECESSOR_MERGE_OR_DESCENDANT` with exact Roadmap/result identity; the base is the accepted Result `mergeSha` or descendant. Unsupported Result contracts return `INVALID_RELEASE_RESULT`.
 
 `decision-manifest:v1` binds policy, product Release, `ACCEPTED` ADRs, and handoffs by bytes. Risk classes come from `contracts/risk-class-registry.json`; `expectedPaths` are complete write families with literal first segments, distinct from Context anchors.
 
@@ -180,7 +181,7 @@ Use this child body:
     - [ ] One independently verifiable assertion per item.
 
     ## Oracle binding
-    One JSON fence with exact `pi-ticket-planning:oracle-binding:v1` fields and a closed `herdr-codex-controller:oracle-verifier-manifest:v1` binding the script plus every source/helper/schema byte.
+    High-risk only: one JSON fence with exact `pi-ticket-planning:oracle-binding:v1` fields and a closed `herdr-codex-controller:oracle-verifier-manifest:v1`. Omit this whole section for normal/low work.
 
     ## Execution constraints
     One JSON fence containing `implementationOwner`, `riskClasses`, `scopeBudget`, `expectedPaths`, `protectedPaths`, `replanTriggers`, `primaryVerificationSeams`, `integrationOnly`, and `waivers`.

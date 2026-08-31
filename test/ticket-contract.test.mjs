@@ -163,7 +163,13 @@ test("Oracle binding failures return stable codes", (t) => {
 
 test("natural-language Oracle names do not satisfy the binding contract", (t) => {
   const { repo, baseSha } = repository(t);
-  const body = "## What to build\nBuild one change.\n## Primary verification\nO01.\n## Acceptance criteria\n- [ ] A\n- [ ] B\n- [ ] C\n## Invariants and guardrails\nFrozen Oracle O01.\n## Execution constraints\n```json\n{}\n```\n## Out of scope\nNone.";
+  const body = ticketBody({
+    objective: "Build one change.",
+    primaryVerification: "O01.",
+    guardrails: "Frozen Oracle O01.",
+    binding: null,
+    constraints: executionConstraints({ riskClasses: ["AUTHORITY_BOUNDARY"] }),
+  });
   const checked = validateTicketContract({ repositoryPath: repo, baseSha, child: { id: "C1", body } });
   const fixture = regressionCases.find(({ id }) => id === "accord-o01-natural-language-only");
   assert.equal(checked.problems[0].code, fixture.expectedCode);

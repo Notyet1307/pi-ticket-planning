@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/delivery-release-graph-v3.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "kind", "executable", "readinessState", "releaseId", "releaseOrdinal", "planningBaseSha", "executionBaseSha", "executionBasePolicy", "roadmapDigest", "predecessorReleaseId", "predecessorReceipt", "predecessorReceiptBinding", "specAcceptance", "specAcceptanceBinding", "decisionManifest", "decisionManifestBinding", "decisionManifestDigest", "source", "scenarios", "children", "walkingSkeleton"],
+  "required": ["schema", "kind", "executable", "readinessState", "releaseId", "releaseOrdinal", "planningBaseSha", "executionBaseSha", "executionBasePolicy", "roadmapDigest", "predecessorReleaseId", "predecessorPlanDigest", "predecessorReceipt", "predecessorReceiptBinding", "specAcceptance", "specAcceptanceBinding", "decisionManifest", "decisionManifestBinding", "decisionManifestDigest", "source", "scenarios", "children", "walkingSkeleton"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:delivery-release-graph:v3" },
     "kind": { "const": "EXECUTABLE_RELEASE" },
@@ -26,10 +26,16 @@
         { "$ref": "common-v1.schema.json#/$defs/safeText" }
       ]
     },
+    "predecessorPlanDigest": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      ]
+    },
     "predecessorReceipt": {
       "oneOf": [
         { "type": "null" },
-        { "$ref": "release-predecessor-receipt-v3.schema.json" }
+        { "$ref": "herdr-codex-release-result-v1.schema.json" }
       ]
     },
     "predecessorReceiptBinding": {
@@ -171,7 +177,7 @@
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" }
         },
-        "oracleBindingDigest": { "$ref": "common-v1.schema.json#/$defs/digest" },
+        "oracleBindingDigest": { "oneOf": [{ "$ref": "common-v1.schema.json#/$defs/digest" }, { "type": "null" }] },
         "integrationOnly": {
           "oneOf": [
             { "type": "null" },

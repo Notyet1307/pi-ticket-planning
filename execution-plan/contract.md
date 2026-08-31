@@ -1,52 +1,24 @@
-# Codex Controller Release Handoff contract
+# Codex Controller semantic release contract
 
-Use the immutable accepted Delivery Spec, exact `spec-acceptance:v1` receipt, separately bound `delivery-release-graph:v3`, Ticket Context PASS results, fresh review binding, and Planning Case handoff approval to compile one Controller Release Plan v2 inside `execution-handoff-plan:v2`. `execution-plan` validates only Controller public `config validate`, `plan validate`, and `doctor` commands; it never starts a Controller Job. Roadmaps and legacy v1/v2 graphs are readable migration inputs, never production handoffs.
-
-## Qualified Controller mainline
-
-`compatibility/codex-controller-contract.json` is generated from exact merged Controller bytes and owns the active revision, source-manifest/build identity, Plan/config/completion/history/runtime-lock schema hashes, shared risk registry, digest algorithm, and integration scope. The qualified revision is `4d6295af2f1533a8fee5ffe1d420241bc1f5bcba`, with config v3, provenance v3, Job v4, completion v3, `digestAlgorithm=utf16-code-unit-canonical-json-v1+sha256-hex`, `integrationMode=release-plan-v2-direct`, `dispatcherQualified=false`, and `operatorStartRequired=true`. `compatibility/codex-controller-trust.json` separately keeps Controller A (`1d532133657e763f8e50429774eabf01c45f98e9`) historically qualified for its own completion v2 while B alone is active for new handoffs.
-
-This contract qualifies only the direct path:
+Planner keeps Planning Case, accepted Spec, Delivery Graph, decisions, ticket review, Oracle bindings, scope controls, freshness checks, and human approval as internal authority. It exports only `release-plan.json`.
 
 ```text
-approved Delivery Graph
-→ Release Plan v2
-→ execution-plan apply
-→ operator executes the printed Controller start command
-→ Controller run
+Planner internal facts
+→ release-plan.json
+→ Controller validation, fresh Workers, aggregate review, PR, required CI, exact-head merge
+→ review.md + release-result.json
 ```
 
-The optional Controller Dispatcher is deliberately outside this contract. Planner code and Skills must never call `dispatch`, require or write `ready-for-agent`, read a dispatcher config, or replace the approved multi-Issue Release Plan v2 with a per-Issue Release Plan v1. Dispatcher support requires a separate admission contract and separate qualification evidence.
+The Plan uses `controllerContractVersion: 1` and contains only the release identity and objective, repository/base, Parent and ordered child Issue numbers, dependencies, objectives, acceptance criteria, optional expected paths, simple risk, optional trusted Oracle commands, release acceptance criteria, and review focus. Controller does not consume Spec, Graph, decision, predecessor, waiver, build, runtime, or provenance artifacts.
 
-The v3 artifact represents one bounded all-AGENT Release. Before compilation, each Ticket passes Oracle/risk/scope/protected-write-set/replan and exact reviewer checks. An ordinal 2+ predecessor receipt must be v3 from deterministic Controller completion ingestion; it embeds an exact trusted Controller completion v2 or v3 and binds its candidate, merge, validation/review, provenance, identity, owned schema, immutable qualification entry, and handoffs; the current lock-bound registry separately enforces revocation. Unknown or revoked identities are rejected. Receipt v2 returns `PREDECESSOR_RECEIPT_NEEDS_MIGRATION`; legacy release-manager v1 self-digests are rejected. Build and apply also fresh-read the remote base, tracked Spec/receipt bytes, decision manifest sources, dependency handoffs, Parent/Children, Oracle data, explicit verifier source/helper/schema bytes, package script definition, and Controller provenance. Approval binds that projection, the Graph/review, projected Plan, and handoff fingerprint.
+`execution-plan build` compiles the semantic Plan from fresh Planner facts. `verify` recompiles and compares it. `apply` requires the exact human-approved Plan fingerprint, writes only `release-plan.json`, verifies exact readback, advances the Planning Case to `HANDOFF_READY`, consumes approval last, and prints:
 
-Release Plan v2 binds:
+```text
+herdr-codex start --config ... --plan ... --approve-plan <planDigest>
+```
 
-- target repository, accepted base ref, and exact 40-hex base commit;
-- open Parent number, exact title, and UTF-8 body hash;
-- Delivery Spec content hash and canonical Delivery Graph digest;
-- decision-manifest, predecessor-receipt, dependency-handoff, and full Oracle binding digests (including each verifier manifest digest);
-- every open Child number, order, internal dependencies, exact title/body hash, one-sentence objective, and 3–8 exact assertions;
-- every Child Oracle binding, risk classes, scope budget, expected/protected paths, REPLAN triggers, integration-only declaration, and waiver digests;
-- scenario-observable Release acceptance plus the walking-skeleton target;
-- every Scenario failure, the walking-skeleton handoff, and controlled Constraints, Release signals, and Decisions in their accepted source language. Entries are deduplicated, limited to 20 and 2000 UTF-8 bytes each, and oversize input fails closed.
+Controller returns `herdr-codex-controller:release-result:v1`. Planner ingestion requires the approved Plan and binds `releaseId`, `planDigest`, and `baseSha`; a downstream Graph also records and checks the predecessor Plan digest. Planner never reads Controller private Job state, polls execution, or interprets Controller build identity.
 
-Every projected AGENT Child fixes `suggestedValidation: []` and `allowNoop: false`; Controller config owns validation commands. Production config v3 must match repo/base ref, use the verified validation sandbox, disable custom Codex profiles, bind the exact runtime and Git remote identities, enable canonical aggregate review with `critical` and `major` blocking, declare versioned App/workflow-bound required checks, use Controller-owned exact-head auto-merge, and permit the projected Issue count. HUMAN work, any external blocker, or an over-limit child set remains `CODEX_RELEASE_NOT_EXECUTABLE` or `CHILD_COUNT_POLICY_EXCEEDED`; a Roadmap returns `ROADMAP_NOT_EXECUTABLE` and v2 returns `NEEDS_MIGRATION`.
+Cross-repository CI checks semantic fixtures and matching schema bytes from current checkouts. It does not clone or hash a pinned Controller commit.
 
-Production CLI build/verify/apply require live GitHub Context and reject offline `--input`. Build may produce a candidate after fresh-source, `config validate`, and `plan validate` even when doctor is temporarily unavailable. Verify/apply repeat freshness and require `doctor`. Apply first persists `ADMISSION/HANDOFF_APPROVED` with the exact pending approval, then writes only `release-plan.json`, `execution-handoff-plan.json`, and `execution-handoff-receipt.json`, verifies them, advances to `EXECUTION/HANDOFF_READY`, and consumes approval last. Recovery repeats the same checks from either durable state.
-
-The operator starts the Controller only with the command returned after COMPLETE. That command binds `--expected-config-digest`, `--expected-controller-revision`, and `--expected-controller-provenance-digest` to the approved Handoff. Planner code must not call `start`, create a Worktree/branch/commit/PR, write labels/comments, poll execution, or read Controller private state.
-
-The deployment checkout containing the supplied Controller CLI must be at the exact locked commit with a clean tracked worktree before handoff build or apply. The cross-repository workflow enforces this for CI. Planner validates the Controller's public runtime identity/provenance readback against the lock, but production operators must preserve the exact-clean-checkout preflight; a matching command surface or self-report alone is not proof of the qualified revision.
-
-The public provenance gate binds the approved build through Job creation and later Controller steps. It does not replace the required Skill/operator Git preflight; a build or apply without both checks is outside the qualified path.
-
-The lock also pins owner schema/history/runtime bytes and the digest algorithm. The cross-repository canary rejects dirty checkout state, regenerates the lock, builds an exact network-denied clone, verifies active and historical identities, and runs selected exact-build runtime tests for sandbox containment, runtime/profile binding, prompt envelopes, canonical review, required-check deadlines and budgets, remote binding, exact-head authority quarantine, completion checkpoints, byte-idempotent historical export, Oracle protection, and closed v2 Plan vectors. It does not invoke the environment-bound live `doctor`, run a real Controller Job, call a Provider, or write GitHub; those remain handoff/live qualification gates beyond deterministic L1.
-
-Authority owners: `scripts/check-delivery-graph.mjs`, `scripts/check-ticket-context.mjs`, `admission/review-transport.mjs`, `planning-case/cli.mjs`, and `execution-plan/compiler.mjs`.
-
-Planner never reads Controller private `job.json` or treats its status API as predecessor evidence. Ordinal 2+ consumes only the verified public completion export embedded by deterministic predecessor-receipt v3 ingestion.
-
-Legacy v2 graphs remain readable but never compile. `scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 ... --dry-run true` deterministically emits only `PLANNED`, human-approved v3 and/or Roadmap candidates.
-
-Legacy `execution-handoff-plan:v1` bound provenance v1 and is never reinterpreted. Rebuild it from the same fresh live sources with the current compiler and obtain a new exact approval; verification returns `NEEDS_MIGRATION`.
+Authority owners: `scripts/check-delivery-graph.mjs`, `scripts/check-ticket-context.mjs`, `admission/review-transport.mjs`, `planning-case/cli.mjs`, `execution-plan/compiler.mjs`, and `execution-plan/release-contract.mjs`.

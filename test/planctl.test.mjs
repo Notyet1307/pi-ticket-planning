@@ -11,7 +11,6 @@ import { fingerprint as handoffFingerprint } from "../execution-plan/domain.mjs"
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
 import { buildSpecPublicationPlan, digestBytes, recordSpecPublicationArtifacts } from "../spec-publication/publication.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
-import { CONTROLLER_IDENTITY, controllerProvenance } from "./execution-plan-fixture.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TARGET = "github:Notyet1307/example";
@@ -35,13 +34,19 @@ function runSpecPublication(stateDir, args) {
 }
 
 function handoffPlan() {
-  const verifierBody = { schema: "herdr-codex-controller:oracle-verifier-manifest:v1", oracleId: "O01", command: "npm run verify:oracle:o01", packageScript: { name: "verify:oracle:o01", definitionSha256: `sha256:${"8".repeat(64)}` }, files: [{ path: "scripts/verify-o01.mjs", sha256: `sha256:${"9".repeat(64)}`, byteCount: 1 }] };
-  const oracle = { schema: "pi-ticket-planning:oracle-binding:v1", id: "O01", owner: { kind: "INDEPENDENT_VERIFICATION", identity: "reviewer" }, artifact: { path: "fixtures/o1.json", format: "json", baseSha: "a".repeat(40), sha256: `sha256:${"4".repeat(64)}`, byteCount: 1 }, execution: { command: "npm run verify:oracle:o01" }, verifier: { ...verifierBody, digest: handoffFingerprint(verifierBody) }, workerMutationAllowed: false };
-  const issue = { number: 91, order: 1, dependsOn: [], objective: "Build safely", acceptanceCriteria: ["One", "Two", "Three"], suggestedValidation: [], allowNoop: false, expectedTitle: "Child", expectedBodyHash: `sha256:${"e".repeat(64)}`, oracleBindings: [oracle], riskClasses: ["BOUNDED_BEHAVIOR_CHANGE"], scopeBudget: { maxFiles: 2, maxChangedLines: 100 }, expectedPaths: ["src/child.ts"], protectedPaths: ["fixtures/o1.json"], replanTriggers: ["ACCEPTED_DECISION_CHANGE_REQUIRED", "THIRD_RISK_CLASS_DISCOVERED", "SCOPE_BUDGET_EXCEEDED", "DOWNSTREAM_RELEASE_BEHAVIOR_DISCOVERED"], integrationOnly: null, waiverDigests: [] };
-  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: "Notyet1307/example", baseRef: "main", baseSha: "a".repeat(40), parentBinding: { number: 90, expectedTitle: "Release", expectedBodyHash: `sha256:${"b".repeat(64)}` }, specContentHash: `sha256:${"c".repeat(64)}`, deliveryGraphDigest: `sha256:${"d".repeat(64)}`, decisionManifestDigest: `sha256:${"5".repeat(64)}`, predecessorReceiptDigest: null, dependencyHandoffDigests: [] }, id: "release-90", title: "Release", objective: "Ship safely", parentIssue: 90, issues: [issue], releaseAcceptanceCriteria: ["S1: Done"], reviewFocus: [] };
-  const freshness = { remoteBaseSha: "a".repeat(40), parent: { number: 90, title: "Release", bodyHash: `sha256:${"b".repeat(64)}` }, children: [{ number: 91, title: "Child", bodyHash: `sha256:${"e".repeat(64)}` }], specAcceptanceDigest: `sha256:${"6".repeat(64)}`, decisionManifestDigest: releasePlan.source.decisionManifestDigest, predecessorReceiptDigest: null, dependencyHandoffDigests: [], oracleBindingDigests: [{ issue: "91", digest: `sha256:${"7".repeat(64)}` }] };
-  const plan = { schema: "pi-ticket-planning:execution-handoff-plan:v2", kind: "CODEX_RELEASE", repo: "Notyet1307/example", target: "90", source: { identity: "accepted", revision: "r1", baseRef: "main", baseSha: "a".repeat(40), specContentHash: `sha256:${"c".repeat(64)}`, deliveryGraphDigest: `sha256:${"d".repeat(64)}`, parentBodyHash: `sha256:${"b".repeat(64)}`, decisionManifestDigest: releasePlan.source.decisionManifestDigest, predecessorReceiptDigest: null, dependencyHandoffDigests: [] }, children: [{ issue: "91", title: "Child", bodyHash: `sha256:${"e".repeat(64)}`, executionLane: "AGENT", blockedBy: [] }], freshness, reviewedFingerprint: `sha256:${"f".repeat(64)}`, policy: { identity: "policy", digest: `sha256:${"1".repeat(64)}` }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: "2".repeat(64), provenance: controllerProvenance("2".repeat(64), "3".repeat(64), CONTROLLER_IDENTITY), repo: "Notyet1307/example", baseRef: "main", maxIssues: 1, reviewEnabled: true }, releasePlan, controllerPlanDigest: "3".repeat(64), recovery: { strategy: "rebuild-on-source-drift", conflict: "rebuild" } };
-  return { ...plan, planFingerprint: handoffFingerprint(plan) };
+  return {
+    controllerContractVersion: 1,
+    id: "release-90",
+    title: "Release",
+    objective: "Ship safely",
+    repo: "Notyet1307/example",
+    baseRef: "main",
+    baseSha: "a".repeat(40),
+    parentIssue: 90,
+    issues: [{ number: 91, order: 1, dependsOn: [], objective: "Build safely", acceptanceCriteria: ["One", "Two", "Three"], expectedPaths: ["src/child.ts"], risk: "normal", oracleCommands: [] }],
+    releaseAcceptanceCriteria: ["S1: Done"],
+    reviewFocus: [],
+  };
 }
 
 test("pi-ticket-planctl persists and resumes one case across processes", (t) => {
@@ -148,29 +153,30 @@ test("pi-ticket-planctl isolates exact execution handoff approvals from Admissio
   const stateDir = path.join(parent, "state"); const handoffFile = path.join(parent, "handoff.json");
   t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
   const handoff = handoffPlan(); fs.writeFileSync(handoffFile, `${JSON.stringify(handoff)}\n`, { mode: 0o600 });
+  const handoffDigest = handoffFingerprint(handoff);
   assert.equal(run(stateDir, ["case", "create", "--target", TARGET, "--case-id", "PC-handoff", "--json"]).status, 0);
-  const approved = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoff.planFingerprint, "--json"]);
+  const approved = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]);
   assert.equal(approved.status, 0, approved.stderr);
   const approval = approved.json.data.approval;
   assert.equal(approval.fact, "human.executionHandoff");
-  assert.deepEqual(approval.subject, { target: TARGET, kind: "execution-handoff-plan", id: handoff.planFingerprint, revision: "r1", digest: handoff.planFingerprint });
+  assert.deepEqual(approval.subject, { target: TARGET, kind: "release-plan", id: handoffDigest, revision: "0", digest: handoffDigest });
   assert.equal(Date.parse(approval.expiresAt) - Date.parse(approval.observedAt), 3600000);
   assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", `sha256:${"0".repeat(64)}`, "--json"]).json.problems[0].code, "EXPECTED_FINGERPRINT_MISMATCH");
-  assert.equal(run(stateDir, ["case", "approve", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoff.planFingerprint, "--json"]).json.problems[0].code, "INVALID_ADMISSION_PLAN");
-  const malformed = { ...handoff, unexpected: true }; malformed.planFingerprint = handoffFingerprint(((value) => { const { planFingerprint, ...rest } = value; return rest; })(malformed));
+  assert.equal(run(stateDir, ["case", "approve", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]).json.problems[0].code, "INVALID_ADMISSION_PLAN");
+  const malformed = { ...handoff, unexpected: true };
   const malformedFile = path.join(parent, "malformed.json"); fs.writeFileSync(malformedFile, JSON.stringify(malformed), { mode: 0o600 });
-  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", malformedFile, "--expected-fingerprint", malformed.planFingerprint, "--json"]).json.problems[0].code, "INVALID_EXECUTION_HANDOFF_PLAN");
-  const missing = structuredClone(handoff); delete missing.controller; missing.planFingerprint = handoffFingerprint(((value) => { const { planFingerprint, ...rest } = value; return rest; })(missing));
+  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", malformedFile, "--expected-fingerprint", handoffFingerprint(malformed), "--json"]).json.problems[0].code, "INVALID_RELEASE_PLAN");
+  const missing = structuredClone(handoff); delete missing.issues;
   const missingFile = path.join(parent, "missing.json"); fs.writeFileSync(missingFile, JSON.stringify(missing), { mode: 0o600 });
-  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", missingFile, "--expected-fingerprint", missing.planFingerprint, "--json"]).json.problems[0].code, "INVALID_EXECUTION_HANDOFF_PLAN");
+  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", missingFile, "--expected-fingerprint", handoffFingerprint(missing), "--json"]).json.problems[0].code, "INVALID_RELEASE_PLAN");
   assert.equal(run(stateDir, ["case", "create", "--target", "github:Other/example", "--case-id", "PC-foreign", "--json"]).status, 0);
-  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-foreign", "--plan", handoffFile, "--expected-fingerprint", handoff.planFingerprint, "--json"]).json.problems[0].code, "CASE_NOT_FOUND");
+  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-foreign", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]).json.problems[0].code, "CASE_NOT_FOUND");
   const legacy = { schema: "pi-ticket-planning:admission-plan:v1", kind: "STANDALONE", repo: "Notyet1307/example", target: "90", reviewedFingerprint: `sha256:${"b".repeat(64)}`, resources: [], reviewed: { source: { revision: "r1" } } }; legacy.planFingerprint = fingerprint(approvalProjection(legacy));
   const legacyFile = path.join(parent, "legacy.json"); fs.writeFileSync(legacyFile, JSON.stringify(legacy), { mode: 0o600 });
-  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", legacyFile, "--expected-fingerprint", legacy.planFingerprint, "--json"]).json.problems[0].code, "INVALID_EXECUTION_HANDOFF_PLAN");
+  assert.equal(run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", legacyFile, "--expected-fingerprint", legacy.planFingerprint, "--json"]).json.problems[0].code, "INVALID_RELEASE_PLAN");
   const status = run(stateDir, ["case", "status", "PC-handoff", "--json"]);
   assert.deepEqual(status.json.data.case.approvals.pending.map(({ id }) => id), [approval.id]);
-  const replay = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoff.planFingerprint, "--json"]);
+  const replay = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]);
   assert.equal(replay.status, 1);
   assert.equal(replay.json.problems[0].code, "HANDOFF_APPROVAL_ALREADY_EXISTS");
 });

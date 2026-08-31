@@ -57,6 +57,7 @@ function graph(size) {
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
+    predecessorPlanDigest: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },

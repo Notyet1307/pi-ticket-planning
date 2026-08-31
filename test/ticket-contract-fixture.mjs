@@ -74,6 +74,11 @@ export function ticketBody({
   binding,
   constraints,
 } = {}) {
+  const oracleSection = binding ? `## Oracle binding
+\`\`\`json
+${JSON.stringify(binding)}
+\`\`\`
+` : "";
   return `## What to build
 ${objective}
 ## Primary verification
@@ -82,11 +87,7 @@ ${primaryVerification}
 ${acceptanceCriteria.map((value) => `- [ ] ${value}`).join("\n")}
 ## Invariants and guardrails
 ${guardrails}
-## Oracle binding
-\`\`\`json
-${JSON.stringify(binding)}
-\`\`\`
-## Execution constraints
+${oracleSection}## Execution constraints
 \`\`\`json
 ${JSON.stringify(constraints)}
 \`\`\`

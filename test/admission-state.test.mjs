@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
 import { fingerprint } from "../execution-plan/domain.mjs";
+import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
 import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
 import {
@@ -89,6 +90,7 @@ function readyBundle() {
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
+    predecessorPlanDigest: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
     specAcceptance: structuredClone(specAcceptance),
@@ -259,8 +261,18 @@ test("Admission dereferences tracked receipt and decision bytes at the execution
 
 test("Admission rejects a natural-language Oracle without an exact binding", () => {
   const bundle = readyBundle();
-  bundle.children[0].body = bundle.children[0].body.replace("## Oracle binding", "## Oracle name");
+  const parsed = parseChildTicket(bundle.children[0].body);
+  parsed.executionConstraints.riskClasses = ["AUTHORITY_BOUNDARY"];
+  bundle.children[0].body = ticketBody({
+    objective: parsed.objective,
+    primaryVerification: parsed.primaryVerification,
+    acceptanceCriteria: parsed.acceptanceCriteria,
+    guardrails: "Frozen Oracle O01.",
+    binding: null,
+    constraints: parsed.executionConstraints,
+  });
   bundle.deliveryGraph.children[0].bodyHash = hashText(bundle.children[0].body);
+  Object.assign(bundle.deliveryGraph.children[0], graphContractFields(bundle.children[0].body));
   bundle.contextChecks[0].result = checkTicketContext({ repo: bundle.repositoryPath, base: bundle.source.baseSha, body: bundle.children[0].body });
   assert.equal(validateAdmissionState(bundle).problems.some(({ code }) => code === "MISSING_ORACLE_BINDING"), true);
 });
@@ -301,17 +313,11 @@ test("downstream release binds its predecessor receipt to the exact Roadmap sequ
     executionBasePolicy: "PREDECESSOR_MERGE_OR_DESCENDANT",
     roadmapDigest: bundle.roadmapGraph.digest,
     predecessorReleaseId: "r1-c1-r1",
+    predecessorPlanDigest: predecessorReceipt.planDigest,
     predecessorReceipt: structuredClone(predecessorReceipt),
     predecessorReceiptBinding: structuredClone(predecessorReceiptBinding),
   });
   assert.equal(validateAdmissionState(bundle).ok, true);
-
-  const wrongRepo = structuredClone(bundle);
-  wrongRepo.repo = "acme/other";
-  assert.equal(validateAdmissionState(wrongRepo).problems.some(({ code }) => code === "CONTROLLER_COMPLETION_TARGET_MISMATCH"), true);
-  const wrongBaseRef = structuredClone(bundle);
-  wrongBaseRef.source.baseRef = "trunk";
-  assert.equal(validateAdmissionState(wrongBaseRef).problems.some(({ code }) => code === "CONTROLLER_COMPLETION_TARGET_MISMATCH"), true);
 
   const receiptDrift = structuredClone(bundle);
   receiptDrift.deliveryGraph.predecessorReceiptBinding.sha256 = `sha256:${"0".repeat(64)}`;

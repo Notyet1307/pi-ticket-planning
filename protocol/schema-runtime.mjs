@@ -15,12 +15,8 @@ function schemaFiles(root) {
 }
 
 const EXTERNAL_SCHEMAS_WITHOUT_ID = new Set([
-  "herdr-codex-release-plan-v2.schema.json",
-  "herdr-codex-release-completion-v1.schema.json",
-  "herdr-codex-release-completion-v2.schema.json",
-  "herdr-codex-release-completion-v3.schema.json",
-  "herdr-codex-controller-config-v3.schema.json",
-  "herdr-codex-controller-identity-history-v1.schema.json",
+  "herdr-codex-release-plan.schema.json",
+  "herdr-codex-release-result-v1.schema.json",
 ]);
 
 function createRuntime(root) {

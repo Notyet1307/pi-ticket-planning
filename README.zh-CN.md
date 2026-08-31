@@ -8,7 +8,7 @@ PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求�
 
 > 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 exact execution handoff 授权仍由人负责。它不会启动 Controller；GitHub ready label 只属于显式选择的 Legacy Herdr Admission。
 
-对已接受的 Delivery Graph，推荐出口是一次 **Codex Controller Release Handoff**：确定性编译精确的 Release Plan v2、一次批准该 fingerprint、物化三个私有输入文件，再由 operator 启动 Controller。旧 `admit` 仍保留为显式选择的 Herdr 按 Ticket ready-label 路径。
+对已接受的 Delivery Graph，推荐出口是一次 **Codex Controller Release Handoff**：编译 `release-plan.json`、一次批准该 fingerprint、只物化这一个文件，再由 operator 启动 Controller。旧 `admit` 仍保留为显式选择的 Herdr 按 Ticket ready-label 路径。
 
 > **v0.5 alpha：** `main` 已使用版本化协议内核和可恢复 Planning Case；
 > 但兼容矩阵还没有 qualified runtime tuple，也没有真实 L3 报告，因此 Legacy
@@ -144,7 +144,7 @@ pi-ticket-plan --name "my-product-planning"
 | 选择一个有界的 Evidence 方法，形成 Candidate Frame。 | 同意、访问权限、隐私边界，以及只能由真实参与者或环境给出的结果。 |
 | Commitment 后检查必要技术决定，编译 Delivery Spec。 | Commitment、承重架构取舍、数据所有权、共享接口和风险接受。 |
 | 生成场景覆盖、walking skeleton、候选 Ticket 和依赖图。 | 批准 exact Ticket 图。 |
-| 执行一次 fresh graph-readiness review，编译 exact Controller Release Plan v2。 | 确认 exact Release Handoff fingerprint。 |
+| 执行一次 fresh graph-readiness review，编译语义化 Controller Release Plan。 | 确认 exact Plan fingerprint。 |
 | 从已持久化权威状态恢复到第一道未关闭 Gate。 | 生产启用、回滚决定和最终 Outcome 判断。 |
 
 系统会推荐，但不会把不可委托的人类取舍伪装成自动化结论。
@@ -200,8 +200,8 @@ pi-ticket-plan --name "my-product-planning"
 4. 正式 Evidence 只保存经批准的脱敏结果；原始回答留在仓库外。
 5. exact accepted Release 和必要的 accepted ADR 必须进入已接受的代码基线，Delivery Spec 才能成为权威产物。
 6. Candidate Ticket 先处于 `needs-triage`。
-7. 推荐的 Codex 路径会在 handoff 前展示 exact source、graph、Controller Plan、config digest、fingerprint 和不变项；一般的“继续”不等于批准。
-8. 确认后的 Codex handoff 只原子写三个私有本地文件，所有 Ticket 继续保持 `needs-triage`，且不启动 Controller。ready-label 写入只存在于显式选择的 Legacy Herdr 路径。
+7. 推荐的 Codex 路径会在 handoff 前展示 exact source、graph、语义 Plan、fingerprint 和不变项；一般的“继续”不等于批准。
+8. 确认后的 Codex handoff 只原子写一个私有 `release-plan.json`，所有 Ticket 继续保持 `needs-triage`，且不启动 Controller。ready-label 写入只存在于显式选择的 Legacy Herdr 路径。
 
 当前行为由 [`contracts/`](contracts/)、[`scripts/`](scripts/) 以及对应的 [`skills/`](skills/) 或 reference 负责；[`fixtures/`](fixtures/) 和 `test/` 只是回归证据，不是合同。README 和指南只负责解释。
 
@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget。Ordinal 2+ 先运行 `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`，把 Controller public completion export 确定性摄取为 tracked predecessor receipt v3；receipt 会重新验证 exact export、active 或 historically-qualified Controller identity、owned completion schema 与 immutable qualification-entry digest。unknown/revoked identity fail closed，receipt v2 必须显式迁移。旧的 release-manager v1 self-digest 不再是自动执行证据。Build/verify/apply 都会 fresh-read remote base 与全部 Spec/receipt/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
+已接受的 GitHub v3 Release 会在 Planner 内部保留详细 Oracle、risk、scope、protected-path、review 与 approval 事实；Controller 边界只包含一个语义化 `release-plan.json`。Ordinal 2+ 使用 `npm run ingest:release-result -- --result /public/release-result.json --plan /private/release-plan.json --out /private/accepted-result.json --json` 将 Controller 结果绑定到 approved Plan。Build/verify/apply 会 fresh-read remote base 与全部内部 Spec/result/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -297,17 +297,15 @@ pi-ticket-plan execution-plan build \
   --review-binding /private/review-binding.json \
   --review-dispatch-binding /private/review-dispatch.json \
   --context /private/context.json \
-  --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
-  --controller-config /private/controller.json \
-  --out /private/execution-handoff-plan.json --json
+  --out /private/release-plan.json --json
 
 pi-ticket-planctl case approve-handoff PC-release-90 \
-  --plan /private/execution-handoff-plan.json \
-  --expected-fingerprint sha256:<已确认-handoff-hash> --json
+  --plan /private/release-plan.json \
+  --expected-fingerprint sha256:<已确认-plan-hash> --json
 
 pi-ticket-plan execution-plan apply \
-  --plan /private/execution-handoff-plan.json \
-  --expected-fingerprint sha256:<已确认-handoff-hash> \
+  --plan /private/release-plan.json \
+  --expected-fingerprint sha256:<已确认-plan-hash> \
   --case-id PC-release-90 --approval-id F-<approve-handoff返回的-id> \
   --context /private/fresh-context.json \
   --controller-cli /absolute/herdr-codex-controller/dist/src/cli.js \
@@ -315,7 +313,7 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build 只调用 Controller `config validate` 与 `plan validate`；Apply 还调用 `doctor` 并重查全部 binding。Apply 先持久化 `HANDOFF_APPROVED` 且 approval 保持 pending，再物化三个 private files、记录 `HANDOFF_READY`、最后消费 approval，并只打印 bound Controller `start` 命令。
+Build 与 verify 不检查 Controller checkout。Apply 重查 Planner-owned binding，持久化 `HANDOFF_APPROVED`，只物化 `release-plan.json`，记录 `HANDOFF_READY`，最后消费 approval，并打印 `start --approve-plan <planDigest>`。Controller config、runtime policy、validation、PR、CI 与 merge authority 仍由 Controller 自己负责。
 
 Legacy v2 只允许 dry-run migration：`node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`。单一 Release 必须有 exact `releaseMembership`，否则必须提供 Roadmap/current membership。输出保持 `PLANNED`、人工批准、不写 Issue/label，也不能直接 handoff。
 
@@ -356,7 +354,7 @@ pi-ticket-plan admit apply \
 
 Controller 执行、aggregate review、PR/CI/merge、真实启用、健康和 Outcome 是不同事实。Planner handoff 不轮询执行；Legacy Harness claim 语义只留在显式 `admit` 路径。
 
-Planner 只通过 versioned trust registry 摄取 Controller public completion v2/v3，并生成 predecessor receipt v3。Planner 绝不读取私有 `job.json`、轮询执行，或把 status summary 当作 completion evidence。
+Planner 只接受 `herdr-codex-controller:release-result:v1`；绝不读取私有 `job.json`、轮询执行，或把 status summary 当作 merged result。
 
 ## 开发和发布验证
 
@@ -381,13 +379,13 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 
 它使用临时 Git 仓库、bare origin、Harness config、Pi agent directory 和 fake GitHub/Docker/Pi 命令，覆盖一条通过 receipt，以及 gate、Docker、tracked validation environment 缺失，并继续运行 Harness exact-HEAD/auto-merge guard tests。它不会使用真实 Provider、GitHub 仓库、生产 Docker daemon、Issue、label、PR 或 Harness ledger。
 
-存在匹配的 Codex Controller checkout 时，运行它的确定性公开合同 canary：
+存在当前 Codex Controller checkout 时，运行语义 fixture 合同检查：
 
 ```sh
-npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
+HERDR_CONTROLLER_ROOT=/absolute/herdr-codex-controller npm run check:codex-controller-contract
 ```
 
-该 canary 会重新生成并核对 Controller exact commit、active/historical identity、runtime lock、risk registry，以及 Plan/config/completion/history schema 字节；拒绝 dirty checkout，并在 Node 26 禁网 permission isolation 中构建 exact clone。它验证当前与 ordinal-2 Plan 向量，并在 exact build 上运行 sandbox containment、runtime/profile binding、prompt envelope、canonical review、required-check deadline/budget、remote binding、authority quarantine、completion/history 与 Oracle protection 的 P0 定向测试。Dispatcher 明确 out of scope。canary 不调用 environment-bound live `doctor`，也绝不调用 `start`、Codex 或 GitHub write；真实 handoff 仍必须通过 doctor。PASS 只是 deterministic L1 evidence，不代表 live Provider/GitHub execution 或 L2/L3/L4 qualification。缺少 checkout 是 `CONTROLLER_UNAVAILABLE`，缺少构建依赖是 `CONTROLLER_NOT_BUILT`，都不是 PASS。
+该检查证明 Planner canonical Plan fixture 能被所给 Controller 校验、两仓 Plan/Result schema 完全一致、Controller Result fixture 能被 Planner 摄取，并且不支持的合同主版本会明确失败。它不 pin 或 hash Controller source/build 字节，也不会启动 Job 或修改 GitHub。
 
 Profile 烟测会包含 package-owned `prepare-codex-release` skill；命令会报告当前精确 skill 数。
 

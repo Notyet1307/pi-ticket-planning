@@ -86,9 +86,9 @@ The Delivery Spec then defines stable scenarios. Ticket generation proves scenar
 
 ## 8. When work reaches execution
 
-Creating or reviewing an Issue does not start execution. The recommended path rereads the immutable accepted Parent and receipt, effective policy, exact Ticket bodies, one current `delivery-release-graph:v3`, blockers, coverage, walking skeleton, and dependency order. One fresh reviewer returns `READY`, `SPLIT`, or `NEEDS_INFO`; only a blocker-free, bounded, all-AGENT v3 Release is compiled into one exact Controller Release Plan v2. Roadmap, HUMAN work, future candidates, and v2 artifacts remain outside Controller input.
+Creating or reviewing an Issue does not start execution. The recommended path rereads the immutable accepted Parent and receipt, effective policy, exact Ticket bodies, one current `delivery-release-graph:v3`, blockers, coverage, walking skeleton, and dependency order. One fresh reviewer returns `READY`, `SPLIT`, or `NEEDS_INFO`; only a blocker-free, bounded, all-AGENT v3 Release is compiled into one semantic `release-plan.json`. Roadmap, HUMAN work, and future candidates remain outside Controller input.
 
-One human approval binds the Handoff fingerprint. Apply writes three private input files and prints—but does not run—the Controller `start` command with the approved config digest, Controller revision, and provenance digest; Tickets remain `needs-triage`. Legacy Herdr ready-label activation is an explicit compatibility choice. Controller completion, merge, Release Record, and Outcome are later and distinct facts.
+One human approval binds the Plan fingerprint. Apply writes only `release-plan.json` and prints—but does not run—`start --approve-plan <planDigest>`; Tickets remain `needs-triage`. Legacy Herdr ready-label activation is an explicit compatibility choice. Controller result, merge, Release Record, and Outcome are later and distinct facts.
 
 ## 9. Common mistakes
 

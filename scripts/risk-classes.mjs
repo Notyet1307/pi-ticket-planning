@@ -54,6 +54,7 @@ export const RISK_CLASS_REGISTRY = JSON.parse(fs.readFileSync(REGISTRY_PATH, "ut
 const registryProblems = validateRiskClassRegistry(RISK_CLASS_REGISTRY);
 if (registryProblems.length > 0) throw new Error(registryProblems[0].code);
 const RISK_CLASSES = new Set(RISK_CLASS_REGISTRY.classes);
+const ORDINARY_RELEASE_RISKS = new Set(["BOUNDED_BEHAVIOR_CHANGE", "UI_BEHAVIOR"]);
 
 export function isCanonicalRiskClass(value) {
   return typeof value === "string" && RISK_CLASSES.has(value);
@@ -66,4 +67,13 @@ export function unknownRiskClasses(values) {
 export function riskClassesRequireSplit(values) {
   return Array.isArray(values) && unknownRiskClasses(values).length === 0 && RISK_CLASS_REGISTRY.splitCombinations
     .some((combination) => combination.every((risk) => values.includes(risk)));
+}
+
+export function releaseRisk(values) {
+  if (!Array.isArray(values) || values.length === 0 || unknownRiskClasses(values).length > 0) return null;
+  return values.some((value) => !ORDINARY_RELEASE_RISKS.has(value)) ? "high" : "normal";
+}
+
+export function oracleRequiredForRiskClasses(values) {
+  return releaseRisk(values) === "high";
 }

@@ -8,6 +8,7 @@ import {
   producerAttestationSource,
 } from "../protocol/kernel.mjs";
 import { NOW } from "./execution-plan-fixture.mjs";
+import { fingerprint } from "../execution-plan/domain.mjs";
 
 function caseFactBuilder(subject, now) {
   const protocol = loadProtocol();
@@ -44,12 +45,12 @@ export function createReadyCase({ stateDir, plan, now = NOW, caseId = "PC-execut
   const subject = {
     target,
     kind: "release",
-    id: plan.target,
-    revision: plan.source.revision,
-    digest: plan.reviewedFingerprint,
+    id: String(plan.parentIssue),
+    revision: "r1",
+    digest: fingerprint(plan),
   };
   advanceCaseToActivation({ store, caseId, target, subject, now });
-  const approval = createExecutionHandoffApproval({ plan, caseId, correlationId: "C-execution-handoff", observedAt: now });
+  const approval = createExecutionHandoffApproval({ plan, caseId, correlationId: "C-execution-handoff", observedAt: now, revision: subject.revision });
   store.addApproval({ caseId, target, approval });
   return { store, caseId, target, approval, subject };
 }

@@ -1,287 +1,104 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
-import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
-import { createControllerAdapter } from "../execution-plan/controller-adapter.mjs";
-import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
+import { compileExecutionPlan, reviewFocusForSpec } from "../execution-plan/compiler.mjs";
+import { releasePlanDigest } from "../execution-plan/domain.mjs";
+import { parseParentDeliverySpec } from "../execution-plan/markdown.mjs";
 import { verifyExecutionPlan } from "../execution-plan/validate.mjs";
 import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
-import { validateArtifact } from "../protocol/kernel.mjs";
-import { compileExecutionPlan, reviewFocusForSpec } from "../execution-plan/compiler.mjs";
-import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER, ROADMAP_PARENT_MARKER, hashText } from "../scripts/check-delivery-graph.mjs";
-import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
-import {
-  CONTROLLER_IDENTITY,
-  PARENT_SPEC as parent,
-  ROOT as root,
-  controllerAdapter,
-  controllerBinding,
-  controllerProvenance,
-  digest,
-  executionInput,
-} from "./execution-plan-fixture.mjs";
-import { attachReviewBinding } from "./review-binding-fixture.mjs";
-import {
-  executionConstraints,
-  graphContractFields,
-  reviewContractFields,
-  ticketBody,
-} from "./ticket-contract-fixture.mjs";
+import { validateReleasePlan } from "../execution-plan/release-contract.mjs";
+import { executionInput } from "./execution-plan-fixture.mjs";
 
-const QUALIFIED_CONFIG = controllerBinding(executionInput()).config;
-const PROVENANCE_TEMPLATE = controllerProvenance("a".repeat(64), "c".repeat(64));
-
-function rebind(input) {
-  const reviewSource = (({ identity, revision, baseSha, specContentHash }) => ({ identity, revision, baseSha, ...(specContentHash ? { specContentHash } : {}) }))(input.source);
-  input.review.source = reviewSource;
-  input.contextChecks = input.children.map((child) => ({ candidateId: child.id, result: checkTicketContext({ repo: input.repositoryPath, base: input.source.baseSha, body: child.body }) }));
-  return attachReviewBinding(input);
-}
-
-function rewriteGraph(input, mutate) {
-  const graph = structuredClone(input.deliveryGraph);
-  mutate(graph);
-  for (const graphChild of graph.children) {
-    const child = input.children.find((item) => String(item.id) === String(graphChild.id));
-    if (child) graphChild.bodyHash = hashText(child.body);
-  }
-  graph.source.specContentHash = hashText(input.parent.body);
-  graph.specAcceptance.parent = { number: Number(input.parent.id), title: input.parent.title, bodyHash: hashText(input.parent.body) };
-  graph.specAcceptance.source = { baseSha: graph.planningBaseSha, specContentHash: graph.source.specContentHash };
-  const { digest: _acceptanceDigest, ...acceptanceBody } = graph.specAcceptance;
-  graph.specAcceptance.digest = fingerprint(acceptanceBody);
-  input.deliveryGraph = graph;
-  input.specAcceptance = structuredClone(graph.specAcceptance);
-  input.source = { ...input.source, identity: graph.source.identity, revision: graph.source.revision, baseSha: graph.executionBaseSha, specContentHash: graph.source.specContentHash };
-  return rebind(input);
-}
-
-function mixedLaneInput({ agentBlockedByHuman = false, humanVerdict = "READY", humanReviewLane = "HUMAN" } = {}) {
+test("Planner compiles one deterministic semantic Release Plan", () => {
   const input = executionInput();
-  const human = {
-    id: "102",
-    title: "Run human acceptance",
-    state: "open",
-    labels: ["needs-triage"],
-    executionLane: "HUMAN",
-    blockedBy: agentBlockedByHuman ? [] : ["101"],
-    updatedAt: "2026-08-20T00:01:00Z",
-    body: `## What to build
-Run the human-controlled acceptance check.
-## Primary verification
-Complete the exact human acceptance checklist.
-## Acceptance criteria
-- [ ] The accepted build is exercised.
-- [ ] The human decision is recorded.
-- [ ] The evidence is retained.
-## Invariants and guardrails
-No Agent performs the human decision.
-## Out of scope
-No implementation work.`,
-  };
-  if (agentBlockedByHuman) {
-    input.children[0].blockedBy = [human.id];
-    input.children.unshift(human);
-  } else {
-    input.children.push(human);
+  const plan = compileExecutionPlan(input);
+  assert.deepEqual(validateReleasePlan(plan), []);
+  assert.deepEqual(plan, compileExecutionPlan(input));
+  assert.match(releasePlanDigest(plan), /^[a-f0-9]{64}$/u);
+  assert.deepEqual(Object.keys(plan).sort(), [
+    "baseRef", "baseSha", "controllerContractVersion", "id", "issues", "objective",
+    "parentIssue", "releaseAcceptanceCriteria", "repo", "reviewFocus", "title",
+  ]);
+  assert.deepEqual(Object.keys(plan.issues[0]).sort(), [
+    "acceptanceCriteria", "dependsOn", "expectedPaths", "number", "objective", "oracleCommands", "order", "risk",
+  ]);
+  assert.equal(plan.controllerContractVersion, 1);
+  assert.equal(plan.id, "r001-c1-r1");
+  assert.equal(plan.repo, input.repo);
+  assert.equal(plan.baseRef, input.source.baseRef);
+  assert.equal(plan.baseSha, input.deliveryGraph.executionBaseSha);
+  assert.equal(plan.parentIssue, Number(input.parent.id));
+  assert.equal(plan.issues[0].risk, "normal");
+  assert.deepEqual(plan.issues[0].oracleCommands, []);
+  for (const removed of ["source", "controller", "decisionManifestDigest", "deliveryGraphDigest", "predecessorReceipt", "protectedPaths", "replanTriggers", "scopeBudget", "waiverDigests"]) {
+    assert.equal(JSON.stringify(plan).includes(`\"${removed}\"`), false, removed);
   }
-  input.review.candidates.push({ id: human.id, verdict: humanVerdict, executionLane: humanReviewLane });
-  return rewriteGraph(input, (graph) => {
-    const humanGraph = {
-      id: human.id,
-      title: human.title,
-      coverageRole: agentBlockedByHuman ? "ENABLER" : "DIRECT",
-      sourceScenarios: ["S1"],
-      blockedBy: human.blockedBy,
-      externalBlockers: [],
-      ...(agentBlockedByHuman ? { downstreamConsumers: ["101"], exitCondition: "Human acceptance produces the Agent starting state." } : {}),
-      bodyHash: hashText(human.body),
-      startingState: "accepted build",
-      primaryVerification: "Complete the exact human acceptance checklist.",
-      executionLane: "HUMAN",
-    };
-    if (agentBlockedByHuman) {
-      graph.children[0].blockedBy = [human.id];
-      graph.children.unshift(humanGraph);
-      graph.walkingSkeleton = [human.id, "101"];
-    } else {
-      graph.children.push(humanGraph);
-    }
-  });
-}
+});
 
-test("execution-plan parser preserves only controlled parent fields", () => {
-  const parsed = parseParentDeliverySpec(parent);
-  assert.equal(parsed.objective, "Release a safe change");
-  assert.deepEqual(parsed.scenarios.map(({ id }) => id), ["S1"]);
-  const detailedSkeleton = parent.replace(
-    "The first path produces the release artifact.",
-    "The first path produces the release artifact.\n\n1. The external input enters S1.\n2. S1 emits the durable release artifact.",
+test("high-risk internal tickets expose only the trusted Oracle command", () => {
+  const plan = compileExecutionPlan(executionInput({ riskClasses: ["AUTHORITY_BOUNDARY"] }));
+  assert.equal(plan.issues[0].risk, "high");
+  assert.deepEqual(plan.issues[0].oracleCommands, ["npm run verify:protocol"]);
+});
+
+test("normal work compiles without Oracle while high-risk work requires one", () => {
+  const normal = compileExecutionPlan(executionInput({ includeOracle: false }));
+  assert.equal(normal.issues[0].risk, "normal");
+  assert.deepEqual(normal.issues[0].oracleCommands, []);
+  assert.throws(
+    () => compileExecutionPlan(executionInput({ riskClasses: ["AUTHORITY_BOUNDARY"], includeOracle: false })),
+    /MISSING_ORACLE_BINDING/,
   );
-  assert.equal(
-    parseParentDeliverySpec(detailedSkeleton).walkingSkeleton,
-    "The first path produces the release artifact.",
-  );
-  assert.throws(() => parseParentDeliverySpec(parent.replace("## Out of scope", "## Decisions")), /DUPLICATE_SECTION/);
-  assert.deepEqual(parseControlledLines("First paragraph\ncontinues here.\n\n- First item\n2. Second item"), ["First paragraph\ncontinues here.", "First item", "Second item"]);
 });
 
-test("execution-plan child parser requires 3-8 pure checklist assertions", () => {
-  const child = executionInput().children[0].body;
-  assert.equal(parseChildTicket(child).acceptanceCriteria.length, 3);
-  assert.throws(() => parseChildTicket(child.replace("- [ ] The release is durable.", "Narrative")), /INVALID_ACCEPTANCE_CRITERIA_CONTENT/);
-});
-
-test("execution-plan controlled markdown rejects missing, duplicate, and malformed sections", () => {
-  const child = executionInput().children[0].body;
-  for (const [text, pattern] of [
-    [parent.replace("## Decisions", "## Missing decisions"), /MISSING_SECTION:Decisions/],
-    [parent.replace("## Out of scope", "## Decisions"), /DUPLICATE_SECTION:Decisions/],
-    [child.replace("- [ ] A failed release leaves no partial state.\n", ""), /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
-    [child.replace("- [ ] A failed release leaves no partial state.", "- [ ] C\n- [ ] D\n- [ ] E\n- [ ] F\n- [ ] G\n- [ ] H\n- [ ] I"), /INVALID_ACCEPTANCE_CRITERIA_COUNT/],
-  ]) assert.throws(() => text.includes("Delivery outcome") ? parseParentDeliverySpec(text) : parseChildTicket(text), pattern);
-});
-
-test("controller adapter rejects non-private config before any command", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-adapter-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const cli = path.join(directory, "cli.js"); const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, "", { mode: 0o700 }); fs.writeFileSync(config, "{}", { mode: 0o644 });
-  assert.throws(() => createControllerAdapter({ cli, config }), /CONTROLLER_CONFIG_MUST_BE_PRIVATE/);
-});
-
-test("controller adapter rejects user-controlled ancestor symlinks", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-adapter-symlink-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const real = path.join(directory, "real");
-  const link = path.join(directory, "link");
-  fs.mkdirSync(real, { mode: 0o700 });
-  fs.writeFileSync(path.join(real, "cli.mjs"), "", { mode: 0o700 });
-  fs.writeFileSync(path.join(real, "config.json"), "{}", { mode: 0o600 });
-  fs.symlinkSync(real, link);
-  assert.throws(() => createControllerAdapter({
-    cli: path.join(link, "cli.mjs"),
-    config: path.join(link, "config.json"),
-  }), /PATH_CONTAINS_SYMLINK/);
-});
-
-test("controller adapter uses only public validate and doctor argv", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-public-cli-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const cli = path.join(directory, "cli.js"); const config = path.join(directory, "config.json"); const record = path.join(directory, "argv.jsonl");
-  fs.writeFileSync(cli, `import fs from 'node:fs'; import {createHash} from 'node:crypto';
-const args=process.argv.slice(2); const controller=${JSON.stringify(CONTROLLER_IDENTITY)};
-const canonical=(value)=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])):value;
-const digest=(value)=>createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
-const config=${JSON.stringify(QUALIFIED_CONFIG)}; const provenanceTemplate=${JSON.stringify(PROVENANCE_TEMPLATE)};
-fs.appendFileSync(process.env.TEST_CONTROLLER_RECORD, JSON.stringify(args)+'\\n');
-if(args[0]==='config') console.log(JSON.stringify({ok:true,config,configDigest:'${"a".repeat(64)}',controller}));
-else if(args[0]==='plan'){const plan=JSON.parse(fs.readFileSync(args[args.indexOf('--plan')+1],'utf8'));const planDigest=digest(plan);const {digest:_digest,...template}=provenanceTemplate;const body={...template,releasePlan:{version:2,digest:planDigest}};console.log(JSON.stringify({ok:true,plan,planDigest,provenance:{...body,digest:digest(body)}}));}
-else if(args[0]==='doctor') console.log(JSON.stringify({ok:true,configDigest:'${"a".repeat(64)}',controller,mergePolicyVerified:true,validationSandbox:{...provenanceTemplate.validationSandbox,verified:true},remoteIdentity:provenanceTemplate.remoteIdentity,requiredCheckContractDigest:provenanceTemplate.requiredCheckContractDigest,mergeAuthorityDigest:provenanceTemplate.mergeAuthorityDigest,identityHistoryDigest:provenanceTemplate.identityHistoryDigest})); else process.exit(9);`, { mode: 0o700 });
-  fs.writeFileSync(config, "{}", { mode: 0o600 });
-  const prior = process.env.TEST_CONTROLLER_RECORD; process.env.TEST_CONTROLLER_RECORD = record;
-  try {
-    const adapter = createControllerAdapter({ cli, config });
-    const binding = adapter.config();
-    assert.equal(binding.configDigest, "a".repeat(64));
-    assert.equal(adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity).planDigest, releasePlanDigest({ version: 2 }));
-    assert.equal(adapter.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity).ok, true);
-  } finally { if (prior === undefined) delete process.env.TEST_CONTROLLER_RECORD; else process.env.TEST_CONTROLLER_RECORD = prior; }
-  const calls = fs.readFileSync(record, "utf8").trim().split("\n").map(JSON.parse);
-  assert.deepEqual(calls.map(([name, subcommand]) => `${name}:${subcommand}`), ["config:validate", "plan:validate", "config:validate", "doctor:--config", "config:validate"]);
-  assert.equal(calls.flat().some((value) => /^(start|run|step)$/.test(value)), false);
-});
-
-test("controller adapter rejects doctor config digest drift", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-doctor-drift-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const cli = path.join(directory, "cli.mjs");
-  const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, `const args=process.argv.slice(2);const controller=${JSON.stringify(CONTROLLER_IDENTITY)};const config=${JSON.stringify(QUALIFIED_CONFIG)};console.log(JSON.stringify({ok:true,config,...(args[0]==='config'?{config}:{}),configDigest:args[0]==='doctor'?'${"b".repeat(64)}':'${"a".repeat(64)}',controller}));`, { mode: 0o700 });
-  fs.writeFileSync(config, "{}", { mode: 0o600 });
-  const adapter = createControllerAdapter({ cli, config });
-  const binding = adapter.config();
-  assert.throws(() => adapter.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity), /CONTROLLER_DOCTOR_CONFIG_DRIFT/);
-});
-
-test("controller adapter rejects an A-to-B-to-A config change during plan validation", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-config-aba-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const cli = path.join(directory, "cli.mjs");
-  const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, `import fs from 'node:fs';const a=process.argv.slice(2);const digest='${"a".repeat(64)}';const controller=${JSON.stringify(CONTROLLER_IDENTITY)};if(a[0]==='config')console.log(JSON.stringify({ok:true,config:${JSON.stringify(QUALIFIED_CONFIG)},configDigest:digest,controller}));else if(a[0]==='plan'){const c=a[a.indexOf('--config')+1];const before=fs.readFileSync(c);fs.writeFileSync(c,'{"changed":true}');fs.writeFileSync(c,before);const plan=JSON.parse(fs.readFileSync(a[a.indexOf('--plan')+1]));console.log(JSON.stringify({ok:true,plan,planDigest:'${"c".repeat(64)}'}));}`, { mode: 0o700 });
-  fs.writeFileSync(config, "{}", { mode: 0o600 });
-  const adapter = createControllerAdapter({ cli, config });
-  const binding = adapter.config();
-  assert.throws(() => adapter.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity), /CONTROLLER_CONFIG_DRIFT/);
-});
-
-test("controller adapter classifies public command failures without leaking stderr", (t) => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "execution-plan-adapter-errors-"));
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const config = path.join(directory, "config.json");
-  fs.writeFileSync(config, "{}", { mode: 0o600 });
-  const make = (name, source) => {
-    const cli = path.join(directory, `${name}.mjs`);
-    fs.writeFileSync(cli, source, { mode: 0o700 });
-    return createControllerAdapter({ cli, config });
-  };
-  const digest = "a".repeat(64);
-  const configResult = `JSON.stringify({ok:true,config:${JSON.stringify(QUALIFIED_CONFIG)},configDigest:'${digest}',controller:${JSON.stringify(CONTROLLER_IDENTITY)}})`;
-  assert.throws(() => make("config-failed", `console.error('secret-token');process.exit(1)`).config(), (error) => error.message === "CONTROLLER_CONFIG_INVALID" && !error.message.includes("secret-token"));
-  assert.throws(() => make("invalid-json", `console.log('not-json')`).config(), /CONTROLLER_INVALID_JSON/);
-  assert.throws(() => make("too-large", `process.stdout.write('x'.repeat(2*1024*1024))`).config(), /CONTROLLER_OUTPUT_TOO_LARGE/);
-  const staged = make("staged", `const a=process.argv.slice(2);if(a[0]==='config')console.log(${configResult});else {console.error('secret-token');process.exit(1)}`);
-  const binding = staged.config();
-  assert.throws(() => staged.validatePlan({ version: 2 }, binding.configDigest, binding.configIdentity), /CONTROLLER_PLAN_INVALID/);
-  assert.throws(() => staged.doctor(binding.configDigest, binding.configIdentity, binding.controllerIdentity), /CONTROLLER_DOCTOR_FAILED/);
-});
-
-test("execution compiler maps one exact accepted graph and rejects non-executable drift", () => {
+test("semantic verification recompiles fresh Planner facts and detects drift", () => {
   const input = executionInput();
-  const controller = controllerBinding(input);
-  const plan = compileExecutionPlan(input, { controller });
-  assert.deepEqual(plan, compileExecutionPlan(executionInput(), { controller }));
-  assert.equal(plan.releasePlan.id, input.deliveryGraph.releaseId);
-  assert.deepEqual(plan.releasePlan.issues[0].suggestedValidation, []);
-  assert.equal(plan.releasePlan.issues[0].allowNoop, false);
-  assert.equal(plan.releasePlan.source.baseRef, "main");
-  assert.equal(plan.releasePlan.releaseAcceptanceCriteria[0], "S1: A user sees the completed change.");
-  assert.equal(plan.releasePlan.releaseAcceptanceCriteria.includes(plan.releasePlan.issues[0].acceptanceCriteria[0]), false);
-  assert.match(plan.releasePlan.reviewFocus[1], /Walking skeleton handoff/);
-  assert.equal(plan.releasePlan.issues[0].order, 1);
-  assert.deepEqual(plan.releasePlan.issues[0].dependsOn, []);
+  const plan = compileExecutionPlan(input);
+  assert.equal(verifyExecutionPlan(plan, input, { readFresh: executionFreshnessProjection }).status, "READY");
   assert.deepEqual(
-    plan.releasePlan.issues[0].oracleBindings[0].verifier,
-    parseChildTicket(input.children[0].body).oracleBinding.verifier,
+    verifyExecutionPlan({ ...plan, controllerContractVersion: 2 }, input).problems,
+    [{ code: "UNSUPPORTED_CONTROLLER_CONTRACT_VERSION" }],
   );
-  assert.equal(
-    plan.freshness.oracleBindingDigests[0].digest,
-    input.deliveryGraph.children[0].oracleBindingDigest,
-  );
-  assert.equal(plan.policy.accepted, undefined);
-  assert.match(plan.children[0].bodyHash, /^sha256:/);
-  for (const [mutate, code] of [[(value) => { value.children[0].executionLane = "HUMAN"; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].blockedBy = ["999"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"], [(value) => { value.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
-    const changed = executionInput(); mutate(changed); assert.throws(() => compileExecutionPlan(changed, { controller }), new RegExp(code));
-  }
-  const missingReceipt = executionInput();
-  delete missingReceipt.specAcceptance;
-  assert.throws(() => compileExecutionPlan(missingReceipt, { controller }), /ADMISSION_STATE_NOT_READY:MISSING_SPEC_ACCEPTANCE_RECEIPT/);
+  let reads = 0;
+  const result = verifyExecutionPlan(plan, input, {
+    readFresh: executionFreshnessProjection,
+    reloadInput() {
+      reads += 1;
+      if (reads === 1) return input;
+      const changed = structuredClone(input);
+      changed.children[0].body += "\nsource drift";
+      return changed;
+    },
+  });
+  assert.equal(result.status, "CONFLICT");
+  assert.equal(result.problems[0].code, "CHILD_DRIFT:101");
 });
 
-test("execution compiler preserves multilingual accepted review focus and fails closed above 20 entries", () => {
+test("compiler preserves internal admission gates without exporting their machinery", () => {
+  const closed = executionInput();
+  closed.children[0].state = "closed";
+  assert.throws(() => compileExecutionPlan(closed), /ISSUE_NOT_OPEN/);
+
+  const early = executionInput();
+  early.deliveryGraph.readinessState = "ORACLES_BOUND";
+  assert.throws(() => compileExecutionPlan(early), /RELEASE_NOT_GRAPH_REVIEWED/);
+
+  const roadmap = executionInput();
+  roadmap.deliveryGraph = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP" };
+  assert.throws(() => compileExecutionPlan(roadmap), /ROADMAP_NOT_EXECUTABLE/);
+
+});
+
+test("review focus keeps only decision-changing Delivery Spec content", () => {
   const input = executionInput();
   input.parent.body = input.parent.body
-    .replace("Important failure behavior: A failed write leaves no partial state.", "Important failure behavior: 写入失败时不留下部分状态。")
-    .replace("- Preserve a compatibility guardrail.", "- 保留兼容边界。\n2. Keep the English release signal.")
+    .replace("A failed write leaves no partial state.", "写入失败时不留下部分状态。")
+    .replace("- Preserve a compatibility guardrail.", "- 保留兼容边界。\n- Keep the English release signal.")
     .replace("- Preserve compatibility for legacy input.", "- 保留旧输入兼容性。")
     .replace("- No partial writes.", "- 不允许部分写入。\n- 不允许部分写入。")
     .replace("## Out of scope\nNone.", "## Out of scope\nDepth, Locality, Real seam, Deletion test, Interface as verification surface, and src/cache.js are not Release constraints.");
-  const reviewFocus = reviewFocusForSpec(parseParentDeliverySpec(input.parent.body));
-  assert.deepEqual(reviewFocus, [
+  const focus = reviewFocusForSpec(parseParentDeliverySpec(input.parent.body));
+  assert.deepEqual(focus, [
     "S1 failure path: 写入失败时不留下部分状态。",
     "Walking skeleton handoff: The first path produces the release artifact.",
     "Constraint: 不允许部分写入。",
@@ -289,252 +106,4 @@ test("execution compiler preserves multilingual accepted review focus and fails 
     "Release signal: Keep the English release signal.",
     "Decision: 保留旧输入兼容性。",
   ]);
-  assert.equal(reviewFocus.some((line) => /Depth|Locality|Real seam|Deletion test|Interface as verification surface|src\/cache/.test(line)), false);
-
-  const tooMany = executionInput();
-  tooMany.parent.body = tooMany.parent.body.replace("- No partial writes.", Array.from({ length: 17 }, (_, index) => `- Constraint ${index + 1}`).join("\n"));
-  assert.throws(() => reviewFocusForSpec(parseParentDeliverySpec(tooMany.parent.body)), /REVIEW_FOCUS_TOO_LARGE/);
-
-  const tooLarge = executionInput();
-  tooLarge.parent.body = tooLarge.parent.body.replace("- No partial writes.", `- ${"界".repeat(700)}`);
-  assert.throws(() => reviewFocusForSpec(parseParentDeliverySpec(tooLarge.parent.body)), /REVIEW_FOCUS_TOO_LARGE/);
-});
-
-test("execution verification binds doctor to the validated config digest", () => {
-  const input = executionInput();
-  const controller = controllerBinding(input);
-  const plan = compileExecutionPlan(input, { controller });
-  const adapter = {
-    config: () => ({ config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "stable", controllerIdentity: structuredClone(controller.controllerIdentity) }),
-    validatePlan: (releasePlan) => ({ plan: structuredClone(releasePlan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) }),
-    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity) {
-      assert.equal(expectedConfigDigest, controller.configDigest);
-      assert.equal(expectedConfigIdentity, "stable");
-      assert.deepEqual(expectedControllerIdentity, controller.controllerIdentity);
-      return { ok: true, configDigest: controller.configDigest };
-    },
-  };
-  assert.equal(verifyExecutionPlan(plan, input, adapter, { readFresh: executionFreshnessProjection }).status, "READY");
-
-  let currentDigest = controller.configDigest;
-  const changing = {
-    ...adapter,
-    validatePlan(releasePlan) {
-      currentDigest = "d".repeat(64);
-      return { plan: structuredClone(releasePlan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) };
-    },
-    doctor(expectedConfigDigest) {
-      if (expectedConfigDigest !== currentDigest) throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
-    },
-  };
-  const changed = verifyExecutionPlan(plan, input, changing, { readFresh: executionFreshnessProjection });
-  assert.equal(changed.status, "CONFLICT");
-  assert.deepEqual(changed.problems, [{ code: "CONTROLLER_DOCTOR_CONFIG_DRIFT" }]);
-});
-
-test("execution verification reloads live bindings after Controller validation", () => {
-  const input = executionInput();
-  const controller = controllerBinding(input);
-  const plan = compileExecutionPlan(input, { controller });
-  const calls = [];
-  let reads = 0;
-  const result = verifyExecutionPlan(plan, input, controllerAdapter(controller, calls), {
-    readFresh: executionFreshnessProjection,
-    reloadInput() {
-      reads += 1;
-      if (reads === 1) return input;
-      const changed = structuredClone(input);
-      changed.children[0].body += "\nafter-doctor drift";
-      return changed;
-    },
-  });
-  assert.equal(result.status, "CONFLICT");
-  assert.deepEqual(result.problems, [{ code: "CHILD_BINDING_DRIFT" }]);
-  assert.deepEqual(calls, ["config validate", "plan validate", "doctor"]);
-  assert.equal(reads, 2);
-});
-
-test("PR #16 planning methodology remains navigation-only and trigger-aware", () => {
-  const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
-  assert.match(read("skills/setup-delivery-repository/domain.md"), /Resolve only decision-changing ambiguity/);
-  assert.match(read("skills/ask-yet/references/solution-shaping.md"), /evaluation heuristics inside Solution Shaping, not additional gates, artifacts, fields, or required interfaces/);
-  assert.match(read("skills/to-spec/SKILL.md"), /Leave cheap deterministic repository and environment facts in code, configuration, scripts, and tool output/);
-  assert.match(read("skills/to-tickets/SKILL.md"), /one short trigger and purpose/);
-  assert.match(read("skills/ticket-readiness/SKILL.md"), /branch of work that makes the file relevant and the first-action purpose/);
-});
-
-test("private path checks allow the explicit system temporary-directory alias", (t) => {
-  const directory = fs.mkdtempSync("/tmp/execution-plan-system-alias-");
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  fs.chmodSync(directory, 0o700);
-  const cli = path.join(directory, "cli.mjs");
-  const config = path.join(directory, "config.json");
-  fs.writeFileSync(cli, "", { mode: 0o700 });
-  fs.writeFileSync(config, "{}", { mode: 0o600 });
-  assert.doesNotThrow(() => createControllerAdapter({ cli, config }));
-});
-
-test("execution compiler preserves approved topological order, dependencies, and exact UTF-8 body identity", () => {
-  const input = executionInput();
-  const binding = parseChildTicket(input.children[0].body).oracleBinding;
-  const second = {
-    id: "102",
-    title: "Consume the durable artifact",
-    state: "open",
-    labels: ["needs-triage"],
-    blockedBy: ["101"],
-    updatedAt: "2026-08-20T00:01:00Z",
-    body: ticketBody({
-      objective: "Consume the durable artifact with stable UTF-8 output ✓.",
-      primaryVerification: "Run the artifact consumer scenario.",
-      acceptanceCriteria: ["The consumer reads the produced artifact.", "The UTF-8 result remains exact.", "A missing artifact fails without partial state."],
-      guardrails: "No partial writes survive.",
-      outOfScope: "No UI work.",
-      binding,
-      constraints: executionConstraints({ expectedPaths: ["execution-plan/validate.mjs"], primaryVerificationSeams: ["artifact consumer scenario"] }),
-    }),
-  };
-  const graphChild = {
-    id: second.id,
-    title: second.title,
-    coverageRole: "DIRECT",
-    sourceScenarios: ["S1"],
-    blockedBy: ["101"],
-    externalBlockers: [],
-    bodyHash: hashText(second.body),
-    startingState: "artifact",
-    primaryVerification: "Run the artifact consumer scenario.",
-    executionLane: "AGENT",
-    ...graphContractFields(second.body),
-  };
-  input.children.push(second);
-  input.review.candidates.push({ id: second.id, verdict: "READY", executionLane: "AGENT", ...reviewContractFields(second.body, graphChild, [...input.deliveryGraph.children, graphChild]) });
-  rewriteGraph(input, (graph) => graph.children.push(graphChild));
-  const controller = controllerBinding(input);
-  const plan = compileExecutionPlan(input, { controller });
-  assert.deepEqual(plan.releasePlan.issues.map(({ number, order, dependsOn }) => ({ number, order, dependsOn })), [
-    { number: 101, order: 1, dependsOn: [] },
-    { number: 102, order: 2, dependsOn: [101] },
-  ]);
-  assert.equal(plan.releasePlan.issues[1].expectedBodyHash, hashText(second.body));
-  assert.equal(plan.releasePlan.issues[1].objective, "Consume the durable artifact with stable UTF-8 output ✓.");
-});
-
-test("execution artifacts retain exact-key schemas", () => {
-  const input = executionInput();
-  const controller = controllerBinding(input);
-  const plan = compileExecutionPlan(input, { controller });
-  assert.equal(plan.schema, "pi-ticket-planning:execution-handoff-plan:v2");
-  assert.equal(validateArtifact(plan).ok, true);
-  assert.equal(validateArtifact({ ...plan, unexpected: true }).ok, false);
-  assert.equal(validateArtifact({ ...plan.releasePlan, unexpected: true }, { identity: "herdr-codex-controller:release-plan:v2" }).ok, false);
-  assert.deepEqual(verifyExecutionPlan({ ...plan, schema: "pi-ticket-planning:execution-handoff-plan:v1" }, input, controllerAdapter(controller), { doctor: false }).problems, [{ code: "NEEDS_MIGRATION" }]);
-});
-
-test("execution compiler rejects policy and controller authority drift with stable codes", () => {
-  const controllerFor = (input, overrides = {}) => controllerBinding(input, { config: overrides });
-  for (const [mutate, code] of [
-    [(input) => { input.policy.accepted = false; }, "POLICY_NOT_ACCEPTED"],
-    [(input) => { input.policy.identity = ""; }, "POLICY_NOT_ACCEPTED"],
-    [(input) => { input.policy.digest = "bad"; }, "POLICY_NOT_ACCEPTED"],
-  ]) { const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
-  for (const [overrides, code] of [[{ repo: "other/repo" }, "CONTROLLER_CONFIG_MISMATCH"], [{ baseRef: "other" }, "CONTROLLER_CONFIG_MISMATCH"], [{ policy: { maxIssues: 0 } }, "CONTROLLER_CONFIG_MISMATCH"], [{ review: { enabled: false } }, "CONTROLLER_CONFIG_MISMATCH"], [{ validation: { release: [] } }, "ORACLE_VALIDATION_COMMAND_MISSING"]]) { const input = executionInput(); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input, overrides) }), new RegExp(code)); }
-});
-
-test("execution compiler rejects HUMAN work in an executable release", () => {
-  const input = mixedLaneInput();
-  assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
-});
-
-test("execution compiler keeps executable-release shape fail-closed", () => {
-  const humanDependency = mixedLaneInput({ agentBlockedByHuman: true });
-  assert.throws(() => compileExecutionPlan(humanDependency, { controller: controllerBinding(humanDependency) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
-  const external = rewriteGraph(executionInput(), (graph) => { graph.children[0].externalBlockers = ["external"]; });
-  assert.throws(() => compileExecutionPlan(external, { controller: controllerBinding(external) }), /CODEX_RELEASE_NOT_EXECUTABLE/);
-  const unknownRisk = rewriteGraph(executionInput(), (graph) => { graph.children[0].riskClasses = ["UNREGISTERED_RISK"]; });
-  assert.throws(() => compileExecutionPlan(unknownRisk, { controller: controllerBinding(unknownRisk) }), /UNKNOWN_RISK_CLASS/);
-  const rootWildcard = rewriteGraph(executionInput(), (graph) => { graph.children[0].expectedPaths = ["*.ts"]; });
-  assert.throws(() => compileExecutionPlan(rootWildcard, { controller: controllerBinding(rootWildcard) }), /INVALID_EXPECTED_PATH_PATTERN/);
-
-  const early = rewriteGraph(executionInput(), (graph) => { graph.readinessState = "SPEC_ACCEPTED"; });
-  assert.throws(() => compileExecutionPlan(early, { controller: controllerBinding(early) }), /RELEASE_NOT_GRAPH_REVIEWED/);
-
-  const missingOracle = executionInput();
-  missingOracle.children[0].body = missingOracle.children[0].body.replace("## Oracle binding", "## Oracle name");
-  rewriteGraph(missingOracle, () => {});
-  assert.throws(() => compileExecutionPlan(missingOracle, { controller: controllerBinding(missingOracle) }), /MISSING_ORACLE_BINDING/);
-  const missingVerifier = executionInput();
-  const parsed = parseChildTicket(missingVerifier.children[0].body).oracleBinding;
-  const changed = structuredClone(parsed);
-  delete changed.verifier;
-  missingVerifier.children[0].body = missingVerifier.children[0].body.replace(JSON.stringify(parsed), JSON.stringify(changed));
-  rewriteGraph(missingVerifier, () => {});
-  assert.throws(() => compileExecutionPlan(missingVerifier, { controller: controllerBinding(missingVerifier) }), /ORACLE_VERIFIER_MANIFEST_MISSING/);
-  const verifierWrite = executionInput();
-  const ticket = parseChildTicket(verifierWrite.children[0].body);
-  verifierWrite.children[0].body = verifierWrite.children[0].body.replace(
-    JSON.stringify(ticket.executionConstraints),
-    JSON.stringify({ ...ticket.executionConstraints, expectedPaths: ["package.json"] }),
-  );
-  rewriteGraph(verifierWrite, (graph) => { graph.children[0].expectedPaths = ["package.json"]; });
-  assert.throws(() => compileExecutionPlan(verifierWrite, { controller: controllerBinding(verifierWrite) }), /GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET/);
-});
-
-test("execution compiler binds an executable graph to an executable Delivery Spec Parent", () => {
-  for (const marker of [ROADMAP_PARENT_MARKER, ROADMAP_GRAPH_MARKER]) {
-    const input = executionInput();
-    input.parent.body = input.parent.body.replace(EXECUTABLE_DELIVERY_SPEC_MARKER, `${EXECUTABLE_DELIVERY_SPEC_MARKER}\n${marker}`);
-    rewriteGraph(input, () => {});
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerBinding(input) }), /ADMISSION_STATE_NOT_READY:PARENT_KIND_CONTRADICTION/);
-  }
-});
-
-test("execution compiler rejects Roadmap and legacy v2 artifacts before handoff", () => {
-  const roadmap = executionInput();
-  roadmap.deliveryGraph = { schema: "pi-ticket-planning:roadmap-graph:v1", kind: "ROADMAP", executable: false };
-  assert.throws(() => compileExecutionPlan(roadmap, { controller: controllerBinding(roadmap) }), /ROADMAP_NOT_EXECUTABLE/);
-
-  const legacy = executionInput();
-  legacy.deliveryGraph = { version: 2 };
-  assert.throws(() => compileExecutionPlan(legacy, { controller: controllerBinding(legacy) }), /NEEDS_MIGRATION/);
-});
-
-test("execution compiler rejects parent identity and state before review binding", () => {
-  const controllerFor = (input) => controllerBinding(input);
-  for (const mutate of [(input) => { input.parent.id = "0"; }, (input) => { input.parent.state = "closed"; }]) {
-    const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), /PARENT_NOT_OPEN/);
-  }
-});
-
-test("execution compiler returns stable live child drift codes before stale review bindings", () => {
-  const controllerFor = (input) => controllerBinding(input);
-  for (const [mutate, code] of [[(input) => { input.children[0].title = "drift"; }, "CHILD_DRIFT:101"], [(input) => { input.children[0].body = `${input.children[0].body}\nchanged`; }, "CHILD_DRIFT:101"], [(input) => { input.children[0].state = "closed"; }, "ISSUE_NOT_OPEN:101"]]) {
-    const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code));
-  }
-});
-
-test("execution compiler reports source, native order, and Context drift before review binding", () => {
-  const controllerFor = (input) => controllerBinding(input, { config: { baseRef: input.source.baseRef } });
-  for (const [mutate, code] of [
-    [(input) => { input.source.identity = "other"; }, "ADMISSION_STATE_NOT_READY:SOURCE_IDENTITY_MISMATCH"],
-    [(input) => { input.source.revision = "other"; }, "ADMISSION_STATE_NOT_READY:SOURCE_REVISION_MISMATCH"],
-    [(input) => { input.source.baseSha = "f".repeat(40); }, "ADMISSION_STATE_NOT_READY:SOURCE_BASE_SHA_MISMATCH"],
-    [(input) => { input.contextChecks[0].result = { ...input.contextChecks[0].result, verdict: "FAIL", ok: false }; }, "ADMISSION_STATE_NOT_READY:INVALID_CONTEXT_CHECK_VERDICT"],
-    [(input) => { input.children[0].blockedBy = ["999"]; }, "CODEX_RELEASE_NOT_EXECUTABLE"],
-  ]) { const input = executionInput(); mutate(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
-  const noBaseRef = executionInput(); noBaseRef.source.baseRef = "";
-  assert.throws(() => compileExecutionPlan(noBaseRef, { controller: controllerFor(noBaseRef) }), /INVALID_DELIVERY_GRAPH_SOURCE/);
-});
-
-test("execution compiler rejects each freshly rebound review gate deterministically", () => {
-  const controllerFor = (input) => controllerBinding(input);
-  for (const axis of ["candidateReadiness", "contextQuality", "deliveryGraph", "scenarioCoverage", "walkingSkeleton", "strictFrontier", "executionLane", "inputBinding"]) {
-    const input = executionInput(); input.review.axes[axis] = "FAIL"; rebind(input);
-    assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), /REVIEW_NOT_READY/);
-  }
-  for (const [mutate, code] of [
-    [(input) => { input.review.graphVerdict = "NEEDS_INFO"; }, "REVIEW_NOT_READY"],
-    [(input) => { input.review.candidates[0].verdict = "NEEDS_INFO"; }, "REVIEW_NOT_READY"],
-    [(input) => { input.review.candidates = []; }, "REVIEW_CANDIDATE_SET_MISMATCH"],
-  ]) { const input = executionInput(); mutate(input); rebind(input); assert.throws(() => compileExecutionPlan(input, { controller: controllerFor(input) }), new RegExp(code)); }
 });

@@ -10,7 +10,7 @@ import { checkTicketContext } from "../scripts/check-ticket-context.mjs";
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { attachReviewBinding } from "./review-binding-fixture.mjs";
 import { executionInput } from "./execution-plan-fixture.mjs";
-import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
+import { controllerResultFixture } from "./controller-result-fixture.mjs";
 import {
   executionConstraints,
   graphContractFields,
@@ -79,7 +79,7 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
   write(repo, "evidence/decision-manifest.json", `${JSON.stringify(decisionManifest)}\n`);
   let predecessorReceipt = null;
   if (downstream) {
-    predecessorReceipt = predecessorReceiptFixture({ releaseId: "r1-c1-r1", repo: input.repo, baseRef: input.source.baseRef, sourceBaseSha: planningBaseSha, candidateSha: planningBaseSha, mergedMainSha: planningBaseSha, handoffDigests: [handoff.sha256] });
+    predecessorReceipt = controllerResultFixture({ releaseId: "r1-c1-r1", baseSha: planningBaseSha, candidateSha: planningBaseSha, mergeSha: planningBaseSha });
     write(repo, "evidence/predecessor.json", `${JSON.stringify(predecessorReceipt)}\n`);
   }
   git(repo, ["add", "."]);
@@ -99,6 +99,7 @@ export function createFreshnessFixture(t, { downstream = false } = {}) {
     executionBasePolicy: downstream ? "PREDECESSOR_MERGE_OR_DESCENDANT" : "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: downstream ? `sha256:${"8".repeat(64)}` : null,
     predecessorReleaseId: downstream ? "r1-c1-r1" : null,
+    predecessorPlanDigest: predecessorReceipt?.planDigest ?? null,
     predecessorReceipt,
     predecessorReceiptBinding: downstream ? artifactBinding(bytesBinding(repo, executionBaseSha, "predecessor", "evidence/predecessor.json"), executionBaseSha) : null,
     specAcceptance: acceptance,

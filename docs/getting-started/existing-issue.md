@@ -84,13 +84,13 @@ For a split, the system first compiles stable Spec scenarios, then proves every 
 
 ## 8. When work reaches execution
 
-For a split delivery plan, the recommended path checks the immutable Parent and acceptance receipt, exact source and policy, current Issue bodies, blockers, one current `delivery-release-graph:v3`, Context results, and fresh readiness verdict. Only a bounded all-AGENT v3 Release with no external blocker becomes one exact Controller Release Plan v2; Roadmap, HUMAN work, future candidates, and v2 artifacts stay outside Controller input. Any source, body, receipt, graph, review, policy, Controller config, or Plan drift requires rebuild and re-approval.
+For a split delivery plan, the recommended path checks the immutable Parent and acceptance receipt, exact source and policy, current Issue bodies, blockers, one current `delivery-release-graph:v3`, Context results, and fresh readiness verdict. Only a bounded all-AGENT v3 Release with no external blocker becomes one semantic `release-plan.json`; Roadmap, HUMAN work, and future candidates stay outside Controller input. Any Planner-owned source, body, receipt, graph, review, policy, or Plan drift requires rebuild and re-approval.
 
-Confirmed apply atomically writes three private files and records `EXECUTION/HANDOFF_READY`; it prints a Controller `start` command bound to the approved config digest, Controller revision, and provenance digest, but does not run it or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
+Confirmed apply atomically writes one private `release-plan.json` and records `EXECUTION/HANDOFF_READY`; it prints `start --approve-plan <planDigest>`, but does not run it or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
 
 - `needs-triage`: candidate, not claimable;
 - reviewer `READY`: review passed, human confirmation still required;
-- `HANDOFF_READY`: exact Controller input exists; execution has not started;
+- `HANDOFF_READY`: the approved `release-plan.json` exists; execution has not started;
 - `ready-for-agent`: Legacy Herdr may claim it;
 - Controller or Legacy Harness completed: execution lifecycle ended, not necessarily accepted or released;
 - merged: code entered a branch, not necessarily enabled;

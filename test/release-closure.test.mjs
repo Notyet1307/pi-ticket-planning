@@ -8,10 +8,7 @@ import {
   oracleVerifierProtectionProblems,
   roadmapReleaseBindingProblems,
 } from "../scripts/check-release-closure.mjs";
-import {
-  controllerBinding,
-  executionInput,
-} from "./execution-plan-fixture.mjs";
+import { executionInput } from "./execution-plan-fixture.mjs";
 
 function problemCodes(problems) {
   return problems.map(({ code }) => code);
@@ -110,12 +107,12 @@ test("Ticket B cannot write Ticket A's explicit verifier source", () => {
   assert.ok(codes.includes("GLOBAL_ORACLE_VERIFIER_PATH_IN_WRITE_SET"));
 });
 
-test("qualified Controller release validation must execute every bound Oracle command", () => {
+test("trusted release validation config covers every bound Oracle command", () => {
   const input = executionInput();
-  const controller = controllerBinding(input);
-  assert.deepEqual(oracleValidationCoverageProblems({ controllerConfig: controller.config, children: input.children }), []);
-  controller.config.validation.release = [];
-  assert.deepEqual(problemCodes(oracleValidationCoverageProblems({ controllerConfig: controller.config, children: input.children })), [
+  const controllerConfig = { validation: { release: [{ command: "npm run verify:protocol" }] } };
+  assert.deepEqual(oracleValidationCoverageProblems({ controllerConfig, children: input.children }), []);
+  controllerConfig.validation.release = [];
+  assert.deepEqual(problemCodes(oracleValidationCoverageProblems({ controllerConfig, children: input.children })), [
     "ORACLE_VALIDATION_COMMAND_MISSING",
   ]);
 });
