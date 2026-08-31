@@ -37,6 +37,12 @@
       "skills": [],
       "prompts": [],
       "themes": []
+    },
+    {
+      "source": "npm:@juicesharp/rpiv-todo@2.7.1",
+      "skills": [],
+      "prompts": [],
+      "themes": []
     }
   ]
 }

@@ -15,6 +15,7 @@ const UPSTREAM = `git:github.com/mattpocock/skills@${JSON.parse(readFileSync(new
 const TEMPLATE = JSON.parse(readFileSync(new URL("../profile/settings.template.json", import.meta.url), "utf8"));
 const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry?.source ?? ""))?.source;
 const FFF_SOURCE = TEMPLATE.packages.find((entry) => /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
+const TODO_SOURCE = TEMPLATE.packages.find((entry) => /^npm:@juicesharp\/rpiv-todo@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
 const REVIEWER_AGENT = path.join("agents", "ticket-readiness-reviewer.md");
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));
 const SUPPRESSED_SKILLS = new Set(lock.suppressedSkills ?? []);
@@ -103,6 +104,8 @@ const subagents = commands.find((command) => command.name === "subagent" && comm
 if (!SUBAGENTS_SOURCE || subagents?.sourceInfo?.source !== SUBAGENTS_SOURCE) failures.push("pi-interactive-subagents extension is missing or unpinned");
 const fff = commands.find((command) => command.name === "fff-mode" && command.source === "extension");
 if (!FFF_SOURCE || fff?.sourceInfo?.source !== FFF_SOURCE) failures.push("pi-fff extension is missing or unpinned");
+const todos = commands.find((command) => command.name === "todos" && command.source === "extension");
+if (!TODO_SOURCE || todos?.sourceInfo?.source !== TODO_SOURCE) failures.push("rpiv-todo extension is missing or unpinned");
 
 if (readFileSync(path.join(PROFILE_ROOT, "AGENTS.md"), "utf8") !== readFileSync(path.join(PACKAGE_ROOT, "profile", "AGENTS.md"), "utf8")) {
   failures.push("deployed profile AGENTS.md drifted from the package template");
@@ -115,8 +118,8 @@ if ((statSync(path.join(PROFILE_ROOT, "settings.json")).mode & 0o077) !== 0) {
 }
 const settings = JSON.parse(readFileSync(path.join(PROFILE_ROOT, "settings.json"), "utf8"));
 const sources = settings.packages?.map((entry) => typeof entry === "string" ? entry : entry.source) ?? [];
-if (!sources.includes(SUBAGENTS_SOURCE) || !sources.includes(FFF_SOURCE) || sources.some((source) => /^npm:pi-subagents@/.test(source ?? ""))) {
-  failures.push("deployed profile package sources do not match the replacement template");
+if (!sources.includes(SUBAGENTS_SOURCE) || !sources.includes(FFF_SOURCE) || !sources.includes(TODO_SOURCE) || sources.some((source) => /^npm:pi-subagents@/.test(source ?? ""))) {
+  failures.push("deployed profile package sources do not match the managed template");
 }
 if (settings.subagents !== undefined) failures.push("deployed profile retained legacy pi-subagents settings");
 
@@ -135,7 +138,7 @@ if (failures.length) {
   for (const failure of failures) console.error(`ERROR ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`profile configuration: ok (${skills.length} skills, interactive subagents, FFF override default)`);
+  console.log(`profile configuration: ok (${skills.length} skills, interactive subagents, FFF override default, rpiv-todo)`);
 }
 
 function realpathSafe(value) {

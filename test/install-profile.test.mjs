@@ -36,6 +36,7 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     assert.equal(settings.subagents, undefined);
     assert.equal(settings.packages.some((entry) => /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry.source)), true);
     assert.equal(settings.packages.some((entry) => entry.source === "npm:@ff-labs/pi-fff@0.10.5"), true);
+    assert.equal(settings.packages.some((entry) => entry.source === "npm:@juicesharp/rpiv-todo@2.7.1"), true);
     assert.equal(
       readFileSync(path.join(profileDir, "agents", "ticket-readiness-reviewer.md"), "utf8"),
       readFileSync(path.join(PACKAGE_ROOT, "agents", "ticket-readiness-reviewer.md"), "utf8"),
