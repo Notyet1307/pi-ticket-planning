@@ -13,7 +13,7 @@ const LAUNCHER = path.resolve(
 );
 const UPSTREAM = `git:github.com/mattpocock/skills@${JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).mattpocockUpstream.commit}`;
 const TEMPLATE = JSON.parse(readFileSync(new URL("../profile/settings.template.json", import.meta.url), "utf8"));
-const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry?.source ?? ""))?.source;
+const SUBAGENTS_SOURCE = TEMPLATE.packages.find((entry) => /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry?.source ?? ""))?.source;
 const FFF_SOURCE = TEMPLATE.packages.find((entry) => /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/.test(entry?.source ?? ""))?.source;
 const REVIEWER_AGENT = path.join("agents", "ticket-readiness-reviewer.md");
 const lock = JSON.parse(readFileSync(new URL("../upstream-lock.json", import.meta.url), "utf8"));

@@ -7,7 +7,7 @@ import { validateProtocolDefinition as validateContracts } from "../protocol/ker
 import { RISK_CLASS_REGISTRY, validateRiskClassRegistry } from "./risk-classes.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
-const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/;
+const INTERACTIVE_SUBAGENTS = /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/;
 const FFF = /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/;
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
