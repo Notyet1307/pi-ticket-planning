@@ -27,7 +27,11 @@ jobs:
           node-version: 26.x
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: herdr-codex-controller
-      - run: npm run verify
+      - name: Prepare sandbox-visible Node
+        run: sudo install -m 0755 "$(command -v node)" /usr/local/bin/node
+      - run: |
+          export PATH="/usr/local/bin:$PATH"
+          npm run verify
         working-directory: herdr-codex-controller
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run generate:codex-controller-contract -- --controller-root "${{ github.workspace }}/herdr-codex-controller"
