@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { safeError } from "../admission/domain.mjs";
+import { validateFactAttestation } from "../protocol/kernel.mjs";
 import {
   applySpecPublication,
   buildSpecPublicationPlan,
@@ -89,8 +90,11 @@ export function runSpecPublicationCli(argv = process.argv.slice(2), { adapterFac
       const target = `github:${plan.repo}`;
       const snapshot = store.get({ caseId: plan.caseId, target });
       verifyRecordedSpecPublicationArtifacts({ plan, store });
-      if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.specPublication" && item.subject?.digest === plan.planFingerprint)) throw new Error("SPEC_PUBLICATION_APPROVAL_ALREADY_EXISTS");
-      const approval = createSpecPublicationApproval({ plan, correlationId, observedAt: clock() });
+      const observedAt = clock();
+      const matchesPlan = (item) => item.fact === "human.specPublication" && item.subject?.digest === plan.planFingerprint;
+      if (snapshot.approvals.consumed.some(matchesPlan)
+        || snapshot.approvals.pending.some((item) => matchesPlan(item) && validateFactAttestation(item, { now: observedAt }).ok)) throw new Error("SPEC_PUBLICATION_APPROVAL_ALREADY_EXISTS");
+      const approval = createSpecPublicationApproval({ plan, correlationId, observedAt });
       store.addApproval({ caseId: plan.caseId, target, approval });
       process.stdout.write(`${JSON.stringify({ status: "COMPLETE", approval }, null, 2)}\n`);
       return 0;

@@ -12,6 +12,7 @@ import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { verifyPlanningCaseBindings } from "../planning-case/bindings.mjs";
 import { createFactAttestation, loadProtocol, producerAttestationSource } from "../protocol/kernel.mjs";
 import { EXECUTABLE_DELIVERY_SPEC_MARKER, ROADMAP_GRAPH_MARKER } from "../scripts/check-delivery-graph.mjs";
+import { runSpecPublicationCli } from "../spec-publication/cli.mjs";
 import {
   applySpecPublication,
   buildSpecPublicationPlan,
@@ -267,6 +268,80 @@ test("Controller-direct SPEC publication succeeds with no Legacy compatibility t
   assert.throws(() => ready.store.resume({ caseId: ready.caseId, target: TARGET }), (error) => error.code === "BINDING_READBACK_DRIFT");
 });
 
+test("Spec publication uses the latest attestation when an older duplicate was superseded", (t) => {
+  const ready = publicationSetup(t);
+  const accepted = ready.store.get({ caseId: ready.caseId, target: TARGET }).facts.find(({ fact }) => fact === "release.accepted");
+  for (const [suffix, value] of [["superseded", false], ["current", true]]) {
+    ready.store.record({
+      caseId: ready.caseId,
+      target: TARGET,
+      type: "FACT_ATTACHED",
+      data: {
+        fact: {
+          ...structuredClone(accepted),
+          id: `F-release-accepted-${suffix}`,
+          value,
+          evidence: { kind: "artifact", ref: `spec-boundary:release.accepted:${suffix}`, digest: hash(suffix) },
+        },
+      },
+    });
+  }
+
+  assert.equal(ready.apply().status, "COMPLETE");
+});
+
+test("Spec publication approval can be refreshed after its producer binding becomes invalid", (t) => {
+  const ready = publicationSetup(t);
+  const snapshot = ready.store.get({ caseId: ready.caseId, target: TARGET });
+  const invalid = structuredClone(ready.approval);
+  invalid.source.producerDigest = `sha256:${"0".repeat(64)}`;
+  snapshot.approvals = { pending: [invalid], consumed: [] };
+  let refreshed = null;
+  const store = {
+    get: () => structuredClone(snapshot),
+    addApproval: ({ approval }) => { refreshed = approval; },
+  };
+  let output = "";
+  const originalWrite = process.stdout.write;
+  process.stdout.write = (chunk) => { output += chunk; return true; };
+  try {
+    assert.equal(runSpecPublicationCli([
+      "approve",
+      "--plan", ready.planPath,
+      "--expected-fingerprint", ready.plan.planFingerprint,
+      "--case-id", ready.caseId,
+      "--json",
+    ], { storeFactory: () => store, clock: () => NOW, correlationId: "C-refreshed-spec-approval" }), 0);
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+  assert.equal(JSON.parse(output).status, "COMPLETE");
+  assert.equal(refreshed.subject.digest, ready.plan.planFingerprint);
+});
+
+test("Spec publication apply ignores an invalid superseded approval for the same exact plan", (t) => {
+  const ready = publicationSetup(t);
+  const invalid = structuredClone(ready.approval);
+  invalid.id = "F-human-spec-publication-superseded";
+  invalid.source.producerDigest = `sha256:${"0".repeat(64)}`;
+  const store = new Proxy(ready.store, {
+    get(target, property) {
+      if (property === "get") {
+        return (options) => {
+          const snapshot = target.get(options);
+          snapshot.approvals.pending.unshift(invalid);
+          return snapshot;
+        };
+      }
+      const value = target[property];
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+
+  assert.equal(ready.applyWithStore(store).status, "COMPLETE");
+  assert.equal(ready.store.get({ caseId: ready.caseId, target: TARGET }).approvals.consumed[0].id, ready.approval.id);
+});
+
 test("Delivery Spec publication excludes Legacy Admission qualification and runtime review", (t) => {
   const ready = publicationSetup(t);
   ready.apply();
@@ -320,6 +395,7 @@ test("Spec preflight rereads exact Git authorities and live tracker label", (t) 
     "docs/product/releases/r003.md": "# R003/r1\n",
     "AGENTS.md": "# Policy\n",
     "docs/adr/0003-boundary.md": "# ADR\n\n- Status: ACCEPTED\n",
+    "docs/adr/0004-localized.md": "# ADR\n\n状态：已接受\n",
     "docs/agents/issue-tracker.md": "# Issue tracker: GitHub\n",
     "docs/agents/triage-labels.md": "needs-triage\n",
   };
@@ -337,6 +413,12 @@ test("Spec preflight rereads exact Git authorities and live tracker label", (t) 
   Object.assign(context.source, { baseRef: "HEAD", baseSha, blobDigest: hash(files["docs/product/releases/r003.md"]) });
   Object.assign(context.policy, { digest: hash(files["AGENTS.md"]) });
   Object.assign(context.adrs[0], { digest: hash(files["docs/adr/0003-boundary.md"]) });
+  context.adrs.push({
+    identity: `ADR-0004@${baseSha}`,
+    path: "docs/adr/0004-localized.md",
+    digest: hash(files["docs/adr/0004-localized.md"]),
+    accepted: true,
+  });
   Object.assign(context.tracker.issueTracker, { digest: hash(files["docs/agents/issue-tracker.md"]) });
   Object.assign(context.tracker.triageLabels, { digest: hash(files["docs/agents/triage-labels.md"]) });
   let labelReads = 0;
