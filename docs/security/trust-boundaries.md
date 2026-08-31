@@ -18,6 +18,8 @@ trust:
 | Operator -> Admission | One exact Plan approval | Subject-bound, single-consume Human Approval |
 | Admission -> GitHub | Planned comments and controlled labels | Actor check, pre-read drift checks, claim check, exact readback, parent last |
 | Harness -> planner | Capability/readiness and Outcome Receipts | Exact repo/base/config/producer/freshness projection; read-only Outcome ingestion |
+| Planner -> Codex Controller | One approved Release Plan v2 plus expected active identity/config/provenance digests | Exact clean checkout, config/Plan validation, live doctor, private three-file handoff; Planner never starts the Job |
+| Codex Controller -> planner | Public completion v2/v3 only | Append-only active/historical/revoked trust registry, owned-schema hash, exact completion digest, predecessor receipt v3; no private Job/status input |
 | Process -> local state | Case events, snapshots, transactions | Realpath containment, 0700/0600, no links, exclusive lock, digest chain, roll-forward recovery |
 
 Authenticated Tracker state can establish a Tracker Fact. It cannot establish a

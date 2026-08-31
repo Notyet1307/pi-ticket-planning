@@ -256,7 +256,7 @@ PI_TICKET_PLAN_BIN_DIR=/absolute/bin \
 
 内部会由 `ask-yet` 推断 `QUICK`、`STANDARD` 或 `DISCOVERY` 规划深度；安全、隐私、凭据、破坏性迁移、生产切换、不可逆影响或广泛爆炸半径存在时，再叠加 `CONTROLLED` 风险 Gate。这些是内部实现细节，不是要求用户作出的选择。
 
-不同事实有不同权威来源：产品 Evidence 和决定来自 accepted product artifact；source identity 和 accepted baseline 来自 Git；Ticket 状态来自 Tracker；Legacy 执行状态来自 Harness ledger。Controller 在提供公开 export/status contract 前不进入 Planner 状态。真实启用来自 Release Record；观察窗口后的结果来自 Outcome Evidence。对话和摘要只是线索，不是权威事实。
+不同事实有不同权威来源：产品 Evidence 和决定来自 accepted product artifact；source identity 和 accepted baseline 来自 Git；Ticket 状态来自 Tracker；Legacy 执行状态来自 Harness ledger。Controller 执行和私有 Job 状态不进入 Planner；只有经过验证的 public completion export 可以成为 predecessor evidence。真实启用来自 Release Record；观察窗口后的结果来自 Outcome Evidence。对话和摘要只是线索，不是权威事实。
 
 已有 Git 的目标中，一条经人批准的远端 draft ref 可以在 Candidate Frame 和 Evidence revision 间保存 exact candidate blob，但不能进入 Delivery Spec。Commitment 后，exact Release blob 必须进入 accepted remote base。Greenfield 只有在 exact Commitment 和所需授权后才允许建立仓库；它只创建最小交付容器，不选择应用技术栈，也不创建实现脚手架。
 
@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget。Ordinal 2+ 先运行 `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`，把 Controller public completion export 确定性摄取为 tracked predecessor receipt v2；receipt 内嵌并重新验证 exact export。旧的 release-manager v1 self-digest 不再是自动执行证据。Build/verify/apply 都会 fresh-read remote base 与全部 Spec/receipt/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
+已接受的 GitHub v3 Release 中，每个 AGENT child 都绑定 frozen Oracle 与 Controller 强制执行的 write paths/budget。Ordinal 2+ 先运行 `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`，把 Controller public completion export 确定性摄取为 tracked predecessor receipt v3；receipt 会重新验证 exact export、active 或 historically-qualified Controller identity、owned completion schema 与 immutable qualification-entry digest。unknown/revoked identity fail closed，receipt v2 必须显式迁移。旧的 release-manager v1 self-digest 不再是自动执行证据。Build/verify/apply 都会 fresh-read remote base 与全部 Spec/receipt/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -356,7 +356,7 @@ pi-ticket-plan admit apply \
 
 Controller 执行、aggregate review、PR/CI/merge、真实启用、健康和 Outcome 是不同事实。Planner handoff 不轮询执行；Legacy Harness claim 语义只留在显式 `admit` 路径。
 
-Controller result ingest 会等到 Controller 提供公开、稳定的 export/status contract 后再实现；Planner 绝不读取私有 `job.json`。
+Planner 只通过 versioned trust registry 摄取 Controller public completion v2/v3，并生成 predecessor receipt v3。Planner 绝不读取私有 `job.json`、轮询执行，或把 status summary 当作 completion evidence。
 
 ## 开发和发布验证
 
@@ -387,7 +387,7 @@ npm run canary:execution-readiness -- --harness-root /absolute/HerdrHarness-lite
 npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
 ```
 
-该 canary 锁定 Controller exact commit、source-manifest/build/identity digest 与 owner schema 字节 SHA-256，拒绝 dirty checkout，在 Node 26 permission isolation 中以禁止网络的方式构建 exact local clone，比对 Planner/lock/Controller 三方 schema 与 config/Plan/provenance digest，接受一个 v2 direct Plan，并拒绝 top-level-extra、missing-required、source-extra、Issue-extra 和 Release Plan v1 向量。Dispatcher 明确为 out of scope，且绝不调用。canary 只调用 `config validate` 和 `plan validate`，绝不调用 `doctor`、`start`、Codex 或网络写入。PASS 只代表该只读静态契约 qualified，不代表 live source revalidation 或 Codex/GitHub execution。缺少 checkout 是 `CONTROLLER_UNAVAILABLE`，缺少构建依赖是 `CONTROLLER_NOT_BUILT`，都不是 PASS。
+该 canary 会重新生成并核对 Controller exact commit、active/historical identity、runtime lock、risk registry，以及 Plan/config/completion/history schema 字节；拒绝 dirty checkout，并在 Node 26 禁网 permission isolation 中构建 exact clone。它验证当前与 ordinal-2 Plan 向量，并在 exact build 上运行 sandbox containment、runtime/profile binding、prompt envelope、canonical review、required-check deadline/budget、remote binding、authority quarantine、completion/history 与 Oracle protection 的 P0 定向测试。Dispatcher 明确 out of scope。canary 不调用 environment-bound live `doctor`，也绝不调用 `start`、Codex 或 GitHub write；真实 handoff 仍必须通过 doctor。PASS 只是 deterministic L1 evidence，不代表 live Provider/GitHub execution 或 L2/L3/L4 qualification。缺少 checkout 是 `CONTROLLER_UNAVAILABLE`，缺少构建依赖是 `CONTROLLER_NOT_BUILT`，都不是 PASS。
 
 Profile 烟测会包含 package-owned `prepare-codex-release` skill；命令会报告当前精确 skill 数。
 

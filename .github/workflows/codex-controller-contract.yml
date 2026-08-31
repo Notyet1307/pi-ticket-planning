@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   contract:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,8 +27,17 @@ jobs:
           node-version: 26.x
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: herdr-codex-controller
-      - run: npm run verify
+      - name: Prepare sandbox-visible Node runtime
+        run: |
+          NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          sudo mkdir -p /usr/local/lib/herdr-node
+          sudo cp -R "$NODE_ROOT/." /usr/local/lib/herdr-node/
+          echo "/usr/local/lib/herdr-node/bin" >> "$GITHUB_PATH"
+      - run: |
+          export PATH="/usr/local/lib/herdr-node/bin:/usr/bin:/bin"
+          npm run verify
         working-directory: herdr-codex-controller
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run generate:codex-controller-contract -- --controller-root "${{ github.workspace }}/herdr-codex-controller"
       - run: npm run check:codex-controller-contract
       - run: npm run canary:codex-controller-contract -- --controller-root "${{ github.workspace }}/herdr-codex-controller"

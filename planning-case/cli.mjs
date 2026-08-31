@@ -85,7 +85,10 @@ function readAdmissionPlan(file) {
 
 function readExecutionHandoffPlan(file) {
   const plan = readJsonInput(file, "INVALID_EXECUTION_HANDOFF_PLAN");
-  if (plan.schema !== "pi-ticket-planning:execution-handoff-plan:v1"
+  if (plan.schema === "pi-ticket-planning:execution-handoff-plan:v1") {
+    throw new PlanningCaseError("EXECUTION_HANDOFF_PLAN_NEEDS_MIGRATION");
+  }
+  if (plan.schema !== "pi-ticket-planning:execution-handoff-plan:v2"
     || plan.kind !== "CODEX_RELEASE"
     || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(plan.repo ?? "")
     || !SHA256.test(plan.planFingerprint ?? "")

@@ -44,6 +44,7 @@
     "spec-publication": "node scripts/spec-publication.mjs",
     "eval:pi": "node scripts/eval-pi-behavior.mjs",
     "eval:pi:nightly": "node scripts/eval-pi-behavior.mjs --suite nightly --repeat 3 --report-only",
+    "generate:codex-controller-contract": "node scripts/generate-codex-controller-contract.mjs",
     "install:profile": "node scripts/install-profile.mjs",
     "benchmark": "node benchmark/benchmark.mjs",
     "planctl": "node scripts/planctl.mjs",

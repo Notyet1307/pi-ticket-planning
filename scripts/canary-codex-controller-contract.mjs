@@ -33,7 +33,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONTROLLER_PLAN = "herdr-codex-controller:release-plan:v2";
 const CONTRACT_LOCK = path.join(ROOT, "compatibility", "codex-controller-contract.json");
 const PLANNER_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-plan-v2.schema.json");
-const PLANNER_COMPLETION_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-completion-v1.schema.json");
+const PLANNER_COMPLETION_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-release-completion-v3.schema.json");
+const PLANNER_CONFIG_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-controller-config-v3.schema.json");
+const PLANNER_HISTORY_SCHEMA = path.join(ROOT, "schemas", "herdr-codex-controller-identity-history-v1.schema.json");
+const PLANNER_HISTORY = path.join(ROOT, "compatibility", "controller-identity-history.json");
+const PLANNER_TRUST = path.join(ROOT, "compatibility", "codex-controller-trust.json");
 const PLANNER_RISK_CLASS_REGISTRY = path.join(ROOT, "contracts", "risk-class-registry.json");
 const HEX = /^[a-f0-9]{64}$/;
 const REVISION = /^[a-f0-9]{40}$/;
@@ -53,6 +57,36 @@ function git(repository, args, code = "TEMP_GIT_FAILED") {
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function hexDigest(value) { return fingerprint(value).slice(7); }
+function withDigest(body) { return { ...body, digest: hexDigest(body) }; }
+
+function exactMirror(plannerPath, controllerPath, expectedSha256, code) {
+  const planner = fs.readFileSync(assertCanonicalPrivateExistingFile(plannerPath, `PLANNER_${code}`));
+  const controller = fs.readFileSync(assertCanonicalPrivateExistingFile(controllerPath, `CONTROLLER_${code}`));
+  if (!HEX.test(expectedSha256) || sha256(planner) !== expectedSha256
+    || sha256(controller) !== expectedSha256 || !planner.equals(controller)) throw new Error(code);
+  return { bytes: planner, sha256: expectedSha256 };
+}
+
+function completionProvenance(lock, repo, planDigest) {
+  const binary = { configuredPathDigest: fingerprint("canary-configured"), realPathDigest: fingerprint("canary-real"), byteCount: 1, sha256: fingerprint("canary-binary"), versionOutput: "codex canary" };
+  const requiredCheckContractDigest = hexDigest({ version: 1, checks: [{ name: "verify", required: true }] });
+  const body = {
+    version: 3,
+    controller: { version: 1, sourceRevision: lock.commit, sourceManifestDigest: lock.sourceManifestDigest, buildDigest: lock.buildDigest, digest: lock.identityDigest },
+    executionRuntime: withDigest({ version: 1, binary, fixedPolicyDigest: hexDigest("canary-fixed-policy"), profilesDisabled: true }),
+    remoteIdentity: withDigest({ version: 1, remote: "origin", repo: repo.toLowerCase(), fetchUrl: `https://github.com/${repo.toLowerCase()}.git`, pushUrl: `https://github.com/${repo.toLowerCase()}.git`, fetchTransport: "https", pushTransport: "https" }),
+    validationSandbox: withDigest({ version: 1, provider: "codex-permission-profile", binary, policyDigest: hexDigest("canary-sandbox-policy") }),
+    requiredCheckContractDigest,
+    mergeAuthorityDigest: hexDigest(lock.mergeAuthorityContract),
+    identityHistoryDigest: lock.controllerIdentityHistoryDigest,
+    executionMode: "release-plan-v2-direct",
+    configDigest: hexDigest("C1-config"),
+    releasePlan: { version: 2, digest: planDigest },
+  };
+  return { provenance: withDigest(body), requiredCheckContractDigest };
 }
 
 function fixtureConfig(root) {
@@ -351,11 +385,10 @@ function freshC1(repository, planningBaseSha, input) {
 function freshC2(repository, c1, mergedMainSha) {
   const handoff = trackedBinding(repository, mergedMainSha, "C1-handoff", "handoff.txt");
   const lock = JSON.parse(fs.readFileSync(CONTRACT_LOCK, "utf8"));
-  const controller = { version: 1, sourceRevision: lock.commit, sourceManifestDigest: lock.sourceManifestDigest, buildDigest: lock.buildDigest, digest: lock.identityDigest };
   const planDigest = fingerprint(c1.deliveryGraph).slice(7);
-  const provenanceBody = { version: 1, controller, executionMode: "release-plan-v2-direct", configDigest: fingerprint("C1-config").slice(7), releasePlan: { version: 2, digest: planDigest } };
+  const { provenance, requiredCheckContractDigest } = completionProvenance(lock, c1.repo, planDigest);
   const completionBody = {
-    schema: "herdr-codex-controller:release-completion:v1",
+    schema: "herdr-codex-controller:release-completion:v3",
     releaseId: c1.deliveryGraph.releaseId,
     repo: c1.repo,
     baseRef: c1.source.baseRef,
@@ -369,8 +402,11 @@ function freshC2(repository, c1, mergedMainSha) {
     requiredChecks: ["verify"],
     mergedMainSha,
     dependencyHandoffDigests: [handoff.sha256],
-    controllerProvenance: { ...provenanceBody, digest: fingerprint(provenanceBody).slice(7) },
+    controllerProvenance: provenance,
     completedAt: "2026-08-20T01:00:00.000Z",
+    digestAlgorithm: lock.digestAlgorithm,
+    schemaSha256: `sha256:${lock.completionSchemaSha256}`,
+    requiredCheckContractDigest,
   };
   const completion = { ...completionBody, digest: fingerprint(completionBody) };
   const receipt = ingestControllerCompletion(completion);
@@ -442,25 +478,30 @@ function controllerCli(root, temporary, commit) {
   return { buildRoot, cli: assertCanonicalPrivateExistingFile(cli, "CONTROLLER_CLI") };
 }
 
-function controllerOracleRuntimeTests(buildRoot) {
-  const names = [
-    "each Issue Oracle runs before commit and release validation runs every Oracle again",
-    "every Worker globally protects other Tickets' verifier files and package scripts",
-    "verifier manifest byte drift and hardening drift are REPLAN_REQUIRED",
+function controllerP0RuntimeTests(buildRoot) {
+  const suites = [
+    { category: "oracle", file: "oracle-verifier.test.js", names: ["each Issue Oracle runs before commit and release validation runs every Oracle again", "every Worker globally protects other Tickets' verifier files and package scripts", "verifier manifest byte drift and hardening drift are REPLAN_REQUIRED"] },
+    { category: "sandbox", file: "validation-sandbox.test.js", names: ["interrupted sandbox cleanup is recovered idempotently after restart", "missing sandbox capability blocks before candidate validation", "validation output flooding is bounded and recorded as a failed termination", "validation projection includes admitted changes and excludes ignored Worker state", "validation sandbox denies Controller env, network, and reads or writes outside its root"] },
+    { category: "review-config-runtime", file: "config-plan.test.js", names: ["production direct policy requires canonical review, versioned checks, and Controller auto-merge", "production runtime disallows profiles and PATH-resolved Codex binaries"] },
+    { category: "review", file: "codex-runner.test.js", names: ["canonical review status is derived from blocking findings"] },
+    { category: "ci", file: "github.test.js", names: ["versioned required checks accept configured conclusions and ignore observational failures", "auto-merge is bound to the exact reviewed candidate SHA"] },
+    { category: "remote", file: "git-security.test.js", names: ["remote inspection rejects push redirection, URL rewrites, and local endpoints", "remote mismatch is rejected before any push mutation", "remote branch quarantine is expected-head CAS and never deletes a changed head"] },
+    { category: "lifecycle", file: "controller.test.js", names: ["semantically inconsistent aggregate review is rejected before push or PR creation", "production v2 completes only after exact candidate, required checks, and merged-base verification", "abort revokes auto-merge and quarantines the exact remote branch", "source drift after auto-merge authorization revokes and quarantines before terminal block", "revocation resumes after interruption between disable and quarantine", "missing and pending required checks reach durable deadlines without resetting on restart", "CI code and infrastructure failures consume separate budgets and only code gets bounded evidence"] },
+    { category: "completion-history", file: "completion-export.test.js", names: ["completion export CLI is public, restart-safe, and byte-idempotent", "qualified Controller A completion remains exportable after Controller B is active", "completion export rejects incomplete, drifted, private, and forged evidence"] },
+    { category: "prompt-boundary", file: "prompts.test.js", names: ["Planner, Issue, and diagnostic strings stay inside one closed untrusted-data envelope"] },
   ];
-  const testFile = assertCanonicalPrivateExistingFile(
-    path.join(buildRoot, "dist", "test", "oracle-verifier.test.js"),
-    "CONTROLLER_ORACLE_RUNTIME_TEST",
-  );
+  const names = suites.flatMap((suite) => suite.names);
+  const files = suites.map((suite) => assertCanonicalPrivateExistingFile(path.join(buildRoot, "dist", "test", suite.file), `CONTROLLER_${suite.category.toUpperCase().replaceAll("-", "_")}_TEST`));
+  const pattern = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")).join("|");
   const result = run(process.execPath, [
     "--test",
-    `--test-name-pattern=${names.join("|")}`,
-    testFile,
-  ], { cwd: buildRoot, timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
+    `--test-name-pattern=${pattern}`,
+    ...files,
+  ], { cwd: buildRoot, timeout: 180_000, maxBuffer: 16 * 1024 * 1024 });
   if (result.error || result.signal || result.status !== 0 || names.some((name) => !result.stdout.includes(name))) {
-    throw new Error("CONTROLLER_ORACLE_RUNTIME_TEST_FAILED");
+    throw new Error("CONTROLLER_P0_RUNTIME_TEST_FAILED");
   }
-  return { status: "PASS", tests: names, evidence: "deterministic-controller-runtime-tests" };
+  return { status: "PASS", suites: Object.fromEntries(suites.map(({ category, names: tests }) => [category, tests])), evidence: "deterministic-exact-controller-runtime-tests" };
 }
 
 function contractRoot(value) {
@@ -493,6 +534,7 @@ function legacyPlanVector() {
 function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   fs.mkdirSync(temporary, { recursive: true, mode: 0o700 });
   fs.chmodSync(temporary, 0o700);
+  temporary = fs.realpathSync(temporary);
   const repository = path.join(temporary, "repo");
   const remote = path.join(temporary, "remote.git");
   git(temporary, ["init", "--bare", "-q", remote]);
@@ -518,6 +560,16 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   fs.copyFileSync(sourceConfig, config);
   fs.chmodSync(config, 0o600);
   const canaryConfig = JSON.parse(fs.readFileSync(config, "utf8"));
+  const runtimeFixture = path.join(temporary, "codex-fixture");
+  fs.writeFileSync(runtimeFixture, "#!/bin/sh\nprintf 'codex-contract-fixture 1.0\\n'\n", { mode: 0o700 });
+  if (canaryConfig.codex && canaryConfig.validation?.sandbox) {
+    canaryConfig.localPath = repository;
+    canaryConfig.stateDir = path.join(temporary, "controller-state");
+    canaryConfig.worktreeRoot = path.join(temporary, "controller-worktrees");
+    canaryConfig.codex.bin = runtimeFixture;
+    canaryConfig.validation.sandbox.bin = runtimeFixture;
+    canaryConfig.validation.sandbox.root = path.join("/var/tmp", `herdr-codex-contract-${process.pid}-${path.basename(temporary)}`);
+  }
   canaryConfig.validation ??= {};
   canaryConfig.validation.release ??= [];
   if (!canaryConfig.validation.release.some((entry) => (typeof entry === "string" ? entry : entry?.command) === "npm run verify:oracle:o01")) {
@@ -532,7 +584,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   const input = freshC1(repository, planningBaseSha, reviewedInput({ repositoryPath: repository, baseSha: planningBaseSha, repo, baseRef }));
   const readFresh = (value) => assertFreshExecutionInput(value, { resolveRemoteBase: gitRemoteBase });
   if (fingerprint(readFresh(input)) !== fingerprint(executionFreshnessProjection(input))) throw new Error("FRESH_C1_VECTOR_MISMATCH");
-  const draft = compileExecutionPlan(input, { controller });
+  const draft = compileExecutionPlan(input, { controller, draft: true });
   if (!validateArtifact(draft.releasePlan, { identity: CONTROLLER_PLAN }).ok) throw new Error("PLANNER_SCHEMA_POSITIVE_VECTOR_REJECTED");
   const validated = adapter.validatePlan(draft.releasePlan, controller.configDigest, controller.configIdentity);
   const plannerPlanDigest = releasePlanDigest(draft.releasePlan);
@@ -582,7 +634,7 @@ function contractVectors({ cli, sourceConfig, temporary, nodeArgs = [] }) {
   readFresh(c2);
   freshCases["c2-fresh-base-b"] = "PASS";
 
-  const c2Draft = compileExecutionPlan(c2, { controller });
+  const c2Draft = compileExecutionPlan(c2, { controller, draft: true });
   const c2Validated = adapter.validatePlan(c2Draft.releasePlan, controller.configDigest, controller.configIdentity);
   const c2Plan = compileExecutionPlan(c2, { controller: { ...controller, planDigest: c2Validated.planDigest, provenance: c2Validated.provenance } });
   freshCases["exact-v3-v2-direct"] = "PASS";
@@ -669,32 +721,28 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
   if (!validateArtifact(lock).ok) throw new Error("CONTROLLER_CONTRACT_LOCK_INVALID");
   const controllerCommit = qualifiedCommit(root, lock.commit);
 
-  const plannerSchema = assertCanonicalPrivateExistingFile(PLANNER_SCHEMA, "PLANNER_SCHEMA");
-  const controllerSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.schemaPath), "CONTROLLER_SCHEMA");
-  const plannerCompletionSchema = assertCanonicalPrivateExistingFile(PLANNER_COMPLETION_SCHEMA, "PLANNER_COMPLETION_SCHEMA");
-  const controllerCompletionSchema = assertCanonicalPrivateExistingFile(path.join(root, lock.completionSchemaPath), "CONTROLLER_COMPLETION_SCHEMA");
+  const planMirror = exactMirror(PLANNER_SCHEMA, path.join(root, lock.schemaPath), lock.schemaSha256, "CONTROLLER_SCHEMA_DRIFT");
+  const completionMirror = exactMirror(PLANNER_COMPLETION_SCHEMA, path.join(root, lock.completionSchemaPath), lock.completionSchemaSha256, "CONTROLLER_COMPLETION_SCHEMA_DRIFT");
+  exactMirror(PLANNER_CONFIG_SCHEMA, path.join(root, lock.configSchemaPath), lock.configSchemaSha256, "CONTROLLER_CONFIG_SCHEMA_DRIFT");
+  exactMirror(PLANNER_HISTORY_SCHEMA, path.join(root, lock.controllerIdentityHistorySchemaPath), lock.controllerIdentityHistorySchemaSha256, "CONTROLLER_IDENTITY_HISTORY_SCHEMA_DRIFT");
+  const historyMirror = exactMirror(PLANNER_HISTORY, path.join(root, lock.controllerIdentityHistoryPath), lock.controllerIdentityHistorySha256, "CONTROLLER_IDENTITY_HISTORY_DRIFT");
+  for (const historical of lock.historicalCompletionSchemas) {
+    exactMirror(path.join(ROOT, "schemas", `herdr-codex-${path.basename(historical.path)}`), path.join(root, historical.path), historical.sha256, "CONTROLLER_HISTORICAL_COMPLETION_SCHEMA_DRIFT");
+  }
   const plannerRiskRegistry = assertCanonicalPrivateExistingFile(PLANNER_RISK_CLASS_REGISTRY, "PLANNER_RISK_CLASS_REGISTRY");
   const controllerRiskRegistry = assertCanonicalPrivateExistingFile(path.join(root, lock.riskClassRegistryPath), "CONTROLLER_RISK_CLASS_REGISTRY");
-  const controllerRuntimeLock = assertCanonicalPrivateExistingFile(path.join(root, "contracts", "runtime-contract-lock.json"), "CONTROLLER_RUNTIME_CONTRACT_LOCK");
-  const plannerBytes = fs.readFileSync(plannerSchema);
-  const controllerBytes = fs.readFileSync(controllerSchema);
-  const plannerCompletionBytes = fs.readFileSync(plannerCompletionSchema);
-  const controllerCompletionBytes = fs.readFileSync(controllerCompletionSchema);
+  const controllerRuntimeLock = assertCanonicalPrivateExistingFile(path.join(root, lock.controllerRuntimeContractLockPath), "CONTROLLER_RUNTIME_CONTRACT_LOCK");
   const plannerRiskBytes = fs.readFileSync(plannerRiskRegistry);
   const controllerRiskBytes = fs.readFileSync(controllerRiskRegistry);
-  const plannerSchemaSha256 = sha256(plannerBytes);
-  const controllerSchemaSha256 = sha256(controllerBytes);
-  const plannerCompletionSchemaSha256 = sha256(plannerCompletionBytes);
-  const controllerCompletionSchemaSha256 = sha256(controllerCompletionBytes);
   const riskClassRegistrySha256 = sha256(plannerRiskBytes);
-  if (!HEX.test(lock.schemaSha256)
-    || plannerSchemaSha256 !== lock.schemaSha256
-    || controllerSchemaSha256 !== lock.schemaSha256
-    || !plannerBytes.equals(controllerBytes)) throw new Error("CONTROLLER_SCHEMA_DRIFT");
-  if (!HEX.test(lock.completionSchemaSha256)
-    || plannerCompletionSchemaSha256 !== lock.completionSchemaSha256
-    || controllerCompletionSchemaSha256 !== lock.completionSchemaSha256
-    || !plannerCompletionBytes.equals(controllerCompletionBytes)) throw new Error("CONTROLLER_COMPLETION_SCHEMA_DRIFT");
+  const history = JSON.parse(historyMirror.bytes.toString("utf8"));
+  const trust = JSON.parse(fs.readFileSync(assertCanonicalPrivateExistingFile(PLANNER_TRUST, "PLANNER_CONTROLLER_TRUST"), "utf8"));
+  const historyProjection = (entry) => Object.fromEntries(["identity", "ownedSchemas", "qualificationStatus", "activatedAt", "revocation"].map((key) => [key, entry[key]]));
+  if (!validateArtifact(trust).ok || trust.digest !== lock.trustRegistryDigest
+    || trust.activeIdentityDigest !== lock.identityDigest || history.digest !== lock.controllerIdentityHistoryDigest
+    || JSON.stringify(trust.entries.filter((entry) => !entry.active).map(historyProjection)) !== JSON.stringify(history.entries)) {
+    throw new Error("CONTROLLER_TRUST_REGISTRY_DRIFT");
+  }
   const riskRegistry = JSON.parse(plannerRiskBytes.toString("utf8"));
   const runtimeLock = JSON.parse(fs.readFileSync(controllerRuntimeLock, "utf8"));
   const { digest: runtimeLockDigest, ...runtimeLockBody } = runtimeLock;
@@ -702,6 +750,8 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
     || sha256(controllerRiskBytes) !== lock.riskClassRegistrySha256 || !plannerRiskBytes.equals(controllerRiskBytes)
     || riskRegistry.digest !== lock.riskClassRegistryDigest
     || runtimeLockDigest !== fingerprint(runtimeLockBody)
+    || sha256(fs.readFileSync(controllerRuntimeLock)) !== lock.controllerRuntimeContractLockSha256
+    || runtimeLockDigest !== lock.controllerRuntimeContractLockDigest
     || runtimeLock.plannerRiskRegistry?.commit !== lock.riskClassRegistrySourceCommit
     || runtimeLock.plannerRiskRegistry?.byteSha256 !== lock.riskClassRegistrySha256
     || runtimeLock.plannerRiskRegistry?.artifactDigest !== lock.riskClassRegistryDigest) {
@@ -724,11 +774,11 @@ export function runControllerContractCanary({ controllerRoot, lock = JSON.parse(
       || vectors.controllerSourceManifestDigest !== lock.sourceManifestDigest
       || vectors.controllerBuildDigest !== lock.buildDigest
       || vectors.controllerIdentityDigest !== lock.identityDigest) throw new Error("CONTROLLER_IDENTITY_READBACK_DRIFT");
-    const oracleRuntime = controllerOracleRuntimeTests(built.buildRoot);
+    const p0Runtime = controllerP0RuntimeTests(built.buildRoot);
     fs.appendFileSync(path.join(built.buildRoot, "README.md"), "\n");
     try { qualifiedCommit(built.buildRoot, lock.commit); throw new Error("CONTROLLER_DIRTY_CHECKOUT_ACCEPTED"); }
     catch (error) { if (error.message !== "CONTROLLER_WORKTREE_DIRTY") throw error; }
-    return { ...vectors, controllerCommit, schemaSha256: plannerSchemaSha256, completionSchemaSha256: plannerCompletionSchemaSha256, riskClassRegistrySha256, controllerReadback: "MATCHED", controllerOracleRuntime: oracleRuntime, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
+    return { ...vectors, controllerCommit, schemaSha256: planMirror.sha256, completionSchemaSha256: completionMirror.sha256, riskClassRegistrySha256, controllerTrustDigest: trust.digest, controllerIdentityHistoryDigest: history.digest, controllerRuntimeContractLockDigest: runtimeLock.digest, controllerReadback: "MATCHED", controllerP0Runtime: p0Runtime, controllerDoctor: { status: "NOT_RUN", reason: "requires-live-handoff-repository-and-sandbox" }, dirtyCheckout: "REJECTED", controllerSource: "exact-local-clone", networkIsolation: "node-permission-deny-net" };
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }

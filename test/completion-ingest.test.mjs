@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,7 +12,7 @@ import {
   validateControllerPredecessorReceipt,
 } from "../execution-plan/completion-ingest.mjs";
 import { fingerprint } from "../execution-plan/domain.mjs";
-import { controllerCompletionFixture } from "./controller-completion-fixture.mjs";
+import { controllerCompletionFixture, historicalControllerCompletionFixture } from "./controller-completion-fixture.mjs";
 
 function codes(problems) { return problems.map(({ code }) => code); }
 function redigest(value) {
@@ -19,6 +20,7 @@ function redigest(value) {
   value.digest = fingerprint(body);
   return value;
 }
+function bytesSha256(value) { return createHash("sha256").update(value).digest("hex"); }
 
 test("Controller completion ingestion deterministically produces the only automatic predecessor receipt", () => {
   const completion = controllerCompletionFixture({ handoffDigests: [`sha256:${"8".repeat(64)}`] });
@@ -32,9 +34,76 @@ test("Controller completion ingestion deterministically produces the only automa
   assert.equal(receipt.reviewResultDigest, `sha256:${completion.reviewResultDigest}`);
   assert.equal(receipt.candidateSha, completion.pullRequest.headSha);
   assert.equal(receipt.mergeSha, completion.mergedMainSha);
+  assert.equal(receipt.controllerIdentityDigest, completion.controllerProvenance.controller.digest);
+  assert.equal(receipt.controllerCompletionSchemaSha256, completion.schemaSha256);
+  assert.match(receipt.controllerQualificationDigest, /^sha256:[a-f0-9]{64}$/u);
 
   const legacyBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: completion.releaseId, mergedMainSha: completion.mergedMainSha, handoffDigests: [], validationDigest: `sha256:${"7".repeat(64)}`, completedAt: completion.completedAt };
   assert.deepEqual(codes(validateControllerPredecessorReceipt({ ...legacyBody, digest: fingerprint(legacyBody) })), ["PREDECESSOR_COMPLETION_EXPORT_REQUIRED"]);
+});
+
+test("historical Controller A completion remains readable while unknown and revoked identities fail closed", () => {
+  const historical = historicalControllerCompletionFixture();
+  assert.deepEqual(validateControllerCompletion(historical), []);
+  assert.deepEqual(validateControllerPredecessorReceipt(ingestControllerCompletion(historical)), []);
+
+  const trust = JSON.parse(readFileSync(path.resolve("compatibility", "codex-controller-trust.json"), "utf8"));
+  const contract = JSON.parse(readFileSync(path.resolve("compatibility", "codex-controller-contract.json"), "utf8"));
+  const revoked = structuredClone(trust);
+  revoked.entries.find((entry) => !entry.active).revocation = { revokedAt: "2026-09-01T00:00:00.000Z", reason: "fixture revocation" };
+  redigest(revoked);
+  const revokedContract = redigest({ ...structuredClone(contract), trustRegistryDigest: revoked.digest });
+  assert.equal(codes(validateControllerCompletion(historical, { trust: revoked, contract: revokedContract })).includes("CONTROLLER_IDENTITY_REVOKED"), true);
+
+  const unknown = structuredClone(historical);
+  unknown.controllerProvenance.controller.sourceRevision = "6".repeat(40);
+  redigest(unknown.controllerProvenance.controller);
+  unknown.controllerProvenance.controller.digest = unknown.controllerProvenance.controller.digest.slice(7);
+  redigest(unknown.controllerProvenance);
+  unknown.controllerProvenance.digest = unknown.controllerProvenance.digest.slice(7);
+  redigest(unknown);
+  assert.equal(codes(validateControllerCompletion(unknown)).includes("CONTROLLER_IDENTITY_UNKNOWN"), true);
+
+  const injected = structuredClone(trust);
+  const rogue = structuredClone(injected.entries.find((entry) => !entry.active));
+  rogue.identity = structuredClone(unknown.controllerProvenance.controller);
+  const qualification = Object.fromEntries(["identity", "ownedSchemas", "qualificationStatus", "activatedAt", "historyDigest"].map((key) => [key, rogue[key]]));
+  rogue.qualificationDigest = fingerprint(qualification);
+  injected.entries.splice(-1, 0, rogue);
+  redigest(injected);
+  const injectedContract = redigest({ ...structuredClone(contract), trustRegistryDigest: injected.digest });
+  assert.equal(codes(validateControllerCompletion(unknown, { trust: injected, contract: injectedContract })).includes("CONTROLLER_TRUST_REGISTRY_INVALID"), true);
+
+  assert.deepEqual(codes(validateControllerPredecessorReceipt({ schema: "pi-ticket-planning:release-predecessor-receipt:v2" })), ["PREDECESSOR_RECEIPT_NEEDS_MIGRATION"]);
+});
+
+test("append-only Controller rotation preserves an earlier qualification-bound receipt", () => {
+  const receipt = ingestControllerCompletion(controllerCompletionFixture());
+  const trust = JSON.parse(readFileSync(path.resolve("compatibility", "codex-controller-trust.json"), "utf8"));
+  const contract = JSON.parse(readFileSync(path.resolve("compatibility", "codex-controller-contract.json"), "utf8"));
+  const history = JSON.parse(readFileSync(path.resolve("compatibility", "controller-identity-history.json"), "utf8"));
+  const b = trust.entries.find((entry) => entry.active);
+  const bHistorical = Object.fromEntries(["identity", "ownedSchemas", "qualificationStatus", "activatedAt", "revocation"].map((key) => [key, b[key]]));
+  const historyBody = { schema: history.schema, version: history.version, digestAlgorithm: history.digestAlgorithm, entries: [...history.entries, bHistorical] };
+  const futureHistory = { ...historyBody, digest: fingerprint(historyBody) };
+  const historyBytes = Buffer.from(`${JSON.stringify(futureHistory, null, 2)}\n`);
+  const cIdentityBody = { version: 1, sourceRevision: "7".repeat(40), sourceManifestDigest: "8".repeat(64), buildDigest: "9".repeat(64) };
+  const cIdentity = { ...cIdentityBody, digest: fingerprint(cIdentityBody).slice(7) };
+  const cQualification = { identity: cIdentity, ownedSchemas: structuredClone(b.ownedSchemas), qualificationStatus: "qualified", activatedAt: "2026-09-01T00:00:00.000Z", historyDigest: futureHistory.digest };
+  const c = { ...cQualification, qualificationDigest: fingerprint(cQualification), revocation: null, active: true };
+  const trustBody = { schema: trust.schema, digestAlgorithm: trust.digestAlgorithm, activeIdentityDigest: cIdentity.digest, entries: [...trust.entries.map((entry) => ({ ...entry, active: false })), c] };
+  const futureTrust = { ...trustBody, digest: fingerprint(trustBody) };
+  const futureContract = redigest({
+    ...structuredClone(contract),
+    commit: cIdentity.sourceRevision,
+    sourceManifestDigest: cIdentity.sourceManifestDigest,
+    buildDigest: cIdentity.buildDigest,
+    identityDigest: cIdentity.digest,
+    controllerIdentityHistorySha256: bytesSha256(historyBytes),
+    controllerIdentityHistoryDigest: futureHistory.digest,
+    trustRegistryDigest: futureTrust.digest,
+  });
+  assert.deepEqual(validateControllerPredecessorReceipt(receipt, { trust: futureTrust, contract: futureContract, historyBytes }), []);
 });
 
 test("completion and receipt forgery fail with stable binding codes", () => {
@@ -58,12 +127,11 @@ test("completion and receipt forgery fail with stable binding codes", () => {
 
   const wrongController = structuredClone(completion);
   wrongController.controllerProvenance.controller.sourceRevision = "6".repeat(40);
-  const { digest: _controllerDigest, ...controllerBody } = wrongController.controllerProvenance.controller;
-  wrongController.controllerProvenance.controller.digest = fingerprint(controllerBody).slice(7);
-  const { digest: _wrongProvenanceDigest, ...wrongProvenanceBody } = wrongController.controllerProvenance;
-  wrongController.controllerProvenance.digest = fingerprint(wrongProvenanceBody).slice(7);
   redigest(wrongController);
   assert.equal(codes(validateControllerCompletion(wrongController)).includes("CONTROLLER_COMPLETION_PROVENANCE_MISMATCH"), true);
+
+  const wrongSchemaBinding = redigest({ ...structuredClone(completion), schemaSha256: `sha256:${"0".repeat(64)}` });
+  assert.equal(codes(validateControllerCompletion(wrongSchemaBinding)).includes("CONTROLLER_COMPLETION_TRUST_BINDING_MISMATCH"), true);
 
   const receipt = ingestControllerCompletion(completion);
   const forgedValidation = redigest({ ...structuredClone(receipt), validationDigest: `sha256:${"0".repeat(64)}` });
@@ -76,6 +144,8 @@ test("completion and receipt forgery fail with stable binding codes", () => {
   assert.equal(codes(validateControllerPredecessorReceipt(forgedReview)).includes("CONTROLLER_COMPLETION_REVIEW_MISMATCH"), true);
   const forgedReference = redigest({ ...structuredClone(receipt), controllerCompletionDigest: `sha256:${"0".repeat(64)}` });
   assert.equal(codes(validateControllerPredecessorReceipt(forgedReference)).includes("CONTROLLER_COMPLETION_DIGEST_MISMATCH"), true);
+  const forgedTrust = redigest({ ...structuredClone(receipt), controllerQualificationDigest: `sha256:${"0".repeat(64)}` });
+  assert.equal(codes(validateControllerPredecessorReceipt(forgedTrust)).includes("CONTROLLER_COMPLETION_TRUST_BINDING_MISMATCH"), true);
 });
 
 test("completion ingestion CLI accepts only a safe public artifact and writes exact private receipt bytes", (t) => {

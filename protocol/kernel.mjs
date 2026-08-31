@@ -13,9 +13,11 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const FACT_ID = /^F-[A-Za-z0-9._:-]{1,126}$/;
 const FACT_NAME = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
 const SAFE_TOKEN = /^[^\u0000\r\n]+$/;
-const EXTERNAL_SCHEMAS_WITHOUT_ID = new Map([
-  ["herdr-codex-controller:release-plan:v2", "schemas/herdr-codex-release-plan-v2.schema.json"],
-  ["herdr-codex-controller:release-completion:v1", "schemas/herdr-codex-release-completion-v1.schema.json"],
+const EXTERNAL_SCHEMAS_WITHOUT_ID = new Set([
+  "schemas/herdr-codex-release-plan-v2.schema.json",
+  "schemas/herdr-codex-release-completion-v1.schema.json",
+  "schemas/herdr-codex-release-completion-v2.schema.json",
+  "schemas/herdr-codex-release-completion-v3.schema.json",
 ]);
 
 function readJson(file) {
@@ -111,7 +113,7 @@ export function validateRegistry({ protocol = loadProtocol() } = {}) {
       }
       try {
         const schema = readJson(file);
-        const lockedExternal = EXTERNAL_SCHEMAS_WITHOUT_ID.get(entry.schemaIdentity) === relative;
+        const lockedExternal = EXTERNAL_SCHEMAS_WITHOUT_ID.has(relative);
         if ((typeof schema.$id !== "string" || schema.$id.length === 0) && !lockedExternal) problems.push(problem("MISSING_JSON_SCHEMA_ID", relative));
         else {
           if (schema.$id && schema.$id.split(/[?#]/u, 1)[0].split("/").at(-1) !== path.basename(relative)) problems.push(problem("JSON_SCHEMA_IDENTITY_MISMATCH", relative));

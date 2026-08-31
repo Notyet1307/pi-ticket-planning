@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { after } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -23,17 +24,35 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export const NOW = "2026-08-20T00:30:00.000Z";
 export const digest = (letter) => `sha256:${letter.repeat(64)}`;
 
+const CONTRACT_LOCK = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
+const REQUIRED_CHECKS = { version: 1, checks: [{ name: "verify", required: true, appId: 1, workflowName: null }] };
+const hexDigest = (value) => fingerprint(value).slice(7);
+const withDigest = (body) => ({ ...body, digest: hexDigest(body) });
+
 export const CONTROLLER_IDENTITY = {
   version: 1,
-  sourceRevision: "9af584fcbd6a833577b562d866078ba71adf7c4d",
-  sourceManifestDigest: "644993dd0607932b2b98defb9b0cee6b1c829284bd90e3ac0772f27f1a0d3bcb",
-  buildDigest: "ac4d143ae1fa202b00ef78a4d6a9cbc037d778fa0eec68f4ce6c9b42124b9f98",
-  digest: "e7a679909d3ac052a40d9a882c765285b53e5249e8a1ba294b285bc6bf2c4646",
+  sourceRevision: CONTRACT_LOCK.commit,
+  sourceManifestDigest: CONTRACT_LOCK.sourceManifestDigest,
+  buildDigest: CONTRACT_LOCK.buildDigest,
+  digest: CONTRACT_LOCK.identityDigest,
 };
 
-export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY) {
-  const body = { version: 1, controller: controllerIdentity, executionMode: "release-plan-v2-direct", configDigest, releasePlan: { version: 2, digest: planDigest } };
-  return { ...body, digest: fingerprint(body).slice("sha256:".length) };
+export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY, repo = "acme/product") {
+  const binary = { configuredPathDigest: fingerprint("configured"), realPathDigest: fingerprint("real"), byteCount: 1, sha256: fingerprint("binary"), versionOutput: "codex fixture" };
+  const body = {
+    version: 3,
+    controller: controllerIdentity,
+    executionRuntime: withDigest({ version: 1, binary, fixedPolicyDigest: hexDigest("fixed-policy"), profilesDisabled: true }),
+    remoteIdentity: withDigest({ version: 1, remote: "origin", repo: repo.toLowerCase(), fetchUrl: `https://github.com/${repo.toLowerCase()}.git`, pushUrl: `https://github.com/${repo.toLowerCase()}.git`, fetchTransport: "https", pushTransport: "https" }),
+    validationSandbox: withDigest({ version: 1, provider: "codex-permission-profile", binary, policyDigest: hexDigest("sandbox-policy") }),
+    requiredCheckContractDigest: hexDigest(REQUIRED_CHECKS),
+    mergeAuthorityDigest: hexDigest(CONTRACT_LOCK.mergeAuthorityContract),
+    identityHistoryDigest: CONTRACT_LOCK.controllerIdentityHistoryDigest,
+    executionMode: "release-plan-v2-direct",
+    configDigest,
+    releasePlan: { version: 2, digest: planDigest },
+  };
+  return withDigest(body);
 }
 
 export const PARENT_SPEC = `## Delivery outcome
@@ -181,20 +200,24 @@ export function executionInput() {
 }
 
 export function controllerBinding(input, overrides = {}) {
-  return {
+  const binding = {
     config: {
+      version: 3,
       repo: input.repo,
       baseRef: input.source.baseRef,
       executionMode: "release-plan-v2-direct",
       validation: { release: [{ command: "npm run verify:protocol", timeoutMs: 900000 }] },
       policy: { maxIssues: 2 },
-      review: { enabled: true },
+      review: { enabled: true, blockingSeverities: ["critical", "major"] },
+      delivery: { createPullRequest: true, autoMerge: true, allowNoChecks: false, requiredChecks: REQUIRED_CHECKS, mergeAuthority: CONTRACT_LOCK.mergeAuthorityContract },
       ...overrides.config,
     },
     configDigest: overrides.configDigest ?? "a".repeat(64),
     planDigest: overrides.planDigest ?? "c".repeat(64),
     controllerIdentity: overrides.controllerIdentity ?? CONTROLLER_IDENTITY,
   };
+  binding.provenance = overrides.provenance ?? controllerProvenance(binding.configDigest, binding.planDigest, binding.controllerIdentity);
+  return binding;
 }
 
 export function compiledFixture() {

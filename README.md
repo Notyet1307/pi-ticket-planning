@@ -257,7 +257,7 @@ Use the same `PI_TICKET_PLAN_PROFILE_DIR` when starting the launcher. Human user
 
 Internally, `ask-yet` infers `QUICK`, `STANDARD`, or `DISCOVERY` planning depth and adds `CONTROLLED` risk gates when security, privacy, credentials, destructive migration, production cutover, irreversible effects, or broad blast radius require them. These are implementation details, not choices the user must make.
 
-The source of truth depends on the fact: product Evidence and decisions live in accepted product artifacts; source identity and accepted baseline come from Git; ticket state comes from the tracker; Legacy execution comes from the Harness ledger. Controller execution remains outside Planner state until a public export/status contract exists. Real enablement comes from the Release Record; the post-window result comes from Outcome Evidence. Conversation and summaries are leads, not authority.
+The source of truth depends on the fact: product Evidence and decisions live in accepted product artifacts; source identity and accepted baseline come from Git; ticket state comes from the tracker; Legacy execution comes from the Harness ledger. Controller execution and private Job state remain outside Planner state; only a verified public completion export may become predecessor evidence. Real enablement comes from the Release Record; the post-window result comes from Outcome Evidence. Conversation and summaries are leads, not authority.
 
 In an existing Git target, one human-approved remote draft ref may preserve exact candidate blobs through Candidate Frame and Evidence revisions. It cannot feed the Delivery Spec. After Commitment, the exact Release blob must enter the accepted remote base. In Greenfield work, repository setup becomes eligible only after exact Commitment and the needed authorization; it creates the minimum delivery container, not an application stack or implementation scaffold.
 
@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. Ordinal 2+ first ingests the Controller public completion export with `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`; the resulting tracked predecessor receipt v2 embeds and revalidates that exact export. A legacy release-manager v1 self-digest is not automatic execution evidence. Build/verify/apply fresh-read the remote base and every Spec/receipt/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
+For an accepted GitHub v3 Release, every AGENT child binds a frozen Oracle and Controller-enforced write paths/budget. Ordinal 2+ first ingests the Controller public completion export with `npm run ingest:release-completion -- --completion /public/completion.json --out /private/predecessor.json --json`; the resulting tracked predecessor receipt v3 embeds and revalidates that exact export, its active or historically qualified Controller identity, owned completion schema, and immutable qualification-entry digest. Unknown/revoked identities fail closed, and receipt v2 requires explicit migration. A legacy release-manager v1 self-digest is not automatic execution evidence. Build/verify/apply fresh-read the remote base and every Spec/receipt/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -357,7 +357,7 @@ A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMA
 
 Controller execution, aggregate review, PR/CI/merge, real enablement, health, and Outcome remain distinct. Planner handoff never polls execution. Legacy Harness claim semantics remain confined to the explicit `admit` path.
 
-Controller result ingestion remains deferred until the Controller exposes a public stable export/status contract. The Planner never reads private `job.json` state.
+Controller public completion v2/v3 ingestion is supported only through the versioned trust registry and produces predecessor receipt v3. The Planner never reads private `job.json` state, polls execution, or treats a status summary as completion evidence.
 
 ## Development and release verification
 
@@ -388,7 +388,7 @@ With the matching Codex Controller checkout available, run its deterministic pub
 npm run canary:codex-controller-contract -- --controller-root /absolute/herdr-codex-controller
 ```
 
-This canary locks the exact Controller commit, source-manifest/build/identity digests, and owner-schema byte SHA-256; rejects dirty checkout state; rebuilds an exact local clone under Node 26 permission isolation with network denied; compares Planner/lock/Controller schema bytes and config/Plan/provenance digests; accepts one v2 direct Plan; and rejects extra top-level, missing-required, extra-source, extra-Issue, and Release Plan v1 vectors. Dispatcher is reported out of scope and never called. The canary calls only `config validate` and `plan validate`; it never calls `doctor`, `start`, Codex, or a network write. PASS qualifies this read-only static contract, not live source revalidation or Codex/GitHub execution. A missing checkout is `CONTROLLER_UNAVAILABLE`, and missing build dependencies are `CONTROLLER_NOT_BUILT`, never PASS.
+This canary regenerates and checks the exact Controller commit, active/historical identities, runtime lock, risk registry, and Plan/config/completion/history schema bytes; rejects dirty checkout state; and rebuilds an exact local clone under Node 26 permission isolation with network denied. It validates current and ordinal-2 Plan vectors and runs selected exact-build P0 runtime tests for sandbox containment, runtime/profile binding, prompt envelopes, canonical review, required-check deadlines/budgets, remote binding, authority quarantine, completion/history, and Oracle protection. Dispatcher is out of scope and never called. The canary does not invoke the environment-bound live `doctor` and never calls `start`, Codex, or a GitHub write; the real handoff must still pass doctor. PASS is deterministic L1 evidence, not live Provider/GitHub execution or L2/L3/L4 qualification. A missing checkout is `CONTROLLER_UNAVAILABLE`, and missing build dependencies are `CONTROLLER_NOT_BUILT`, never PASS.
 
 The expected Profile smoke result includes the package-owned `prepare-codex-release` skill; the command reports the exact current skill count.
 

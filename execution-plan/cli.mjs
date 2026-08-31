@@ -74,7 +74,7 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       const input = liveInput(values); const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
       assertFreshExecutionInput(input);
       const config = adapter.config();
-      const draft = compileExecutionPlan(input, { controller: config });
+      const draft = compileExecutionPlan(input, { controller: config, draft: true });
       const validated = adapter.validatePlan(draft.releasePlan, config.configDigest, config.configIdentity);
       const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest, provenance: validated.provenance } });
       const finalInput = liveInput(values);

@@ -5,8 +5,10 @@
 `pi-ticket-planning` is a local planning and Admission package. It projects
 repository and tracker data into versioned facts and Plans, stores recoverable
 Planning Cases outside target repositories, obtains an independent Reviewer
-result, and applies only an exact human-approved tracker mutation. HerdrHarness
-owns execution; this repository only ingests its results.
+result, and applies only an exact human-approved handoff or tracker mutation.
+Codex Controller owns the qualified direct-v2 execution path; HerdrHarness owns
+the separate Legacy path. Planner never starts either executor or reads private
+Controller Job state.
 
 | Component | Security role | Source evidence |
 | --- | --- | --- |
@@ -19,6 +21,8 @@ owns execution; this repository only ingests its results.
 | Installer | Dry-run plan, contained writes, backup and exact rollback | `installation/manager.mjs:86`, `installation/manager.mjs:136`, `installation/manager.mjs:176` |
 | Live E2E guard | Exact disposable repo and run-bound confirmation | `integration/e2e.mjs:24`, `integration/e2e.mjs:67` |
 | Qualification | Report schema/digest/time/commit checks plus independent Actions attestation and run readback | `integration/report.mjs`, `integration/qualify.mjs` |
+| Controller handoff | Exact active identity, config/Plan/provenance, doctor, approval, and private materialization | `execution-plan/controller-adapter.mjs`, `execution-plan/compiler.mjs`, `execution-plan/handoff-apply.mjs` |
+| Completion ingestion | Active/historical/revoked identity, owned schema, export digest, and predecessor receipt v3 | `execution-plan/completion-ingest.mjs`, `compatibility/codex-controller-trust.json` |
 
 ```mermaid
 flowchart LR
@@ -29,7 +33,11 @@ flowchart LR
   H[Human exact fingerprint] --> C[Pending Planning Case approval]
   C --> A
   A --> G[GitHub mutation and readback]
-  G --> X[HerdrHarness execution]
+  C --> D[Private Controller handoff]
+  D --> K[Operator-started Codex Controller]
+  K --> E[Public completion export]
+  E --> P
+  G --> X[Legacy HerdrHarness execution]
   X --> O[Read-only Outcome Receipt]
   O --> P
 ```
@@ -41,6 +49,7 @@ Effective resources differ by workflow:
 | Planning session | Case state | `PI_TICKET_PLAN_STATE_DIR`, then local-state default | Private state root, never target repo | Planner process | Store containment and modes | Same-account compromise is outside the filesystem-mode guarantee |
 | Reviewer | Input bytes | Materialized descriptor and child-only extension | One digest-named 0600 file | Fresh Reviewer only | Held descriptor and allowlisted read | Real Provider behavior needs active probe |
 | Admission | GitHub writes | Exact Plan plus refreshed context | Named repo/Issue operations only | GitHub API | Adapter validation and readback | App-auth identity handling remains deployment-dependent |
+| Controller handoff | Public CLI/config and generated compatibility lock | Exact active commit plus config v3/provenance v3 | Three private files and one printed start command | Operator and Controller only | Clean-Git preflight, public validation/doctor, exact approval, post-write proof | Deterministic canary is L1; real Provider/GitHub delivery remains separately qualified |
 | Live E2E | Disposable writes | Enable flag, exact allowlist, run token, actor/topic/default branch, no-production check | Tagged dedicated repository resources | Test GitHub account | Guarded live adapter and cleanup readback | Adapter code exists; no current disposable/Harness report is qualified |
 | Qualification | L2/L3 evidence | Exact Actions run IDs and current commit | Attested workflow artifacts only | Release operator | Schema, semantic, digest, expiry, uniqueness, attestation, and workflow readback | Local JSON and non-complete reports remain blocked |
 
@@ -79,6 +88,8 @@ These are hypotheses for review, not confirmed vulnerabilities.
 | P2 | Accidental live E2E targets a real repository | Operator enables integration with wrong target | Unintended test writes | Enable flag, exact allowlist, run confirmation, resource tag | Dedicated account/repo and retained cleanup command | `integration/e2e.mjs:67` |
 | P2 | External error leaks credentials into receipt/log | Tool returns credential-bearing stderr | Token disclosure | Structured codes and credential-shaped redaction | Keep raw output out of artifacts; rotate on exposure | `admission/apply.mjs:112` |
 | P0 | Fabricated or replayed local report promotes an untested tuple | Attacker can supply arbitrary JSON or duplicate prior evidence | Unsupported Provider/Harness gains Admission authority | Current-commit/time/digest checks, report and scenario deduplication, Actions attestation and workflow readback | Keep Matrix writes qualification-derived and digest-matched | `integration/qualify.mjs`; `capabilities/compatibility.mjs` |
+| P0 | Stale or self-signed Controller completion advances a later Release | Attacker supplies a valid-looking completion or old receipt | Unauthorized predecessor authority | Active/historical/revoked registry, exact owned-schema hash, completion and receipt digests | Regenerate trust only from exact merged Controller bytes; receipt v2 requires migration | `execution-plan/completion-ingest.mjs`; `scripts/generate-codex-controller-contract.mjs` |
+| P0 | Unqualified Controller config weakens sandbox, review, CI, or merge authority before handoff | Operator selects a legacy or drifted config | Unsafe delivery despite a valid Plan | Adapter requires config/provenance v3, verified sandbox/runtime/remote, canonical review, versioned checks, and exact-head auto-merge policy | Fail before approval/materialization on any public readback mismatch | `execution-plan/controller-adapter.mjs` |
 
 ## Severity Calibration
 
