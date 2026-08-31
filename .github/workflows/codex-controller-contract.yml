@@ -32,6 +32,7 @@ jobs:
           NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
           sudo mkdir -p /usr/local/lib/herdr-node
           sudo cp -R "$NODE_ROOT/." /usr/local/lib/herdr-node/
+          echo "/usr/local/lib/herdr-node/bin" >> "$GITHUB_PATH"
       - run: |
           export PATH="/usr/local/lib/herdr-node/bin:/usr/bin:/bin"
           npm run verify
