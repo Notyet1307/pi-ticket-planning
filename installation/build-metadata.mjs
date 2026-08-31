@@ -8,7 +8,7 @@ import { loadProtocol, validateArtifact } from "../protocol/kernel.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA = /^[a-f0-9]{40,64}$/;
-const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@([a-f0-9]{40})$/;
+const INTERACTIVE_SUBAGENTS = /^git:github\.com\/Notyet1307\/pi-interactive-subagents@([a-f0-9]{40})$/;
 
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;

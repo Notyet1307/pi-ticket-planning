@@ -7,8 +7,9 @@ import { validateProtocolDefinition as validateContracts } from "../protocol/ker
 import { RISK_CLASS_REGISTRY, validateRiskClassRegistry } from "./risk-classes.mjs";
 
 const EXPECTED_COMMIT = "84fdeffd12f2ee307994d1eb6feb48173b6e0502";
-const INTERACTIVE_SUBAGENTS = /^git:github\.com\/amosblomqvist\/pi-interactive-subagents@[a-f0-9]{40}$/;
+const INTERACTIVE_SUBAGENTS = /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/;
 const FFF = /^npm:@ff-labs\/pi-fff@[0-9]+\.[0-9]+\.[0-9]+$/;
+const TODO = /^npm:@juicesharp\/rpiv-todo@[0-9]+\.[0-9]+\.[0-9]+$/;
 const REQUIRED_PACKAGE_SKILLS = [
   "admit-ticket",
   "ask-yet",
@@ -309,10 +310,12 @@ export function validatePackage(root) {
   const packageProfile = profile.packages?.find((entry) => entry?.source === "__PACKAGE_ROOT__");
   const subagentEntries = profile.packages?.filter((entry) => INTERACTIVE_SUBAGENTS.test(entry?.source ?? "")) ?? [];
   const fffEntries = profile.packages?.filter((entry) => FFF.test(entry?.source ?? "")) ?? [];
+  const todoEntries = profile.packages?.filter((entry) => TODO.test(entry?.source ?? "")) ?? [];
   if (!upstreamProfile) errors.push("profile does not pin the expected Matt upstream commit");
   if (!packageProfile) errors.push("profile does not expose the package-root install placeholder");
   if (subagentEntries.length !== 1) errors.push("profile must pin one exact pi-interactive-subagents commit");
   if (fffEntries.length !== 1) errors.push("profile must pin one exact pi-fff version");
+  if (todoEntries.length !== 1) errors.push("profile must pin one exact rpiv-todo version");
   if (JSON.stringify(profile.skills) !== JSON.stringify(["!**"])) errors.push("profile must suppress ambient user skills");
   if (profile.subagents !== undefined) errors.push("profile must not retain legacy pi-subagents settings");
   if (JSON.stringify(packageProfile?.extensions) !== JSON.stringify(["extensions/ticket-readiness-read-guard.mjs"])) {
