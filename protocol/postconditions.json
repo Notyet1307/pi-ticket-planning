@@ -7,10 +7,9 @@
     "harness.noClaimDuringApply": { "path": "admission/postconditions.mjs", "export": "verifyNoHarnessClaim" },
     "tracker.matchesPlan": { "path": "admission/postconditions.mjs", "export": "verifyTrackerMatchesPlan" },
     "approval.singleConsumed": { "path": "admission/postconditions.mjs", "export": "verifyApprovalSingleConsumed" },
-    "approval.exactPending": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffApprovalPendingExact" },
+    "approval.exactPending": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyReleasePlanApprovalPendingExact" },
     "transaction.committed": { "path": "admission/postconditions.mjs", "export": "verifyTransactionCommitted" },
-    "handoff.filesExactReadback": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffFilesExactReadback" },
-    "handoff.receiptExact": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyHandoffReceiptExact" },
+    "handoff.releasePlanExactReadback": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyReleasePlanExactReadback" },
     "spec.issueExactReadback": { "path": "spec-publication/publication.mjs", "export": "verifySpecIssueExactReadback" },
     "spec.needsTriageOnly": { "path": "spec-publication/publication.mjs", "export": "verifySpecNeedsTriageOnly" }
   }

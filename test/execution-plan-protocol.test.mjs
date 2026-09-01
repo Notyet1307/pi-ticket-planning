@@ -21,7 +21,7 @@ const SUBJECT = {
 };
 const APPROVAL_SUBJECT = {
   target: SUBJECT.target,
-  kind: "execution-handoff-plan",
+  kind: "release-plan",
   id: `sha256:${"c".repeat(64)}`,
   revision: SUBJECT.revision,
   digest: `sha256:${"c".repeat(64)}`,
@@ -34,7 +34,6 @@ const SOURCE_KIND = {
   "oracles.bound": "execution-plan-compiler",
   "review.ready": "ticket-readiness-reviewer",
   "executionPlan.validated": "execution-plan-compiler",
-  "controller.readinessPassed": "codex-controller-cli",
   "human.executionHandoff": "operator-asserted",
   "handoff.approved": "execution-plan-apply",
   "execution.handoffReady": "execution-plan-apply",
@@ -70,7 +69,6 @@ function mutationFacts(mutationId = MUTATION_ID) {
     fact("oracles.bound", { mutationId }),
     fact("review.ready", { mutationId }),
     fact("executionPlan.validated", { mutationId }),
-    fact("controller.readinessPassed", { mutationId }),
     fact("human.executionHandoff", { subject: APPROVAL_SUBJECT, mutationId }),
   ];
 }
@@ -124,9 +122,8 @@ test("executionPlan.apply is strict, exact-subject-bound, and declares all hando
   const allowed = evaluate();
   assert.equal(allowed.allowed, true);
   assert.deepEqual(allowed.postconditions, [
-    "handoff.filesExactReadback",
+    "handoff.releasePlanExactReadback",
     "approval.singleConsumed",
-    "handoff.receiptExact",
   ]);
 
   for (const name of loadProtocol().authority.mutations["executionPlan.approve"].requiredFacts) {

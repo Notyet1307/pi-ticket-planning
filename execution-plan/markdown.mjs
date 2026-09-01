@@ -6,6 +6,15 @@ function section(body, heading) {
   return body.slice(start, next ? start + next.index : body.length).trim();
 }
 
+function optionalSection(body, heading) {
+  const matches = [...body.matchAll(new RegExp(`^## ${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[ \\t]*$`, "gm"))];
+  if (matches.length === 0) return null;
+  if (matches.length !== 1) throw new Error(`DUPLICATE_SECTION:${heading}`);
+  const start = matches[0].index + matches[0][0].length;
+  const next = body.slice(start).match(/^## (?!#)/m);
+  return body.slice(start, next ? start + next.index : body.length).trim();
+}
+
 function oneLine(value, code) {
   const text = value.trim();
   if (!text || /[\r\n]/.test(text)) throw new Error(code);
@@ -76,8 +85,9 @@ export function parseParentDeliverySpec(body) {
 
 export function parseChildTicket(body) {
   if (typeof body !== "string") throw new Error("INVALID_CHILD_BODY");
-  const required = ["What to build", "Primary verification", "Acceptance criteria", "Invariants and guardrails", "Oracle binding", "Execution constraints", "Out of scope"];
+  const required = ["What to build", "Primary verification", "Acceptance criteria", "Invariants and guardrails", "Execution constraints", "Out of scope"];
   const values = Object.fromEntries(required.map((name) => [name, section(body, name)]));
+  const oracle = optionalSection(body, "Oracle binding");
   if (values["Acceptance criteria"].split("\n").some((line) => line.trim() && !/^\s*[-*]\s*\[ \]\s+[^\r\n]+$/.test(line))) throw new Error("INVALID_ACCEPTANCE_CRITERIA_CONTENT");
   const criteria = [...values["Acceptance criteria"].matchAll(/^\s*[-*]\s*\[ \]\s+(.+)$/gm)].map((match) => oneLine(match[1], "INVALID_ACCEPTANCE_CRITERION"));
   if (criteria.length < 3 || criteria.length > 8) throw new Error("INVALID_ACCEPTANCE_CRITERIA_COUNT");
@@ -85,7 +95,7 @@ export function parseChildTicket(body) {
     objective: oneLine(values["What to build"], "EMPTY_CHILD_OBJECTIVE"),
     primaryVerification: oneLine(values["Primary verification"], "EMPTY_PRIMARY_VERIFICATION"),
     acceptanceCriteria: criteria,
-    oracleBinding: jsonFence(values["Oracle binding"], "INVALID_ORACLE_BINDING_SECTION"),
+    oracleBinding: oracle === null ? null : jsonFence(oracle, "INVALID_ORACLE_BINDING_SECTION"),
     executionConstraints: jsonFence(values["Execution constraints"], "INVALID_EXECUTION_CONSTRAINTS_SECTION"),
   };
 }

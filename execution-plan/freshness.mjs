@@ -136,6 +136,7 @@ export function executionFreshnessProjection(input) {
     }),
     specAcceptanceDigest: graph.specAcceptance.digest,
     decisionManifestDigest: graph.decisionManifestDigest,
+    predecessorPlanDigest: graph.predecessorPlanDigest,
     predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null,
     dependencyHandoffDigests: graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256),
     oracleBindingDigests: graph.children.map(({ id, oracleBindingDigest }) => ({ issue: String(id), digest: oracleBindingDigest })),
@@ -149,6 +150,7 @@ export function freshnessDriftCode(expected, actual) {
     ["remoteBaseSha", "EXECUTION_BASE_DRIFT"],
     ["specAcceptanceDigest", "SPEC_ACCEPTANCE_DRIFT"],
     ["decisionManifestDigest", "DECISION_MANIFEST_DRIFT"],
+    ["predecessorPlanDigest", "PREDECESSOR_PLAN_DRIFT"],
     ["predecessorReceiptDigest", "PREDECESSOR_RECEIPT_DRIFT"],
     ["dependencyHandoffDigests", "DEPENDENCY_HANDOFF_DRIFT"],
     ["oracleBindingDigests", "ORACLE_BINDING_DRIFT"],
@@ -172,19 +174,12 @@ export function assertTrackedReleaseBindings(input) {
   assertDecisionSources(repo, current, graph.decisionManifest);
 
   if (graph.releaseOrdinal === 1) {
-    if (graph.predecessorReceipt !== null || graph.predecessorReceiptBinding !== null) stableError("PREDECESSOR_RECEIPT_DRIFT");
+    if (graph.predecessorPlanDigest !== null || graph.predecessorReceipt !== null || graph.predecessorReceiptBinding !== null) stableError("PREDECESSOR_RECEIPT_DRIFT");
   } else {
     const receipt = boundJson(repo, current, graph.predecessorReceiptBinding, graph.predecessorReceipt, "PREDECESSOR_RECEIPT_DRIFT");
     if (graph.executionBasePolicy !== "PREDECESSOR_MERGE_OR_DESCENDANT"
-      || validatePredecessorReceipt(receipt).length > 0 || !isGitAncestor(repo, receipt.mergedMainSha, current)) stableError("PREDECESSOR_RECEIPT_DRIFT");
-    if (typeof input.repo !== "string" || typeof input.source?.baseRef !== "string"
-      || receipt.controllerCompletion.repo !== input.repo
-      || receipt.controllerCompletion.baseRef !== input.source.baseRef) {
-      stableError("CONTROLLER_COMPLETION_TARGET_MISMATCH");
-    }
-    const expectedHandoffs = [...receipt.handoffDigests].sort();
-    const actualHandoffs = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256).sort();
-    if (!same(expectedHandoffs, actualHandoffs)) stableError("DEPENDENCY_HANDOFF_DRIFT");
+      || validatePredecessorReceipt(receipt).length > 0 || receipt.planDigest !== graph.predecessorPlanDigest
+      || !isGitAncestor(repo, receipt.mergeSha, current)) stableError("PREDECESSOR_RECEIPT_DRIFT");
   }
   return true;
 }

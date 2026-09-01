@@ -102,7 +102,7 @@
     "REVIEW_IN_PROGRESS": ["tickets.persisted", "graph.passed"],
     "ACTIVATION_AWAITING_CONFIRMATION": ["source.unchanged", "policy.accepted", "review.ready"],
     "ADMITTED": ["source.unchanged", "policy.accepted", "review.ready", "human.activation", "tracker.ready"],
-    "HANDOFF_APPROVED": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "executionPlan.validated", "controller.readinessPassed", "handoff.approved"],
+    "HANDOFF_APPROVED": ["source.unchanged", "policy.accepted", "graph.passed", "review.ready", "executionPlan.validated", "handoff.approved"],
     "HANDOFF_READY": ["execution.handoffReady"],
     "IN_PROGRESS": ["harness.active"],
     "DELIVERED": ["harness.terminalSuccess", "git.acceptedSource"],

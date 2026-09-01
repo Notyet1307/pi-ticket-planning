@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { after } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -23,37 +22,6 @@ import { createAdmissionBindingFixture } from "./admission-binding-fixture.mjs";
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const NOW = "2026-08-20T00:30:00.000Z";
 export const digest = (letter) => `sha256:${letter.repeat(64)}`;
-
-const CONTRACT_LOCK = JSON.parse(fs.readFileSync(path.join(ROOT, "compatibility", "codex-controller-contract.json"), "utf8"));
-const REQUIRED_CHECKS = { version: 1, checks: [{ name: "verify", required: true, appId: 1, workflowName: null }] };
-const hexDigest = (value) => fingerprint(value).slice(7);
-const withDigest = (body) => ({ ...body, digest: hexDigest(body) });
-
-export const CONTROLLER_IDENTITY = {
-  version: 1,
-  sourceRevision: CONTRACT_LOCK.commit,
-  sourceManifestDigest: CONTRACT_LOCK.sourceManifestDigest,
-  buildDigest: CONTRACT_LOCK.buildDigest,
-  digest: CONTRACT_LOCK.identityDigest,
-};
-
-export function controllerProvenance(configDigest, planDigest, controllerIdentity = CONTROLLER_IDENTITY, repo = "acme/product") {
-  const binary = { configuredPathDigest: fingerprint("configured"), realPathDigest: fingerprint("real"), byteCount: 1, sha256: fingerprint("binary"), versionOutput: "codex fixture" };
-  const body = {
-    version: 3,
-    controller: controllerIdentity,
-    executionRuntime: withDigest({ version: 1, binary, fixedPolicyDigest: hexDigest("fixed-policy"), profilesDisabled: true }),
-    remoteIdentity: withDigest({ version: 1, remote: "origin", repo: repo.toLowerCase(), fetchUrl: `https://github.com/${repo.toLowerCase()}.git`, pushUrl: `https://github.com/${repo.toLowerCase()}.git`, fetchTransport: "https", pushTransport: "https" }),
-    validationSandbox: withDigest({ version: 1, provider: "codex-permission-profile", binary, policyDigest: hexDigest("sandbox-policy") }),
-    requiredCheckContractDigest: hexDigest(REQUIRED_CHECKS),
-    mergeAuthorityDigest: hexDigest(CONTRACT_LOCK.mergeAuthorityContract),
-    identityHistoryDigest: CONTRACT_LOCK.controllerIdentityHistoryDigest,
-    executionMode: "release-plan-v2-direct",
-    configDigest,
-    releasePlan: { version: 2, digest: planDigest },
-  };
-  return withDigest(body);
-}
 
 export const PARENT_SPEC = `## Delivery outcome
 Release a safe change
@@ -86,9 +54,10 @@ const bindings = createAdmissionBindingFixture({
 export const REPOSITORY_PATH = bindings.repositoryPath;
 export const BASE_SHA = bindings.executionBaseSha;
 
-export function executionInput() {
-  const binding = oracleBinding({ repo: REPOSITORY_PATH, baseSha: BASE_SHA });
+export function executionInput({ riskClasses = ["BOUNDED_BEHAVIOR_CHANGE"], includeOracle = true } = {}) {
+  const binding = includeOracle ? oracleBinding({ repo: REPOSITORY_PATH, baseSha: BASE_SHA }) : null;
   const constraints = executionConstraints({
+    riskClasses,
     expectedPaths: ["execution-plan/compiler.mjs"],
     protectedPaths: [
       "fixtures/admission-cases.json",
@@ -137,6 +106,7 @@ export function executionInput() {
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
+    predecessorPlanDigest: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
     specAcceptance: structuredClone(bindings.specAcceptance),
@@ -199,49 +169,7 @@ export function executionInput() {
   });
 }
 
-export function controllerBinding(input, overrides = {}) {
-  const binding = {
-    config: {
-      version: 3,
-      repo: input.repo,
-      baseRef: input.source.baseRef,
-      executionMode: "release-plan-v2-direct",
-      validation: { release: [{ command: "npm run verify:protocol", timeoutMs: 900000 }] },
-      policy: { maxIssues: 2 },
-      review: { enabled: true, blockingSeverities: ["critical", "major"] },
-      delivery: { createPullRequest: true, autoMerge: true, allowNoChecks: false, requiredChecks: REQUIRED_CHECKS, mergeAuthority: CONTRACT_LOCK.mergeAuthorityContract },
-      ...overrides.config,
-    },
-    configDigest: overrides.configDigest ?? "a".repeat(64),
-    planDigest: overrides.planDigest ?? "c".repeat(64),
-    controllerIdentity: overrides.controllerIdentity ?? CONTROLLER_IDENTITY,
-  };
-  binding.provenance = overrides.provenance ?? controllerProvenance(binding.configDigest, binding.planDigest, binding.controllerIdentity);
-  return binding;
-}
-
 export function compiledFixture() {
   const input = executionInput();
-  const controller = controllerBinding(input);
-  return { input, controller, plan: compileExecutionPlan(input, { controller }) };
-}
-
-export function controllerAdapter(controller, calls = []) {
-  return {
-    config() {
-      calls.push("config validate");
-      return { config: structuredClone(controller.config), configDigest: controller.configDigest, configIdentity: "test-config-identity", controllerIdentity: structuredClone(controller.controllerIdentity) };
-    },
-    validatePlan(plan, expectedConfigDigest, expectedConfigIdentity) {
-      calls.push("plan validate");
-      if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_CONFIG_DRIFT");
-      return { plan: structuredClone(plan), planDigest: controller.planDigest, provenance: controllerProvenance(controller.configDigest, controller.planDigest, controller.controllerIdentity) };
-    },
-    doctor(expectedConfigDigest, expectedConfigIdentity, expectedControllerIdentity) {
-      calls.push("doctor");
-      if (expectedConfigDigest !== controller.configDigest || expectedConfigIdentity !== "test-config-identity") throw new Error("CONTROLLER_DOCTOR_CONFIG_DRIFT");
-      if (JSON.stringify(expectedControllerIdentity) !== JSON.stringify(controller.controllerIdentity)) throw new Error("CONTROLLER_IDENTITY_DRIFT");
-      return { ok: true, configDigest: controller.configDigest, controller: structuredClone(controller.controllerIdentity) };
-    },
-  };
+  return { input, plan: compileExecutionPlan(input) };
 }

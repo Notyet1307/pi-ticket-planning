@@ -2,7 +2,7 @@ import { hashText } from "../scripts/check-delivery-graph.mjs";
 import { evaluateTransition } from "../protocol/kernel.mjs";
 import { MAX_RECEIPT_AGE_MS, stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { reviewProjectionRequiresSplit, safeExpectedPath } from "../scripts/check-ticket-contract.mjs";
-import { unknownRiskClasses } from "../scripts/risk-classes.mjs";
+import { oracleRequiredForRiskClasses, unknownRiskClasses } from "../scripts/risk-classes.mjs";
 
 export const PLAN_SCHEMA = "pi-ticket-planning:admission-plan:v1";
 export const REVIEW_SCHEMA = "pi-ticket-planning:admission-review:v1";
@@ -121,13 +121,16 @@ export function validateReviewArtifact(review) {
         && candidate.codeHotspotOverlap.length === 0 && candidate.integrationOnlyVerdict === "NOT_APPLICABLE"
         && candidate.waiverDigests.length === 0;
     }
+    const oraclePresent = candidate.protectedOraclePaths.length > 0
+      && SHA256.test(candidate.oracleBindingDigest ?? "") && candidate.oracleBindingVerdict === "PASS";
+    const oracleAbsent = candidate.protectedOraclePaths.length === 0
+      && candidate.oracleBindingDigest === null && candidate.oracleBindingVerdict === "NOT_APPLICABLE";
+    const oracleValid = oracleRequiredForRiskClasses(candidate.riskClasses) ? oraclePresent : oraclePresent || oracleAbsent;
     return candidate.executionLane === "AGENT" && candidate.riskCount > 0
       && candidate.primaryVerificationSeams.length > 0
       && Number.isInteger(candidate.scopeBudget?.maxFiles) && Number.isInteger(candidate.scopeBudget?.maxChangedLines)
-      && candidate.expectedPaths.length > 0 && candidate.protectedOraclePaths.length > 0
-      && SHA256.test(candidate.oracleBindingDigest ?? "") && candidate.oracleBindingVerdict !== "NOT_APPLICABLE"
+      && candidate.expectedPaths.length > 0 && oracleValid
       && candidate.replanTriggers.length > 0 && candidate.integrationOnlyVerdict !== "FAIL"
-      && (candidate.verdict !== "READY" || candidate.oracleBindingVerdict === "PASS")
       && (!reviewProjectionRequiresSplit(candidate) || candidate.verdict === "SPLIT");
   };
   const validCandidates = Array.isArray(candidates) && candidates.length > 0

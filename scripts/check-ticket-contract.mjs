@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { parseChildTicket } from "../execution-plan/markdown.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { riskClassesRequireSplit, unknownRiskClasses } from "./risk-classes.mjs";
+import { oracleRequiredForRiskClasses, riskClassesRequireSplit, unknownRiskClasses } from "./risk-classes.mjs";
 
 export const REQUIRED_REPLAN_TRIGGERS = [
   "ACCEPTED_DECISION_CHANGE_REQUIRED",
@@ -163,10 +163,9 @@ export function buildOracleVerifierManifest({ repo, baseSha, oracleId, command, 
 }
 
 export function oracleVerifierProtectedPaths(bindings) {
-  return [...new Set([
-    "package.json",
-    ...(bindings ?? []).flatMap((binding) => binding?.verifier?.files?.map(({ path: file }) => file) ?? []),
-  ])].sort();
+  const present = (bindings ?? []).filter(Boolean);
+  if (present.length === 0) return [];
+  return [...new Set(["package.json", ...present.flatMap((binding) => binding.verifier?.files?.map(({ path: file }) => file) ?? [])])].sort();
 }
 
 function validateOracleVerifier(binding, { repo, baseSha }, problems) {
@@ -223,12 +222,12 @@ function allowedOracleCommand(repo, baseSha, command, problems) {
 }
 
 export function oracleBindingDigest(binding) {
-  return ticketContractDigest(binding);
+  return binding === null ? null : ticketContractDigest(binding);
 }
 
-function validateOracleBinding(binding, { repo, baseSha, implementationOwner }, problems) {
+function validateOracleBinding(binding, { repo, baseSha, implementationOwner, required }, problems) {
   if (!binding || typeof binding !== "object" || Array.isArray(binding)) {
-    problems.push(issue("MISSING_ORACLE_BINDING"));
+    if (required) problems.push(issue("MISSING_ORACLE_BINDING"));
     return null;
   }
   try {
@@ -371,15 +370,16 @@ function hotspotOverlap(graphChild, graphChildren) {
 
 export function ticketReviewProjection({ parsed, graphChild = null, graphChildren = [] }) {
   const constraints = parsed.executionConstraints;
+  const oracle = parsed.oracleBinding;
   return {
     riskClasses: [...constraints.riskClasses],
     riskCount: constraints.riskClasses.length,
     primaryVerificationSeams: [...constraints.primaryVerificationSeams],
     scopeBudget: structuredClone(constraints.scopeBudget),
     expectedPaths: [...constraints.expectedPaths],
-    protectedOraclePaths: [parsed.oracleBinding.artifact.path],
-    oracleBindingDigest: oracleBindingDigest(parsed.oracleBinding),
-    oracleBindingVerdict: "PASS",
+    protectedOraclePaths: oracle ? [oracle.artifact.path] : [],
+    oracleBindingDigest: oracleBindingDigest(oracle),
+    oracleBindingVerdict: oracle ? "PASS" : "NOT_APPLICABLE",
     replanTriggers: [...constraints.replanTriggers],
     codeHotspotOverlap: graphChild ? hotspotOverlap(graphChild, graphChildren) : [],
     integrationOnlyVerdict: constraints.integrationOnly === null ? "NOT_APPLICABLE" : "PASS",
@@ -446,7 +446,11 @@ export function staticGraphChildProblems(child) {
     waivers: [],
   };
   const problems = [];
-  if (!DIGEST.test(child?.oracleBindingDigest ?? "")) problems.push(issue("MISSING_ORACLE_BINDING", child?.id));
+  const oracleRequired = oracleRequiredForRiskClasses(child?.riskClasses);
+  if (oracleRequired && !DIGEST.test(child?.oracleBindingDigest ?? "")) problems.push(issue("MISSING_ORACLE_BINDING", child?.id));
+  if (!oracleRequired && child?.oracleBindingDigest !== null && !DIGEST.test(child?.oracleBindingDigest ?? "")) {
+    problems.push(issue("MISSING_ORACLE_BINDING", child?.id));
+  }
   problems.push(...staticConstraintsProblems(constraints, child?.id, null, {
     deferWaiverValidation: true,
     waiverDigests: child?.waiverDigests ?? [],
@@ -458,15 +462,17 @@ export function validateTicketContract({ repositoryPath, baseSha, child, graphCh
   const problems = [];
   let parsed;
   try { parsed = parseChildTicket(child?.body); } catch (error) {
-    const code = /Oracle binding/u.test(error?.message ?? "") ? "MISSING_ORACLE_BINDING" : "INVALID_EXECUTION_CONSTRAINTS";
+    const code = /ORACLE_BINDING/u.test(error?.message ?? "") ? "MISSING_ORACLE_BINDING" : "INVALID_EXECUTION_CONSTRAINTS";
     return { ok: false, problems: [issue(code, String(child?.id ?? ""))], parsed: null, projection: null };
   }
   const resolvedBase = resolveBase(repositoryPath, baseSha, problems);
   const constraints = parsed.executionConstraints;
+  const oracleRequired = oracleRequiredForRiskClasses(constraints.riskClasses);
   const oracle = validateOracleBinding(parsed.oracleBinding, {
     repo: repositoryPath,
     baseSha: resolvedBase ?? baseSha,
     implementationOwner: constraints.implementationOwner,
+    required: oracleRequired,
   }, problems);
   problems.push(...staticConstraintsProblems(constraints, child.id, oracle?.artifact?.path));
   for (const verifierPath of oracleVerifierProtectedPaths(oracle ? [oracle] : [])) {

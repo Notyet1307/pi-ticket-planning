@@ -6,6 +6,8 @@ import {
   RISK_CLASS_REGISTRY,
   RISK_CLASS_REGISTRY_SCHEMA,
   isCanonicalRiskClass,
+  oracleRequiredForRiskClasses,
+  releaseRisk,
   riskClassesRequireSplit,
   unknownRiskClasses,
   validateRiskClassRegistry,
@@ -19,6 +21,11 @@ test("risk class registry is closed, self-digested, canonical, and alias-free", 
   assert.deepEqual(unknownRiskClasses(["AUTHORITY_BOUNDARY", "BOUNDED_CHANGE", "UNREGISTERED_RISK"]), ["BOUNDED_CHANGE", "UNREGISTERED_RISK"]);
   assert.equal(riskClassesRequireSplit(["PROVIDER_ATTEMPT_RECOVERY", "PUBLICATION_RECOVERY"]), true);
   assert.equal(riskClassesRequireSplit(["AUTHORITY_BOUNDARY", "BOUNDED_CHANGE"]), false);
+  assert.equal(releaseRisk(["BOUNDED_BEHAVIOR_CHANGE"]), "normal");
+  assert.equal(releaseRisk(["AUTHORITY_BOUNDARY"]), "high");
+  assert.equal(releaseRisk(["UNKNOWN"]), null);
+  assert.equal(oracleRequiredForRiskClasses(["AUTHORITY_BOUNDARY"]), true);
+  assert.equal(oracleRequiredForRiskClasses(["UI_BEHAVIOR"]), false);
 
   const drifted = structuredClone(RISK_CLASS_REGISTRY);
   drifted.classes.reverse();

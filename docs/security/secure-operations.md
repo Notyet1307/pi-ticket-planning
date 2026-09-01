@@ -18,14 +18,12 @@
 - Preserve `PARTIAL` and `CONFLICT` results. Re-run the same unchanged Plan only
   for an explicitly resumable partial write; never compensate after a Harness
   claim.
-- For a Controller handoff, verify the supplied checkout is clean and exactly at
-  the generated active lock. Require config/provenance v3 public readback and
-  live doctor success before approval/materialization. Planner prints but never
-  executes the exact-bound `start` command.
-- Ingest only a public Controller completion v2/v3. The resulting predecessor
-  receipt v3 must bind a non-revoked active or historical identity, owned schema,
-  and immutable qualification digest while the current registry supplies revocation.
-  Never substitute private Job files or status output.
+- For a Controller handoff, approve the exact semantic Plan fingerprint. Apply
+  materializes only `release-plan.json` and prints but never executes
+  `start --approve-plan <planDigest>`. Controller performs its own runtime and
+  delivery preflights.
+- Ingest only public `release-result:v1`, bound to the expected release, Plan,
+  and base. Never substitute private Job files or status output.
 - Keep auth and model credential files outside installation manifests and
   reports. Error rendering redacts credential-shaped values and truncates
   external text.

@@ -3,8 +3,8 @@ import path from "node:path";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createGitHubAdapter } from "../admission/github-adapter.mjs";
 import { compileExecutionPlan } from "./compiler.mjs";
-import { createControllerAdapter } from "./controller-adapter.mjs";
 import { applyExecutionPlan } from "./handoff-apply.mjs";
+import { fingerprint, releasePlanDigest } from "./domain.mjs";
 import {
   assertCanonicalAbsentChildPath,
   assertCanonicalPrivateExistingDirectory,
@@ -12,7 +12,7 @@ import {
   assertCanonicalPrivateOutputParent,
 } from "./private-paths.mjs";
 import { verifyExecutionPlan } from "./validate.mjs";
-import { assertFreshExecutionInput, freshnessDriftCode } from "./freshness.mjs";
+import { assertFreshExecutionInput } from "./freshness.mjs";
 
 function options(argv) {
   const values = new Map();
@@ -33,7 +33,7 @@ function requireOptions(values, allowed, required) {
 function json(file) { return JSON.parse(fs.readFileSync(path.resolve(file), "utf8")); }
 function liveInput(values, { plan } = {}) {
   const repo = values.get("repo") ?? plan?.repo;
-  const parent = values.get("parent") ?? plan?.target;
+  const parent = values.get("parent") ?? plan?.parentIssue;
   if (!values.has("context")) throw new Error("MISSING_OPTION:context");
   const context = json(values.get("context"));
   const review = values.has("review") ? json(values.get("review")) : context.review;
@@ -70,26 +70,21 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
     const [command, ...rest] = argv;
     const values = options(rest);
     if (command === "build") {
-      requireOptions(values, ["repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "controller-cli", "controller-config", "out", "json"], ["repo", "parent", "context", "controller-cli", "controller-config"]);
-      const input = liveInput(values); const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
+      requireOptions(values, ["repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "out", "json"], ["repo", "parent", "context"]);
+      const input = liveInput(values);
       assertFreshExecutionInput(input);
-      const config = adapter.config();
-      const draft = compileExecutionPlan(input, { controller: config, draft: true });
-      const validated = adapter.validatePlan(draft.releasePlan, config.configDigest, config.configIdentity);
-      const plan = compileExecutionPlan(input, { controller: { ...config, planDigest: validated.planDigest, provenance: validated.provenance } });
+      const plan = compileExecutionPlan(input);
       const finalInput = liveInput(values);
-      const drift = freshnessDriftCode(plan.freshness, assertFreshExecutionInput(finalInput));
-      if (drift) throw new Error(drift);
-      if (compileExecutionPlan(finalInput, { controller: { ...config, planDigest: validated.planDigest, provenance: validated.provenance } }).planFingerprint !== plan.planFingerprint) throw new Error("SOURCE_OR_PLAN_DRIFT");
+      assertFreshExecutionInput(finalInput);
+      if (fingerprint(compileExecutionPlan(finalInput)) !== fingerprint(plan)) throw new Error("SOURCE_OR_PLAN_DRIFT");
       write(values.get("out"), plan);
       return 0;
     }
     if (command === "verify") {
-      requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "controller-cli", "controller-config", "json"], ["plan", "context", "controller-cli", "controller-config"]);
+      requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "json"], ["plan", "context"]);
       const plan = json(values.get("plan"));
       const input = liveInput(values, { plan });
-      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
-      const result = verifyExecutionPlan(plan, input, adapter, { reloadInput: () => liveInput(values, { plan }) });
+      const result = verifyExecutionPlan(plan, input, { reloadInput: () => liveInput(values, { plan }) });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "READY" ? 0 : 1;
     }
@@ -105,17 +100,13 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
         shellQuote(values.get("controller-config")),
         "--plan",
         shellQuote(path.join(outputDir, "release-plan.json")),
-        "--expected-config-digest",
-        shellQuote(plan.controller.configDigest),
-        "--expected-controller-revision",
-        shellQuote(plan.controller.provenance.controller.sourceRevision),
-        "--expected-controller-provenance-digest",
-        shellQuote(plan.controller.provenance.digest),
+        "--approve-plan",
+        shellQuote(releasePlanDigest(plan)),
         "--json",
       ].join(" ");
       const input = liveInput(values, { plan });
-      const adapter = createControllerAdapter({ cli: values.get("controller-cli"), config: values.get("controller-config") });
-      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), adapter, store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
+      if (values.get("expected-fingerprint") !== fingerprint(plan)) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
+      const result = applyExecutionPlan({ plan, input, reloadInput: () => liveInput(values, { plan }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "COMPLETE" ? 0 : 1;
     }

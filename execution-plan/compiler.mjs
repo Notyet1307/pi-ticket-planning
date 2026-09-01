@@ -2,23 +2,29 @@ import { validateAdmissionState } from "../scripts/check-admission-state.mjs";
 import { parseDeliveryGraph, validateDeliveryGraph } from "../scripts/check-delivery-graph.mjs";
 import { requireExactAdmissionReviewBinding } from "../admission/review-transport.mjs";
 import { validateReviewerDispatchBinding } from "../extensions/reviewer-one-shot-gate.mjs";
-import { validateArtifact } from "../protocol/kernel.mjs";
 import { validateReview } from "../admission/domain.mjs";
-import { HANDOFF_PLAN_SCHEMA, RELEASE_PLAN_SCHEMA, canonical, fingerprint, handoffProjection, hashText, releasePlanDigest } from "./domain.mjs";
+import { fingerprint, hashText } from "./domain.mjs";
 import { parseChildTicket, parseControlledLines, parseParentDeliverySpec } from "./markdown.mjs";
 import { reviewCandidateMatchesTicketContract, validateTicketContract } from "../scripts/check-ticket-contract.mjs";
-import { oracleValidationCoverageProblems } from "../scripts/check-release-closure.mjs";
-import { executionFreshnessProjection, isGitAncestor } from "./freshness.mjs";
+import { isGitAncestor } from "./freshness.mjs";
+import { CONTROLLER_CONTRACT_VERSION, validateReleasePlan } from "./release-contract.mjs";
+import { releaseRisk } from "../scripts/risk-classes.mjs";
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA = /^[a-f0-9]{40}$/;
 
 function safeId(input, parent, graph) {
-  if (/^\S{1,120}$/u.test(graph.releaseId ?? "") && !/[\u0000\r\n]/u.test(graph.releaseId)) return graph.releaseId;
+  if (/^\S{1,120}$/u.test(graph.releaseId ?? "") && !/[\u0000\r\n]/u.test(graph.releaseId)) return normalizeId(graph.releaseId);
   const candidate = String(input.release?.id ?? input.releaseId ?? "");
   return input.release?.accepted === true && /^[A-Za-z0-9._-]+$/.test(candidate)
-    ? candidate
+    ? normalizeId(candidate)
     : `release-${parent.id}-${fingerprint(graph).slice(7, 19)}`;
+}
+
+function normalizeId(value) {
+  const normalized = String(value).trim().toLowerCase().replace(/[^a-z0-9._-]+/gu, "-").replace(/^-+|-+$/gu, "");
+  if (!normalized) throw new Error("INVALID_RELEASE_ID");
+  return normalized.slice(0, 80);
 }
 
 export function reviewFocusForSpec(spec) {
@@ -36,26 +42,7 @@ export function reviewFocusForSpec(spec) {
   return result;
 }
 
-function runtimeProvenance(controller, config, planDigest, { draft }) {
-  if (!controller?.provenance) {
-    if (draft) return null;
-    throw new Error("CONTROLLER_PROVENANCE_REQUIRED");
-  }
-  const provenance = controller.provenance;
-  const { digest, ...body } = provenance;
-  const identity = controller.controllerIdentity ?? provenance.controller;
-  if (provenance.version !== 3 || provenance.executionMode !== config.executionMode
-    || provenance.configDigest !== controller.configDigest || provenance.releasePlan?.version !== 2
-    || provenance.releasePlan.digest !== planDigest || digest !== releasePlanDigest(body)
-    || JSON.stringify(canonical(provenance.controller)) !== JSON.stringify(canonical(identity))
-    || controller.requiredCheckContractDigest && provenance.requiredCheckContractDigest !== controller.requiredCheckContractDigest
-    || controller.mergeAuthorityDigest && provenance.mergeAuthorityDigest !== controller.mergeAuthorityDigest) {
-    throw new Error("CONTROLLER_PROVENANCE_MISMATCH");
-  }
-  return structuredClone(provenance);
-}
-
-export function compileExecutionPlan(input, { controller = null, draft = false } = {}) {
+export function compileExecutionPlan(input) {
   if (!input || typeof input !== "object" || Array.isArray(input) || !REPO.test(input.repo ?? "")) throw new Error("INVALID_EXECUTION_PLAN_INPUT");
   if (input.kind !== "DELIVERY_GRAPH" || !/^[1-9][0-9]*$/.test(String(input.parent?.id ?? "")) || input.parent.state !== "open" || typeof input.parent.body !== "string") throw new Error("PARENT_NOT_OPEN");
   let graph;
@@ -75,12 +62,9 @@ export function compileExecutionPlan(input, { controller = null, draft = false }
       "PROTECTED_PATH_IN_EXPECTED_WRITE_SET",
       "TICKET_REQUIRES_SPLIT",
       "INTEGRATION_ONLY_CONTRACT_VIOLATION",
-    ].includes(code) || code === "PREDECESSOR_COMPLETION_EXPORT_REQUIRED" || code.startsWith("CONTROLLER_COMPLETION_"));
+      "INVALID_RELEASE_RESULT",
+    ].includes(code));
     throw new Error(stable?.code ?? "CODEX_RELEASE_NOT_EXECUTABLE");
-  }
-  if (graph.releaseOrdinal > 1 && (graph.predecessorReceipt.controllerCompletion.repo !== input.repo
-    || graph.predecessorReceipt.controllerCompletion.baseRef !== input.source?.baseRef)) {
-    throw new Error("CONTROLLER_COMPLETION_TARGET_MISMATCH");
   }
   if (!["GRAPH_REVIEWED", "HANDOFF_APPROVED", "HANDOFF_READY"].includes(graph.readinessState)) throw new Error("RELEASE_NOT_GRAPH_REVIEWED");
   const maxChildren = graph.childPolicy?.maxChildren ?? 4;
@@ -104,52 +88,53 @@ export function compileExecutionPlan(input, { controller = null, draft = false }
     throw new Error(verifier?.code ?? `ADMISSION_STATE_NOT_READY:${admission.problems[0]?.code ?? "UNKNOWN"}`);
   }
   if (!input.policy || input.policy.accepted !== true || typeof input.policy.identity !== "string" || !input.policy.identity || !/^sha256:[a-f0-9]{64}$/.test(input.policy.digest ?? "")) throw new Error("POLICY_NOT_ACCEPTED");
-  let reviewBinding;
-  try { reviewBinding = requireExactAdmissionReviewBinding(input); validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw new Error("INVALID_REVIEW_BINDING"); }
+  try { requireExactAdmissionReviewBinding(input); validateReviewerDispatchBinding(input.reviewDispatchBinding); } catch { throw new Error("INVALID_REVIEW_BINDING"); }
   const candidates = new Map((input.review?.candidates ?? []).map((candidate) => [String(candidate.id), candidate]));
   if (candidates.size !== graph.children.length) throw new Error("REVIEW_CANDIDATE_SET_MISMATCH");
   const reviewSource = (({ identity, revision, baseSha, specContentHash }) => ({ identity, revision, baseSha, ...(specContentHash === undefined ? {} : { specContentHash }) }))(input.source ?? {});
   if (!validateReview(input.review) || fingerprint(input.review.source) !== fingerprint(reviewSource) || Object.values(input.review.axes ?? {}).some((value) => value !== "PASS")) throw new Error("REVIEW_NOT_READY");
   const spec = parseParentDeliverySpec(input.parent.body);
   const live = new Map(input.children.map((child) => [String(child.id), child]));
-  const reviewedChildren = graph.children.map((child) => {
+  const issues = graph.children.map((child, index) => {
     const current = live.get(String(child.id));
     const review = candidates.get(String(child.id));
     if (!current || current.state !== "open" || current.title !== child.title || hashText(current.body) !== child.bodyHash) throw new Error(`CHILD_DRIFT:${child.id}`);
     if (review?.verdict !== "READY" || review.executionLane !== child.executionLane
       || current.executionLane !== undefined && current.executionLane !== child.executionLane) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
-    const contract = validateTicketContract({
-      repositoryPath: input.repositoryPath,
-      baseSha: graph.executionBaseSha,
-      child: current,
-      graphChild: child,
-      graphChildren: graph.children,
-    });
+    const contract = validateTicketContract({ repositoryPath: input.repositoryPath, baseSha: graph.executionBaseSha, child: current, graphChild: child, graphChildren: graph.children });
     if (!contract.ok) throw new Error(contract.problems[0]?.code ?? "CODEX_RELEASE_NOT_EXECUTABLE");
     if (!reviewCandidateMatchesTicketContract(review, contract.projection, contract.problems)) throw new Error("REVIEW_TICKET_CONTRACT_MISMATCH");
     if ((current.blockedBy ?? []).some((id) => !graph.children.some((item) => String(item.id) === String(id)))) throw new Error("CODEX_RELEASE_NOT_EXECUTABLE");
-    return { issue: String(child.id), title: current.title, bodyHash: child.bodyHash, executionLane: child.executionLane, blockedBy: child.blockedBy.map(String), body: current.body };
+    const parsed = parseChildTicket(current.body);
+    const risk = releaseRisk(parsed.executionConstraints.riskClasses);
+    if (!risk) throw new Error("UNKNOWN_RISK_CLASS");
+    return {
+      number: Number(child.id),
+      order: index + 1,
+      dependsOn: child.blockedBy.map(Number),
+      objective: parsed.objective,
+      acceptanceCriteria: parsed.acceptanceCriteria,
+      expectedPaths: parsed.executionConstraints.expectedPaths,
+      risk,
+      oracleCommands: risk === "high" ? [parsed.oracleBinding.execution.command] : [],
+    };
   });
-  if (reviewedChildren.length === 0) throw new Error("CODEX_RELEASE_NO_AGENT_TRANCHE");
-  const children = reviewedChildren.map((child, index) => {
-    const parsed = parseChildTicket(child.body);
-    const constraints = parsed.executionConstraints;
-    return { ...child, release: { number: Number(child.issue), order: index + 1, dependsOn: child.blockedBy.map(Number), objective: parsed.objective, acceptanceCriteria: parsed.acceptanceCriteria, suggestedValidation: [], allowNoop: false, expectedTitle: child.title, expectedBodyHash: child.bodyHash, oracleBindings: [parsed.oracleBinding], riskClasses: constraints.riskClasses, scopeBudget: constraints.scopeBudget, expectedPaths: constraints.expectedPaths, protectedPaths: constraints.protectedPaths, replanTriggers: constraints.replanTriggers, integrationOnly: constraints.integrationOnly, waiverDigests: constraints.waivers.map(({ digest }) => digest) } };
-  });
-  const config = controller?.config ?? input.controller;
-  const reviewEnabled = config?.review?.enabled ?? config?.reviewEnabled;
-  if (!config || config.executionMode !== "release-plan-v2-direct" || config.repo !== input.repo || config.baseRef !== input.source.baseRef || !Number.isInteger(config.policy?.maxIssues) || config.policy.maxIssues < children.length || reviewEnabled !== true) throw new Error("CONTROLLER_CONFIG_MISMATCH");
-  const oracleCoverage = oracleValidationCoverageProblems({ controllerConfig: config, children: input.children });
-  if (oracleCoverage.length > 0) throw new Error(oracleCoverage[0].code);
-  const dependencyHandoffDigests = graph.decisionManifest.dependencyHandoffs.map(({ sha256 }) => sha256);
-  const releasePlan = { version: 2, source: { planner: "pi-ticket-planning", repo: input.repo, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, parentBinding: { number: Number(input.parent.id), expectedTitle: input.parent.title, expectedBodyHash: hashText(input.parent.body) }, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, id: safeId(input, input.parent, graph), title: input.parent.title, objective: spec.objective, parentIssue: Number(input.parent.id), issues: children.map(({ release }) => release), releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])], reviewFocus: reviewFocusForSpec(spec) };
+  if (issues.length === 0) throw new Error("CODEX_RELEASE_NO_AGENT_TRANCHE");
+  const releasePlan = {
+    controllerContractVersion: CONTROLLER_CONTRACT_VERSION,
+    id: safeId(input, input.parent, graph),
+    title: input.parent.title,
+    objective: spec.objective,
+    repo: input.repo,
+    baseRef: input.source.baseRef,
+    baseSha: graph.executionBaseSha,
+    parentIssue: Number(input.parent.id),
+    issues,
+    releaseAcceptanceCriteria: [...new Set([...spec.scenarios.map((scenario) => `${scenario.id}: ${scenario.observable}`), `Walking skeleton: ${spec.walkingSkeleton}`])],
+    reviewFocus: reviewFocusForSpec(spec),
+  };
   if (releasePlan.releaseAcceptanceCriteria.length > 50 || releasePlan.releaseAcceptanceCriteria.some((value) => value.length > 2000)) throw new Error("RELEASE_PLAN_TOO_LARGE");
-  const controllerPlanDigest = controller?.planDigest ?? releasePlanDigest(releasePlan);
-  const provenance = runtimeProvenance(controller, config, controllerPlanDigest, { draft });
-  const plan = { schema: HANDOFF_PLAN_SCHEMA, kind: "CODEX_RELEASE", repo: input.repo, target: String(input.parent.id), source: { identity: graph.source.identity, revision: graph.source.revision, baseRef: input.source.baseRef, baseSha: graph.executionBaseSha, specContentHash: graph.source.specContentHash, deliveryGraphDigest: fingerprint(graph), parentBodyHash: hashText(input.parent.body), decisionManifestDigest: graph.decisionManifestDigest, predecessorReceiptDigest: graph.predecessorReceipt?.digest ?? null, dependencyHandoffDigests }, children: children.map(({ issue, title, bodyHash, executionLane, blockedBy }) => ({ issue, title, bodyHash, executionLane, blockedBy })), freshness: executionFreshnessProjection(input), reviewedFingerprint: fingerprint({ source: reviewSource, review: input.review, reviewBinding, reviewDispatchBinding: input.reviewDispatchBinding }), policy: { identity: input.policy.identity, digest: input.policy.digest }, controller: { identity: "herdr-codex-controller", releasePlanVersion: 2, configDigest: controller?.configDigest ?? "", provenance, repo: config.repo, baseRef: config.baseRef, maxIssues: config.policy.maxIssues, reviewEnabled }, releasePlan, controllerPlanDigest, recovery: { strategy: "rebuild-on-source-drift", conflict: "Rebuild and re-approve on any fresh source, receipt, decision, dependency handoff, Oracle, review, policy, Controller config, provenance, or Plan drift." } };
-  const complete = { ...plan, planFingerprint: fingerprint(handoffProjection(plan)) };
-  if (!validateArtifact(releasePlan, { identity: RELEASE_PLAN_SCHEMA }).ok || !draft && !validateArtifact(complete).ok) throw new Error("INVALID_EXECUTION_HANDOFF_ARTIFACT");
-  return complete;
+  const problems = validateReleasePlan(releasePlan);
+  if (problems.length > 0) throw new Error(problems[0].code);
+  return releasePlan;
 }
-
-export { RELEASE_PLAN_SCHEMA };

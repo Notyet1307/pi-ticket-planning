@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { validateControllerPredecessorReceipt } from "../execution-plan/completion-ingest.mjs";
+import { validateControllerResult } from "../execution-plan/release-result-ingest.mjs";
 import { staticGraphChildProblems } from "./check-ticket-contract.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
@@ -20,6 +20,7 @@ const DELIVERY_GRAPH_MARKERS = new Map([
   [DELIVERY_RELEASE_GRAPH_MARKER, { schema: "pi-ticket-planning:delivery-release-graph:v3" }],
 ]);
 const SHA256 = /^sha256:[a-f0-9]{64}$/;
+const HEX = /^[a-f0-9]{64}$/;
 
 function issue(code, subject) {
   return subject ? { code, subject } : { code };
@@ -335,7 +336,7 @@ export function validateSpecAcceptance(receipt) {
 }
 
 export function validatePredecessorReceipt(receipt) {
-  return validateControllerPredecessorReceipt(receipt);
+  return validateControllerResult(receipt).map(({ code }) => issue(code === "UNSUPPORTED_RELEASE_RESULT_CONTRACT" ? "INVALID_RELEASE_RESULT" : code));
 }
 
 function validateRoadmap(snapshot) {
@@ -395,6 +396,9 @@ function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = tru
   if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReleaseId !== null) {
     contract.push(issue("UNEXPECTED_PREDECESSOR_RELEASE"));
   }
+  if (snapshot.releaseOrdinal === 1 && snapshot.predecessorPlanDigest !== null) {
+    contract.push(issue("UNEXPECTED_PREDECESSOR_PLAN_DIGEST"));
+  }
   if (snapshot.releaseOrdinal === 1 && snapshot.predecessorReceiptBinding !== null) {
     contract.push(issue("UNEXPECTED_PREDECESSOR_RECEIPT_BINDING"));
   }
@@ -416,6 +420,7 @@ function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = tru
     if (snapshot.executionBasePolicy !== "PREDECESSOR_MERGE_OR_DESCENDANT") contract.push(issue("INVALID_EXECUTION_BASE_POLICY"));
     if (!SHA256.test(snapshot.roadmapDigest ?? "")) contract.push(issue("MISSING_ROADMAP_BINDING"));
     if (!nonEmpty(snapshot.predecessorReleaseId)) contract.push(issue("MISSING_PREDECESSOR_RELEASE"));
+    if (!HEX.test(snapshot.predecessorPlanDigest ?? "")) contract.push(issue("MISSING_PREDECESSOR_PLAN_DIGEST"));
     if (!snapshot.predecessorReceipt) contract.push(issue("MISSING_PREDECESSOR_RECEIPT"));
     if (!snapshot.predecessorReceiptBinding) contract.push(issue("MISSING_PREDECESSOR_RECEIPT_BINDING"));
     if (snapshot.predecessorReceipt && snapshot.predecessorReceiptBinding) {
@@ -426,13 +431,13 @@ function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = tru
       if (snapshot.predecessorReceipt.releaseId !== snapshot.predecessorReleaseId) {
         contract.push(issue("PREDECESSOR_RELEASE_MISMATCH"));
       }
-      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergedMainSha
-        && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.predecessorReceipt.mergedMainSha, snapshot.executionBaseSha))) {
+      if (snapshot.predecessorReceipt.planDigest !== snapshot.predecessorPlanDigest) {
+        contract.push(issue("RELEASE_RESULT_PLAN_MISMATCH"));
+      }
+      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergeSha
+        && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.predecessorReceipt.mergeSha, snapshot.executionBaseSha))) {
         contract.push(issue("PREDECESSOR_EXECUTION_BASE_MISMATCH"));
       }
-      const handoffs = [...(snapshot.predecessorReceipt.handoffDigests ?? [])].sort();
-      const dependencies = (snapshot.decisionManifest?.dependencyHandoffs ?? []).map(({ sha256 }) => sha256).sort();
-      if (handoffs.join("\n") !== dependencies.join("\n")) contract.push(issue("DEPENDENCY_HANDOFF_MISMATCH"));
     }
   }
   const semantic = validateLegacyDeliveryGraph({

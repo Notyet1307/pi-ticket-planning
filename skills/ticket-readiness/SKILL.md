@@ -30,7 +30,7 @@ Return READY only when every condition holds:
 7. **Scope is explicit.** Out of scope names the adjacent work this ticket intentionally leaves behind.
 8. **Fresh-start sufficiency.** The ticket body names its starting state or available inputs, primary outcome and verification, behavior-defining decisions, and invariants or guardrails. A fresh executor can choose the first correct action from the ticket plus repository policy; parent and decision links provide provenance or detail, never the only copy of behavior or a guardrail required to start.
 9. **Coverage is traceable.** A Delivery-Spec child names stable source Scenario IDs and a coverage role. `DIRECT` implements user-observable behavior. `ENABLER` names current downstream consumers, an objective exit condition, and the real blocker edges that make it necessary. A standalone triage or risk ticket uses `STANDALONE` and names its exact source behavior or reproduction instead.
-10. **Oracle is frozen.** Bind exact `pi-ticket-planning:oracle-binding:v1` bytes, independent owner, and closed manifest for the reviewed-base `npm run verify:*` script plus all source/helper/schema. Globally protect `package.json` and manifest files.
+10. **Risk selects Oracle.** High-risk work binds exact `pi-ticket-planning:oracle-binding:v1` bytes, an independent owner, and a closed reviewed-base `npm run verify:*` manifest. Normal/low work may omit the entire Oracle section; review then reports `NOT_APPLICABLE`, a null digest, and no protected Oracle paths.
 11. **Execution is bounded.** Use only `contracts/risk-class-registry.json`; alias/unknown is `UNKNOWN_RISK_CLASS`/NEEDS_INFO. Declare one seam, at most eight write families with a literal first segment, protected paths, REPLAN triggers, and an eight-file/1500-line budget. Exceptions need exact waiver; four risks SPLIT; over 2500 lines needs `MECHANICAL_MIGRATION`.
 12. **Integration-only is closed.** Declare no new behavior/schema/duplicate logic and missing behavior as `REPLAN_REQUIRED`.
 
@@ -73,7 +73,7 @@ A complete human-only ticket is READY with execution lane HUMAN. Human ownership
 
 ## Activation boundary
 
-Controller handoff reviews one bounded all-AGENT v3 Release; HUMAN work stays outside it. Children remain `needs-triage`; the fresh review binds Oracle/risk/scope and creates no ready labels or runtime Reviewer work.
+Controller handoff reviews one bounded all-AGENT v3 Release; HUMAN work stays outside it. Children remain `needs-triage`; the fresh review binds risk/scope and any required Oracle, and creates no ready labels or runtime Reviewer work.
 
 Legacy Herdr Admission may separately activate ready labels and require Harness execution evidence. Do not project those runtime facts back into this READY content contract.
 
@@ -149,7 +149,7 @@ The batch output must include:
     Walking skeleton: PASS | FAIL — <ordered candidate IDs and covered scenarios, or the exact gap>
     Strict-frontier order: PASS | FAIL — <exact inverted edges when FAIL>
 
-Graph READY requires every candidate READY plus passing Graph, coverage, skeleton, frontier, Oracle, risk/scope, protected-path, REPLAN, and integration checks. Review metadata must equal body/v3; deterministic breadth findings require SPLIT.
+Graph READY requires every candidate READY plus passing Graph, coverage, skeleton, frontier, risk/scope, applicable Oracle/protected-path, REPLAN, and integration checks. Review metadata must equal body/v3; deterministic breadth findings require SPLIT.
 
 Tie the verdict to the exact candidate bodies, parent spec, sources, graph, and updated timestamps supplied in the admission bundle. Any material drift requires a new review.
 

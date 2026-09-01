@@ -4,10 +4,9 @@ import {
   createFactAttestation,
   evaluateMutation,
   producerAttestationSource,
-  validateArtifact,
   validateFactAttestation,
 } from "../protocol/kernel.mjs";
-import { HANDOFF_RECEIPT_SCHEMA, fingerprint, hashText } from "./domain.mjs";
+import { fingerprint, releasePlanDigest } from "./domain.mjs";
 import {
   assertCanonicalAbsentChildPath,
   assertCanonicalPrivateExistingDirectory,
@@ -29,99 +28,46 @@ function outputDirectory(value) {
 
 function bytes(value) { return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8"); }
 function shellQuote(value) { return `'${String(value).replaceAll("'", `'"'"'`)}'`; }
+function planFingerprint(plan) { return fingerprint(plan); }
 
-function receiptFor(plan, approvalId, configDigest, planDigest, now) {
-  const provenance = plan.controller.provenance;
-  const body = { schema: HANDOFF_RECEIPT_SCHEMA, status: "COMPLETE", repo: plan.repo, target: plan.target, planFingerprint: plan.planFingerprint, freshnessDigest: fingerprint(plan.freshness), decisionManifestDigest: plan.freshness.decisionManifestDigest, predecessorReceiptDigest: plan.freshness.predecessorReceiptDigest, dependencyHandoffDigests: plan.freshness.dependencyHandoffDigests, oracleBindingDigests: plan.freshness.oracleBindingDigests, controllerPlanDigest: planDigest, controllerConfigDigest: configDigest, controllerRevision: provenance.controller.sourceRevision, controllerSourceManifestDigest: provenance.controller.sourceManifestDigest, controllerBuildDigest: provenance.controller.buildDigest, controllerIdentityDigest: provenance.controller.digest, controllerProvenanceDigest: provenance.digest, approvalId, verifiedAt: now };
-  const complete = { ...body, releasePlanDigest: fingerprint(plan.releasePlan) };
-  return { ...complete, digest: fingerprint(complete) };
-}
-
-function exactExisting(outputDir, plan, approvalId) {
-  const names = ["execution-handoff-plan.json", "execution-handoff-receipt.json", "release-plan.json"];
+function exactExisting(outputDir, plan) {
   outputDir = outputDirectory(outputDir);
-  if (!fs.lstatSync(outputDir, { throwIfNoEntry: false })) return null;
-  if (fs.readdirSync(outputDir).sort().join("\n") !== names.join("\n")) throw new Error("HANDOFF_OUTPUT_CONFLICT");
-  const raw = Object.fromEntries(names.map((name) => {
-    const file = path.join(outputDir, name);
-    try { assertCanonicalPrivateExistingFile(file, "HANDOFF_OUTPUT", { mode: 0o600 }); } catch { throw new Error("HANDOFF_OUTPUT_CONFLICT"); }
-    return [name, fs.readFileSync(file)];
-  }));
-  const read = Object.fromEntries(names.map((name) => [name, JSON.parse(raw[name].toString("utf8"))]));
-  const receipt = read["execution-handoff-receipt.json"];
-  if (!raw["release-plan.json"].equals(bytes(plan.releasePlan))
-    || !raw["execution-handoff-plan.json"].equals(bytes(plan))
-    || !raw["execution-handoff-receipt.json"].equals(bytes(receipt))
-    || !validateArtifact(receipt).ok
-    || receipt.planFingerprint !== plan.planFingerprint
-    || receipt.approvalId !== approvalId
-    || receipt.repo !== plan.repo
-    || receipt.target !== plan.target
-    || receipt.status !== "COMPLETE"
-    || receipt.freshnessDigest !== fingerprint(plan.freshness)
-    || receipt.decisionManifestDigest !== plan.freshness.decisionManifestDigest
-    || receipt.predecessorReceiptDigest !== plan.freshness.predecessorReceiptDigest
-    || JSON.stringify(receipt.dependencyHandoffDigests) !== JSON.stringify(plan.freshness.dependencyHandoffDigests)
-    || JSON.stringify(receipt.oracleBindingDigests) !== JSON.stringify(plan.freshness.oracleBindingDigests)
-    || receipt.controllerPlanDigest !== plan.controllerPlanDigest
-    || receipt.controllerConfigDigest !== plan.controller.configDigest
-    || receipt.controllerRevision !== plan.controller.provenance.controller.sourceRevision
-    || receipt.controllerSourceManifestDigest !== plan.controller.provenance.controller.sourceManifestDigest
-    || receipt.controllerBuildDigest !== plan.controller.provenance.controller.buildDigest
-    || receipt.controllerIdentityDigest !== plan.controller.provenance.controller.digest
-    || receipt.controllerProvenanceDigest !== plan.controller.provenance.digest
-    || receipt.releasePlanDigest !== fingerprint(plan.releasePlan)
-    || receipt.digest !== fingerprint((({ digest, ...body }) => body)(receipt))) throw new Error("HANDOFF_OUTPUT_CONFLICT");
-  return receipt;
+  if (!fs.lstatSync(outputDir, { throwIfNoEntry: false })) return false;
+  if (fs.readdirSync(outputDir).join("\n") !== "release-plan.json") throw new Error("HANDOFF_OUTPUT_CONFLICT");
+  const file = path.join(outputDir, "release-plan.json");
+  try { assertCanonicalPrivateExistingFile(file, "HANDOFF_OUTPUT", { mode: 0o600 }); } catch { throw new Error("HANDOFF_OUTPUT_CONFLICT"); }
+  if (!fs.readFileSync(file).equals(bytes(plan))) throw new Error("HANDOFF_OUTPUT_CONFLICT");
+  return true;
 }
 
-export function verifyHandoffFilesExactReadback({ outputDir, plan, approvalId }) {
-  try { return exactExisting(outputDir, plan, approvalId) ? [] : [{ code: "HANDOFF_OUTPUT_MISSING" }]; } catch (error) { return [{ code: error.message }]; }
+export function verifyReleasePlanExactReadback({ outputDir, plan }) {
+  try { return exactExisting(outputDir, plan) ? [] : [{ code: "HANDOFF_OUTPUT_MISSING" }]; } catch (error) { return [{ code: error.message }]; }
 }
 
-export function verifyHandoffReceiptExact({ receipt, plan, approvalId }) {
-  if (!receipt || !validateArtifact(receipt).ok || receipt.digest !== fingerprint((({ digest, ...body }) => body)(receipt))
-    || plan && (receipt.repo !== plan.repo || receipt.target !== plan.target || receipt.planFingerprint !== plan.planFingerprint
-      || receipt.controllerPlanDigest !== plan.controllerPlanDigest || receipt.controllerConfigDigest !== plan.controller.configDigest
-      || receipt.controllerRevision !== plan.controller.provenance.controller.sourceRevision
-      || receipt.controllerSourceManifestDigest !== plan.controller.provenance.controller.sourceManifestDigest
-      || receipt.controllerBuildDigest !== plan.controller.provenance.controller.buildDigest
-      || receipt.controllerIdentityDigest !== plan.controller.provenance.controller.digest
-      || receipt.controllerProvenanceDigest !== plan.controller.provenance.digest
-      || receipt.freshnessDigest !== fingerprint(plan.freshness)
-      || receipt.decisionManifestDigest !== plan.freshness.decisionManifestDigest
-      || receipt.predecessorReceiptDigest !== plan.freshness.predecessorReceiptDigest
-      || JSON.stringify(receipt.dependencyHandoffDigests) !== JSON.stringify(plan.freshness.dependencyHandoffDigests)
-      || JSON.stringify(receipt.oracleBindingDigests) !== JSON.stringify(plan.freshness.oracleBindingDigests)
-      || receipt.releasePlanDigest !== fingerprint(plan.releasePlan))
-    || approvalId && receipt.approvalId !== approvalId) return [{ code: "HANDOFF_RECEIPT_MISMATCH" }];
-  return [];
-}
-
-export function verifyHandoffApprovalPendingExact({ snapshot, plan, approvalId }) {
+export function verifyReleasePlanApprovalPendingExact({ snapshot, plan, approvalId, revision }) {
+  const digest = planFingerprint(plan);
   const pending = snapshot?.approvals?.pending?.filter(({ id }) => id === approvalId) ?? [];
   const consumed = snapshot?.approvals?.consumed?.some(({ id }) => id === approvalId) ?? false;
   const approval = pending[0];
   const approved = snapshot?.checkpoint?.stage === "ADMISSION" && snapshot.checkpoint.verdict === "HANDOFF_APPROVED";
   return pending.length === 1 && !consumed && approval?.fact === "human.executionHandoff"
-    && approval.subject?.digest === plan?.planFingerprint && approved
+    && approval.subject?.kind === "release-plan" && approval.subject?.digest === digest
+    && approval.subject?.revision === revision && approved
     ? []
     : [{ code: "HANDOFF_APPROVAL_NOT_EXACT_PENDING" }];
 }
 
-function materialize(outputDir, plan, receipt) {
+function materialize(outputDir, plan) {
   outputDir = assertCanonicalAbsentChildPath(outputDir, "OUTPUT_DIR", "OUTPUT_PARENT");
   const parent = assertCanonicalPrivateOutputParent(path.dirname(outputDir), "OUTPUT_PARENT");
-  const staging = fs.mkdtempSync(path.join(path.dirname(outputDir), ".execution-handoff-"), { encoding: "utf8" });
+  const staging = fs.mkdtempSync(path.join(path.dirname(outputDir), ".release-plan-"), { encoding: "utf8" });
   try {
     fs.chmodSync(staging, 0o700);
     assertSameFileSystem(parent, staging);
-    for (const [name, value] of [["release-plan.json", plan.releasePlan], ["execution-handoff-plan.json", plan], ["execution-handoff-receipt.json", receipt]]) {
-      const file = path.join(staging, name);
-      fs.writeFileSync(file, bytes(value), { mode: 0o600, flag: "wx" });
-      fs.chmodSync(file, 0o600);
-      const descriptor = fs.openSync(file, "r"); try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
-    }
+    const file = path.join(staging, "release-plan.json");
+    fs.writeFileSync(file, bytes(plan), { mode: 0o600, flag: "wx" });
+    fs.chmodSync(file, 0o600);
+    const descriptor = fs.openSync(file, "r"); try { fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
     const stagingDescriptor = fs.openSync(staging, "r"); try { fs.fsyncSync(stagingDescriptor); } finally { fs.closeSync(stagingDescriptor); }
     fs.renameSync(staging, outputDir);
     const parentDescriptor = fs.openSync(path.dirname(outputDir), "r"); try { fs.fsyncSync(parentDescriptor); } finally { fs.closeSync(parentDescriptor); }
@@ -129,89 +75,95 @@ function materialize(outputDir, plan, receipt) {
     fs.rmSync(staging, { recursive: true, force: true });
     throw error;
   }
-  return exactExisting(outputDir, plan, receipt.approvalId);
+  if (!exactExisting(outputDir, plan)) throw new Error("HANDOFF_OUTPUT_MISSING");
 }
 
-function facts(plan, approval, mutationId, now, subject) {
+function facts(plan, input, approval, mutationId, now, subject) {
   const suffix = fingerprint(mutationId).slice(-12);
-  const create = (fact, source, digest, sameMutation = true) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${suffix}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: fact === "controller.readinessPassed" ? new Date(Date.parse(now) + 3600000).toISOString() : null, ...(sameMutation ? { mutationId } : {}), evidence: { kind: "artifact", ref: plan.planFingerprint, digest } });
-  return [create("source.unchanged", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("policy.accepted", "git-policy-check", plan.policy.digest), create("graph.passed", "execution-plan-compiler", plan.source.deliveryGraphDigest), create("oracles.bound", "execution-plan-compiler", plan.reviewedFingerprint), create("review.ready", "ticket-readiness-reviewer", plan.reviewedFingerprint), create("executionPlan.validated", "execution-plan-compiler", plan.planFingerprint), create("controller.readinessPassed", "codex-controller-cli", hashText(plan.controller.provenance.digest)), approval];
+  const create = (fact, source, digest) => createFactAttestation({ id: `F-${fact.replaceAll(".", "-")}-${suffix}`, fact, value: true, subject, source: producerAttestationSource(source, source), observedAt: now, expiresAt: null, mutationId, evidence: { kind: "artifact", ref: planFingerprint(plan), digest } });
+  const graphDigest = fingerprint(input.deliveryGraph);
+  const reviewDigest = fingerprint(input.review);
+  return [
+    create("source.unchanged", "execution-plan-compiler", graphDigest),
+    create("policy.accepted", "git-policy-check", input.policy.digest),
+    create("graph.passed", "execution-plan-compiler", graphDigest),
+    create("oracles.bound", "execution-plan-compiler", reviewDigest),
+    create("review.ready", "ticket-readiness-reviewer", reviewDigest),
+    create("executionPlan.validated", "execution-plan-compiler", planFingerprint(plan)),
+    approval,
+  ];
 }
 
 export function applyExecutionPlan({
   plan,
   input,
-  adapter,
   store,
   caseId,
   approvalId,
   expectedFingerprint,
   outputDir,
   clock = () => new Date().toISOString(),
-  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --expected-config-digest ${shellQuote(plan.controller.configDigest)} --expected-controller-revision ${shellQuote(plan.controller.provenance.controller.sourceRevision)} --expected-controller-provenance-digest ${shellQuote(plan.controller.provenance.digest)} --json`,
+  nextCommand = `node <controller-cli> start --config <controller-config> --plan ${shellQuote(path.join(outputDir, "release-plan.json"))} --approve-plan ${releasePlanDigest(plan)} --json`,
   readFresh = assertFreshExecutionInput,
   reloadInput = () => input,
 }) {
   outputDir = outputDirectory(outputDir);
-  if (expectedFingerprint !== plan?.planFingerprint) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
+  const digest = planFingerprint(plan);
+  if (expectedFingerprint !== digest) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
   const target = `github:${plan.repo}`;
   let snapshot = store.get({ caseId, target });
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
   const approval = approvals.find(({ id }) => id === approvalId);
-  const matchingApprovals = approvals.filter((item) => item.fact === "human.executionHandoff" && item.subject?.digest === plan.planFingerprint);
-  const approvalSubject = { target, kind: "execution-handoff-plan", id: plan.planFingerprint, revision: plan.source.revision, digest: plan.planFingerprint };
+  const matchingApprovals = approvals.filter((item) => item.fact === "human.executionHandoff" && item.subject?.digest === digest);
+  const approvalSubject = { target, kind: "release-plan", id: digest, revision: input.source.revision, digest };
   const approvalSubjectMatches = approval && Object.entries(approvalSubject).every(([key, value]) => approval.subject?.[key] === value);
   if (!approval || matchingApprovals.length !== 1 || approval.fact !== "human.executionHandoff" || !approvalSubjectMatches
     || !validateFactAttestation(approval).ok) throw new Error("INVALID_HANDOFF_APPROVAL");
-  const existing = exactExisting(outputDir, plan, approvalId);
+  const existing = exactExisting(outputDir, plan);
   const handoffReady = snapshot.checkpoint.stage === "EXECUTION" && snapshot.checkpoint.verdict === "HANDOFF_READY"
-    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === plan.target && snapshot.checkpoint.subject?.revision === plan.source.revision;
+    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === String(plan.parentIssue) && snapshot.checkpoint.subject?.revision === input.source.revision;
   const consumed = snapshot.approvals.consumed.some(({ id }) => id === approvalId);
   if (consumed && (!existing || !handoffReady)) throw new Error("HANDOFF_OUTPUT_CONFLICT");
-  const verified = verifyExecutionPlan(plan, input, adapter, { readFresh, reloadInput });
+  const verified = verifyExecutionPlan(plan, input, { readFresh, reloadInput });
   if (verified.status !== "READY") return verified;
-  if (consumed) {
-    return { status: "COMPLETE", receipt: existing, nextCommand };
-  }
+  if (consumed) return { status: "COMPLETE", planDigest: releasePlanDigest(plan), nextCommand };
   if (existing && handoffReady) {
-    const readback = [...verifyHandoffFilesExactReadback({ outputDir, plan, approvalId }), ...verifyHandoffReceiptExact({ receipt: existing, plan, approvalId })];
-    if (readback.length) throw new Error(readback[0].code);
     store.consumeApproval({ caseId, target, approvalId });
     const final = store.get({ caseId, target });
     if (final.approvals.pending.some(({ id }) => id === approvalId) || !final.approvals.consumed.some(({ id }) => id === approvalId)) throw new Error("APPROVAL_NOT_SINGLE_CONSUMED");
-    return { status: "COMPLETE", receipt: existing, nextCommand };
+    return { status: "COMPLETE", planDigest: releasePlanDigest(plan), nextCommand };
   }
   const now = clock();
   const checkpointMatches = () => snapshot.checkpoint.stage === "ADMISSION"
     && ["ACTIVATION_AWAITING_CONFIRMATION", "HANDOFF_APPROVED"].includes(snapshot.checkpoint.verdict)
-    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === plan.target
-    && snapshot.checkpoint.subject?.revision === plan.source.revision && snapshot.checkpoint.subject?.digest;
+    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === String(plan.parentIssue)
+    && snapshot.checkpoint.subject?.revision === input.source.revision && snapshot.checkpoint.subject?.digest;
   if (!checkpointMatches()) throw new Error("INVALID_HANDOFF_CHECKPOINT");
   if (snapshot.checkpoint.verdict === "ACTIVATION_AWAITING_CONFIRMATION") {
-    const approvalMutationId = `execution-plan-approve:${plan.planFingerprint}`;
-    const approvalFacts = facts(plan, approval, approvalMutationId, now, snapshot.checkpoint.subject);
+    const approvalMutationId = `execution-plan-approve:${digest}`;
+    const approvalFacts = facts(plan, input, approval, approvalMutationId, now, snapshot.checkpoint.subject);
     const approved = { schema: "pi-ticket-planning:checkpoint:v2", lane: snapshot.checkpoint.lane, stage: "ADMISSION", verdict: "HANDOFF_APPROVED", subject: snapshot.checkpoint.subject };
     const evaluatedApproval = evaluateMutation({ mutation: "executionPlan.approve", actor: "execution-plan-apply", transition: { current: snapshot.checkpoint, proposed: approved, approvalSubject }, facts: approvalFacts, consumedApprovalIds: snapshot.approvals.consumed.map(({ id }) => id), consumedFactIds: snapshot.consumedFactIds, mutationId: approvalMutationId, now });
     if (!evaluatedApproval.allowed) throw new Error(evaluatedApproval.problems[0]?.code ?? "EXECUTION_HANDOFF_APPROVAL_NOT_ALLOWED");
-    const approvedFact = createFactAttestation({ id: `F-handoff-approved-${fingerprint(approvalMutationId).slice(-12)}`, fact: "handoff.approved", value: true, subject: approved.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "operator", ref: approval.id, digest: plan.planFingerprint } });
+    const approvedFact = createFactAttestation({ id: `F-handoff-approved-${fingerprint(approvalMutationId).slice(-12)}`, fact: "handoff.approved", value: true, subject: approved.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "operator", ref: approval.id, digest } });
     store.transition({ caseId, target, checkpoint: approved, facts: [...approvalFacts.filter((fact) => fact.id !== approval.id), approvedFact], mutationId: approvalMutationId, nextAction: { kind: "NONE", command: null, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "HANDOFF_MATERIALIZATION_PENDING" } });
     snapshot = store.get({ caseId, target });
   }
-  const pending = verifyHandoffApprovalPendingExact({ snapshot, plan, approvalId });
+  const pending = verifyReleasePlanApprovalPendingExact({ snapshot, plan, approvalId, revision: input.source.revision });
   if (pending.length) throw new Error(pending[0].code);
-  const mutationId = `execution-plan-apply:${plan.planFingerprint}`;
+  const mutationId = `execution-plan-apply:${digest}`;
   const approvedFact = snapshot.facts.find((fact) => fact.fact === "handoff.approved" && fact.subject?.digest === snapshot.checkpoint.subject?.digest);
   if (!approvedFact) throw new Error("HANDOFF_APPROVAL_FACT_MISSING");
-  const allFacts = [...facts(plan, approval, mutationId, now, snapshot.checkpoint.subject), approvedFact];
+  const allFacts = [...facts(plan, input, approval, mutationId, now, snapshot.checkpoint.subject), approvedFact];
   const proposed = { schema: "pi-ticket-planning:checkpoint:v2", lane: snapshot.checkpoint.lane, stage: "EXECUTION", verdict: "HANDOFF_READY", subject: snapshot.checkpoint.subject };
   const evaluated = evaluateMutation({ mutation: "executionPlan.apply", actor: "execution-plan-apply", transition: { current: snapshot.checkpoint, proposed, approvalSubject }, facts: allFacts, consumedApprovalIds: snapshot.approvals.consumed.map(({ id }) => id), consumedFactIds: snapshot.consumedFactIds, mutationId, now });
   if (!evaluated.allowed) throw new Error(evaluated.problems[0]?.code ?? "EXECUTION_HANDOFF_NOT_ALLOWED");
-  const receipt = existing ?? materialize(outputDir, plan, receiptFor(plan, approvalId, verified.controllerConfigDigest, verified.controllerPlanDigest, now));
-  const ready = createFactAttestation({ id: `F-execution-handoff-ready-${fingerprint(mutationId).slice(-12)}`, fact: "execution.handoffReady", value: true, subject: proposed.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "receipt", ref: plan.planFingerprint, digest: receipt.digest } });
+  if (!existing) materialize(outputDir, plan);
+  const ready = createFactAttestation({ id: `F-execution-handoff-ready-${fingerprint(mutationId).slice(-12)}`, fact: "execution.handoffReady", value: true, subject: proposed.subject, source: producerAttestationSource("execution-plan-apply", "execution-plan-apply"), observedAt: now, expiresAt: null, evidence: { kind: "artifact", ref: "release-plan.json", digest } });
   store.transition({ caseId, target, checkpoint: proposed, facts: [...allFacts.filter((fact) => fact.id !== approval.id), ready], mutationId, nextAction: { kind: "COMMAND", command: nextCommand, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "CONTROLLER_START_REQUIRED" } });
   store.consumeApproval({ caseId, target, approvalId });
   const final = store.get({ caseId, target });
-  const postconditions = [...verifyHandoffFilesExactReadback({ outputDir, plan, approvalId }), ...verifyHandoffReceiptExact({ receipt, plan, approvalId }), final.approvals.consumed.filter(({ id }) => id === approvalId).length === 1 && !final.approvals.pending.some(({ id }) => id === approvalId) ? null : { code: "APPROVAL_NOT_SINGLE_CONSUMED" }].filter(Boolean);
+  const postconditions = [...verifyReleasePlanExactReadback({ outputDir, plan }), final.approvals.consumed.filter(({ id }) => id === approvalId).length === 1 && !final.approvals.pending.some(({ id }) => id === approvalId) ? null : { code: "APPROVAL_NOT_SINGLE_CONSUMED" }].filter(Boolean);
   if (postconditions.length) throw new Error(postconditions[0].code);
-  return { status: "COMPLETE", receipt, nextCommand };
+  return { status: "COMPLETE", planDigest: releasePlanDigest(plan), nextCommand };
 }

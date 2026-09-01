@@ -12,13 +12,13 @@ import { validateCompatibilityMatrix } from "../capabilities/compatibility.mjs";
 import { validateE2EReportSemantics, validateModelReportSemantics, validateQualificationSemantics } from "../integration/report.mjs";
 import { validateE2EState } from "../integration/e2e-state.mjs";
 import { validateOutcomeReceipt } from "../outcome/ingest.mjs";
-import { validateDeliveryGraph, validatePredecessorReceipt, validateSpecAcceptance } from "../scripts/check-delivery-graph.mjs";
+import { validateDeliveryGraph, validateSpecAcceptance } from "../scripts/check-delivery-graph.mjs";
 import { validateDeliveryGatePlan } from "../scripts/delivery-gate.mjs";
 import { stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs";
 import { ticketContractDigest } from "../scripts/check-ticket-contract.mjs";
 import { decisionManifestProblems } from "../execution-plan/freshness.mjs";
-import { validateControllerCompletion } from "../execution-plan/completion-ingest.mjs";
+import { validateControllerResult } from "../execution-plan/release-result-ingest.mjs";
 import { validateRiskClassRegistry } from "../scripts/risk-classes.mjs";
 
 function problem(code, subject) {
@@ -84,8 +84,7 @@ export async function validateRegisteredArtifactSemantics(value, identity) {
   if (name === "delivery-graph") return { problems: validateDeliveryGraph(value).problems };
   if (name === "delivery-release-graph" || name === "roadmap-graph") return { problems: validateDeliveryGraph(value, { requireAncestry: false }).problems };
   if (name === "spec-acceptance") return { problems: validateSpecAcceptance(value) };
-  if (name === "release-predecessor-receipt") return { problems: validatePredecessorReceipt(value) };
-  if (name === "release-completion") return { problems: validateControllerCompletion(value) };
+  if (name === "release-result") return { problems: validateControllerResult(value) };
   if (name === "risk-class-registry") return { problems: validateRiskClassRegistry(value) };
   if (name === "decision-manifest") return { problems: decisionManifestProblems(value) };
   if (name === "ticket-context-check") return { problems: validateTicketContextResult(value) };

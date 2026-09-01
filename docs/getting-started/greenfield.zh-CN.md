@@ -87,9 +87,9 @@ accepted Release
 
 ## 8. 什么时候进入执行
 
-Candidate Tickets 从始至终保持 `needs-triage`。一个 fresh-context reviewer 会检查所有 Ticket，以及场景覆盖、交接、walking skeleton、依赖顺序、source revision 和 policy。推荐路径随后编译一个 Controller Release Plan v2，等待人确认 exact Handoff fingerprint。
+Candidate Tickets 从始至终保持 `needs-triage`。一个 fresh-context reviewer 会检查所有 Ticket，以及场景覆盖、交接、walking skeleton、依赖顺序、source revision 和 policy。推荐路径随后编译一个语义化 `release-plan.json`，等待人确认 exact Plan fingerprint。
 
-确认后的 apply 会原子物化三个私有 Controller 输入文件，记录 `EXECUTION/HANDOFF_READY`，并只打印、不运行绑定 approved config digest、Controller revision 与 provenance digest 的 Controller `start` 命令。它不写 ready label。只有 operator 显式选择时才使用 Legacy Herdr 按 Ticket 标签路径。
+确认后的 apply 会原子物化一个私有 `release-plan.json`，记录 `EXECUTION/HANDOFF_READY`，并只打印、不运行 `start --approve-plan <planDigest>`。它不写 ready label。只有 operator 显式选择时才使用 Legacy Herdr 按 Ticket 标签路径。
 
 ## 9. 常见误区
 

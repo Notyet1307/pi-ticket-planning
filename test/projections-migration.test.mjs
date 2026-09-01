@@ -95,7 +95,7 @@ test("Delivery Graph v2 migration emits deterministic approval-only v3 or Roadma
     release: {
       releaseId: "R1-C1-r1", releaseOrdinal: 1, planningBaseSha: baseSha, executionBaseSha: baseSha,
       executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT", roadmapDigest: null, predecessorReleaseId: null,
-      predecessorReceipt: null, predecessorReceiptBinding: null,
+      predecessorPlanDigest: null, predecessorReceipt: null, predecessorReceiptBinding: null,
       specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
       specAcceptanceBinding: { path: "evidence/spec.json", baseSha, sha256: `sha256:${"1".repeat(64)}`, byteCount: 1 },
       decisionManifest: { ...manifestBody, digest: fingerprint(manifestBody) },

@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { fingerprint } from "../execution-plan/domain.mjs";
-import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
+import { controllerResultFixture } from "./controller-result-fixture.mjs";
 import {
   DELIVERY_RELEASE_GRAPH_MARKER,
   DELIVERY_GRAPH_MARKER,
@@ -52,6 +52,7 @@ function executableGraph(item = cases.find((entry) => entry.expectedGraphVerdict
     executionBasePolicy: "PLANNING_BASE_OR_DESCENDANT",
     roadmapDigest: null,
     predecessorReleaseId: null,
+    predecessorPlanDigest: null,
     predecessorReceipt: null,
     predecessorReceiptBinding: null,
     specAcceptance: { ...acceptanceBody, digest: fingerprint(acceptanceBody) },
@@ -271,13 +272,13 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   ]);
   release.roadmapDigest = roadmap.digest;
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "MISSING_PREDECESSOR_RECEIPT"), true);
-  const legacyBody = { schema: "pi-ticket-planning:release-predecessor-receipt:v1", releaseId: "r001-c1-r1", mergedMainSha: "2".repeat(40), handoffDigests: [], validationDigest: `sha256:${"2".repeat(64)}`, completedAt: "2026-08-29T01:00:00Z" };
-  release.predecessorReceipt = { ...legacyBody, digest: fingerprint(legacyBody) };
-  release.predecessorReceiptBinding = { path: "evidence/c1-completion.json", baseSha: release.executionBaseSha, sha256: `sha256:${"4".repeat(64)}`, byteCount: 1 };
-  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_COMPLETION_EXPORT_REQUIRED"), true);
-  release.predecessorReceipt = predecessorReceiptFixture({ releaseId: "r001-c1-r1", sourceBaseSha: "1".repeat(40), candidateSha: "1".repeat(40), mergedMainSha: "2".repeat(40) });
+  release.predecessorReceipt = { schema: "herdr-codex-controller:release-result:v2" };
+  release.predecessorReceiptBinding = { path: "evidence/c1-release-result.json", baseSha: release.executionBaseSha, sha256: `sha256:${"4".repeat(64)}`, byteCount: 1 };
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "INVALID_RELEASE_RESULT"), true);
+  release.predecessorReceipt = controllerResultFixture({ releaseId: "r001-c1-r1", baseSha: "1".repeat(40), candidateSha: "1".repeat(40), mergeSha: "2".repeat(40) });
+  release.predecessorPlanDigest = release.predecessorReceipt.planDigest;
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_EXECUTION_BASE_MISMATCH"), true);
-  release.executionBaseSha = release.predecessorReceipt.mergedMainSha;
+  release.executionBaseSha = release.predecessorReceipt.mergeSha;
   release.predecessorReceiptBinding.baseSha = release.executionBaseSha;
   release.specAcceptanceBinding.baseSha = release.executionBaseSha;
   const { digest: _decisionDigest, ...decisionBody } = release.decisionManifest;
@@ -285,6 +286,10 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   release.decisionManifest = { ...decisionBody, digest: fingerprint(decisionBody) };
   release.decisionManifestBinding.baseSha = release.executionBaseSha;
   assert.equal(validateDeliveryGraph(release).ok, true);
+
+  release.predecessorPlanDigest = "0".repeat(64);
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "RELEASE_RESULT_PLAN_MISMATCH"), true);
+  release.predecessorPlanDigest = release.predecessorReceipt.planDigest;
 
   release.predecessorReleaseId = "other-release";
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_RELEASE_MISMATCH"), true);

@@ -14,10 +14,8 @@ const FACT_ID = /^F-[A-Za-z0-9._:-]{1,126}$/;
 const FACT_NAME = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
 const SAFE_TOKEN = /^[^\u0000\r\n]+$/;
 const EXTERNAL_SCHEMAS_WITHOUT_ID = new Set([
-  "schemas/herdr-codex-release-plan-v2.schema.json",
-  "schemas/herdr-codex-release-completion-v1.schema.json",
-  "schemas/herdr-codex-release-completion-v2.schema.json",
-  "schemas/herdr-codex-release-completion-v3.schema.json",
+  "schemas/herdr-codex-release-plan.schema.json",
+  "schemas/herdr-codex-release-result-v1.schema.json",
 ]);
 
 function readJson(file) {

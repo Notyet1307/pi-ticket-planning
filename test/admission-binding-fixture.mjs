@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 import { fingerprint } from "../execution-plan/domain.mjs";
 import { hashText } from "../scripts/check-delivery-graph.mjs";
-import { predecessorReceiptFixture } from "./controller-completion-fixture.mjs";
+import { controllerResultFixture } from "./controller-result-fixture.mjs";
 
 function git(repo, args) {
   const run = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
@@ -64,7 +64,7 @@ export function createAdmissionBindingFixture({
     dependencyHandoffs: [],
   };
   const decisionManifest = { ...manifestBody, digest: fingerprint(manifestBody) };
-  const predecessorReceipt = predecessorReceiptFixture({ releaseId: predecessorReleaseId, repo: "acme/product", baseRef: "main", sourceBaseSha: planningBaseSha, candidateSha: planningBaseSha, mergedMainSha: planningBaseSha });
+  const predecessorReceipt = controllerResultFixture({ releaseId: predecessorReleaseId, baseSha: planningBaseSha, candidateSha: planningBaseSha, mergeSha: planningBaseSha });
   write(repositoryPath, "evidence/spec-acceptance.json", `${JSON.stringify(specAcceptance)}\n`);
   write(repositoryPath, "evidence/decision-manifest.json", `${JSON.stringify(decisionManifest)}\n`);
   write(repositoryPath, "evidence/predecessor.json", `${JSON.stringify(predecessorReceipt)}\n`);
