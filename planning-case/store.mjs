@@ -606,7 +606,7 @@ class PlanningCaseStore {
     let snapshot = null;
     for (const event of events) {
       try {
-        snapshot = reducePlanningCaseEvent(snapshot, event, { protocol: this.protocol, now: event.at });
+        snapshot = reducePlanningCaseEvent(snapshot, event, { protocol: this.protocol, now: event.at, replay: true });
       } catch (error) {
         throw new PlanningCaseError(error?.code ?? "INVALID_CASE_EVENT", event.id);
       }

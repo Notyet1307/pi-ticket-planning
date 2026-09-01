@@ -55,7 +55,7 @@ export function noNextAction(reasonCode = "TERMINAL_STATE") {
   };
 }
 
-export function reducePlanningCaseEvent(snapshot, event, { protocol, now = event.at } = {}) {
+export function reducePlanningCaseEvent(snapshot, event, { protocol, now = event.at, replay = false } = {}) {
   if (event.type === "CASE_CREATED") {
     if (snapshot !== null) fail("INVALID_CASE_EVENT");
     return clone(event.data.snapshot);
@@ -73,7 +73,7 @@ export function reducePlanningCaseEvent(snapshot, event, { protocol, now = event
       mutationId: data.mutationId ?? undefined,
       now,
       rebind: data.rebind,
-    }, { protocol });
+    }, { protocol, producerDigestPolicy: replay ? "RECORDED" : "CURRENT" });
     if (!checked.allowed) fail(checked.problems[0]?.code ?? "CHECKPOINT_TRANSITION_REJECTED");
     for (const fact of data.facts) if (!next.facts.some(({ id }) => id === fact.id)) next.facts.push(clone(fact));
     next.lastCheckpoint = clone(next.checkpoint);
@@ -106,7 +106,12 @@ export function reducePlanningCaseEvent(snapshot, event, { protocol, now = event
   } else if (event.type === "EVIDENCE_RECORDED") {
     addUnique(next.evidence, data.evidence, "DUPLICATE_EVIDENCE");
   } else if (event.type === "FACT_ATTACHED") {
-    const checked = validateFactAttestation(data.fact, { protocol, now, consumedFactIds: next.consumedFactIds });
+    const checked = validateFactAttestation(data.fact, {
+      protocol,
+      now,
+      consumedFactIds: next.consumedFactIds,
+      producerDigestPolicy: replay ? "RECORDED" : "CURRENT",
+    });
     if (!checked.ok || data.fact.subject.target !== next.target) fail(checked.problems[0]?.code ?? "FACT_TARGET_MISMATCH");
     addUnique(next.facts, data.fact, "DUPLICATE_FACT");
   } else if (event.type === "FACT_CONSUMED") {

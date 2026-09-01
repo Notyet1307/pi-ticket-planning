@@ -49,6 +49,15 @@ test("Release and Spec projections bind exact source bytes", () => {
   });
   assert.equal(spec.schema, "pi-ticket-planning:spec-projection:v1");
   assert.match(spec.contentDigest, /^sha256:/);
+  assert.throws(() => projectSpec({
+    target: release.target,
+    id: "101",
+    revision: "r2",
+    baseSha: release.source.baseSha,
+    source: spec.source,
+    scenarioIds: ["S1"],
+    bytes: Buffer.from("unaccepted-spec\n"),
+  }), /acceptance/i);
 });
 
 test("legacy Checkpoint and Delivery Graph migration is explicit and deterministic", () => {

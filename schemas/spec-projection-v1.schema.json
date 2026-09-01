@@ -3,7 +3,7 @@
   "$id": "https://schemas.pi-ticket-planning.invalid/spec-projection-v1.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "target", "id", "revision", "baseSha", "source", "scenarioIds", "contentDigest", "acceptance"],
+  "required": ["schema", "target", "id", "revision", "baseSha", "source", "scenarioIds", "contentDigest"],
   "properties": {
     "schema": { "const": "pi-ticket-planning:spec-projection:v1" },
     "target": { "$ref": "common-v1.schema.json#/$defs/target" },
