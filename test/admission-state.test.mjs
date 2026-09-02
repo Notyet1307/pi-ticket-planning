@@ -240,6 +240,12 @@ test("acceptance receipt fails closed on Parent contradiction or body drift", ()
   assert.equal(contradictionCodes.includes("PARENT_ACCEPTANCE_CONTRADICTION"), true);
   assert.equal(contradictionCodes.includes("SPEC_ACCEPTANCE_RECEIPT_STALE"), true);
 
+  const historicalEvidence = readyBundle();
+  historicalEvidence.parentBody += "\n\nHistorical draft evidence was not accepted product authority.";
+  const historicalCodes = validateAdmissionState(historicalEvidence).problems.map(({ code }) => code);
+  assert.equal(historicalCodes.includes("PARENT_ACCEPTANCE_CONTRADICTION"), false);
+  assert.equal(historicalCodes.includes("SPEC_ACCEPTANCE_RECEIPT_STALE"), true);
+
   const childClaim = readyBundle();
   childClaim.children[0].body += "\n\nParent: Accepted Delivery Spec";
   childClaim.deliveryGraph.children[0].bodyHash = hashText(childClaim.children[0].body);
@@ -275,6 +281,73 @@ test("Admission rejects a natural-language Oracle without an exact binding", () 
   Object.assign(bundle.deliveryGraph.children[0], graphContractFields(bundle.children[0].body));
   bundle.contextChecks[0].result = checkTicketContext({ repo: bundle.repositoryPath, base: bundle.source.baseSha, body: bundle.children[0].body });
   assert.equal(validateAdmissionState(bundle).problems.some(({ code }) => code === "MISSING_ORACLE_BINDING"), true);
+});
+
+test("Roadmap partitions the Parent Scenario set across executable Releases", () => {
+  const bundle = readyBundle();
+  bundle.children = [bundle.children[0]];
+  bundle.contextChecks = [bundle.contextChecks[0]];
+  bundle.deliveryGraph.scenarios = [bundle.deliveryGraph.scenarios[0]];
+  bundle.deliveryGraph.children = [bundle.deliveryGraph.children[0]];
+  bundle.deliveryGraph.walkingSkeleton = [bundle.deliveryGraph.children[0].id];
+  bundle.roadmapParent = { id: "99", title: "R1 Roadmap", body: `# R1 Roadmap\n\n${ROADMAP_PARENT_MARKER}` };
+  const roadmapBody = {
+    schema: "pi-ticket-planning:roadmap-graph:v1",
+    kind: "ROADMAP",
+    executable: false,
+    readinessState: "PLANNED",
+    roadmapId: "R1",
+    planningBaseSha,
+    parent: { number: 99, title: bundle.roadmapParent.title, bodyHash: hashText(bundle.roadmapParent.body) },
+    plannedReleases: [
+      {
+        releaseId: bundle.deliveryGraph.releaseId,
+        releaseOrdinal: 1,
+        readinessState: "PLANNED",
+        objective: "C1",
+        scenarioCoverage: ["S1"],
+        predecessors: [],
+        candidateTickets: [{
+          id: bundle.deliveryGraph.children[0].id,
+          title: bundle.deliveryGraph.children[0].title,
+          objective: "Accept one input.",
+          executionLane: "AGENT",
+        }],
+      },
+      {
+        releaseId: "R1-C2-r1",
+        releaseOrdinal: 2,
+        readinessState: "PLANNED",
+        objective: "C2",
+        scenarioCoverage: ["S2"],
+        predecessors: [bundle.deliveryGraph.releaseId],
+        candidateTickets: [{ id: "FUTURE-S2", title: "Return result", objective: "Return one result.", executionLane: "AGENT" }],
+      },
+    ],
+  };
+  bundle.roadmapGraph = { ...roadmapBody, digest: fingerprint(roadmapBody) };
+  bundle.deliveryGraph.roadmapDigest = bundle.roadmapGraph.digest;
+  const checked = validateAdmissionState(bundle);
+  assert.equal(checked.ok, true);
+  assert.deepEqual(checked.problems, []);
+
+  const missingCurrent = structuredClone(bundle);
+  missingCurrent.roadmapGraph.plannedReleases[0].releaseId = "OTHER-C1";
+  missingCurrent.roadmapGraph.plannedReleases[1].predecessors = ["OTHER-C1"];
+  const { digest: _missingDigest, ...missingBody } = missingCurrent.roadmapGraph;
+  missingCurrent.roadmapGraph.digest = fingerprint(missingBody);
+  missingCurrent.deliveryGraph.roadmapDigest = missingCurrent.roadmapGraph.digest;
+  assert.equal(validateAdmissionState(missingCurrent).problems.some(({ code }) => code === "ROADMAP_RELEASE_MISMATCH"), true);
+
+  const swappedCoverage = structuredClone(bundle);
+  swappedCoverage.roadmapGraph.plannedReleases[0].scenarioCoverage = ["S2"];
+  swappedCoverage.roadmapGraph.plannedReleases[1].scenarioCoverage = ["S1"];
+  const { digest: _swappedDigest, ...swappedBody } = swappedCoverage.roadmapGraph;
+  swappedCoverage.roadmapGraph.digest = fingerprint(swappedBody);
+  swappedCoverage.deliveryGraph.roadmapDigest = swappedCoverage.roadmapGraph.digest;
+  const swappedCodes = validateAdmissionState(swappedCoverage).problems.map(({ code }) => code);
+  assert.equal(swappedCodes.includes("SPEC_SCENARIO_SET_MISMATCH"), false);
+  assert.equal(swappedCodes.includes("ROADMAP_SCENARIO_COVERAGE_MISMATCH"), true);
 });
 
 test("downstream release binds its predecessor receipt to the exact Roadmap sequence", () => {
