@@ -30,6 +30,13 @@ function bytes(value) { return Buffer.from(`${JSON.stringify(value, null, 2)}\n`
 function shellQuote(value) { return `'${String(value).replaceAll("'", `'"'"'`)}'`; }
 function planFingerprint(plan) { return fingerprint(plan); }
 
+function exactCaseSubject(subject, { target, digest, revision }) {
+  return subject?.target === target && subject.kind === "release"
+    && typeof subject.id === "string" && subject.id.length > 0
+    && typeof subject.revision === "string" && subject.revision.length > 0
+    && subject.digest === digest && (revision === undefined || subject.revision === revision);
+}
+
 function exactExisting(outputDir, plan) {
   outputDir = outputDirectory(outputDir);
   if (!fs.lstatSync(outputDir, { throwIfNoEntry: false })) return false;
@@ -115,13 +122,14 @@ export function applyExecutionPlan({
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
   const approval = approvals.find(({ id }) => id === approvalId);
   const matchingApprovals = approvals.filter((item) => item.fact === "human.executionHandoff" && item.subject?.digest === digest);
-  const approvalSubject = { target, kind: "release-plan", id: digest, revision: input.source.revision, digest };
+  const stableRevision = snapshot.checkpoint.subject?.revision;
+  const approvalSubject = { target, kind: "release-plan", id: digest, revision: stableRevision, digest };
   const approvalSubjectMatches = approval && Object.entries(approvalSubject).every(([key, value]) => approval.subject?.[key] === value);
   if (!approval || matchingApprovals.length !== 1 || approval.fact !== "human.executionHandoff" || !approvalSubjectMatches
     || !validateFactAttestation(approval).ok) throw new Error("INVALID_HANDOFF_APPROVAL");
   const existing = exactExisting(outputDir, plan);
   const handoffReady = snapshot.checkpoint.stage === "EXECUTION" && snapshot.checkpoint.verdict === "HANDOFF_READY"
-    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === String(plan.parentIssue) && snapshot.checkpoint.subject?.revision === input.source.revision;
+    && exactCaseSubject(snapshot.checkpoint.subject, { target, digest, revision: approval.subject.revision });
   const consumed = snapshot.approvals.consumed.some(({ id }) => id === approvalId);
   if (consumed && (!existing || !handoffReady)) throw new Error("HANDOFF_OUTPUT_CONFLICT");
   const verified = verifyExecutionPlan(plan, input, { readFresh, reloadInput });
@@ -136,8 +144,7 @@ export function applyExecutionPlan({
   const now = clock();
   const checkpointMatches = () => snapshot.checkpoint.stage === "ADMISSION"
     && ["ACTIVATION_AWAITING_CONFIRMATION", "HANDOFF_APPROVED"].includes(snapshot.checkpoint.verdict)
-    && snapshot.checkpoint.subject?.target === target && snapshot.checkpoint.subject?.id === String(plan.parentIssue)
-    && snapshot.checkpoint.subject?.revision === input.source.revision && snapshot.checkpoint.subject?.digest;
+    && exactCaseSubject(snapshot.checkpoint.subject, { target, digest, revision: approval.subject.revision });
   if (!checkpointMatches()) throw new Error("INVALID_HANDOFF_CHECKPOINT");
   if (snapshot.checkpoint.verdict === "ACTIVATION_AWAITING_CONFIRMATION") {
     const approvalMutationId = `execution-plan-approve:${digest}`;
@@ -149,7 +156,7 @@ export function applyExecutionPlan({
     store.transition({ caseId, target, checkpoint: approved, facts: [...approvalFacts.filter((fact) => fact.id !== approval.id), approvedFact], mutationId: approvalMutationId, nextAction: { kind: "NONE", command: null, skill: null, requiredInputs: [], blockingFacts: [], contextRoute: null, reasonCode: "HANDOFF_MATERIALIZATION_PENDING" } });
     snapshot = store.get({ caseId, target });
   }
-  const pending = verifyReleasePlanApprovalPendingExact({ snapshot, plan, approvalId, revision: input.source.revision });
+  const pending = verifyReleasePlanApprovalPendingExact({ snapshot, plan, approvalId, revision: snapshot.checkpoint.subject.revision });
   if (pending.length) throw new Error(pending[0].code);
   const mutationId = `execution-plan-apply:${digest}`;
   const approvedFact = snapshot.facts.find((fact) => fact.fact === "handoff.approved" && fact.subject?.digest === snapshot.checkpoint.subject?.digest);

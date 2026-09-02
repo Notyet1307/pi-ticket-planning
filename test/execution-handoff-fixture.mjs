@@ -38,15 +38,22 @@ function caseFactBuilder(subject, now) {
   });
 }
 
-export function createReadyCase({ stateDir, plan, now = NOW, caseId = "PC-execution-handoff" }) {
+export function createReadyCase({
+  stateDir,
+  plan,
+  now = NOW,
+  caseId = "PC-execution-handoff",
+  subjectId = String(plan.parentIssue),
+  subjectRevision = "r1",
+}) {
   const target = `github:${plan.repo}`;
   const store = createPlanningCaseStore({ stateDir, clock: () => now });
   store.create({ target, caseId });
   const subject = {
     target,
     kind: "release",
-    id: String(plan.parentIssue),
-    revision: "r1",
+    id: subjectId,
+    revision: subjectRevision,
     digest: fingerprint(plan),
   };
   advanceCaseToActivation({ store, caseId, target, subject, now });
