@@ -18,6 +18,7 @@ package_root=$(CDPATH= cd "$script_dir/.." && pwd)
 export PI_TICKET_PLANNING_ROOT="$package_root"
 export PI_CODING_AGENT_DIR="${PI_TICKET_PLAN_PROFILE_DIR:-$HOME/.pi/ticket-planning}"
 export PI_FFF_MODE="${PI_FFF_MODE:-override}"
+export FFF_ENABLE_HOME_SCAN="${FFF_ENABLE_HOME_SCAN:-0}"
 
 if [ "$(basename "$0")" = "pi-ticket-planctl" ]; then
   exec node "$package_root/scripts/planctl.mjs" "$@"
