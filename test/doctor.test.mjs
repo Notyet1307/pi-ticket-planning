@@ -147,7 +147,7 @@ function profileFixture() {
     packages: [
       { source: `git:github.com/mattpocock/skills@${upstream}` },
       { source: root },
-      { source: "git:github.com/Notyet1307/pi-interactive-subagents@f1695359a9961eca845b53caa5e4fceb17da2d23" },
+      { source: "git:github.com/Notyet1307/pi-interactive-subagents@48949644d7a94deacdaa3f644b53c21c16eb57ef" },
     ],
   })}\n`);
   const launcher = path.join(binDir, "pi-ticket-plan");

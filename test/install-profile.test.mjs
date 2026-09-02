@@ -18,7 +18,7 @@ import test from "node:test";
 import { PACKAGE_ROOT, writeInstallation } from "../scripts/install-profile.mjs";
 import { applyInstallation, applyRollback, inspectInstallation, planInstallation, planRollback, recoverInstallation } from "../installation/manager.mjs";
 
-const SUBAGENT_SOURCE = "git:github.com/Notyet1307/pi-interactive-subagents@f1695359a9961eca845b53caa5e4fceb17da2d23";
+const SUBAGENT_SOURCE = "git:github.com/Notyet1307/pi-interactive-subagents@48949644d7a94deacdaa3f644b53c21c16eb57ef";
 
 test("profile installation is isolated, portable, and preserves unrelated preferences", () => {
   const temporary = mkdtempSync(path.join(os.tmpdir(), "pi-ticket-planning-"));
