@@ -204,6 +204,7 @@ test("FactAttestation binds producer, subject, freshness, and evidence", () => {
   const forgedDigest = structuredClone(mutationFact);
   forgedDigest.source.producerDigest = `sha256:${"0".repeat(64)}`;
   assert.equal(validateFactAttestation(forgedDigest, { mutationId: "mutation-1" }).problems.some(({ code }) => code === "FACT_PRODUCER_DIGEST_MISMATCH"), true);
+  assert.equal(validateFactAttestation(attestation, { producerDigestPolicy: "UNKNOWN" }).problems.some(({ code }) => code === "INVALID_PRODUCER_DIGEST_POLICY"), true);
   const unknownProducer = structuredClone(mutationFact);
   unknownProducer.source.producer = "unknown";
   assert.equal(validateFactAttestation(unknownProducer, { mutationId: "mutation-1" }).problems.some(({ code }) => code === "FACT_PRODUCER_NOT_REGISTERED"), true);

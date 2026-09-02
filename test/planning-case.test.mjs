@@ -265,6 +265,33 @@ test("online bindings detect readback drift while offline resume is degraded", (
   assert.equal(offline.compatibility.protocol, "DEGRADED");
 });
 
+test("Planning Case keeps pre-acceptance Spec projections replayable", (t) => {
+  const stateDir = temporaryState(t);
+  const store = createPlanningCaseStore({ stateDir, clock: () => NOW, idGenerator: () => "PC-legacy-spec" });
+  store.create({ target: TARGET });
+  const legacySpec = {
+    schema: "pi-ticket-planning:spec-projection:v1",
+    target: TARGET,
+    id: "100",
+    revision: "r1",
+    baseSha: "a".repeat(40),
+    source: {
+      target: TARGET,
+      kind: "github-issue",
+      id: "100",
+      revision: NOW,
+      digest: `sha256:${"b".repeat(64)}`,
+    },
+    scenarioIds: ["S1"],
+    contentDigest: `sha256:${"c".repeat(64)}`,
+  };
+
+  store.bind({ caseId: "PC-legacy-spec", name: "spec", binding: legacySpec });
+
+  assert.deepEqual(store.verify({ caseId: "PC-legacy-spec" }), { status: "COMPLETE", problems: [] });
+  assert.deepEqual(store.resume({ caseId: "PC-legacy-spec" }).bindings.spec, legacySpec);
+});
+
 test("unsafe state roots and relaxed file permissions are rejected", (t) => {
   const parent = temporaryState(t);
   const real = path.join(parent, "real");

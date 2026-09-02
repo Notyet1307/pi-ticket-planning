@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 
+import { validateArtifact } from "./kernel.mjs";
+
 const hash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 const SHA = /^[a-f0-9]{40,64}$/;
 const TARGET = /^[a-z][a-z0-9+.-]*:[^\u0000\r\n]+$/;
@@ -39,6 +41,9 @@ export function projectSpec({ target, id, revision, baseSha, source, scenarioIds
   if (!TARGET.test(target ?? "") || !id || !revision || !SHA.test(baseSha ?? "") || !Array.isArray(scenarioIds)
     || scenarioIds.length === 0 || new Set(scenarioIds).size !== scenarioIds.length
     || scenarioIds.some((scenario) => !/^S[1-9][0-9]*$/.test(scenario))) throw new Error("Spec projection identity is invalid");
+  if (acceptance?.schema !== "pi-ticket-planning:spec-acceptance:v1" || !validateArtifact(acceptance).ok) {
+    throw new Error("Spec projection acceptance is invalid");
+  }
   return {
     schema: "pi-ticket-planning:spec-projection:v1",
     target,

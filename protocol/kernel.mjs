@@ -447,8 +447,10 @@ export function validateFactAttestation(attestation, {
   now,
   mutationId,
   consumedFactIds = [],
+  producerDigestPolicy = "CURRENT",
 } = {}) {
   const problems = [];
+  if (!["CURRENT", "RECORDED"].includes(producerDigestPolicy)) problems.push(problem("INVALID_PRODUCER_DIGEST_POLICY"));
   if (!attestation || typeof attestation !== "object" || Array.isArray(attestation)) {
     return { ok: false, problems: [problem("INVALID_FACT_ATTESTATION")] };
   }
@@ -481,7 +483,9 @@ export function validateFactAttestation(attestation, {
   } else if (rule) {
     try {
       const registered = producerAttestationSource(source.kind, source.producer, { protocol, producerVersion: source.producerVersion });
-      if (registered.producerDigest !== source.producerDigest) problems.push(problem("FACT_PRODUCER_DIGEST_MISMATCH"));
+      if (producerDigestPolicy === "CURRENT" && registered.producerDigest !== source.producerDigest) {
+        problems.push(problem("FACT_PRODUCER_DIGEST_MISMATCH"));
+      }
     } catch {
       problems.push(problem("FACT_PRODUCER_NOT_REGISTERED"));
     }
@@ -588,7 +592,7 @@ function factsByName(facts) {
   return { byName, duplicates };
 }
 
-function requiredFactProblems(names, facts, expectedSubject, protocol, { now, mutationId, consumedFactIds }) {
+function requiredFactProblems(names, facts, expectedSubject, protocol, { now, mutationId, consumedFactIds, producerDigestPolicy }) {
   const problems = [];
   for (const name of [...new Set(names)]) {
     const attestation = facts.get(name);
@@ -596,7 +600,7 @@ function requiredFactProblems(names, facts, expectedSubject, protocol, { now, mu
       problems.push(problem("MISSING_REQUIRED_FACT", name));
       continue;
     }
-    const checked = validateFactAttestation(attestation, { protocol, expectedSubject, now, mutationId, consumedFactIds });
+    const checked = validateFactAttestation(attestation, { protocol, expectedSubject, now, mutationId, consumedFactIds, producerDigestPolicy });
     problems.push(...checked.problems.map((item) => ({ ...item, fact: name })));
     if (attestation.value !== true) problems.push(problem("MISSING_REQUIRED_FACT", name));
   }
@@ -617,7 +621,7 @@ export function evaluateTransition({
   mutationId,
   consumedFactIds = [],
   rebind = false,
-}, { protocol = loadProtocol() } = {}) {
+}, { protocol = loadProtocol(), producerDigestPolicy = "CURRENT" } = {}) {
   const shaped = transitionShape(current, proposed, protocol, rebind);
   const indexed = factsByName(facts);
   const required = [
@@ -628,7 +632,7 @@ export function evaluateTransition({
   const problems = [
     ...shaped.problems,
     ...indexed.duplicates.map((name) => problem("DUPLICATE_FACT_ATTESTATION", name)),
-    ...requiredFactProblems(required, indexed.byName, proposed?.subject, protocol, { now, mutationId, consumedFactIds }),
+    ...requiredFactProblems(required, indexed.byName, proposed?.subject, protocol, { now, mutationId, consumedFactIds, producerDigestPolicy }),
   ];
   return { allowed: problems.length === 0, problems, requiredHumanGates: humanGates(problems, protocol.authority) };
 }

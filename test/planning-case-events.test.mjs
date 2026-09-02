@@ -52,6 +52,24 @@ test("Planning Case event defaults and missing snapshots fail deterministically"
   );
 });
 
+test("Planning Case replay preserves facts from a registered historical producer build", (t) => {
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-events-historical-producer-"));
+  t.after(() => fs.rmSync(stateDir, { recursive: true, force: true }));
+  const store = createPlanningCaseStore({ stateDir, clock: () => NOW, idGenerator: () => "PC-historical-producer" });
+  store.create({ target: TARGET, caseId: "PC-historical-producer" });
+  const snapshot = store.get({ caseId: "PC-historical-producer" });
+  const historical = fact("F-historical", "human.targetSelected", true);
+  historical.source.producerDigest = digest("registered-producer-at-record-time");
+  const event = { type: "FACT_ATTACHED", at: NOW, data: { fact: historical } };
+
+  assert.throws(
+    () => reducePlanningCaseEvent(snapshot, event),
+    (error) => error.code === "FACT_PRODUCER_DIGEST_MISMATCH",
+  );
+  const replayed = reducePlanningCaseEvent(snapshot, event, { replay: true });
+  assert.deepEqual(replayed.facts, [historical]);
+});
+
 test("Planning Case v2 reduces every domain event and replays identically", (t) => {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-events-v2-"));
   t.after(() => fs.rmSync(stateDir, { recursive: true, force: true }));
