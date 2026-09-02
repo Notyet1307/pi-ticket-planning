@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "evidenceTier": "DETERMINISTIC_CONTRACT_FIXTURE",
+  "approvedPlan": {
+    "id": "release-fixture",
+    "repo": "example/project",
+    "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "baseStatus": {
+    "id": "release-fixture",
+    "status": "running",
+    "phase": "prepare",
+    "repo": "example/project",
+    "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "currentIssueNumber": null,
+    "issues": [{ "number": 1, "status": "pending" }],
+    "candidateSha": null,
+    "blocked": null,
+    "result": null,
+    "updatedAt": "2026-09-02T00:00:00.000Z",
+    "legacy": false
+  },
+  "cases": [
+    {
+      "id": "controller-job-not-started",
+      "errorCode": "job_not_found",
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "NOT_STARTED",
+        "nextAction": "stored_start",
+        "showStoredStart": true,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-running",
+      "statusPatch": { "status": "running", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "RUNNING",
+        "nextAction": "controller_run_or_step",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-id-mismatch",
+      "statusPatch": { "id": "another-release", "status": "running", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-binding-mismatch",
+      "statusPatch": { "planDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "status": "running", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-repo-mismatch",
+      "statusPatch": { "repo": "example/other", "status": "running", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-base-mismatch",
+      "statusPatch": { "baseSha": "ffffffffffffffffffffffffffffffffffffffff", "status": "running", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-malformed-blocked",
+      "statusPatch": { "status": "blocked", "phase": "prepare", "blocked": null },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-blocked-recoverable",
+      "statusPatch": {
+        "status": "blocked",
+        "phase": "prepare",
+        "blocked": { "code": "development_setup_failed", "kind": "recoverable", "message": "setup failed", "fromPhase": "prepare" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "BLOCKED_RECOVERABLE",
+        "nextAction": "operator_fix_then_retry",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-legacy-normalized-recoverable",
+      "sourceLegacyBlockedKindMissing": true,
+      "statusPatch": {
+        "status": "blocked",
+        "phase": "prepare",
+        "legacy": true,
+        "blocked": { "code": "setup_validation_failed", "kind": "recoverable", "message": "legacy setup failed", "fromPhase": "prepare" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "BLOCKED_RECOVERABLE",
+        "nextAction": "operator_fix_then_retry",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-blocked-manual",
+      "statusPatch": {
+        "status": "blocked",
+        "phase": "repair",
+        "blocked": { "code": "repair_scope_unattributed", "kind": "manual", "message": "operator decision required", "fromPhase": "repair" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "BLOCKED_MANUAL",
+        "nextAction": "human_choose_retry_repair_or_abort",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-blocked-replan",
+      "statusPatch": {
+        "status": "blocked",
+        "phase": "prepare",
+        "blocked": { "code": "plan_base_drift", "kind": "replan_required", "message": "base changed", "fromPhase": "prepare" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "BLOCKED_REPLAN_REQUIRED",
+        "nextAction": "abort_before_replan",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-unknown-block-kind",
+      "statusPatch": {
+        "status": "blocked",
+        "phase": "repair",
+        "blocked": { "code": "future_code", "kind": "future", "message": "unknown", "fromPhase": "repair" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-completed",
+      "statusPatch": {
+        "status": "completed",
+        "phase": "complete",
+        "candidateSha": "cccccccccccccccccccccccccccccccccccccccc",
+        "issues": [{ "number": 1, "status": "committed" }],
+        "result": { "status": "merged", "mergeSha": "dddddddddddddddddddddddddddddddddddddddd", "completedAt": "2026-09-02T00:01:00.000Z" }
+      },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "COMPLETED",
+        "nextAction": "export_and_ingest_release_result",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-failed",
+      "statusPatch": { "status": "failed", "phase": "repair" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "FAILED",
+        "nextAction": "operator_inspect",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-unknown-status",
+      "statusPatch": { "status": "paused", "phase": "implement" },
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    },
+    {
+      "id": "controller-status-unavailable",
+      "errorCode": "public_status_unavailable",
+      "expected": {
+        "planningHandoff": "HANDOFF_READY",
+        "controller": "STATUS_UNAVAILABLE",
+        "nextAction": "fail_closed",
+        "showStoredStart": false,
+        "plannerMutations": 0,
+        "privateJobReads": 0,
+        "polls": 0
+      }
+    }
+  ]
+}

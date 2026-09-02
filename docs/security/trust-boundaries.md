@@ -19,7 +19,7 @@ trust:
 | Admission -> GitHub | Planned comments and controlled labels | Actor check, pre-read drift checks, claim check, exact readback, parent last |
 | Harness -> planner | Capability/readiness and Outcome Receipts | Exact repo/base/config/producer/freshness projection; read-only Outcome ingestion |
 | Planner -> Codex Controller | One approved semantic `release-plan.json` | Contract major plus exact Plan digest; Controller independently validates config, remote, base, sandbox, candidate, PR, CI, and merge |
-| Codex Controller -> planner | Public `release-result:v1` only | Closed schema plus expected release/Plan/base binding; no private Job/status input |
+| Codex Controller -> planner | On-demand bounded Public Status for display; public `release-result:v1` for completion | Status is read once, Plan-bound, non-persistent, and never completion authority; Result uses closed schema plus expected release/Plan/base binding; no private Job input |
 | Process -> local state | Case events, snapshots, transactions | Realpath containment, 0700/0600, no links, exclusive lock, digest chain, roll-forward recovery |
 
 Authenticated Tracker state can establish a Tracker Fact. It cannot establish a

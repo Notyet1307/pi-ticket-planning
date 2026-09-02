@@ -13,6 +13,7 @@ export function validateBehaviorFixtures(root) {
   const errors = [
     ...validateObservedBehaviorCases(observedFile),
     ...validateExecutionPlanBehaviorCases(path.join(root, "fixtures", "execution-plan-cases.json")),
+    ...validateControllerPublicStatusCases(path.join(root, "fixtures", "controller-public-status-cases.json")),
   ];
   const live = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-live-eval-cases.json"), "utf8"));
   const multi = JSON.parse(fs.readFileSync(path.join(root, "fixtures", "pi-multiturn-eval-cases.json"), "utf8"));
@@ -91,6 +92,73 @@ function validateExecutionPlanBehaviorCases(file) {
       controllerStarts: 0,
     };
     if (JSON.stringify(actual) !== JSON.stringify(item.expected)) errors.push(`${item.id}: execution-plan route projection drifted`);
+  }
+  return errors;
+}
+
+function validateControllerPublicStatusCases(file) {
+  const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
+  const errors = [];
+  const expectedIds = [
+    "controller-job-not-started",
+    "controller-running",
+    "controller-id-mismatch",
+    "controller-binding-mismatch",
+    "controller-repo-mismatch",
+    "controller-base-mismatch",
+    "controller-malformed-blocked",
+    "controller-blocked-recoverable",
+    "controller-legacy-normalized-recoverable",
+    "controller-blocked-manual",
+    "controller-blocked-replan",
+    "controller-unknown-block-kind",
+    "controller-completed",
+    "controller-failed",
+    "controller-unknown-status",
+    "controller-status-unavailable",
+  ];
+  if (fixture.version !== 1 || fixture.evidenceTier !== "DETERMINISTIC_CONTRACT_FIXTURE"
+    || fixture.cases?.map(({ id }) => id).join("\n") !== expectedIds.join("\n")) {
+    return ["invalid Controller public-status deterministic fixture"];
+  }
+  for (const item of fixture.cases) {
+    if (item.sourceLegacyBlockedKindMissing
+      && (item.statusPatch?.legacy !== true || item.statusPatch?.blocked?.kind !== "recoverable")) {
+      errors.push(`${item.id}: legacy Controller status is not safely normalized`);
+    }
+    const route = (controller, nextAction, showStoredStart = false) => ({
+      planningHandoff: "HANDOFF_READY",
+      controller,
+      nextAction,
+      showStoredStart,
+      plannerMutations: 0,
+      privateJobReads: 0,
+      polls: 0,
+    });
+    let actual;
+    if (item.errorCode) {
+      actual = item.errorCode === "job_not_found"
+        ? route("NOT_STARTED", "stored_start", true)
+        : route("STATUS_UNAVAILABLE", "fail_closed");
+    } else {
+      const status = { ...fixture.baseStatus, ...item.statusPatch };
+      const bindingsMatch = status.id === fixture.approvedPlan.id
+        && status.repo === fixture.approvedPlan.repo
+        && status.planDigest === fixture.approvedPlan.planDigest
+        && status.baseSha === fixture.approvedPlan.baseSha;
+      if (!bindingsMatch) actual = route("STATUS_UNAVAILABLE", "fail_closed");
+      else if (status.status === "running") actual = route("RUNNING", "controller_run_or_step");
+      else if (status.status === "completed") actual = route("COMPLETED", "export_and_ingest_release_result");
+      else if (status.status === "failed") actual = route("FAILED", "operator_inspect");
+      else if (status.status === "blocked" && status.blocked?.kind === "recoverable") {
+        actual = route("BLOCKED_RECOVERABLE", "operator_fix_then_retry");
+      } else if (status.status === "blocked" && status.blocked?.kind === "manual") {
+        actual = route("BLOCKED_MANUAL", "human_choose_retry_repair_or_abort");
+      } else if (status.status === "blocked" && status.blocked?.kind === "replan_required") {
+        actual = route("BLOCKED_REPLAN_REQUIRED", "abort_before_replan");
+      } else actual = route("STATUS_UNAVAILABLE", "fail_closed");
+    }
+    if (JSON.stringify(actual) !== JSON.stringify(item.expected)) errors.push(`${item.id}: Controller public-status route drifted`);
   }
   return errors;
 }

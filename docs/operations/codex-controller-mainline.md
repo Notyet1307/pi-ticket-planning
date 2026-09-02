@@ -5,7 +5,7 @@
 ```text
 accepted delivery-release-graph v3
 → human-approved release-plan.json
-→ Controller-owned implementation, validation, review, PR, CI, and exact-head merge
+→ Controller Prepare Gate, offline implementation/validation/review, optional required Demo, PR, CI, and exact-head merge
 → review.md + release-result.json
 ```
 
@@ -23,6 +23,8 @@ herdr-codex start \
 ```
 
 The Controller independently validates its trusted operator config, target remote, exact base, Parent/Issues, sandbox, candidate, required CI, PR, and merge result.
+
+On an explicit status/resume request, `ask-yet` may run the exact stored Controller CLI/config as `status --job <release-id> --public --json` once. It verifies the approved Plan identity, never reads `job.json`, never polls or persists runtime state, and suppresses the stale start action once a Job exists.
 
 ## Result
 
@@ -46,7 +48,7 @@ Build the current Controller checkout, then run:
 HERDR_CONTROLLER_ROOT=/absolute/herdr-codex-controller npm run check:codex-controller-contract
 ```
 
-This validates Planner Plan fixtures in Controller, Controller Result fixtures in Planner, identical Plan/Result schemas, and unsupported major rejection. It is a semantic compatibility check, not live delivery evidence.
+This validates Planner Plan fixtures in Controller, Controller Public Status routing, Controller Result fixtures in Planner, identical Plan/Result schemas, and unsupported major rejection. It is a semantic compatibility check, not live delivery evidence.
 
 ## Compatibility cutoff
 

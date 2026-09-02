@@ -1,6 +1,6 @@
 # Execution and closeout contract
 
-Use this reference for explicit Legacy Herdr work after its handoff, or when later merge, release, or outcome facts already exist. A Controller-produced `execution.handoffReady` must first use the handoff-ready routing contract; without a public Controller export/status contract, do not project Controller `IN_PROGRESS` or `DELIVERED`. `ask-yet` is invoked on demand and never duplicates executor state.
+Use this reference for explicit Legacy Herdr work after its handoff, or when later merge, release, or outcome facts already exist. A Controller-produced `execution.handoffReady` must first use the handoff-ready routing contract. Its on-demand Public Status is a transient display input, not a Planning Case Fact: do not persist it, turn it into Planner `IN_PROGRESS`/`DELIVERED`, or accept it as merge evidence. `ask-yet` is invoked on demand and never duplicates executor state.
 
 ## 1. Authority by fact
 
@@ -9,9 +9,10 @@ Resolve each fact from its owner. No source may overrule a fact outside its doma
 1. The exact Release artifact owns product intent, Commitment, evidence window, and minimum evidence.
 2. Tracker bodies, relationships, labels, and comments own Spec, ticket graph, Admission activation, and planning closeout.
 3. The Harness ledger or its durable operator projection owns selection, claim, run, review, recovery hold, and terminal execution state.
-4. Accepted Git and PR state own the delivered source identity and merge fact.
-5. The Release Record plus actual audience enablement, smoke evidence, and rollback state own release fact.
-6. Signal evidence collected at or after the evidence window owns product outcome.
+4. Controller Public Status owns only the current Controller display; an explicitly exported and Plan-bound `release-result:v1` owns Controller completion ingestion.
+5. Accepted Git and PR state own the delivered source identity and merge fact.
+6. The Release Record plus actual audience enablement, smoke evidence, and rollback state own release fact.
+7. Signal evidence collected at or after the evidence window owns product outcome.
 
 Read the smallest current slice needed from each applicable owner. A conversation, prior summary, PR alone, ready label alone, or Harness process presence cannot substitute for the owning source. If owning sources conflict or a required source is unavailable, report the exact conflict or missing evidence as `BLOCKED`; do not guess.
 

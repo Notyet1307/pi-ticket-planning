@@ -5,7 +5,7 @@ Planner keeps Planning Case, accepted Spec, Delivery Graph, decisions, ticket re
 ```text
 Planner internal facts
 → release-plan.json
-→ Controller validation, fresh Workers, aggregate review, PR, required CI, exact-head merge
+→ Controller Prepare Gate, offline Workers/validation/review, optional required Demo, PR, required CI, exact-head merge
 → review.md + release-result.json
 ```
 
@@ -17,7 +17,7 @@ The Plan uses `controllerContractVersion: 1` and contains only the release ident
 herdr-codex start --config ... --plan ... --approve-plan <planDigest>
 ```
 
-Controller returns `herdr-codex-controller:release-result:v1`. Planner ingestion requires the approved Plan and binds `releaseId`, `planDigest`, and `baseSha`; a downstream Graph also records and checks the predecessor Plan digest. Planner never reads Controller private Job state, polls execution, or interprets Controller build identity.
+Controller returns `herdr-codex-controller:release-result:v1`. Planner ingestion requires the approved Plan and binds `releaseId`, `planDigest`, and `baseSha`; a downstream Graph also records and checks the predecessor Plan digest. On explicit STATUS/RESUME, Planner may read the bounded Controller `status --public --json` once for display routing, but never reads private Job state, polls execution, persists runtime status, treats status as completion, or interprets Controller build identity.
 
 Cross-repository CI checks semantic fixtures and matching schema bytes from current checkouts. It does not clone or hash a pinned Controller commit.
 

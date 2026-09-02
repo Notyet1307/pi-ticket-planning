@@ -51,6 +51,9 @@ test("apply materializes only release-plan.json and prints one-digest start", (t
   assert.deepEqual(verifyReleasePlanExactReadback({ outputDir: ready.outputDir, plan: ready.plan }), []);
   const snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
   assert.equal(snapshot.checkpoint.verdict, "HANDOFF_READY");
+  assert.equal(snapshot.nextAction.command, result.nextCommand);
+  assert.equal(snapshot.nextAction.reasonCode, "CONTROLLER_START_REQUIRED");
+  assert.equal(/status|runtime|job\.json/u.test(JSON.stringify(snapshot.nextAction)), false);
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), false);
   assert.equal(snapshot.approvals.consumed.some(({ id }) => id === ready.approval.id), true);
 });

@@ -354,7 +354,7 @@ pi-ticket-plan admit apply \
 
 Controller 执行、aggregate review、PR/CI/merge、真实启用、健康和 Outcome 是不同事实。Planner handoff 不轮询执行；Legacy Harness claim 语义只留在显式 `admit` 路径。
 
-Planner 只接受 `herdr-codex-controller:release-result:v1`；绝不读取私有 `job.json`、轮询执行，或把 status summary 当作 merged result。
+显式查询状态/恢复时，Planner 可按需读取一次有界的 Controller Public Status，只用于展示当前 owner 和 next action；不轮询、不持久化 runtime。Planner 只接受 `herdr-codex-controller:release-result:v1` 作为 Controller 完成证据；绝不读取私有 `job.json`，也不把 status summary 当作 merged result。
 
 ## 开发和发布验证
 
