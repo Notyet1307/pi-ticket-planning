@@ -18,6 +18,8 @@ import test from "node:test";
 import { PACKAGE_ROOT, writeInstallation } from "../scripts/install-profile.mjs";
 import { applyInstallation, applyRollback, inspectInstallation, planInstallation, planRollback, recoverInstallation } from "../installation/manager.mjs";
 
+const SUBAGENT_SOURCE = "git:github.com/Notyet1307/pi-interactive-subagents@f1695359a9961eca845b53caa5e4fceb17da2d23";
+
 test("profile installation is isolated, portable, and preserves unrelated preferences", () => {
   const temporary = mkdtempSync(path.join(os.tmpdir(), "pi-ticket-planning-"));
   const profileDir = path.join(temporary, "profile");
@@ -34,7 +36,7 @@ test("profile installation is isolated, portable, and preserves unrelated prefer
     const settings = JSON.parse(readFileSync(settingsFile, "utf8"));
     assert.equal(settings.packages.find((entry) => entry.source === PACKAGE_ROOT)?.source, PACKAGE_ROOT);
     assert.equal(settings.subagents, undefined);
-    assert.equal(settings.packages.some((entry) => /^git:github\.com\/Notyet1307\/pi-interactive-subagents@[a-f0-9]{40}$/.test(entry.source)), true);
+    assert.equal(settings.packages.some((entry) => entry.source === SUBAGENT_SOURCE), true);
     assert.equal(settings.packages.some((entry) => entry.source === "npm:@ff-labs/pi-fff@0.10.5"), true);
     assert.equal(settings.packages.some((entry) => entry.source === "npm:@juicesharp/rpiv-todo@2.7.1"), true);
     assert.equal(
