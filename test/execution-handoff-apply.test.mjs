@@ -10,7 +10,7 @@ import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
 import { compiledFixture, NOW } from "./execution-plan-fixture.mjs";
 import { createReadyCase } from "./execution-handoff-fixture.mjs";
 
-function setup(t, name) {
+function setup(t, name, caseIdentity = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const stateDir = path.join(root, "state");
@@ -19,7 +19,7 @@ function setup(t, name) {
   fs.mkdirSync(outputParent, { mode: 0o700 });
   const outputDir = path.join(outputParent, "handoff");
   const { input, plan } = compiledFixture();
-  const ready = createReadyCase({ stateDir, plan });
+  const ready = createReadyCase({ stateDir, plan, ...caseIdentity });
   return {
     ...ready,
     input,
@@ -53,6 +53,22 @@ test("apply materializes only release-plan.json and prints one-digest start", (t
   assert.equal(snapshot.checkpoint.verdict, "HANDOFF_READY");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), false);
   assert.equal(snapshot.approvals.consumed.some(({ id }) => id === ready.approval.id), true);
+});
+
+test("apply preserves a stable Planning Case identity distinct from tracker and source revisions", (t) => {
+  const ready = setup(t, "semantic-handoff-stable-case-identity", {
+    subjectId: "R003",
+    subjectRevision: "r7",
+  });
+  assert.notEqual(ready.subject.id, String(ready.plan.parentIssue));
+  assert.notEqual(ready.subject.revision, ready.input.source.revision);
+  assert.equal(ready.approval.subject.revision, ready.subject.revision);
+
+  const result = applyExecutionPlan(ready.base);
+  assert.equal(result.status, "COMPLETE");
+  const snapshot = ready.store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.checkpoint.verdict, "HANDOFF_READY");
+  assert.deepEqual(snapshot.checkpoint.subject, ready.subject);
 });
 
 test("apply is byte-idempotent after approval consumption", (t) => {
