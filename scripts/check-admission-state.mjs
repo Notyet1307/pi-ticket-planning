@@ -47,6 +47,16 @@ function extractSpecScenarioIds(parentBody) {
   return [...section.matchAll(/^### (S[0-9]+):/gm)].map((match) => match[1]);
 }
 
+function hasParentAcceptanceContradiction(parentBody) {
+  if (/\bSPEC_IN_PROGRESS\b/u.test(parentBody)) return true;
+  return parentBody.split(/\r?\n/u).some((line) => /^(?:(?:spec(?:ification)?\s+)?(?:acceptance|status)\s*:\s*)?(?:not\s+accepted|尚未接受|未接受)(?:\s*[.!。])?$/iu.test(line.trim()));
+}
+
+function expectedSpecScenarioIds(roadmap, graphScenarioIds) {
+  if (roadmap?.schema !== "pi-ticket-planning:roadmap-graph:v1") return graphScenarioIds;
+  return [...new Set((roadmap.plannedReleases ?? []).flatMap(({ scenarioCoverage }) => scenarioCoverage ?? []))];
+}
+
 function isAncestor(repositoryPath, ancestor, descendant) {
   if (!path.isAbsolute(repositoryPath ?? "")) return false;
   const run = spawnSync("git", ["-C", repositoryPath, "merge-base", "--is-ancestor", ancestor, descendant], {
@@ -154,13 +164,13 @@ export function validateAdmissionState(bundle) {
     && parent.title === acceptance?.parent?.title
     && hashText(bundle.parentBody) === acceptance?.parent?.bodyHash;
   if (!parentMatches) problems.push(issue("SPEC_ACCEPTANCE_RECEIPT_STALE"));
-  if (/\bSPEC_IN_PROGRESS\b|\bnot\s+accepted\b|尚未接受|未接受/iu.test(bundle.parentBody)) {
+  if (hasParentAcceptanceContradiction(bundle.parentBody)) {
     problems.push(issue("PARENT_ACCEPTANCE_CONTRADICTION"));
   }
 
   const specScenarioIds = extractSpecScenarioIds(bundle.parentBody);
   const graphScenarioIds = (snapshot.scenarios ?? []).map(({ id }) => id);
-  if (!sameValues(specScenarioIds, graphScenarioIds)) {
+  if (!sameValues(specScenarioIds, expectedSpecScenarioIds(roadmap, graphScenarioIds))) {
     problems.push(issue("SPEC_SCENARIO_SET_MISMATCH"));
   }
 
