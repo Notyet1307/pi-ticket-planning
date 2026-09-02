@@ -353,9 +353,9 @@ pi-ticket-plan admit apply \
 
 A standalone Ticket uses `--issue 42` instead of `--parent 90`; a reviewed `HUMAN` lane omits the Harness flags. `case approve` records a one-hour, exact-Plan activation approval in the private Planning Case. `apply` reads that attestation through the protocol kernel and consumes it only after every postcondition passes; `PARTIAL` keeps it pending for the same Plan, while replay after `COMPLETE` is a conflict. `readiness` and `plan` may run disposable project validation but do not mutate Tracker or Harness workflow state. The private Harness config must be mode `0600`.
 
-Controller execution, aggregate review, PR/CI/merge, real enablement, health, and Outcome remain distinct. Planner handoff never polls execution. Legacy Harness claim semantics remain confined to the explicit `admit` path.
+Controller execution, aggregate review, PR/CI/merge, real enablement, health, and Outcome remain distinct. On explicit status/resume, Planner may read the bounded public Controller status once to display the current owner and action; it never polls or persists that runtime projection. Legacy Harness claim semantics remain confined to the explicit `admit` path.
 
-Planner accepts only `herdr-codex-controller:release-result:v1`; it never reads private `job.json`, polls execution, or treats a status summary as a merged result.
+Planner accepts only `herdr-codex-controller:release-result:v1` as Controller completion evidence; it never reads private `job.json` or treats a status summary as a merged result.
 
 ## Development and release verification
 

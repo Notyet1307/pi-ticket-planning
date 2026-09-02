@@ -28,7 +28,39 @@ test("route Context Manifests stay bounded and keep Reviewer input isolated", ()
   const handoffContract = fs.readFileSync(path.join(ROOT, "skills", "ask-yet", "references", "handoff-ready.md"), "utf8");
   assert.match(handoffContract, /source\.kind == execution-plan-apply/);
   assert.match(handoffContract, /source\.kind == admission-cli/);
+  assert.match(handoffContract, /status --config <controller-config> --job <release-id> --public --json/);
+  assert.match(handoffContract, /`id`, `repo`, `planDigest`, and `baseSha` match the approved Plan/);
+  for (const route of ["job_not_found", "running", "blocked / recoverable", "blocked / manual", "blocked / replan_required", "completed", "failed", "legacy=true", "STATUS_UNAVAILABLE"]) {
+    assert.match(handoffContract, new RegExp(route.replaceAll("/", "\\/")));
+  }
+  assert.match(handoffContract, /Never copy the public JSON into the Planning Case/);
+  assert.match(handoffContract, /do not poll, start, retry, abort, or write state/);
   assert.match(handoffContract, /Keep the Planning Case at `HANDOFF_READY`.*`release-result:v1`/);
+  const statusCases = JSON.parse(fs.readFileSync(path.join(ROOT, "fixtures", "controller-public-status-cases.json"), "utf8"));
+  assert.deepEqual(statusCases.cases.map(({ id }) => id), [
+    "controller-job-not-started",
+    "controller-running",
+    "controller-id-mismatch",
+    "controller-binding-mismatch",
+    "controller-repo-mismatch",
+    "controller-base-mismatch",
+    "controller-malformed-blocked",
+    "controller-blocked-recoverable",
+    "controller-legacy-normalized-recoverable",
+    "controller-blocked-manual",
+    "controller-blocked-replan",
+    "controller-unknown-block-kind",
+    "controller-completed",
+    "controller-failed",
+    "controller-unknown-status",
+    "controller-status-unavailable",
+  ]);
+  for (const fixture of statusCases.cases) {
+    assert.equal(fixture.expected.planningHandoff, "HANDOFF_READY");
+    assert.equal(fixture.expected.plannerMutations, 0);
+    assert.equal(fixture.expected.privateJobReads, 0);
+    assert.equal(fixture.expected.polls, 0);
+  }
 });
 
 test("Context verifier rejects missing, over-budget, and author-reasoning inputs", (t) => {

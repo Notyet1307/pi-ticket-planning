@@ -33,8 +33,64 @@ test("Planner fixtures validate in the checked-out Controller", { skip: !process
   );
   const controllerPlan = await import(pathToFileURL(path.join(controllerRoot, "dist/src/plan.js")));
   const controllerResult = await import(pathToFileURL(path.join(controllerRoot, "dist/src/release-result.js")));
+  const controllerStatus = await import(pathToFileURL(path.join(controllerRoot, "dist/src/public-status.js")));
   const plan = compileExecutionPlan(executionInput());
   const result = controllerResultFixture({ releaseId: plan.id, baseSha: plan.baseSha });
   assert.deepEqual(controllerPlan.validatePlan(plan), plan);
   assert.doesNotThrow(() => controllerResult.assertReleaseResult(result));
+
+  const fixture = JSON.parse(fs.readFileSync(path.resolve("fixtures/controller-public-status-cases.json"), "utf8"));
+  const config = {
+    repo: fixture.approvedPlan.repo,
+    localPath: "/private/controller-source",
+    stateDir: "/private/controller-state",
+    worktreeRoot: "/private/controller-worktrees",
+    codex: { bin: "/private/bin/codex" },
+    validation: { sandbox: { bin: "/private/bin/codex", root: "/private/controller-sandbox" } },
+  };
+  const baseJob = {
+    ...fixture.baseStatus,
+    configPath: "/private/controller.json",
+    planPath: "/private/release-plan.json",
+    worktreePath: "/private/controller-worktrees/release-fixture",
+  };
+  for (const item of fixture.cases.filter(({ statusPatch }) => statusPatch)) {
+    let status;
+    const sourceJob = { ...baseJob, ...item.statusPatch };
+    if (item.sourceLegacyBlockedKindMissing) delete sourceJob.blocked.kind;
+    try { status = controllerStatus.publicStatus(config, sourceJob); }
+    catch {
+      assert.equal(item.expected.controller, "STATUS_UNAVAILABLE", item.id);
+      continue;
+    }
+    if (item.sourceLegacyBlockedKindMissing) {
+      assert.equal(status.legacy, true);
+      assert.equal(status.blocked.kind, "recoverable");
+    }
+    const bindingsMatch = status.id === fixture.approvedPlan.id
+      && status.repo === fixture.approvedPlan.repo
+      && status.planDigest === fixture.approvedPlan.planDigest
+      && status.baseSha === fixture.approvedPlan.baseSha;
+    const route = !bindingsMatch
+      ? "STATUS_UNAVAILABLE"
+      : status.status === "running"
+        ? "RUNNING"
+        : status.status === "completed"
+          ? "COMPLETED"
+          : status.status === "failed"
+            ? "FAILED"
+            : status.blocked?.kind === "recoverable"
+              ? "BLOCKED_RECOVERABLE"
+              : status.blocked?.kind === "manual"
+                ? "BLOCKED_MANUAL"
+                : status.blocked?.kind === "replan_required"
+                  ? "BLOCKED_REPLAN_REQUIRED"
+                  : "STATUS_UNAVAILABLE";
+    assert.equal(route, item.expected.controller, item.id);
+    const publicBytes = JSON.stringify(status);
+    assert.equal(/job\.json|configPath|planPath|worktreePath|stateDir|detailsPath|promptPath|stderrPath/u.test(publicBytes), false);
+    for (const privatePath of [config.localPath, config.stateDir, config.worktreeRoot, config.validation.sandbox.root]) {
+      assert.equal(publicBytes.includes(privatePath), false);
+    }
+  }
 });
