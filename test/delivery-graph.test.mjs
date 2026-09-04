@@ -290,7 +290,7 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   assert.equal(validateDeliveryGraph(release).ok, true);
 
   const predecessorPlan = {
-    controllerContractVersion: 1,
+    controllerContractVersion: 2,
     id: "r001-c1-r1",
     title: "Previous release",
     objective: "Ship previous release",
@@ -298,7 +298,7 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
     baseRef: "main",
     baseSha: "1".repeat(40),
     parentIssue: 1,
-    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], risk: "normal", oracleCommands: [] }],
+    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], scopeBudget: { maxFiles: 1, maxChangedLines: 1 }, risk: "normal", oracleCommands: [] }],
     releaseAcceptanceCriteria: ["Done"],
     reviewFocus: [],
   };

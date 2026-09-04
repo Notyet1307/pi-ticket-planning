@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createPlanningCaseStore, PlanningCaseError } from "./store.mjs";
 import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
-import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
+import { createFactAttestation, producerAttestationSource, validateFactAttestation } from "../protocol/kernel.mjs";
 import { runtimeMetadata } from "../installation/build-metadata.mjs";
 import { validateGoalHandoff, validateReleasePlan } from "../execution-plan/release-contract.mjs";
 
@@ -156,6 +156,21 @@ export function createGoalHandoffApproval({ handoff, caseId, correlationId, obse
   });
 }
 
+function hasCurrentApproval(snapshot, fact, digest, now) {
+  const checkedAt = Date.parse(now);
+  return !Number.isFinite(checkedAt)
+    || snapshot.approvals.consumed.some((item) => item.fact === fact && item.subject?.digest === digest)
+    || snapshot.approvals.pending.some((item) => {
+      if (item.fact !== fact || item.subject?.digest !== digest) return false;
+      const observedAt = Date.parse(item.observedAt);
+      const expiresAt = Date.parse(item.expiresAt);
+      const expired = validateFactAttestation(item, { producerDigestPolicy: "RECORDED" }).ok
+        && typeof item.expiresAt === "string" && Number.isFinite(observedAt) && Number.isFinite(expiresAt)
+        && observedAt <= expiresAt && expiresAt <= checkedAt;
+      return !expired;
+    });
+}
+
 const INPUT_EVENTS = {
   "select-candidate": ["CANDIDATE_SELECTED", "candidate"],
   "exclude-candidate": ["CANDIDATE_EXCLUDED", "candidate"],
@@ -258,9 +273,9 @@ export function runPlanningCaseCli(argv, {
       const target = `github:${plan.repo}`;
       const snapshot = store.get({ caseId, target });
       if (snapshot.target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
-      if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.executionHandoff"
-        && item.subject?.digest === planFingerprint)) throw new PlanningCaseError("HANDOFF_APPROVAL_ALREADY_EXISTS");
-      const approval = createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt: clock(), revision: snapshot.checkpoint.subject?.revision });
+      const observedAt = clock();
+      if (hasCurrentApproval(snapshot, "human.executionHandoff", planFingerprint, observedAt)) throw new PlanningCaseError("HANDOFF_APPROVAL_ALREADY_EXISTS");
+      const approval = createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt, revision: snapshot.checkpoint.subject?.revision });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "approve-goal-handoff") {
@@ -272,9 +287,9 @@ export function runPlanningCaseCli(argv, {
       const target = `github:${handoff.repo}`;
       const snapshot = store.get({ caseId, target });
       if (snapshot.target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
-      if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.goalHandoff"
-        && item.subject?.digest === handoffFingerprint)) throw new PlanningCaseError("GOAL_HANDOFF_APPROVAL_ALREADY_EXISTS");
-      const approval = createGoalHandoffApproval({ handoff, caseId, correlationId, observedAt: clock(), revision: snapshot.checkpoint.subject?.revision });
+      const observedAt = clock();
+      if (hasCurrentApproval(snapshot, "human.goalHandoff", handoffFingerprint, observedAt)) throw new PlanningCaseError("GOAL_HANDOFF_APPROVAL_ALREADY_EXISTS");
+      const approval = createGoalHandoffApproval({ handoff, caseId, correlationId, observedAt, revision: snapshot.checkpoint.subject?.revision });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "resume") {

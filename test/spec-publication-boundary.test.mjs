@@ -434,7 +434,7 @@ test("prepare-codex-release keeps one fresh graph review and the semantic handof
   const prepare = read("skills/prepare-codex-release/SKILL.md");
   assert.equal((prepare.match(/ticket-readiness-reviewer/g) ?? []).length, 1);
   assert.match(prepare, /one fresh, read-only `ticket-readiness-reviewer` graph review/);
-  for (const required of ["one `release-plan.json`", "controllerContractVersion: 1", "--approve-plan", "approval is consumed once"]) {
+  for (const required of ["one `release-plan.json`", "controllerContractVersion: 2", "--approve-plan", "approval is consumed once"]) {
     assert.match(prepare, new RegExp(required));
   }
 });

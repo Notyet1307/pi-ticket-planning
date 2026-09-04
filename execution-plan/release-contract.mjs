@@ -11,7 +11,7 @@ const GOAL_HANDOFF_SCHEMA_PATH = "schemas/goal-handoff-v1.schema.json";
 const GOAL_RESULT_SCHEMA_PATH = "schemas/goal-release-result-v1.schema.json";
 const GOAL_RESULT_ACCEPTANCE_SCHEMA_PATH = "schemas/goal-result-acceptance-v1.schema.json";
 
-export const CONTROLLER_CONTRACT_VERSION = 1;
+export const CONTROLLER_CONTRACT_VERSION = 2;
 export const RELEASE_RESULT_SCHEMA = "herdr-codex-controller:release-result:v1";
 export const GOAL_HANDOFF_SCHEMA = "pi-ticket-planning:goal-handoff:v1";
 export const GOAL_RELEASE_RESULT_SCHEMA = "pi-ticket-planning:goal-release-result:v1";

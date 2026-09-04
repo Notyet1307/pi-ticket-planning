@@ -20,9 +20,9 @@ test("Planner compiles one deterministic semantic Release Plan", () => {
     "parentIssue", "releaseAcceptanceCriteria", "repo", "reviewFocus", "title",
   ]);
   assert.deepEqual(Object.keys(plan.issues[0]).sort(), [
-    "acceptanceCriteria", "dependsOn", "expectedPaths", "number", "objective", "oracleCommands", "order", "risk",
+    "acceptanceCriteria", "dependsOn", "expectedPaths", "number", "objective", "oracleCommands", "order", "risk", "scopeBudget",
   ]);
-  assert.equal(plan.controllerContractVersion, 1);
+  assert.equal(plan.controllerContractVersion, 2);
   assert.equal(plan.id, "r001-c1-r1");
   assert.equal(plan.repo, input.repo);
   assert.equal(plan.baseRef, input.source.baseRef);
@@ -30,9 +30,18 @@ test("Planner compiles one deterministic semantic Release Plan", () => {
   assert.equal(plan.parentIssue, Number(input.parent.id));
   assert.equal(plan.issues[0].risk, "normal");
   assert.deepEqual(plan.issues[0].oracleCommands, []);
-  for (const removed of ["source", "controller", "decisionManifestDigest", "deliveryGraphDigest", "predecessorReceipt", "protectedPaths", "replanTriggers", "scopeBudget", "waiverDigests"]) {
+  assert.deepEqual(plan.issues[0].scopeBudget, { maxFiles: 8, maxChangedLines: 1500 });
+  for (const removed of ["source", "controller", "decisionManifestDigest", "deliveryGraphDigest", "predecessorReceipt", "protectedPaths", "replanTriggers", "waiverDigests"]) {
     assert.equal(JSON.stringify(plan).includes(`\"${removed}\"`), false, removed);
   }
+});
+
+test("Plan v2 requires bounded paths and risk-appropriate Oracle commands", () => {
+  const plan = compileExecutionPlan(executionInput());
+  assert.equal(validateReleasePlan({ ...plan, issues: [{ ...plan.issues[0], expectedPaths: [] }] })[0].code, "ARTIFACT_SCHEMA_INVALID");
+  assert.equal(validateReleasePlan({ ...plan, issues: [{ ...plan.issues[0], scopeBudget: { maxFiles: 1001, maxChangedLines: 1500 } }] })[0].code, "ARTIFACT_SCHEMA_INVALID");
+  assert.equal(validateReleasePlan({ ...plan, issues: [{ ...plan.issues[0], risk: "high", oracleCommands: [] }] })[0].code, "ARTIFACT_SCHEMA_INVALID");
+  assert.equal(validateReleasePlan({ ...plan, issues: [{ ...plan.issues[0], oracleCommands: ["npm test"] }] })[0].code, "ARTIFACT_SCHEMA_INVALID");
 });
 
 test("high-risk internal tickets expose only the trusted Oracle command", () => {
@@ -56,7 +65,7 @@ test("semantic verification recompiles fresh Planner facts and detects drift", (
   const plan = compileExecutionPlan(input);
   assert.equal(verifyExecutionPlan(plan, input, { readFresh: executionFreshnessProjection }).status, "READY");
   assert.deepEqual(
-    verifyExecutionPlan({ ...plan, controllerContractVersion: 2 }, input).problems,
+    verifyExecutionPlan({ ...plan, controllerContractVersion: 1 }, input).problems,
     [{ code: "UNSUPPORTED_CONTROLLER_CONTRACT_VERSION" }],
   );
   let reads = 0;

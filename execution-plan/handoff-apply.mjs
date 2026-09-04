@@ -117,20 +117,33 @@ export function applyExecutionPlan({
   outputDir = outputDirectory(outputDir);
   const digest = planFingerprint(plan);
   if (expectedFingerprint !== digest) throw new Error("EXPECTED_FINGERPRINT_MISMATCH");
+  const now = clock();
+  const operationTime = Date.parse(now);
   const target = `github:${plan.repo}`;
   let snapshot = store.get({ caseId, target });
   const approvals = [...snapshot.approvals.pending, ...snapshot.approvals.consumed];
-  const approval = approvals.find(({ id }) => id === approvalId);
-  const matchingApprovals = approvals.filter((item) => item.fact === "human.executionHandoff" && item.subject?.digest === digest);
+  const consumed = snapshot.approvals.consumed.some(({ id }) => id === approvalId);
+  const selectedApprovals = approvals.filter(({ id }) => id === approvalId);
+  const approval = selectedApprovals[0];
+  const otherPending = snapshot.approvals.pending.filter((item) => item.id !== approvalId
+    && item.fact === "human.executionHandoff" && item.subject?.digest === digest);
+  const otherConsumed = snapshot.approvals.consumed.some((item) => item.id !== approvalId
+    && item.fact === "human.executionHandoff" && item.subject?.digest === digest);
+  const expiredHistory = otherPending.every((item) => {
+    const observedAt = Date.parse(item.observedAt);
+    const expiresAt = Date.parse(item.expiresAt);
+    return validateFactAttestation(item, { producerDigestPolicy: "RECORDED" }).ok
+      && typeof item.expiresAt === "string" && Number.isFinite(observedAt) && Number.isFinite(expiresAt)
+      && observedAt <= expiresAt && expiresAt <= operationTime;
+  });
   const stableRevision = snapshot.checkpoint.subject?.revision;
   const approvalSubject = { target, kind: "release-plan", id: digest, revision: stableRevision, digest };
   const approvalSubjectMatches = approval && Object.entries(approvalSubject).every(([key, value]) => approval.subject?.[key] === value);
-  if (!approval || matchingApprovals.length !== 1 || approval.fact !== "human.executionHandoff" || !approvalSubjectMatches
-    || !validateFactAttestation(approval).ok) throw new Error("INVALID_HANDOFF_APPROVAL");
+  if (!Number.isFinite(operationTime) || selectedApprovals.length !== 1 || approval.fact !== "human.executionHandoff" || !approvalSubjectMatches
+    || !validateFactAttestation(approval, consumed ? { producerDigestPolicy: "RECORDED" } : { now }).ok || !expiredHistory || otherConsumed) throw new Error("INVALID_HANDOFF_APPROVAL");
   const existing = exactExisting(outputDir, plan);
   const handoffReady = snapshot.checkpoint.stage === "EXECUTION" && snapshot.checkpoint.verdict === "HANDOFF_READY"
     && exactCaseSubject(snapshot.checkpoint.subject, { target, digest, revision: approval.subject.revision });
-  const consumed = snapshot.approvals.consumed.some(({ id }) => id === approvalId);
   if (consumed && (!existing || !handoffReady)) throw new Error("HANDOFF_OUTPUT_CONFLICT");
   const verified = verifyExecutionPlan(plan, input, { readFresh, reloadInput });
   if (verified.status !== "READY") return verified;
@@ -141,7 +154,6 @@ export function applyExecutionPlan({
     if (final.approvals.pending.some(({ id }) => id === approvalId) || !final.approvals.consumed.some(({ id }) => id === approvalId)) throw new Error("APPROVAL_NOT_SINGLE_CONSUMED");
     return { status: "COMPLETE", planDigest: releasePlanDigest(plan), nextCommand };
   }
-  const now = clock();
   const checkpointMatches = () => snapshot.checkpoint.stage === "ADMISSION"
     && ["ACTIVATION_AWAITING_CONFIRMATION", "HANDOFF_APPROVED"].includes(snapshot.checkpoint.verdict)
     && exactCaseSubject(snapshot.checkpoint.subject, { target, digest, revision: approval.subject.revision });

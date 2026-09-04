@@ -16,10 +16,10 @@ test("semantic Controller fixtures are accepted without an exact build pin", () 
   const plan = compileExecutionPlan(executionInput());
   const result = controllerResultFixture({ releaseId: plan.id, baseSha: plan.baseSha });
   assert.deepEqual(validateReleasePlan(plan), []);
-  assert.equal(plan.controllerContractVersion, 1);
+  assert.equal(plan.controllerContractVersion, 2);
   assert.deepEqual(validateReleaseResult(result), []);
   assert.deepEqual(ingestControllerResult(result, { releaseId: result.releaseId, planDigest: result.planDigest, baseSha: result.baseSha }), result);
-  assert.deepEqual(validateReleasePlan({ ...plan, controllerContractVersion: 2 }), [{ code: "UNSUPPORTED_CONTROLLER_CONTRACT_VERSION" }]);
+  assert.deepEqual(validateReleasePlan({ ...plan, controllerContractVersion: 1 }), [{ code: "UNSUPPORTED_CONTROLLER_CONTRACT_VERSION" }]);
   assert.deepEqual(validateReleaseResult({ ...result, schema: "herdr-codex-controller:release-result:v2" }), [{ code: "UNSUPPORTED_RELEASE_RESULT_CONTRACT" }]);
 });
 
@@ -75,7 +75,11 @@ test("Planner fixtures validate in the checked-out Controller", { skip: !process
   };
   for (const item of fixture.cases.filter(({ statusPatch }) => statusPatch)) {
     let status;
-    const sourceJob = { ...baseJob, ...item.statusPatch };
+    const sourceJob = {
+      ...baseJob,
+      ...item.statusPatch,
+      plan: { ...baseJob.plan, ...(item.planPatch ?? {}) },
+    };
     if (item.sourceLegacyBlockedKindMissing) delete sourceJob.blocked.kind;
     try { status = controllerStatus.publicStatus(config, sourceJob); }
     catch {
@@ -86,7 +90,7 @@ test("Planner fixtures validate in the checked-out Controller", { skip: !process
       assert.equal(status.legacy, true);
       assert.equal(status.blocked.kind, "recoverable");
     }
-    const bindingsMatch = status.id === fixture.approvedPlan.id
+    const bindingsMatch = status.releaseId === fixture.approvedPlan.id
       && status.repo === fixture.approvedPlan.repo
       && status.planDigest === fixture.approvedPlan.planDigest
       && status.baseSha === fixture.approvedPlan.baseSha;

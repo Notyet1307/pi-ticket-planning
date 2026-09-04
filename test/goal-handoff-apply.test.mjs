@@ -17,7 +17,7 @@ import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { advanceCaseToActivation } from "./execution-handoff-fixture.mjs";
 import { compiledFixture, NOW } from "./execution-plan-fixture.mjs";
 
-function setup(t, channel = "GOAL_LOCAL", runnerRef = "local") {
+function setup(t, channel = "GOAL_LOCAL", runnerRef = "local", caseNow = NOW) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "goal-handoff-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const stateDir = path.join(root, "state");
@@ -32,11 +32,11 @@ function setup(t, channel = "GOAL_LOCAL", runnerRef = "local") {
   const handoff = buildGoalHandoff({ plan, channel, runnerRef, runnerDigest: fingerprint(runner), runnerHost: runner.host });
   const target = `github:${plan.repo}`;
   const caseId = "PC-goal-handoff";
-  const store = createPlanningCaseStore({ stateDir, clock: () => NOW });
+  const store = createPlanningCaseStore({ stateDir, clock: () => caseNow });
   store.create({ target, caseId });
   const subject = { target, kind: "release", id: String(plan.parentIssue), revision: "r1", digest: fingerprint(plan) };
-  advanceCaseToActivation({ store, caseId, target, subject, now: NOW });
-  const approval = createGoalHandoffApproval({ handoff, caseId, correlationId: "C-goal-handoff", observedAt: NOW, revision: subject.revision });
+  advanceCaseToActivation({ store, caseId, target, subject, now: caseNow });
+  const approval = createGoalHandoffApproval({ handoff, caseId, correlationId: "C-goal-handoff", observedAt: caseNow, revision: subject.revision });
   store.addApproval({ caseId, target, approval });
   return {
     root,
@@ -47,6 +47,7 @@ function setup(t, channel = "GOAL_LOCAL", runnerRef = "local") {
     target,
     caseId,
     approval,
+    subject,
     outputDir,
     base: {
       handoff,
@@ -78,6 +79,23 @@ test("Goal apply consumes an exact channel approval and routes HANDOFF_READY by 
   assert.equal(snapshot.facts.find(({ fact }) => fact === "execution.handoffReady")?.source.kind, "goal-handoff-apply");
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), false);
   assert.equal(snapshot.approvals.consumed.some(({ id }) => id === ready.approval.id), true);
+});
+
+test("Goal handoff ignores expired approval history and replays a consumed approval after TTL", (t) => {
+  const ready = setup(t, "GOAL_LOCAL", "local", "2026-08-19T22:00:00.000Z");
+  const store = createPlanningCaseStore({ stateDir: path.join(ready.root, "state"), clock: () => NOW });
+  const replacement = createGoalHandoffApproval({ handoff: ready.handoff, caseId: ready.caseId, correlationId: "C-goal-replacement", observedAt: NOW, revision: ready.subject.revision });
+  store.addApproval({
+    caseId: ready.caseId,
+    target: ready.target,
+    approval: replacement,
+  });
+  const base = { ...ready.base, store, approvalId: replacement.id };
+  assert.equal(applyGoalHandoff(base).status, "COMPLETE");
+  const snapshot = store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  assert.equal(snapshot.approvals.consumed.filter(({ id }) => id === replacement.id).length, 1);
+  assert.equal(applyGoalHandoff({ ...base, clock: () => "2026-08-20T02:00:00.000Z" }).status, "COMPLETE");
 });
 
 test("Goal apply is byte-idempotent and rejects Plan drift without consuming approval", (t) => {

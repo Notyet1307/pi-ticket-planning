@@ -8,12 +8,35 @@
     "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "baseStatus": {
-    "id": "release-fixture",
+    "id": "job-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "status": "running",
     "phase": "prepare",
     "repo": "example/project",
     "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "plan": {
+      "controllerContractVersion": 2,
+      "id": "release-fixture",
+      "title": "Fixture release",
+      "objective": "Exercise the public status contract.",
+      "repo": "example/project",
+      "baseRef": "main",
+      "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "parentIssue": 1,
+      "issues": [{
+        "number": 1,
+        "order": 1,
+        "dependsOn": [],
+        "objective": "Implement the fixture.",
+        "acceptanceCriteria": ["Done"],
+        "expectedPaths": ["src/example.ts"],
+        "scopeBudget": { "maxFiles": 1, "maxChangedLines": 10 },
+        "risk": "normal",
+        "oracleCommands": []
+      }],
+      "releaseAcceptanceCriteria": ["Done"],
+      "reviewFocus": []
+    },
     "currentIssueNumber": null,
     "issues": [{ "number": 1, "status": "pending" }],
     "candidateSha": null,
@@ -90,7 +113,8 @@
     },
     {
       "id": "controller-base-mismatch",
-      "statusPatch": { "baseSha": "ffffffffffffffffffffffffffffffffffffffff", "status": "running", "phase": "implement" },
+      "statusPatch": { "status": "running", "phase": "implement" },
+      "planPatch": { "baseSha": "ffffffffffffffffffffffffffffffffffffffff" },
       "expected": {
         "planningHandoff": "HANDOFF_READY",
         "controller": "STATUS_UNAVAILABLE",

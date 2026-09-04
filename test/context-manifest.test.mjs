@@ -29,8 +29,8 @@ test("route Context Manifests stay bounded and keep Reviewer input isolated", ()
   assert.match(handoffContract, /source\.kind == execution-plan-apply/);
   assert.match(handoffContract, /source\.kind == goal-handoff-apply/);
   assert.match(handoffContract, /source\.kind == admission-cli/);
-  assert.match(handoffContract, /status --config <controller-config> --job <release-id> --public --json/);
-  assert.match(handoffContract, /`id`, `repo`, `planDigest`, and `baseSha` match the approved Plan/);
+  assert.match(handoffContract, /status --config <controller-config> --plan <release-plan\.json> --public --json/);
+  assert.match(handoffContract, /`releaseId`, `repo`, `planDigest`, and `baseSha` match the approved Plan/);
   for (const route of ["job_not_found", "running", "blocked / recoverable", "blocked / manual", "blocked / replan_required", "completed", "failed", "legacy=true", "STATUS_UNAVAILABLE"]) {
     assert.match(handoffContract, new RegExp(route.replaceAll("/", "\\/")));
   }
