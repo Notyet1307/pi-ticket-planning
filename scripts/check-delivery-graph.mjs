@@ -4,7 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { validateControllerResult } from "../execution-plan/release-result-ingest.mjs";
+import { validateExecutionResult } from "../execution-plan/release-result-ingest.mjs";
+import { validateGoalResultAcceptance } from "../execution-plan/release-contract.mjs";
 import { staticGraphChildProblems } from "./check-ticket-contract.mjs";
 
 export const DELIVERY_GRAPH_MARKER_V1 = "<!-- pi-ticket-planning:delivery-graph:v1 -->";
@@ -336,7 +337,17 @@ export function validateSpecAcceptance(receipt) {
 }
 
 export function validatePredecessorReceipt(receipt) {
-  return validateControllerResult(receipt).map(({ code }) => issue(code === "UNSUPPORTED_RELEASE_RESULT_CONTRACT" ? "INVALID_RELEASE_RESULT" : code));
+  if (receipt?.schema === "pi-ticket-planning:goal-release-result:v1") return [issue("GOAL_RESULT_ACCEPTANCE_REQUIRED")];
+  const problems = receipt?.schema === "pi-ticket-planning:goal-result-acceptance:v1"
+    ? validateGoalResultAcceptance(receipt)
+    : validateExecutionResult(receipt);
+  return problems.map(({ code }) => issue([
+    "UNSUPPORTED_RELEASE_RESULT_CONTRACT", "UNSUPPORTED_GOAL_RESULT_ACCEPTANCE_CONTRACT",
+  ].includes(code) ? "INVALID_RELEASE_RESULT" : code));
+}
+
+export function predecessorReleaseResult(receipt) {
+  return receipt?.schema === "pi-ticket-planning:goal-result-acceptance:v1" ? receipt.result : receipt;
 }
 
 function validateRoadmap(snapshot) {
@@ -424,18 +435,19 @@ function validateExecutableRelease(snapshot, { isAncestor, requireAncestry = tru
     if (!snapshot.predecessorReceipt) contract.push(issue("MISSING_PREDECESSOR_RECEIPT"));
     if (!snapshot.predecessorReceiptBinding) contract.push(issue("MISSING_PREDECESSOR_RECEIPT_BINDING"));
     if (snapshot.predecessorReceipt && snapshot.predecessorReceiptBinding) {
+      const predecessor = predecessorReleaseResult(snapshot.predecessorReceipt) ?? {};
       if (snapshot.predecessorReceiptBinding.baseSha !== snapshot.executionBaseSha) {
         contract.push(issue("PREDECESSOR_RECEIPT_BINDING_BASE_MISMATCH"));
       }
       contract.push(...validatePredecessorReceipt(snapshot.predecessorReceipt));
-      if (snapshot.predecessorReceipt.releaseId !== snapshot.predecessorReleaseId) {
+      if (predecessor.releaseId !== snapshot.predecessorReleaseId) {
         contract.push(issue("PREDECESSOR_RELEASE_MISMATCH"));
       }
-      if (snapshot.predecessorReceipt.planDigest !== snapshot.predecessorPlanDigest) {
+      if (predecessor.planDigest !== snapshot.predecessorPlanDigest) {
         contract.push(issue("RELEASE_RESULT_PLAN_MISMATCH"));
       }
-      if (snapshot.executionBaseSha !== snapshot.predecessorReceipt.mergeSha
-        && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(snapshot.predecessorReceipt.mergeSha, snapshot.executionBaseSha))) {
+      if (snapshot.executionBaseSha !== predecessor.mergeSha
+        && (typeof isAncestor !== "function" ? requireAncestry : !isAncestor(predecessor.mergeSha, snapshot.executionBaseSha))) {
         contract.push(issue("PREDECESSOR_EXECUTION_BASE_MISMATCH"));
       }
     }

@@ -20,6 +20,8 @@ trust:
 | Harness -> planner | Capability/readiness and Outcome Receipts | Exact repo/base/config/producer/freshness projection; read-only Outcome ingestion |
 | Planner -> Codex Controller | One approved semantic `release-plan.json` | Contract major plus exact Plan digest; Controller independently validates config, remote, base, sandbox, candidate, PR, CI, and merge |
 | Codex Controller -> planner | On-demand bounded Public Status for display; public `release-result:v1` for completion | Status is read once, Plan-bound, non-persistent, and never completion authority; Result uses closed schema plus expected release/Plan/base binding; no private Job input |
+| Planner -> Codex Goal Runner | One approved `goal-handoff:v1` containing the exact semantic Plan, channel, and runner reference | Dedicated single-consume approval; Runner independently validates target, base, Worktree, scope, validation, commits, and review |
+| Codex Goal Runner -> planner | On-demand bounded status; public `goal-release-result:v1` after human merge | Goal/model status is never proof; ingestion rebinds the private approved handoff and emits the only Goal predecessor form, `goal-result-acceptance:v1` |
 | Process -> local state | Case events, snapshots, transactions | Realpath containment, 0700/0600, no links, exclusive lock, digest chain, roll-forward recovery |
 
 Authenticated Tracker state can establish a Tracker Fact. It cannot establish a

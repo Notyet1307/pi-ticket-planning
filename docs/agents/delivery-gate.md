@@ -6,7 +6,7 @@ Planning artifacts and execution authority remain separate.
 
 - A standalone QUICK implementation candidate is created with `needs-triage`.
 - A Delivery Spec parent and every implementation child are also created with `needs-triage`.
-- Candidate creation, review, and Controller handoff do not add a ready label or start execution.
+- Candidate creation, review, and Goal/Controller handoff do not add a ready label or start execution.
 - `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix` use the mappings in `docs/agents/triage-labels.md`.
 
 ## Readiness
@@ -23,9 +23,9 @@ Before a candidate can leave planning, require the current `ticket-readiness` co
 
 Any source, body, Oracle, graph, order, blocker, policy, or base drift requires a fresh check and review. Missing or conflicting authority fails closed.
 
-## Recommended Controller handoff
+## Recommended execution handoff
 
-A bounded all-AGENT `delivery-release-graph:v3` may proceed through `prepare-codex-release`. The operator must approve the exact handoff fingerprint before private Controller inputs are materialized. All Issues remain `needs-triage`, and the Planner never starts the Controller.
+A bounded all-AGENT `delivery-release-graph:v3` may proceed through `prepare-codex-release`. The operator must approve the exact selected Goal or Controller handoff fingerprint before private executor input is materialized. All Issues remain `needs-triage`, and the Planner never starts an executor.
 
 Standalone QUICK work remains a reviewed standalone candidate unless a supported execution handoff is explicitly selected. Do not infer execution authorization from candidate publication or review.
 
@@ -35,4 +35,4 @@ Only an operator's explicit Legacy Herdr selection may invoke `admit-ticket` and
 
 ## Authority boundary
 
-GitHub owns Issue, label, PR, commit, check, and merge facts. The configured Controller or Harness owns execution facts. Planning Cases own planning workflow records. None of these facts may be inferred from chat, README examples, fixtures, or another system's projection.
+GitHub owns Issue, label, PR, commit, check, and merge facts. The selected Goal Runner, Controller, or Harness owns execution facts. Planning Cases own planning workflow records. None of these facts may be inferred from chat, README examples, fixtures, or another system's projection.

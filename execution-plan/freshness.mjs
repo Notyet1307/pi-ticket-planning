@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { validatePredecessorReceipt, validateSpecAcceptance } from "../scripts/check-delivery-graph.mjs";
+import { predecessorReleaseResult, validatePredecessorReceipt, validateSpecAcceptance } from "../scripts/check-delivery-graph.mjs";
 import { readRegularBaseFile, validateTicketContract } from "../scripts/check-ticket-contract.mjs";
 import { canonical, fingerprint, hashText } from "./domain.mjs";
 
@@ -177,9 +177,10 @@ export function assertTrackedReleaseBindings(input) {
     if (graph.predecessorPlanDigest !== null || graph.predecessorReceipt !== null || graph.predecessorReceiptBinding !== null) stableError("PREDECESSOR_RECEIPT_DRIFT");
   } else {
     const receipt = boundJson(repo, current, graph.predecessorReceiptBinding, graph.predecessorReceipt, "PREDECESSOR_RECEIPT_DRIFT");
+    const predecessor = predecessorReleaseResult(receipt) ?? {};
     if (graph.executionBasePolicy !== "PREDECESSOR_MERGE_OR_DESCENDANT"
-      || validatePredecessorReceipt(receipt).length > 0 || receipt.planDigest !== graph.predecessorPlanDigest
-      || !isGitAncestor(repo, receipt.mergeSha, current)) stableError("PREDECESSOR_RECEIPT_DRIFT");
+      || validatePredecessorReceipt(receipt).length > 0 || predecessor.planDigest !== graph.predecessorPlanDigest
+      || !isGitAncestor(repo, predecessor.mergeSha, current)) stableError("PREDECESSOR_RECEIPT_DRIFT");
   }
   return true;
 }

@@ -35,7 +35,8 @@
     "predecessorReceipt": {
       "oneOf": [
         { "type": "null" },
-        { "$ref": "herdr-codex-release-result-v1.schema.json" }
+        { "$ref": "herdr-codex-release-result-v1.schema.json" },
+        { "$ref": "goal-result-acceptance-v1.schema.json" }
       ]
     },
     "predecessorReceiptBinding": {

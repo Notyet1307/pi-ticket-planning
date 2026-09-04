@@ -212,6 +212,42 @@
     },
     {
       "namespace": "pi-ticket-planning",
+      "name": "goal-handoff",
+      "schemaIdentity": "pi-ticket-planning:goal-handoff:v1",
+      "schemaPath": "schemas/goal-handoff-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "goal-handoff-apply",
+      "readers": ["codex-goal-runner", "ask-yet"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "goal-release-result",
+      "schemaIdentity": "pi-ticket-planning:goal-release-result:v1",
+      "schemaPath": "schemas/goal-release-result-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "codex-goal-runner",
+      "readers": ["goal-result-ingestion", "ask-yet"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
+      "name": "goal-result-acceptance",
+      "schemaIdentity": "pi-ticket-planning:goal-result-acceptance:v1",
+      "schemaPath": "schemas/goal-result-acceptance-v1.schema.json",
+      "currentMajor": 1,
+      "readableMajors": [1],
+      "writer": "goal-result-ingestion",
+      "readers": ["delivery-graph-checker", "execution-plan-compiler"],
+      "fingerprintAlgorithm": "ptp-canonical-json-v1+sha256",
+      "migrationPath": null
+    },
+    {
+      "namespace": "pi-ticket-planning",
       "name": "decision-manifest",
       "schemaIdentity": "pi-ticket-planning:decision-manifest:v1",
       "schemaPath": "schemas/decision-manifest-v1.schema.json",

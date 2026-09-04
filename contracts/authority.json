@@ -20,8 +20,9 @@
     "harness.readinessPassed": { "kind": "HARNESS_FACT", "owner": "harness", "sources": ["harness-ledger"], "freshness": { "mode": "max-age", "maxAgeMs": 3600000 } },
     "executionPlan.validated": { "kind": "LIVE_FACT", "owner": "execution-plan-compiler", "sources": ["execution-plan-compiler"], "freshness": { "mode": "same-mutation" } },
     "human.executionHandoff": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
-    "handoff.approved": { "kind": "IMMUTABLE_FACT", "owner": "execution-plan-apply", "sources": ["execution-plan-apply"] },
-    "execution.handoffReady": { "kind": "IMMUTABLE_FACT", "owner": "execution-plan-apply", "sources": ["execution-plan-apply", "admission-cli"] },
+    "human.goalHandoff": { "kind": "HUMAN_APPROVAL", "owner": "human", "sources": ["operator-asserted"] },
+    "handoff.approved": { "kind": "IMMUTABLE_FACT", "owner": "execution-handoff", "sources": ["execution-plan-apply", "goal-handoff-apply"] },
+    "execution.handoffReady": { "kind": "IMMUTABLE_FACT", "owner": "execution-handoff", "sources": ["execution-plan-apply", "goal-handoff-apply", "admission-cli"] },
     "release.persisted": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
     "release.reopenConditionMet": { "kind": "LIVE_FACT", "owner": "release-evidence", "sources": ["reopen-condition-check"], "freshness": { "mode": "max-age", "maxAgeMs": 86400000 } },
     "release.reworkActionRecorded": { "kind": "IMMUTABLE_FACT", "owner": "release-artifact", "sources": ["git", "approved-local-artifact"] },
@@ -120,6 +121,30 @@
       "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "handoff.approved", "human.executionHandoff"],
       "producesFacts": ["execution.handoffReady"],
       "postconditions": ["handoff.releasePlanExactReadback", "approval.singleConsumed"]
+    },
+    "goalHandoff.approve": {
+      "strict": true,
+      "actor": "goal-handoff-apply",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "ACTIVATION_AWAITING_CONFIRMATION",
+      "targetStage": "ADMISSION",
+      "targetVerdict": "HANDOFF_APPROVED",
+      "approvalFact": "human.goalHandoff",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "human.goalHandoff"],
+      "producesFacts": ["handoff.approved"],
+      "postconditions": ["goalHandoff.approvalExactPending"]
+    },
+    "goalHandoff.apply": {
+      "strict": true,
+      "actor": "goal-handoff-apply",
+      "sourceStage": "ADMISSION",
+      "sourceVerdict": "HANDOFF_APPROVED",
+      "targetStage": "EXECUTION",
+      "targetVerdict": "HANDOFF_READY",
+      "approvalFact": "human.goalHandoff",
+      "requiredFacts": ["source.unchanged", "policy.accepted", "graph.passed", "oracles.bound", "review.ready", "executionPlan.validated", "handoff.approved", "human.goalHandoff"],
+      "producesFacts": ["execution.handoffReady"],
+      "postconditions": ["goalHandoff.envelopeExactReadback", "approval.singleConsumed"]
     }
   }
 }

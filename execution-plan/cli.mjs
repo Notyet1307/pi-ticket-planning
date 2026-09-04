@@ -4,6 +4,8 @@ import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createGitHubAdapter } from "../admission/github-adapter.mjs";
 import { compileExecutionPlan } from "./compiler.mjs";
 import { applyExecutionPlan } from "./handoff-apply.mjs";
+import { applyGoalHandoff, buildGoalHandoff, goalHandoffFingerprint } from "./goal-handoff.mjs";
+import { loadGoalRunnerConfig, resolveGoalRunner } from "./goal-runners.mjs";
 import { fingerprint, releasePlanDigest } from "./domain.mjs";
 import {
   assertCanonicalAbsentChildPath,
@@ -88,6 +90,21 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "READY" ? 0 : 1;
     }
+    if (command === "goal-build") {
+      requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "channel", "runner-ref", "runners", "out", "json"], ["plan", "context", "runners", "out"]);
+      const plan = json(values.get("plan"));
+      const input = liveInput(values, { plan });
+      const verified = verifyExecutionPlan(plan, input, { reloadInput: () => liveInput(values, { plan }) });
+      if (verified.status !== "READY") throw new Error(verified.problems[0]?.code ?? "GOAL_HANDOFF_PLAN_NOT_READY");
+      const channel = values.get("channel") ?? "GOAL_LOCAL";
+      const runnerRef = values.get("runner-ref") ?? (channel === "GOAL_LOCAL" ? "local" : null);
+      if (!runnerRef) throw new Error("MISSING_OPTION:runner-ref");
+      const runner = resolveGoalRunner(loadGoalRunnerConfig(values.get("runners")), { channel, runnerRef });
+      const handoff = buildGoalHandoff({ plan, channel, runnerRef, runnerDigest: runner.digest, runnerHost: runner.host });
+      write(values.get("out"), handoff);
+      process.stdout.write(`${JSON.stringify({ handoffFingerprint: goalHandoffFingerprint(handoff), planDigest: releasePlanDigest(plan), channel, runnerRef }, null, 2)}\n`);
+      return 0;
+    }
     if (command === "apply") {
       requireOptions(values, ["plan", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "expected-fingerprint", "case-id", "approval-id", "controller-cli", "controller-config", "output-dir", "json"], ["plan", "context", "expected-fingerprint", "case-id", "approval-id", "controller-cli", "controller-config", "output-dir"]);
       const plan = json(values.get("plan"));
@@ -110,7 +127,31 @@ export function runExecutionPlanCli(argv = process.argv.slice(2)) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       return result.status === "COMPLETE" ? 0 : 1;
     }
-    throw new Error("USAGE: execution-plan build|verify|apply");
+    if (command === "goal-apply") {
+      requireOptions(values, ["handoff", "repo", "parent", "review", "review-binding", "review-dispatch-binding", "context", "expected-fingerprint", "case-id", "approval-id", "runners", "output-dir", "json"], ["handoff", "context", "expected-fingerprint", "case-id", "approval-id", "runners", "output-dir"]);
+      const handoff = json(values.get("handoff"));
+      const plan = handoff.releasePlan;
+      const outputDir = outputDirectory(values.get("output-dir"));
+      const outputHandoff = path.join(outputDir, "goal-handoff.json");
+      const runner = resolveGoalRunner(loadGoalRunnerConfig(values.get("runners")), { channel: handoff.channel, runnerRef: handoff.runnerRef });
+      if (runner.digest !== handoff.runnerDigest || runner.host !== handoff.runnerHost) throw new Error("GOAL_RUNNER_CONFIG_DRIFT");
+      const common = [
+        "node", shellQuote(runner.runnerCli), "start",
+        "--config", shellQuote(runner.runnerConfig),
+        "--approve-handoff", shellQuote(goalHandoffFingerprint(handoff)),
+        "--runner-ref", shellQuote(handoff.runnerRef),
+        "--json",
+      ];
+      const remoteCommand = [...common.slice(0, 3), "--handoff", "-", ...common.slice(3)].join(" ");
+      const nextCommand = handoff.channel === "GOAL_LOCAL"
+        ? [...common.slice(0, 3), "--handoff", shellQuote(outputHandoff), ...common.slice(3)].join(" ")
+        : ["ssh", shellQuote(runner.sshHost), shellQuote(remoteCommand), "<", shellQuote(outputHandoff)].join(" ");
+      const input = liveInput(values, { plan });
+      const result = applyGoalHandoff({ handoff, input, reloadInput: () => liveInput(values, { plan }), store: createPlanningCaseStore(), caseId: values.get("case-id"), approvalId: values.get("approval-id"), expectedFingerprint: values.get("expected-fingerprint"), outputDir, nextCommand });
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      return result.status === "COMPLETE" ? 0 : 1;
+    }
+    throw new Error("USAGE: execution-plan build|verify|apply|goal-build|goal-apply");
   } catch (error) {
     process.stderr.write(`ERROR ${error instanceof Error ? error.message : String(error)}\n`);
     return 2;

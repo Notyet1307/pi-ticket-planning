@@ -10,6 +10,8 @@
     "approval.exactPending": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyReleasePlanApprovalPendingExact" },
     "transaction.committed": { "path": "admission/postconditions.mjs", "export": "verifyTransactionCommitted" },
     "handoff.releasePlanExactReadback": { "path": "execution-plan/handoff-apply.mjs", "export": "verifyReleasePlanExactReadback" },
+    "goalHandoff.approvalExactPending": { "path": "execution-plan/goal-handoff.mjs", "export": "verifyGoalHandoffApprovalPendingExact" },
+    "goalHandoff.envelopeExactReadback": { "path": "execution-plan/goal-handoff.mjs", "export": "verifyGoalHandoffExactReadback" },
     "spec.issueExactReadback": { "path": "spec-publication/publication.mjs", "export": "verifySpecIssueExactReadback" },
     "spec.needsTriageOnly": { "path": "spec-publication/publication.mjs", "export": "verifySpecNeedsTriageOnly" }
   }
