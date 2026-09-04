@@ -1,6 +1,6 @@
 ---
 name: to-tickets
-description: Draft and publish a traceable candidate graph when ask-yet has an accepted Delivery Spec, then route the accepted graph to one Codex Controller release handoff.
+description: Draft a traceable graph from an accepted Delivery Spec, then route it to an exact Goal or Controller handoff.
 ---
 
 # To Tickets
@@ -78,7 +78,7 @@ Then name the earliest candidate chain that closes the Spec's smallest trigger-t
 
 Represent only the current executable Release. Put multi-Release/HUMAN work in a separate non-executable `pi-ticket-planning:roadmap-graph:v1`: `PLANNED`, no future base, no Admission/compiler route. Bind its `parent` to a separate fresh Umbrella containing one `<!-- pi-ticket-planning:parent-kind:roadmap -->`; never reuse the Delivery Spec Parent.
 
-Graph review binds public Spec, result, decision, and handoff bytes on the execution base or descendant. Ordinal 2+ accepts only `release-result:v1` through `npm run ingest:release-result -- --result ... --plan <approved release-plan.json>`; persist its Plan digest in the next graph, then rebuild.
+Graph review binds public Spec, result, decision, and handoff bytes on the execution base or descendant. Ordinal 2+ accepts only an ingested Controller Result or `goal-result-acceptance:v1`; a raw Goal Result is invalid. Persist its Plan digest, then rebuild.
 
 ```json
 {
@@ -203,4 +203,4 @@ Any failed graph, coverage, skeleton, or frontier check leaves the parent and ch
 
 ### 6. Prepare the recommended release handoff
 
-Re-fetch the persisted parent, receipt, v3 graph, and current children. Report their identities, readiness state, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow `prepare-codex-release`. Keep every child in `needs-triage`: the recommended path reviews and compiles exactly this one all-AGENT Release. Roadmap, future `PLANNED` candidates, HUMAN work, legacy v2 graphs, and external blockers never enter Controller input. This route never writes ready labels. Only when the operator explicitly chooses Legacy Herdr per-ticket activation may it continue to `admit-ticket`.
+Re-fetch the persisted parent, receipt, v3 graph, and current children. Report their identities, readiness state, both coverage verdicts, strict-frontier verdict, and current labels to `ask-yet`, then follow `prepare-codex-release`. Keep every child in `needs-triage`: the recommended path reviews and compiles exactly this one all-AGENT Release before selecting Goal or Controller. Roadmap, future `PLANNED` candidates, HUMAN work, legacy v2 graphs, and external blockers never enter either input. This route never writes ready labels. Only when the operator explicitly chooses Legacy Herdr per-ticket activation may it continue to `admit-ticket`.

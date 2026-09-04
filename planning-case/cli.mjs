@@ -8,7 +8,7 @@ import { resultEnvelope } from "./result.mjs";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 import { createFactAttestation, producerAttestationSource } from "../protocol/kernel.mjs";
 import { runtimeMetadata } from "../installation/build-metadata.mjs";
-import { validateReleasePlan } from "../execution-plan/release-contract.mjs";
+import { validateGoalHandoff, validateReleasePlan } from "../execution-plan/release-contract.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SAFE_CASE_ID = /^PC-[A-Za-z0-9._-]{1,96}$/;
@@ -90,6 +90,12 @@ function readReleasePlan(file) {
   return plan;
 }
 
+function readGoalHandoff(file) {
+  const handoff = readJsonInput(file, "INVALID_GOAL_HANDOFF");
+  if (validateGoalHandoff(handoff).length > 0) throw new PlanningCaseError("INVALID_GOAL_HANDOFF");
+  return handoff;
+}
+
 function readJsonInput(file, code = "INVALID_INPUT") {
   try {
     const value = JSON.parse(fs.readFileSync(path.resolve(file), "utf8"));
@@ -132,6 +138,21 @@ export function createExecutionHandoffApproval({ plan, caseId, correlationId, ob
     observedAt,
     expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
     evidence: { kind: "operator", ref: `case:${caseId}:execution-plan.apply`, digest },
+  });
+}
+
+export function createGoalHandoffApproval({ handoff, caseId, correlationId, observedAt, revision }) {
+  const digest = fingerprint(handoff);
+  const subject = { target: `github:${handoff.repo}`, kind: "goal-handoff", id: digest, revision, digest };
+  return createFactAttestation({
+    id: `F-human-goal-handoff-${correlationId.slice(2)}`,
+    fact: "human.goalHandoff",
+    value: true,
+    subject,
+    source: producerAttestationSource("operator-asserted", "pi-ticket-planctl"),
+    observedAt,
+    expiresAt: new Date(Date.parse(observedAt) + 60 * 60 * 1000).toISOString(),
+    evidence: { kind: "operator", ref: `case:${caseId}:goal-handoff.apply`, digest },
   });
 }
 
@@ -240,6 +261,20 @@ export function runPlanningCaseCli(argv, {
       if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.executionHandoff"
         && item.subject?.digest === planFingerprint)) throw new PlanningCaseError("HANDOFF_APPROVAL_ALREADY_EXISTS");
       const approval = createExecutionHandoffApproval({ plan, caseId, correlationId, observedAt: clock(), revision: snapshot.checkpoint.subject?.revision });
+      store.addApproval({ caseId, target, approval });
+      data = { approval };
+    } else if (parsed.command === "approve-goal-handoff") {
+      requireShape(parsed, { allowed: ["handoff", "expected-fingerprint"], required: ["handoff", "expected-fingerprint"], positionals: 1 });
+      [caseId] = parsed.positionals;
+      const handoff = readGoalHandoff(parsed.options.get("handoff"));
+      const handoffFingerprint = fingerprint(handoff);
+      if (parsed.options.get("expected-fingerprint") !== handoffFingerprint) throw new PlanningCaseError("EXPECTED_FINGERPRINT_MISMATCH");
+      const target = `github:${handoff.repo}`;
+      const snapshot = store.get({ caseId, target });
+      if (snapshot.target !== target) throw new PlanningCaseError("APPROVAL_TARGET_MISMATCH");
+      if ([...snapshot.approvals.pending, ...snapshot.approvals.consumed].some((item) => item.fact === "human.goalHandoff"
+        && item.subject?.digest === handoffFingerprint)) throw new PlanningCaseError("GOAL_HANDOFF_APPROVAL_ALREADY_EXISTS");
+      const approval = createGoalHandoffApproval({ handoff, caseId, correlationId, observedAt: clock(), revision: snapshot.checkpoint.subject?.revision });
       store.addApproval({ caseId, target, approval });
       data = { approval };
     } else if (parsed.command === "resume") {

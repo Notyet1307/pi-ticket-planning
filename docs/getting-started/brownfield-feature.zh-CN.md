@@ -86,7 +86,7 @@ Delivery Spec 随后定义稳定场景；拆票必须先证明场景覆盖和 wa
 
 ## 8. 什么时候进入执行
 
-创建或 review Issue 不会启动执行。推荐路径会重读不可变的 accepted Parent 与 receipt、effective policy、exact Ticket body、当前一个 `delivery-release-graph:v3`、blocker、coverage、walking skeleton 和依赖顺序。fresh reviewer 返回 `READY`、`SPLIT` 或 `NEEDS_INFO`；只有无 external blocker、规模有界且全 AGENT 的 v3 Release 才会编译成一个语义化 `release-plan.json`。Roadmap、HUMAN work 与未来 candidate 不进入 Controller input。
+创建或 review Issue 不会启动执行。推荐路径会重读不可变的 accepted Parent 与 receipt、effective policy、exact Ticket body、当前一个 `delivery-release-graph:v3`、blocker、coverage、walking skeleton 和依赖顺序。fresh reviewer 返回 `READY`、`SPLIT` 或 `NEEDS_INFO`；只有无 external blocker、规模有界且全 AGENT 的 v3 Release 才会编译成一个语义化 `release-plan.json`，然后显式路由到 Goal 或 Controller。Roadmap、HUMAN work 与未来 candidate 不进入执行器输入。
 
 一次人工批准绑定 Plan fingerprint。Apply 只写 `release-plan.json` 并打印、不运行 `start --approve-plan <planDigest>`；Ticket 保持 `needs-triage`。Legacy Herdr ready-label 激活是显式兼容选择。Controller result、merge、Release Record 和 Outcome 是后续不同事实。
 

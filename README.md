@@ -6,9 +6,9 @@ PI Ticket Planning turns a rough product idea, a feature request for an existing
 
 The input can be one natural-language sentence or an Issue reference. The durable planning output is a decision-complete standalone Ticket or accepted Delivery Graph linked to an accepted product goal, technical decisions, and verification. Starting an agent immediately would hide unresolved product, architecture, dependency, or risk choices inside implementation; this package closes those choices first.
 
-For an accepted Delivery Graph, the recommended execution exit is one **Codex Controller Release Handoff**: compile `release-plan.json`, approve its fingerprint once, materialize that one file, then let the operator start Controller. Legacy `admit` remains the explicit Herdr per-ticket ready-label path.
+For an accepted Delivery Graph, compile one semantic `release-plan.json`, then select an exact execution channel. Normal-risk supervised work defaults to **Codex Goal**; high-risk, unattended, or automatic delivery uses **Codex Controller**. Legacy `admit` remains the explicit Herdr per-ticket ready-label path.
 
-> The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and authorize the exact execution handoff. It never starts the Controller; GitHub ready labels belong only to explicit Legacy Herdr admission.
+> The system recommends and performs reversible planning work. People still supply real customer facts, make Commitment and risk decisions, approve the Ticket graph, and authorize the exact execution handoff. It never starts an executor; GitHub ready labels belong only to explicit Legacy Herdr admission.
 
 > **v0.5 alpha:** `main` now uses a versioned protocol kernel and recoverable
 > Planning Cases. Deterministic checks are available, but the compatibility
@@ -145,7 +145,7 @@ At this point the system does not initialize Git, select a stack, or create appl
 | Choose one bounded Evidence method and form a Candidate Frame. | Consent, access, privacy boundaries, and any result that only a real participant or environment can supply. |
 | After Commitment, check required technical decisions and compile a Delivery Spec. | Commitment, load-bearing architecture choices, data ownership, shared interfaces, and risk acceptance. |
 | Generate scenario coverage, a walking skeleton, candidate Tickets, and their dependency graph. | Approval of the exact Ticket graph. |
-| Run one fresh graph-readiness review and compile the semantic Controller Release Plan. | Confirmation of the exact Plan fingerprint. |
+| Run one fresh graph-readiness review, compile the semantic Release Plan, and select Goal or Controller. | Confirmation of the exact selected handoff fingerprint. |
 | Reconstruct persisted authority and resume at the first open gate. | Production enablement, rollback decisions, and the final Outcome judgment. |
 
 The system recommends, but it never disguises a non-delegable human tradeoff as an automated conclusion.
@@ -161,7 +161,7 @@ one idea or Issue
 → compile verifiable scenarios and Tickets
 → independent review
 → a person confirms one exact Release Handoff
-→ the operator starts the Codex Controller
+→ the operator starts the selected Goal Runner or Controller
 → execute, release, and observe the real result
 ```
 
@@ -273,7 +273,7 @@ Tracker capability is intentionally asymmetric:
 
 | Tracker | Supported boundary |
 | --- | --- |
-| GitHub | Planning, graph/readiness review, the recommended Controller Release Handoff, and explicit Legacy Herdr `admit` compatibility. |
+| GitHub | Planning, graph/readiness review, exact Goal or Controller Release Handoff, and explicit Legacy Herdr `admit` compatibility. |
 | GitLab | Planning and planning-level/readiness review only; no package-backed Controller or Legacy Herdr activation. |
 | Local Markdown | Planning and review only; no transactional execution handoff. |
 
@@ -289,7 +289,7 @@ The stronger state check compares the v3 graph and receipt with the immutable Pa
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-For an accepted GitHub v3 Release, Planner keeps its detailed Oracle, risk, scope, protected-path, review, and approval facts internally. The Controller boundary contains only one semantic `release-plan.json`. Ordinal 2+ validates a public Controller result against its approved Plan with `npm run ingest:release-result -- --result /public/release-result.json --plan /private/release-plan.json --out /private/accepted-result.json --json`. Build/verify/apply fresh-read the remote base and every internal Spec/result/decision/handoff binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside Controller input:
+For an accepted GitHub v3 Release, Planner keeps detailed Oracle, risk, scope, protected-path, review, channel, and approval facts internally. The shared boundary is one semantic `release-plan.json`; Controller consumes it directly, while Goal wraps it in one exact `goal-handoff.json`. Ordinal 2+ validates either producer with `npm run ingest:release-result`; Goal Results additionally pass `--handoff /private/goal-handoff.json` and become a self-digested `goal-result-acceptance:v1`. Downstream Graphs reject raw Goal Results. Build/verify/apply fresh-read every internal binding; offline `--input`, Roadmap, HUMAN work, future `PLANNED` candidates, and v2 graphs stay outside executor input:
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -314,7 +314,15 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build and verify do not inspect a Controller checkout. Apply rechecks Planner-owned bindings, durably records `HANDOFF_APPROVED`, materializes only `release-plan.json`, records `HANDOFF_READY`, consumes approval last, and prints `start --approve-plan <planDigest>`. Controller config, runtime policy, validation, PR, CI, and merge authority remain Controller-owned.
+For the default normal-risk supervised Goal channel, replace the final approval/apply pair with:
+
+```sh
+pi-ticket-plan execution-plan goal-build --plan /private/release-plan.json --context /private/fresh-context.json --channel GOAL_LOCAL --runner-ref local --runners /private/goal-runners.json --out /private/goal-handoff.json --json
+pi-ticket-planctl case approve-goal-handoff PC-release-90 --handoff /private/goal-handoff.json --expected-fingerprint sha256:<confirmed-handoff-hash> --json
+pi-ticket-plan execution-plan goal-apply --handoff /private/goal-handoff.json --context /private/fresh-context.json --expected-fingerprint sha256:<confirmed-handoff-hash> --case-id PC-release-90 --approval-id F-<id> --runners /private/goal-runners.json --output-dir /private/goal-release-90 --json
+```
+
+Build and verify do not inspect an executor checkout. Goal runner identities come only from the private allowlist; its entry digest and target host are part of the approved envelope. Each apply rechecks Planner-owned bindings, materializes one exact handoff file, records `HANDOFF_READY`, consumes approval last, and prints one operator start command. Controller retains automatic delivery authority; Goal Runner stops after detached review for human merge.
 
 Legacy v2 migration is dry-run only: `node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`. A single Release requires exact `releaseMembership`; otherwise Roadmap/current membership is mandatory. Output is `PLANNED`, human-approved, never writes Issues/labels, and cannot hand off directly.
 

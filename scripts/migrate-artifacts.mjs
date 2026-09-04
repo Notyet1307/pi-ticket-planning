@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseLegacyCheckpoint } from "../protocol/legacy-adapter.mjs";
 import { validateArtifact } from "../protocol/kernel.mjs";
-import { validateDeliveryGraph } from "./check-delivery-graph.mjs";
+import { predecessorReleaseResult, validateDeliveryGraph } from "./check-delivery-graph.mjs";
 import { fingerprint } from "../execution-plan/domain.mjs";
 
 const digest = (value) => `sha256:${createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")}`;
@@ -106,7 +106,7 @@ function v3Candidate(value, context, childIds) {
     executionBasePolicy: release.executionBasePolicy,
     roadmapDigest: release.roadmapDigest,
     predecessorReleaseId: release.predecessorReleaseId,
-    predecessorPlanDigest: release.predecessorReceipt?.planDigest ?? null,
+    predecessorPlanDigest: predecessorReleaseResult(release.predecessorReceipt)?.planDigest ?? null,
     predecessorReceipt: structuredClone(release.predecessorReceipt),
     predecessorReceiptBinding: structuredClone(release.predecessorReceiptBinding),
     specAcceptance: structuredClone(release.specAcceptance),

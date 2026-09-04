@@ -22,8 +22,12 @@
   materializes only `release-plan.json` and prints but never executes
   `start --approve-plan <planDigest>`. Controller performs its own runtime and
   delivery preflights.
+- For a Goal handoff, select only a private-allowlisted runner, approve the
+  envelope including runner digest and host, and verify that same entry at
+  apply. Remote execution uses the allowlisted SSH target and remote hostname.
 - Ingest only public `release-result:v1`, bound to the expected release, Plan,
-  and base. Never substitute private Job files or status output.
+  and base. Goal ingestion also requires its private approved handoff and emits
+  `goal-result-acceptance:v1`; a raw Goal Result cannot enter a later Graph.
 - Keep auth and model credential files outside installation manifests and
   reports. Error rendering redacts credential-shaped values and truncates
   external text.

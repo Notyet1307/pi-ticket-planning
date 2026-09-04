@@ -22,7 +22,7 @@ Before reconstructing or changing state, read [the Planning Case runtime](../pla
 - Treat mutation approval as scoped. Reuse standing approval only for the exact reversible planning scope it covers; require approval again on target, source, scope, policy, risk, or publication drift.
 - An existing-Git Release is authoritative only when its exact blob is reachable from the accepted remote delivery base. A human-approved draft ref may preserve a candidate during `FRAME` or `EVIDENCE`, but cannot feed `to-spec`.
 - Never enter `SPEC` before a human commits an exact Release revision, and never let downstream delivery choose a missing load-bearing architecture, data owner, shared interface, or verification boundary.
-- Never route formal delivery to `/skill:implement`; accepted Delivery Graphs default to one Codex Controller Release Handoff. Route to the configured Harness only when the operator explicitly selects Legacy Herdr admission.
+- Never route formal delivery to `/skill:implement`; accepted Delivery Graphs default to Goal for normal-risk supervised work and use Controller for high-risk, unattended, or automatic delivery. Route to the configured Harness only when the operator explicitly selects Legacy Herdr admission.
 - Run only when invoked. Reconstruct current facts on demand; do not poll or duplicate Harness state.
 - Continue through discoverable, reversible mechanics. Stop at a non-delegable decision, required approval, interview answer, forbidden operation, authoritative conflict, or material drift/failure.
 

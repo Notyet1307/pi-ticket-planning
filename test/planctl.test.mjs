@@ -8,6 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { approvalProjection, fingerprint } from "../admission/domain.mjs";
 import { fingerprint as handoffFingerprint } from "../execution-plan/domain.mjs";
+import { buildGoalHandoff, goalHandoffFingerprint } from "../execution-plan/goal-handoff.mjs";
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
 import { buildSpecPublicationPlan, digestBytes, recordSpecPublicationArtifacts } from "../spec-publication/publication.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
@@ -179,6 +180,27 @@ test("pi-ticket-planctl isolates exact execution handoff approvals from Admissio
   const replay = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]);
   assert.equal(replay.status, 1);
   assert.equal(replay.json.problems[0].code, "HANDOFF_APPROVAL_ALREADY_EXISTS");
+});
+
+test("pi-ticket-planctl records one exact Goal channel handoff approval", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-planctl-goal-handoff-"));
+  const stateDir = path.join(parent, "state");
+  const handoffFile = path.join(parent, "goal-handoff.json");
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const runner = { ref: "local", transport: "local", host: "test.local", sshHost: null, runnerCli: "/runner/goal-cli.js", runnerConfig: "/private/goal.json" };
+  const handoff = buildGoalHandoff({ plan: handoffPlan(), channel: "GOAL_LOCAL", runnerRef: "local", runnerDigest: handoffFingerprint(runner), runnerHost: runner.host });
+  fs.writeFileSync(handoffFile, `${JSON.stringify(handoff)}\n`, { mode: 0o600 });
+  const digest = goalHandoffFingerprint(handoff);
+  assert.equal(run(stateDir, ["case", "create", "--target", TARGET, "--case-id", "PC-goal-approve", "--json"]).status, 0);
+  const approved = run(stateDir, ["case", "approve-goal-handoff", "PC-goal-approve", "--handoff", handoffFile, "--expected-fingerprint", digest, "--json"]);
+  assert.equal(approved.status, 0, approved.stderr);
+  assert.equal(approved.json.data.approval.fact, "human.goalHandoff");
+  assert.deepEqual(approved.json.data.approval.subject, { target: TARGET, kind: "goal-handoff", id: digest, revision: "0", digest });
+  const replay = run(stateDir, ["case", "approve-goal-handoff", "PC-goal-approve", "--handoff", handoffFile, "--expected-fingerprint", digest, "--json"]);
+  assert.equal(replay.status, 1);
+  assert.equal(replay.json.problems[0].code, "GOAL_HANDOFF_APPROVAL_ALREADY_EXISTS");
+  const wrong = run(stateDir, ["case", "approve-goal-handoff", "PC-goal-approve", "--handoff", handoffFile, "--expected-fingerprint", `sha256:${"0".repeat(64)}`, "--json"]);
+  assert.equal(wrong.json.problems[0].code, "EXPECTED_FINGERPRINT_MISMATCH");
 });
 
 test("spec-publication CLI records one exact Delivery Spec publication approval", (t) => {

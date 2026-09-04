@@ -16,6 +16,7 @@
     "check-admission-state": { "kind": "module", "path": "scripts/check-admission-state.mjs", "export": "validateAdmissionState", "producers": ["check-admission-state", "admission-plan"] },
     "execution-plan-compiler": { "kind": "module", "path": "execution-plan/compiler.mjs", "export": "compileExecutionPlan", "producers": ["execution-plan-compiler"] },
     "execution-plan-apply": { "kind": "module", "path": "execution-plan/handoff-apply.mjs", "export": "applyExecutionPlan", "producers": ["execution-plan-apply"] },
+    "goal-handoff-apply": { "kind": "module", "path": "execution-plan/goal-handoff.mjs", "export": "applyGoalHandoff", "producers": ["goal-handoff-apply"] },
     "admission-cli": { "kind": "module", "path": "admission/cli.mjs", "export": "runAdmissionCli", "producers": ["admission-cli", "admission-plan"] },
     "git-policy-check": { "kind": "module", "path": "admission/domain.mjs", "export": "validatePolicy", "producers": ["git-policy-check", "admission-plan"] },
     "ticket-readiness-reviewer": { "kind": "skill", "path": "agents/ticket-readiness-reviewer.md", "producers": ["ticket-readiness-reviewer", "admission-plan"] },

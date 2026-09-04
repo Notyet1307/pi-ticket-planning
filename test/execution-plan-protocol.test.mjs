@@ -156,5 +156,5 @@ test("HANDOFF_READY requires the generic execution fact and legacy Admission dec
   for (const name of ["admission.apply", "admission.applyStandaloneAgent", "admission.applyStandaloneHuman"]) {
     assert.equal(protocol.authority.mutations[name].producesFacts.includes("execution.handoffReady"), true, name);
   }
-  assert.deepEqual(protocol.authority.facts["execution.handoffReady"].sources.sort(), ["admission-cli", "execution-plan-apply"]);
+  assert.deepEqual(protocol.authority.facts["execution.handoffReady"].sources.sort(), ["admission-cli", "execution-plan-apply", "goal-handoff-apply"]);
 });

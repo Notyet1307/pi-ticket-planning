@@ -159,7 +159,8 @@ export function applyExecutionPlan({
   const pending = verifyReleasePlanApprovalPendingExact({ snapshot, plan, approvalId, revision: snapshot.checkpoint.subject.revision });
   if (pending.length) throw new Error(pending[0].code);
   const mutationId = `execution-plan-apply:${digest}`;
-  const approvedFact = snapshot.facts.find((fact) => fact.fact === "handoff.approved" && fact.subject?.digest === snapshot.checkpoint.subject?.digest);
+  const approvedFact = snapshot.facts.find((fact) => fact.fact === "handoff.approved" && fact.source?.kind === "execution-plan-apply"
+    && fact.subject?.digest === snapshot.checkpoint.subject?.digest);
   if (!approvedFact) throw new Error("HANDOFF_APPROVAL_FACT_MISSING");
   const allFacts = [...facts(plan, input, approval, mutationId, now, snapshot.checkpoint.subject), approvedFact];
   const proposed = { schema: "pi-ticket-planning:checkpoint:v2", lane: snapshot.checkpoint.lane, stage: "EXECUTION", verdict: "HANDOFF_READY", subject: snapshot.checkpoint.subject };

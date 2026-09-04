@@ -6,9 +6,9 @@
 repository and tracker data into versioned facts and Plans, stores recoverable
 Planning Cases outside target repositories, obtains an independent Reviewer
 result, and applies only an exact human-approved handoff or tracker mutation.
-Codex Controller owns the semantic release execution path; HerdrHarness owns
-the separate Legacy path. Planner never starts either executor or reads private
-Controller Job state.
+Codex Goal Runner owns the normal-risk supervised execution path; Codex Controller
+owns high-risk, unattended, and automatic delivery; HerdrHarness owns the separate
+Legacy path. Planner never starts an executor or reads private runtime state.
 
 | Component | Security role | Source evidence |
 | --- | --- | --- |
@@ -22,7 +22,8 @@ Controller Job state.
 | Live E2E guard | Exact disposable repo and run-bound confirmation | `integration/e2e.mjs:24`, `integration/e2e.mjs:67` |
 | Qualification | Report schema/digest/time/commit checks plus independent Actions attestation and run readback | `integration/report.mjs`, `integration/qualify.mjs` |
 | Controller handoff | Exact semantic Plan approval and one-file materialization | `execution-plan/compiler.mjs`, `execution-plan/handoff-apply.mjs` |
-| Result ingestion | Closed Result schema and release/Plan/base correlation | `execution-plan/release-result-ingest.mjs` |
+| Goal handoff | Exact channel/runner/Plan approval and one-file materialization | `execution-plan/goal-handoff.mjs` |
+| Result ingestion | Producer-specific Result schemas; Goal handoff correlation and self-digested predecessor acceptance | `execution-plan/release-result-ingest.mjs` |
 
 ```mermaid
 flowchart LR
@@ -37,6 +38,10 @@ flowchart LR
   D --> K[Operator-started Codex Controller]
   K --> E[Public release-result.json]
   E --> P
+  C --> Q[Approved goal-handoff.json]
+  Q --> Z[Operator-started Goal Runner]
+  Z --> Y[Human merge + Goal Result]
+  Y --> P
   G --> X[Legacy HerdrHarness execution]
   X --> O[Read-only Outcome Receipt]
   O --> P
@@ -50,6 +55,7 @@ Effective resources differ by workflow:
 | Reviewer | Input bytes | Materialized descriptor and child-only extension | One digest-named 0600 file | Fresh Reviewer only | Held descriptor and allowlisted read | Real Provider behavior needs active probe |
 | Admission | GitHub writes | Exact Plan plus refreshed context | Named repo/Issue operations only | GitHub API | Adapter validation and readback | App-auth identity handling remains deployment-dependent |
 | Controller handoff | Semantic contract major and exact Plan digest | Current Controller config plus approved Plan | One private Plan and one printed start command | Operator and Controller only | Exact approval and one-file readback; Controller owns runtime/delivery preflight | Semantic fixtures are compatibility evidence; real Provider/GitHub delivery remains separate |
+| Goal handoff | Exact Goal envelope fingerprint | Approved channel, runner reference, embedded Plan, and one printed start command | Goal Runner target only | Dedicated approval and one-file readback; Runner owns Worktree/validation/commit/review | Remote execution requires the same Runner and config on the approved host |
 | Live E2E | Disposable writes | Enable flag, exact allowlist, run token, actor/topic/default branch, no-production check | Tagged dedicated repository resources | Test GitHub account | Guarded live adapter and cleanup readback | Adapter code exists; no current disposable/Harness report is qualified |
 | Qualification | L2/L3 evidence | Exact Actions run IDs and current commit | Attested workflow artifacts only | Release operator | Schema, semantic, digest, expiry, uniqueness, attestation, and workflow readback | Local JSON and non-complete reports remain blocked |
 
@@ -89,6 +95,7 @@ These are hypotheses for review, not confirmed vulnerabilities.
 | P2 | External error leaks credentials into receipt/log | Tool returns credential-bearing stderr | Token disclosure | Structured codes and credential-shaped redaction | Keep raw output out of artifacts; rotate on exposure | `admission/apply.mjs:112` |
 | P0 | Fabricated or replayed local report promotes an untested tuple | Attacker can supply arbitrary JSON or duplicate prior evidence | Unsupported Provider/Harness gains Admission authority | Current-commit/time/digest checks, report and scenario deduplication, Actions attestation and workflow readback | Keep Matrix writes qualification-derived and digest-matched | `integration/qualify.mjs`; `capabilities/compatibility.mjs` |
 | P0 | Forged Controller Result advances a later Release | Attacker can replace a public Result file | Unauthorized predecessor authority | Closed schema plus expected release/Plan/base binding and tracked artifact bytes | Obtain Result from the verified Controller export path; never accept status or private Job files | `execution-plan/release-result-ingest.mjs`; `execution-plan/freshness.mjs` |
+| P0 | Raw or cross-runner Goal Result advances a later Release | Attacker substitutes a Goal Result from the same Plan | Wrong channel or runner gains predecessor authority | Ingestion requires the private handoff and emits a self-digested acceptance; Graph schema rejects raw Goal Results | Bind runner config, handoff, result, acceptance, and tracked bytes at each boundary | `execution-plan/release-result-ingest.mjs`; `scripts/check-delivery-graph.mjs` |
 | P0 | Unsafe Controller config weakens sandbox, review, CI, or merge authority | Operator selects a drifted config | Unsafe delivery despite a valid Plan | Controller validates config, remote, sandbox, required checks, exact candidate, PR, and merge independently | Treat Planner's semantic compatibility as no substitute for Controller runtime gates | Controller repository runtime tests and `release-result:v1` |
 
 ## Severity Calibration

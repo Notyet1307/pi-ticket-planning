@@ -5,6 +5,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { fingerprint } from "../execution-plan/domain.mjs";
 import { controllerResultFixture } from "./controller-result-fixture.mjs";
+import { buildGoalHandoff } from "../execution-plan/goal-handoff.mjs";
+import { buildGoalResultAcceptance } from "../execution-plan/release-result-ingest.mjs";
 import {
   DELIVERY_RELEASE_GRAPH_MARKER,
   DELIVERY_GRAPH_MARKER,
@@ -287,9 +289,43 @@ test("a downstream release needs an exact predecessor receipt and fresh executio
   release.decisionManifestBinding.baseSha = release.executionBaseSha;
   assert.equal(validateDeliveryGraph(release).ok, true);
 
+  const predecessorPlan = {
+    controllerContractVersion: 1,
+    id: "r001-c1-r1",
+    title: "Previous release",
+    objective: "Ship previous release",
+    repo: "acme/product",
+    baseRef: "main",
+    baseSha: "1".repeat(40),
+    parentIssue: 1,
+    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], risk: "normal", oracleCommands: [] }],
+    releaseAcceptanceCriteria: ["Done"],
+    reviewFocus: [],
+  };
+  const runner = { ref: "local", transport: "local", host: "test.local", sshHost: null, runnerCli: "/runner/goal.js", runnerConfig: "/private/goal.json" };
+  const goalHandoff = buildGoalHandoff({ plan: predecessorPlan, channel: "GOAL_LOCAL", runnerRef: runner.ref, runnerDigest: fingerprint(runner), runnerHost: runner.host });
+  const goalResult = {
+    ...release.predecessorReceipt,
+    schema: "pi-ticket-planning:goal-release-result:v1",
+    planDigest: goalHandoff.planDigest,
+    channel: "GOAL_LOCAL",
+    runnerRef: "local",
+    handoffDigest: fingerprint(goalHandoff),
+    reviewReportDigest: `sha256:${"f".repeat(64)}`,
+  };
+  release.predecessorPlanDigest = goalResult.planDigest;
+  release.predecessorReceipt = goalResult;
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "GOAL_RESULT_ACCEPTANCE_REQUIRED"), true);
+  release.predecessorReceipt = buildGoalResultAcceptance(goalResult, goalHandoff, { acceptedAt: "2026-09-03T00:00:00.000Z" });
+  assert.equal(validateDeliveryGraph(release).ok, true);
+  const acceptedGoal = release.predecessorReceipt;
+  release.predecessorReceipt = { ...acceptedGoal, digest: `sha256:${"0".repeat(64)}` };
+  assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "GOAL_RESULT_ACCEPTANCE_DIGEST_MISMATCH"), true);
+  release.predecessorReceipt = acceptedGoal;
+
   release.predecessorPlanDigest = "0".repeat(64);
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "RELEASE_RESULT_PLAN_MISMATCH"), true);
-  release.predecessorPlanDigest = release.predecessorReceipt.planDigest;
+  release.predecessorPlanDigest = goalResult.planDigest;
 
   release.predecessorReleaseId = "other-release";
   assert.equal(validateDeliveryGraph(release).problems.some(({ code }) => code === "PREDECESSOR_RELEASE_MISMATCH"), true);

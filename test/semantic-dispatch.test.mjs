@@ -64,6 +64,30 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   assert.equal((await problems("benchmark-report", { metrics: { p50DurationMs: 2, p95DurationMs: 1 } }))[0].code, "BENCHMARK_PERCENTILE_INVALID");
   const result = controllerResultFixture();
   assert.deepEqual(await problems("release-result", result), []);
+  const plan = {
+    controllerContractVersion: 1,
+    id: "release-semantic",
+    title: "Release",
+    objective: "Ship",
+    repo: "acme/product",
+    baseRef: "main",
+    baseSha: "1".repeat(40),
+    parentIssue: 1,
+    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], risk: "normal", oracleCommands: [] }],
+    releaseAcceptanceCriteria: ["Done"],
+    reviewFocus: [],
+  };
+  const runner = { ref: "local", transport: "local", host: "test.local", sshHost: null, runnerCli: "/runner/goal.js", runnerConfig: "/private/goal.json" };
+  const handoff = { schema: "pi-ticket-planning:goal-handoff:v1", releaseId: plan.id, repo: plan.repo, baseSha: plan.baseSha, planDigest: fingerprint(plan).slice(7), channel: "GOAL_LOCAL", runnerRef: "local", runnerDigest: fingerprint(runner), runnerHost: runner.host, releasePlan: plan };
+  assert.deepEqual(await problems("goal-handoff", handoff), []);
+  assert.equal((await problems("goal-handoff", { ...handoff, planDigest: "0".repeat(64) }))[0].code, "GOAL_HANDOFF_PLAN_DIGEST_MISMATCH");
+  const goalResult = { ...result, schema: "pi-ticket-planning:goal-release-result:v1", releaseId: plan.id, planDigest: handoff.planDigest, baseSha: plan.baseSha, channel: "GOAL_LOCAL", runnerRef: "local", handoffDigest: fingerprint(handoff), reviewReportDigest: `sha256:${"f".repeat(64)}` };
+  assert.deepEqual(await problems("goal-release-result", goalResult), []);
+  assert.equal((await problems("goal-release-result", { ...goalResult, completedAt: "2026-09-03T00:00:00Z" }))[0].code, "RELEASE_RESULT_COMPLETED_AT_INVALID");
+  const goalAcceptanceBody = { schema: "pi-ticket-planning:goal-result-acceptance:v1", result: goalResult, handoff: { digest: goalResult.handoffDigest, channel: goalResult.channel, runnerRef: goalResult.runnerRef }, acceptedAt: "2026-09-03T00:00:00.000Z" };
+  const goalAcceptance = { ...goalAcceptanceBody, digest: fingerprint(goalAcceptanceBody) };
+  assert.deepEqual(await problems("goal-result-acceptance", goalAcceptance), []);
+  assert.equal((await problems("goal-result-acceptance", { ...goalAcceptance, digest: `sha256:${"0".repeat(64)}` }))[0].code, "GOAL_RESULT_ACCEPTANCE_DIGEST_MISMATCH");
   assert.deepEqual(await problems("risk-class-registry", RISK_CLASS_REGISTRY), []);
   assert.equal((await problems("release-result", { ...result, privatePath: "/private/job.json" })).length > 0, true);
   assert.deepEqual(await problems("unmapped-structural-artifact", {}), []);

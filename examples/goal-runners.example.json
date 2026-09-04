@@ -1,0 +1,21 @@
+{
+  "schema": "pi-ticket-planning:goal-runner-config:v1",
+  "runners": [
+    {
+      "ref": "local",
+      "transport": "local",
+      "host": "your-mac.local",
+      "sshHost": null,
+      "runnerCli": "/absolute/herdr-codex-controller/dist/src/goal-cli.js",
+      "runnerConfig": "/private/controller.json"
+    },
+    {
+      "ref": "mac-mini",
+      "transport": "ssh",
+      "host": "mac-mini.local",
+      "sshHost": "mac-mini",
+      "runnerCli": "/absolute/herdr-codex-controller/dist/src/goal-cli.js",
+      "runnerConfig": "/private/controller.json"
+    }
+  ]
+}

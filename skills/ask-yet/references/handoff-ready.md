@@ -25,6 +25,22 @@ Route a valid public result as follows:
 - Do not read or write ready labels, wait for a claim, create a Worktree/branch/commit/PR, or read private `job.json`.
 - Keep the Planning Case at `HANDOFF_READY` until a public `release-result:v1` is explicitly supplied for ingestion; do not infer execution, review, PR/CI, or merge state.
 
+## Goal Release Handoff
+
+When `source.kind == goal-handoff-apply` and evidence binds the exact `goal-handoff.json` fingerprint:
+
+- `HANDOFF_READY` means one `GOAL_LOCAL` or `GOAL_REMOTE` target and the embedded Release Plan passed exact readback and consumed one dedicated approval. It does not mean the Goal Runner started.
+- Outside an explicit STATUS or RESUME request, report the exact stored Goal Runner start command and handoff fingerprint. Do not execute it without a new explicit operator request.
+- For explicit STATUS, derive the read-only `herdr-codex-goal status --config ... --run-id <release-id> --json` invocation from the exact stored start identities. For `GOAL_REMOTE`, run that status command through the same approved `runnerRef`. Read once; do not poll, start, step, resume, push, or merge.
+- Accept status only when `id`, `repo`, `planDigest`, `baseSha`, `channel`, and `runnerRef` match the approved handoff. Malformed output, an unavailable runner, or any mismatch is `Goal Runner: STATUS_UNAVAILABLE`; do not guess.
+- `running`: show the current phase, Ticket, bounded Goal usage, and `Next: continue Goal Runner step/run`.
+- `blocked`: preserve its `recoverable | manual | replan_required` kind. A human explicitly chooses resume or new planning; Planner never switches target or channel automatically.
+- `review_ready`: show the exact candidate identity and `Next: human push/PR/review/merge`; a model Goal status is not merge evidence.
+- `completed`: require the public `pi-ticket-planning:goal-release-result:v1` plus the private approved handoff; ingestion must match release, Plan, base, handoff fingerprint, channel, and runner, then emit `goal-result-acceptance:v1`. Only that acceptance may enter a downstream Graph. Status cannot replace it.
+- `failed` or an unknown status: stop for operator inspection.
+
+Keep the Case at `HANDOFF_READY` until the Goal Result is explicitly ingested. Never read Goal private state, Codex rollout files, absolute Worktree paths, or Controller `job.json`.
+
 ## Legacy Herdr handoff
 
 When `source.kind == admission-cli` and evidence binds the exact legacy Admission Plan:

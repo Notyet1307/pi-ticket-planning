@@ -84,7 +84,7 @@ For a split, the system first compiles stable Spec scenarios, then proves every 
 
 ## 8. When work reaches execution
 
-For a split delivery plan, the recommended path checks the immutable Parent and acceptance receipt, exact source and policy, current Issue bodies, blockers, one current `delivery-release-graph:v3`, Context results, and fresh readiness verdict. Only a bounded all-AGENT v3 Release with no external blocker becomes one semantic `release-plan.json`; Roadmap, HUMAN work, and future candidates stay outside Controller input. Any Planner-owned source, body, receipt, graph, review, policy, or Plan drift requires rebuild and re-approval.
+For a split delivery plan, the recommended path checks the immutable Parent and acceptance receipt, exact source and policy, current Issue bodies, blockers, one current `delivery-release-graph:v3`, Context results, and fresh readiness verdict. Only a bounded all-AGENT v3 Release with no external blocker becomes one semantic `release-plan.json`, then explicitly routes to Goal or Controller; Roadmap, HUMAN work, and future candidates stay outside executor input. Any Planner-owned source, body, receipt, graph, review, policy, Plan, channel, or runner drift requires rebuild and re-approval.
 
 Confirmed apply atomically writes one private `release-plan.json` and records `EXECUTION/HANDOFF_READY`; it prints `start --approve-plan <planDigest>`, but does not run it or write ready labels. A decision-complete standalone Ticket, or a user who explicitly chooses Legacy Herdr, may still use the old `admit` path. The meanings remain distinct:
 

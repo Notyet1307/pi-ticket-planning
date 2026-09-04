@@ -27,6 +27,7 @@ test("route Context Manifests stay bounded and keep Reviewer input isolated", ()
   assert.equal(handoffReady.required.includes("skills/ask-yet/references/handoff-ready.md"), true);
   const handoffContract = fs.readFileSync(path.join(ROOT, "skills", "ask-yet", "references", "handoff-ready.md"), "utf8");
   assert.match(handoffContract, /source\.kind == execution-plan-apply/);
+  assert.match(handoffContract, /source\.kind == goal-handoff-apply/);
   assert.match(handoffContract, /source\.kind == admission-cli/);
   assert.match(handoffContract, /status --config <controller-config> --job <release-id> --public --json/);
   assert.match(handoffContract, /`id`, `repo`, `planDigest`, and `baseSha` match the approved Plan/);

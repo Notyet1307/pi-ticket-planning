@@ -18,7 +18,8 @@ import { stableHarnessReadiness } from "../scripts/readiness-receipt.mjs";
 import { validateTicketContextResult } from "../scripts/check-ticket-context.mjs";
 import { ticketContractDigest } from "../scripts/check-ticket-contract.mjs";
 import { decisionManifestProblems } from "../execution-plan/freshness.mjs";
-import { validateControllerResult } from "../execution-plan/release-result-ingest.mjs";
+import { validateControllerResult, validateExecutionResult } from "../execution-plan/release-result-ingest.mjs";
+import { validateGoalHandoff, validateGoalResultAcceptance } from "../execution-plan/release-contract.mjs";
 import { validateRiskClassRegistry } from "../scripts/risk-classes.mjs";
 
 function problem(code, subject) {
@@ -85,6 +86,9 @@ export async function validateRegisteredArtifactSemantics(value, identity) {
   if (name === "delivery-release-graph" || name === "roadmap-graph") return { problems: validateDeliveryGraph(value, { requireAncestry: false }).problems };
   if (name === "spec-acceptance") return { problems: validateSpecAcceptance(value) };
   if (name === "release-result") return { problems: validateControllerResult(value) };
+  if (name === "goal-release-result") return { problems: validateExecutionResult(value) };
+  if (name === "goal-result-acceptance") return { problems: validateGoalResultAcceptance(value) };
+  if (name === "goal-handoff") return { problems: validateGoalHandoff(value) };
   if (name === "risk-class-registry") return { problems: validateRiskClassRegistry(value) };
   if (name === "decision-manifest") return { problems: decisionManifestProblems(value) };
   if (name === "ticket-context-check") return { problems: validateTicketContextResult(value) };

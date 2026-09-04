@@ -6,9 +6,9 @@ PI Ticket Planning 把一句模糊产品想法、既有项目的新能力需求�
 
 输入可以只是一句自然语言或一个 Issue 引用；持久规划输出是决定完整的独立 Ticket，或与已接受产品目标、技术决定和验证方式相连的 Delivery Graph。不能一开始就让 Agent 开发，因为未关闭的产品、架构、依赖和风险取舍会被悄悄埋进实现。
 
-> 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 exact execution handoff 授权仍由人负责。它不会启动 Controller；GitHub ready label 只属于显式选择的 Legacy Herdr Admission。
+> 系统会推荐，并自动完成可逆的规划工作；真实客户事实、Commitment、风险取舍、Ticket 图批准和 exact execution handoff 授权仍由人负责。它不会启动执行器；GitHub ready label 只属于显式选择的 Legacy Herdr Admission。
 
-对已接受的 Delivery Graph，推荐出口是一次 **Codex Controller Release Handoff**：编译 `release-plan.json`、一次批准该 fingerprint、只物化这一个文件，再由 operator 启动 Controller。旧 `admit` 仍保留为显式选择的 Herdr 按 Ticket ready-label 路径。
+对已接受的 Delivery Graph，先编译一个语义化 `release-plan.json`，再选择精确执行通道：普通风险、有人监督的工作默认使用 **Codex Goal**；高风险、无人值守或自动交付使用 **Codex Controller**。旧 `admit` 仍保留为显式选择的 Herdr 按 Ticket ready-label 路径。
 
 > **v0.5 alpha：** `main` 已使用版本化协议内核和可恢复 Planning Case；
 > 但兼容矩阵还没有 qualified runtime tuple，也没有真实 L3 报告，因此 Legacy
@@ -144,7 +144,7 @@ pi-ticket-plan --name "my-product-planning"
 | 选择一个有界的 Evidence 方法，形成 Candidate Frame。 | 同意、访问权限、隐私边界，以及只能由真实参与者或环境给出的结果。 |
 | Commitment 后检查必要技术决定，编译 Delivery Spec。 | Commitment、承重架构取舍、数据所有权、共享接口和风险接受。 |
 | 生成场景覆盖、walking skeleton、候选 Ticket 和依赖图。 | 批准 exact Ticket 图。 |
-| 执行一次 fresh graph-readiness review，编译语义化 Controller Release Plan。 | 确认 exact Plan fingerprint。 |
+| 执行一次 fresh graph-readiness review，编译语义化 Release Plan，并选择 Goal 或 Controller。 | 确认 exact handoff fingerprint。 |
 | 从已持久化权威状态恢复到第一道未关闭 Gate。 | 生产启用、回滚决定和最终 Outcome 判断。 |
 
 系统会推荐，但不会把不可委托的人类取舍伪装成自动化结论。
@@ -160,7 +160,7 @@ pi-ticket-plan --name "my-product-planning"
 → 编译为可验证场景和 Ticket
 → 独立复核
 → 人确认一次 exact Release Handoff
-→ operator 启动 Codex Controller
+→ operator 启动选定的 Goal Runner 或 Controller
 → 执行、发布并观察真实结果
 ```
 
@@ -272,7 +272,7 @@ Delivery Spec 用稳定 Scenario ID 和明确交接描述行为。拆票会覆�
 
 | Tracker | 支持边界 |
 | --- | --- |
-| GitHub | 规划、图与就绪复核、推荐的 Controller Release Handoff，以及显式 Legacy Herdr `admit` 兼容。 |
+| GitHub | 规划、图与就绪复核、精确 Goal 或 Controller Release Handoff，以及显式 Legacy Herdr `admit` 兼容。 |
 | GitLab | 仅规划和规划级/就绪复核；没有 package-backed Controller 或 Legacy Herdr 激活。 |
 | Local Markdown | 仅规划和复核；没有事务化 execution handoff。 |
 
@@ -288,7 +288,7 @@ npm run check:delivery-graph -- --input /path/to/parent-or-snapshot
 npm run check:admission-state -- --input /path/to/admission-bundle.json
 ```
 
-已接受的 GitHub v3 Release 会在 Planner 内部保留详细 Oracle、risk、scope、protected-path、review 与 approval 事实；Controller 边界只包含一个语义化 `release-plan.json`。Ordinal 2+ 使用 `npm run ingest:release-result -- --result /public/release-result.json --plan /private/release-plan.json --out /private/accepted-result.json --json` 将 Controller 结果绑定到 approved Plan。Build/verify/apply 会 fresh-read remote base 与全部内部 Spec/result/decision/handoff binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入 Controller input：
+已接受的 GitHub v3 Release 会在 Planner 内部保留详细 Oracle、risk、scope、protected-path、review、channel 与 approval 事实。共享边界是一个语义化 `release-plan.json`：Controller 直接消费，Goal 则把它封装进一个精确 `goal-handoff.json`。Ordinal 2+ 使用 `npm run ingest:release-result`；Goal Result 还必须传入 `--handoff /private/goal-handoff.json`，并转换成自摘要的 `goal-result-acceptance:v1`。下游 Graph 拒绝原始 Goal Result。Build/verify/apply 会 fresh-read全部内部 binding；offline `--input`、Roadmap、HUMAN、未来 `PLANNED` candidate 与 v2 graph 都不会进入执行器输入：
 
 ```sh
 pi-ticket-plan execution-plan build \
@@ -313,7 +313,15 @@ pi-ticket-plan execution-plan apply \
   --output-dir /private/codex-release-90 --json
 ```
 
-Build 与 verify 不检查 Controller checkout。Apply 重查 Planner-owned binding，持久化 `HANDOFF_APPROVED`，只物化 `release-plan.json`，记录 `HANDOFF_READY`，最后消费 approval，并打印 `start --approve-plan <planDigest>`。Controller config、runtime policy、validation、PR、CI 与 merge authority 仍由 Controller 自己负责。
+普通风险且有人监督时，默认 Goal 通道把最后的批准/apply 换成：
+
+```sh
+pi-ticket-plan execution-plan goal-build --plan /private/release-plan.json --context /private/fresh-context.json --channel GOAL_LOCAL --runner-ref local --runners /private/goal-runners.json --out /private/goal-handoff.json --json
+pi-ticket-planctl case approve-goal-handoff PC-release-90 --handoff /private/goal-handoff.json --expected-fingerprint sha256:<已确认-handoff-hash> --json
+pi-ticket-plan execution-plan goal-apply --handoff /private/goal-handoff.json --context /private/fresh-context.json --expected-fingerprint sha256:<已确认-handoff-hash> --case-id PC-release-90 --approval-id F-<id> --runners /private/goal-runners.json --output-dir /private/goal-release-90 --json
+```
+
+Build 与 verify 不检查执行器 checkout。Goal runner 身份只来自私有 allowlist，其 entry digest 与目标 host 都进入获批 envelope。每条 apply 都重查 Planner-owned binding、只物化一个精确 handoff 文件、记录 `HANDOFF_READY`、最后消费 approval，并打印一个 operator start command。Controller 保留自动交付 authority；Goal Runner 在 detached review 后停下，等待人工 merge。
 
 Legacy v2 只允许 dry-run migration：`node scripts/migrate-artifacts.mjs --artifact delivery-graph-v2 --input old.json --context migration.json --dry-run true`。单一 Release 必须有 exact `releaseMembership`，否则必须提供 Roadmap/current membership。输出保持 `PLANNED`、人工批准、不写 Issue/label，也不能直接 handoff。
 

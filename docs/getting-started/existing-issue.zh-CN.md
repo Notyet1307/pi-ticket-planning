@@ -84,7 +84,7 @@ Issue 需要产品塑形时，Candidate Frame、Release、accepted ADR、Deliver
 
 ## 8. 什么时候进入执行
 
-对于拆分后的交付计划，推荐路径检查不可变 Parent 与 acceptance receipt、exact source 和 policy、当前 Issue body、blocker、当前一个 `delivery-release-graph:v3`、Context 结果与 fresh readiness verdict。只有没有 external blocker、规模有界且全 AGENT 的 v3 Release 才形成一个语义化 `release-plan.json`；Roadmap、HUMAN work 与未来 candidate 不进入 Controller input。Planner-owned source、body、receipt、graph、review、policy 或 Plan 漂移后必须重建并重新批准。
+对于拆分后的交付计划，推荐路径检查不可变 Parent 与 acceptance receipt、exact source 和 policy、当前 Issue body、blocker、当前一个 `delivery-release-graph:v3`、Context 结果与 fresh readiness verdict。只有没有 external blocker、规模有界且全 AGENT 的 v3 Release 才形成一个语义化 `release-plan.json`，然后显式路由到 Goal 或 Controller；Roadmap、HUMAN work 与未来 candidate 不进入执行器输入。Planner-owned source、body、receipt、graph、review、policy、Plan、channel 或 runner 漂移后必须重建并重新批准。
 
 确认后的 apply 会原子写一个私有 `release-plan.json` 并记录 `EXECUTION/HANDOFF_READY`；它只打印 `start --approve-plan <planDigest>`，不执行该命令，也不写 ready label。决定完整的 standalone Ticket，或显式选择 Legacy Herdr 的用户，仍可使用旧 `admit` 路径。下面含义彼此不同：
 

@@ -1,6 +1,6 @@
 interface:
   display_name: "Prepare Codex Release"
-  short_description: "Build one semantic Controller release handoff"
-  default_prompt: "Use $prepare-codex-release after an accepted Delivery Graph; run one fresh graph review, compile and display release-plan.json, wait for its exact fingerprint approval, then materialize it without starting Controller."
+  short_description: "Choose and build an exact Goal or Controller handoff"
+  default_prompt: "Use $prepare-codex-release after an accepted Delivery Graph; run one fresh graph review, compile and display release-plan.json, recommend Goal or Controller, wait for the selected exact handoff approval, then materialize it without starting execution."
 policy:
   allow_implicit_invocation: true
