@@ -115,6 +115,7 @@ export function compileExecutionPlan(input) {
       objective: parsed.objective,
       acceptanceCriteria: parsed.acceptanceCriteria,
       expectedPaths: parsed.executionConstraints.expectedPaths,
+      scopeBudget: parsed.executionConstraints.scopeBudget,
       risk,
       oracleCommands: risk === "high" ? [parsed.oracleBinding.execution.command] : [],
     };

@@ -8,8 +8,8 @@ When `source.kind == execution-plan-apply` and evidence binds the exact `release
 
 - `HANDOFF_READY` means the one private Plan passed exact readback and approval was consumed once. It does not mean Controller execution started.
 - Outside an explicit STATUS or RESUME request, report the exact stored `node <controller-cli> start ... --approve-plan <planDigest>` next command and the Plan fingerprint. Do not execute it without a new explicit operator request.
-- For explicit STATUS or RESUME, use the exact Controller CLI/config identities from that stored command and the Plan `id` to run `node <controller-cli> status --config <controller-config> --job <release-id> --public --json` once. This read is on demand: do not poll, start, retry, abort, or write state.
-- Accept a returned status only when `id`, `repo`, `planDigest`, and `baseSha` match the approved Plan (`planDigest` is the exact 64-hex `--approve-plan` value). Treat any mismatch, malformed output, or error other than exact `job_not_found` as `Controller: STATUS_UNAVAILABLE`; fail closed and do not guess whether execution started.
+- For explicit STATUS or RESUME, use the exact Controller CLI/config identities from that stored command and the private approved Plan to run `node <controller-cli> status --config <controller-config> --plan <release-plan.json> --public --json` once. This read is on demand: do not poll, start, retry, abort, or write state.
+- Accept a returned status only when `releaseId`, `repo`, `planDigest`, and `baseSha` match the approved Plan (`planDigest` is the exact 64-hex `--approve-plan` value). `jobId` is display-only runtime identity and is never written to the Planning Case. Treat any mismatch, malformed output, or error other than exact `job_not_found` as `Controller: STATUS_UNAVAILABLE`; fail closed and do not guess whether execution started.
 - Never copy the public JSON into the Planning Case. It may override only the current response's displayed next action; the durable Checkpoint and stored start command remain Planner-owned `HANDOFF_READY` state.
 
 Route a valid public result as follows:

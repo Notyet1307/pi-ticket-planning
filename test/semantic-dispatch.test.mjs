@@ -65,7 +65,7 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
   const result = controllerResultFixture();
   assert.deepEqual(await problems("release-result", result), []);
   const plan = {
-    controllerContractVersion: 1,
+    controllerContractVersion: 2,
     id: "release-semantic",
     title: "Release",
     objective: "Ship",
@@ -73,7 +73,7 @@ test("semantic dispatcher gives every registered concern a fail-closed invariant
     baseRef: "main",
     baseSha: "1".repeat(40),
     parentIssue: 1,
-    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], risk: "normal", oracleCommands: [] }],
+    issues: [{ number: 2, order: 1, dependsOn: [], objective: "Implement", acceptanceCriteria: ["Done"], expectedPaths: ["src/a.ts"], scopeBudget: { maxFiles: 1, maxChangedLines: 1 }, risk: "normal", oracleCommands: [] }],
     releaseAcceptanceCriteria: ["Done"],
     reviewFocus: [],
   };

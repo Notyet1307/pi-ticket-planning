@@ -141,11 +141,16 @@ function validateControllerPublicStatusCases(file) {
         ? route("NOT_STARTED", "stored_start", true)
         : route("STATUS_UNAVAILABLE", "fail_closed");
     } else {
-      const status = { ...fixture.baseStatus, ...item.statusPatch };
-      const bindingsMatch = status.id === fixture.approvedPlan.id
+      const status = {
+        ...fixture.baseStatus,
+        ...item.statusPatch,
+        plan: { ...fixture.baseStatus.plan, ...(item.planPatch ?? {}) },
+      };
+      const bindingsMatch = status.id === `job-${status.planDigest}`
+        && status.plan.id === fixture.approvedPlan.id
         && status.repo === fixture.approvedPlan.repo
         && status.planDigest === fixture.approvedPlan.planDigest
-        && status.baseSha === fixture.approvedPlan.baseSha;
+        && status.plan.baseSha === fixture.approvedPlan.baseSha;
       if (!bindingsMatch) actual = route("STATUS_UNAVAILABLE", "fail_closed");
       else if (status.status === "running") actual = route("RUNNING", "controller_run_or_step");
       else if (status.status === "completed") actual = route("COMPLETED", "export_and_ingest_release_result");

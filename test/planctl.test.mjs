@@ -11,6 +11,7 @@ import { fingerprint as handoffFingerprint } from "../execution-plan/domain.mjs"
 import { buildGoalHandoff, goalHandoffFingerprint } from "../execution-plan/goal-handoff.mjs";
 import { buildOutcomeReceipt } from "../outcome/ingest.mjs";
 import { buildSpecPublicationPlan, digestBytes, recordSpecPublicationArtifacts } from "../spec-publication/publication.mjs";
+import { createExecutionHandoffApproval, runPlanningCaseCli } from "../planning-case/cli.mjs";
 import { createPlanningCaseStore } from "../planning-case/store.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -36,7 +37,7 @@ function runSpecPublication(stateDir, args) {
 
 function handoffPlan() {
   return {
-    controllerContractVersion: 1,
+    controllerContractVersion: 2,
     id: "release-90",
     title: "Release",
     objective: "Ship safely",
@@ -44,7 +45,7 @@ function handoffPlan() {
     baseRef: "main",
     baseSha: "a".repeat(40),
     parentIssue: 90,
-    issues: [{ number: 91, order: 1, dependsOn: [], objective: "Build safely", acceptanceCriteria: ["One", "Two", "Three"], expectedPaths: ["src/child.ts"], risk: "normal", oracleCommands: [] }],
+    issues: [{ number: 91, order: 1, dependsOn: [], objective: "Build safely", acceptanceCriteria: ["One", "Two", "Three"], expectedPaths: ["src/child.ts"], scopeBudget: { maxFiles: 8, maxChangedLines: 1500 }, risk: "normal", oracleCommands: [] }],
     releaseAcceptanceCriteria: ["S1: Done"],
     reviewFocus: [],
   };
@@ -180,6 +181,38 @@ test("pi-ticket-planctl isolates exact execution handoff approvals from Admissio
   const replay = run(stateDir, ["case", "approve-handoff", "PC-handoff", "--plan", handoffFile, "--expected-fingerprint", handoffDigest, "--json"]);
   assert.equal(replay.status, 1);
   assert.equal(replay.json.problems[0].code, "HANDOFF_APPROVAL_ALREADY_EXISTS");
+});
+
+test("pi-ticket-planctl renews only expired handoff approval history", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ptp-planctl-expired-handoff-"));
+  const stateDir = path.join(parent, "state");
+  const planFile = path.join(parent, "handoff.json");
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const plan = handoffPlan();
+  fs.writeFileSync(planFile, `${JSON.stringify(plan)}\n`, { mode: 0o600 });
+  const target = `github:${plan.repo}`;
+  const caseId = "PC-expired-handoff";
+  const expiredAt = "2026-08-20T00:00:00.000Z";
+  const renewedAt = "2026-08-20T02:00:00.000Z";
+  const store = createPlanningCaseStore({ stateDir, clock: () => expiredAt });
+  store.create({ target, caseId });
+  const expired = createExecutionHandoffApproval({ plan, caseId, correlationId: "C-expired", observedAt: expiredAt, revision: "0" });
+  store.addApproval({ caseId, target, approval: expired });
+
+  const renewed = runPlanningCaseCli([
+    "case", "approve-handoff", caseId, "--plan", planFile, "--expected-fingerprint", handoffFingerprint(plan), "--json",
+  ], { env: { ...process.env, PI_TICKET_PLAN_STATE_DIR: stateDir }, clock: () => renewedAt, correlationId: "C-renewed" });
+  assert.equal(renewed.exitCode, 0);
+  assert.notEqual(renewed.envelope.data.approval.id, expired.id);
+  assert.deepEqual(createPlanningCaseStore({ stateDir }).get({ caseId, target }).approvals.pending.map(({ id }) => id), [
+    expired.id,
+    renewed.envelope.data.approval.id,
+  ]);
+
+  const duplicate = runPlanningCaseCli([
+    "case", "approve-handoff", caseId, "--plan", planFile, "--expected-fingerprint", handoffFingerprint(plan), "--json",
+  ], { env: { ...process.env, PI_TICKET_PLAN_STATE_DIR: stateDir }, clock: () => renewedAt, correlationId: "C-duplicate" });
+  assert.equal(duplicate.envelope.problems[0].code, "HANDOFF_APPROVAL_ALREADY_EXISTS");
 });
 
 test("pi-ticket-planctl records one exact Goal channel handoff approval", (t) => {

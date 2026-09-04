@@ -4,7 +4,7 @@
 
 - Add an exact Goal execution channel for normal-risk supervised releases: local or SSH-targeted handoff, dedicated approval, per-Ticket persistent Goal Runner status, detached review, human merge, and a producer-distinct Release Result.
 - Pin subagents to the fork that inherits the live parent Provider/model when bundled agents omit an explicit model, removing the OpenRouter requirement.
-- Replace the exact-build Controller lock with semantic `controllerContractVersion: 1` compatibility.
+- Replace the exact-build Controller lock with semantic `controllerContractVersion: 2` compatibility, binding required paths, per-Ticket scope budgets, and risk-appropriate Oracle commands.
 - Compile and approve one closed `release-plan.json`; apply materializes only that file and prints `start --approve-plan <planDigest>`.
 - Ingest only the concise public `release-result:v1`; remove Completion v1-v3, predecessor wrappers, provenance, runtime-lock, trust-registry, and identity-history readers.
 - Keep Spec, Delivery Graph, decisions, review, Oracle, protected paths, scope, freshness, and Planning Case approval as Planner-internal authority.

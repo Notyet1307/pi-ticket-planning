@@ -500,7 +500,7 @@ export function validatePackage(root) {
     "case approve-goal-handoff",
     "--runners",
     "needs-triage",
-    "controllerContractVersion: 1",
+    "controllerContractVersion: 2",
     "release-plan.json",
     "--approve-plan",
   ]);

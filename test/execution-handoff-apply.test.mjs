@@ -8,9 +8,11 @@ import { applyExecutionPlan, verifyReleasePlanExactReadback } from "../execution
 import { fingerprint, releasePlanDigest } from "../execution-plan/domain.mjs";
 import { executionFreshnessProjection } from "../execution-plan/freshness.mjs";
 import { compiledFixture, NOW } from "./execution-plan-fixture.mjs";
+import { createExecutionHandoffApproval } from "../planning-case/cli.mjs";
+import { createPlanningCaseStore } from "../planning-case/store.mjs";
 import { createReadyCase } from "./execution-handoff-fixture.mjs";
 
-function setup(t, name, caseIdentity = {}) {
+function setup(t, name, caseIdentity = {}, caseNow = NOW) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const stateDir = path.join(root, "state");
@@ -19,8 +21,9 @@ function setup(t, name, caseIdentity = {}) {
   fs.mkdirSync(outputParent, { mode: 0o700 });
   const outputDir = path.join(outputParent, "handoff");
   const { input, plan } = compiledFixture();
-  const ready = createReadyCase({ stateDir, plan, ...caseIdentity });
+  const ready = createReadyCase({ stateDir, plan, now: caseNow, ...caseIdentity });
   return {
+    root,
     ...ready,
     input,
     plan,
@@ -56,6 +59,23 @@ test("apply materializes only release-plan.json and prints one-digest start", (t
   assert.equal(/status|runtime|job\.json/u.test(JSON.stringify(snapshot.nextAction)), false);
   assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), false);
   assert.equal(snapshot.approvals.consumed.some(({ id }) => id === ready.approval.id), true);
+});
+
+test("expired handoff history permits one replacement approval, while consumed replay ignores TTL", (t) => {
+  const ready = setup(t, "semantic-handoff-expired-approval", {}, "2026-08-19T22:00:00.000Z");
+  const store = createPlanningCaseStore({ stateDir: path.join(ready.root, "state"), clock: () => NOW });
+  const replacement = createExecutionHandoffApproval({ plan: ready.plan, caseId: ready.caseId, correlationId: "C-execution-replacement", observedAt: NOW, revision: ready.subject.revision });
+  store.addApproval({
+    caseId: ready.caseId,
+    target: ready.target,
+    approval: replacement,
+  });
+  const base = { ...ready.base, store, approvalId: replacement.id };
+  assert.equal(applyExecutionPlan(base).status, "COMPLETE");
+  const snapshot = store.get({ caseId: ready.caseId, target: ready.target });
+  assert.equal(snapshot.approvals.pending.some(({ id }) => id === ready.approval.id), true);
+  assert.equal(snapshot.approvals.consumed.filter(({ id }) => id === replacement.id).length, 1);
+  assert.equal(applyExecutionPlan({ ...base, clock: () => "2026-08-20T02:00:00.000Z" }).status, "COMPLETE");
 });
 
 test("apply preserves a stable Planning Case identity distinct from tracker and source revisions", (t) => {

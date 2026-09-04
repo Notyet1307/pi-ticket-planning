@@ -9,7 +9,7 @@ accepted delivery-release-graph v3
 → review.md + release-result.json
 ```
 
-Planner owns WHAT. Controller owns HOW. The shared compatibility key is `controllerContractVersion: 1`; neither repository pins the other's commit, build bytes, executable paths, schema ownership hashes, runtime lock, or identity history.
+Planner owns WHAT. Controller owns HOW. The shared compatibility key is `controllerContractVersion: 2`; neither repository pins the other's commit, build bytes, executable paths, schema ownership hashes, runtime lock, or identity history.
 
 ## Handoff
 
@@ -24,7 +24,7 @@ herdr-codex start \
 
 The Controller independently validates its trusted operator config, target remote, exact base, Parent/Issues, sandbox, candidate, required CI, PR, and merge result.
 
-On an explicit status/resume request, `ask-yet` may run the exact stored Controller CLI/config as `status --job <release-id> --public --json` once. It verifies the approved Plan identity, never reads `job.json`, never polls or persists runtime state, and suppresses the stale start action once a Job exists.
+On an explicit status/resume request, `ask-yet` may run the exact stored Controller CLI/config as `status --plan <release-plan.json> --public --json` once. It verifies the approved Plan identity, treats the returned `jobId` as display-only runtime identity, never reads `job.json`, never polls or persists runtime state, and suppresses the stale start action once a Job exists.
 
 ## Result
 
@@ -52,4 +52,4 @@ This validates Planner Plan fixtures in Controller, Controller Public Status rou
 
 ## Compatibility cutoff
 
-New handoffs accept only contract v1 Plan and Result v1. Completion v1-v3, Release Plan v2, execution-handoff plan/receipt, exact-build locks, trust registries, and identity history are not read by this release. Historical exported artifacts remain in Git history or external archives; they are not runtime compatibility paths.
+New handoffs accept only semantic contract v2 Plan and Result v1. Completion v1-v3, legacy `release-plan-v2-direct`, execution-handoff plan/receipt, exact-build locks, trust registries, and identity history are not read by this release. Historical exported artifacts remain in Git history or external archives; they are not runtime compatibility paths.

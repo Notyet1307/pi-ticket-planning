@@ -8,7 +8,7 @@ Planner internal facts → release-plan.json
   └─ Goal handoff → fresh Thread per Ticket → persistent Goal → deterministic checkpoints → detached review → human merge
 ```
 
-The Plan uses `controllerContractVersion: 1` and contains only the release identity and objective, repository/base, Parent and ordered child Issue numbers, dependencies, objectives, acceptance criteria, optional expected paths, simple risk, optional trusted Oracle commands, release acceptance criteria, and review focus. Controller does not consume Spec, Graph, decision, predecessor, waiver, build, runtime, or provenance artifacts.
+The Plan uses `controllerContractVersion: 2` and contains only the release identity and objective, repository/base, Parent and ordered child Issue numbers, dependencies, objectives, acceptance criteria, required expected paths and scope budget, simple risk, and required Oracle command list (non-empty only for high risk), release acceptance criteria, and review focus. Controller does not consume Spec, Graph, decision, predecessor, waiver, build, runtime, or provenance artifacts.
 
 `execution-plan build` compiles the semantic Plan from fresh Planner facts. `verify` recompiles and compares it. Controller `apply` requires the exact human-approved Plan fingerprint, writes only `release-plan.json`, verifies exact readback, advances the Planning Case to `HANDOFF_READY`, consumes approval last, and prints:
 
